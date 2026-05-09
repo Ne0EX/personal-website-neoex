@@ -2,6 +2,17 @@
 
 /* =============================================================
    WORLDLINE — Design tokens (PROJECT_BRIEF §3)
+
+   PALETTE TOGGLE
+   --------------
+   The site ships with the TEAL palette active. To revert to the
+   INK (navy) archive baseline, set `data-palette="ink"` on the
+   <html> element in app/layout.tsx — the [data-palette="ink"]
+   block below redefines every ink/netra value in one swoop.
+
+   Three.js / canvas pixel values inside components/WorldlineGlobe.tsx
+   cannot read CSS variables. The matching INK alternates are
+   documented at the top of that file under "PALETTE BACKUP".
    ============================================================= */
 :root {
   /* Paper / surface */
@@ -10,12 +21,21 @@
   --paper-deep:    #D8CFB9;
   --paper-bright:  #F0EBDD;
 
-  /* Ink */
-  --ink-primary:   #1F5063;
-  --ink-soft:      rgba(31, 80, 99, 0.5);
-  --ink-faint:     rgba(31, 80, 99, 0.3);
-  --ink-hairline:  rgba(31, 80, 99, 0.12);
-  --ink-dashed:    rgba(31, 80, 99, 0.25);
+  /* Ink — TEAL (active). Single source of truth: --ink-rgb.
+     Every ink-tinted rgba elsewhere in this file uses
+     `rgb(var(--ink-rgb) / <alpha>)` so a palette swap touches
+     only the values in this block. */
+  --ink-rgb:       31 80 99;
+  --ink-primary:   rgb(var(--ink-rgb));
+  --ink-soft:      rgb(var(--ink-rgb) / 0.5);
+  --ink-faint:     rgb(var(--ink-rgb) / 0.3);
+  --ink-hairline:  rgb(var(--ink-rgb) / 0.12);
+  --ink-dashed:    rgb(var(--ink-rgb) / 0.25);
+
+  /* NETRA companion-intelligence accent */
+  --netra-rgb:     77 122 146;
+  --netra:         rgb(var(--netra-rgb));
+  --netra-soft:    rgb(var(--netra-rgb) / 0.55);
 
   /* Accent */
   --accent-orange: #D4602A;
@@ -29,6 +49,13 @@
   --meta-size:     9px;
   --meta-tracking: 0.3em;
   --num-size:      38px;
+}
+
+/* INK palette (archive navy — v2 baseline backup).
+   Activate with <html data-palette="ink"> in app/layout.tsx. */
+[data-palette="ink"] {
+  --ink-rgb:       26 40 50;
+  --netra-rgb:     79 110 128;
 }
 
 @theme inline {
@@ -78,7 +105,7 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(circle at 1px 1px, rgba(31, 80, 99, 0.08) 1px, transparent 0);
+  background-image: radial-gradient(circle at 1px 1px, rgb(var(--ink-rgb) / 0.08) 1px, transparent 0);
   background-size: 3px 3px;
   pointer-events: none;
   z-index: 1;
@@ -92,8 +119,8 @@ body {
     0deg,
     transparent 0,
     transparent 2px,
-    rgba(31, 80, 99, 0.02) 2px,
-    rgba(31, 80, 99, 0.02) 3px
+    rgb(var(--ink-rgb) / 0.02) 2px,
+    rgb(var(--ink-rgb) / 0.02) 3px
   );
   pointer-events: none;
   z-index: 2;
@@ -197,8 +224,8 @@ body {
       0deg,
       transparent 0,
       transparent 9px,
-      rgba(31, 80, 99, 0.05) 9px,
-      rgba(31, 80, 99, 0.05) 10px
+      rgb(var(--ink-rgb) / 0.05) 9px,
+      rgb(var(--ink-rgb) / 0.05) 10px
     );
 }
 .marginalia > * {
@@ -289,7 +316,7 @@ body {
   row-gap: 4px;
   align-items: baseline;
   padding: 9px 16px 10px;
-  border: 1px solid rgba(31, 80, 99, 0.22);
+  border: 1px solid rgb(var(--ink-rgb) / 0.22);
   background: rgba(240, 235, 221, 0.45);
   min-width: 280px;
 }
@@ -377,16 +404,13 @@ body {
 /* =============================================================
    A.T.L.A.S. — instrument frame around the 3D globe
    Three-column layout: strata aside · globe canvas · readout aside
+   (NETRA accent colors live in :root above so the palette toggle
+   can swap them in one place.)
    ============================================================= */
-:root {
-  --netra: #4D7A92;
-  --netra-soft: rgba(77, 122, 146, 0.55);
-}
-
 .atlas-frame {
   position: relative;
   background: var(--paper-base);
-  border: 1px solid rgba(31, 80, 99, 0.18);
+  border: 1px solid rgb(var(--ink-rgb) / 0.18);
   display: grid;
   grid-template-rows: auto 1fr auto;
   padding: 18px 22px 16px;
@@ -405,7 +429,7 @@ body {
   color: var(--ink-soft);
   text-transform: uppercase;
   padding-bottom: 10px;
-  border-bottom: 1px dashed rgba(31, 80, 99, 0.28);
+  border-bottom: 1px dashed rgb(var(--ink-rgb) / 0.28);
   white-space: nowrap;
 }
 .atlas-head b { color: var(--accent-orange); font-weight: 500; letter-spacing: 0.26em; }
@@ -433,7 +457,7 @@ body {
 }
 .atlas-strata-btn {
   appearance: none; background: transparent;
-  border: 1px solid rgba(31, 80, 99, 0.15);
+  border: 1px solid rgb(var(--ink-rgb) / 0.15);
   text-align: left; padding: 9px 11px;
   font-family: var(--font-mono); color: var(--ink-primary);
   cursor: pointer;
@@ -476,7 +500,7 @@ body {
 .atlas-strata-btn .key {
   font-family: var(--font-type); font-size: 8.5px;
   color: var(--ink-faint); letter-spacing: 0.05em;
-  border: 1px solid rgba(31, 80, 99, 0.18);
+  border: 1px solid rgb(var(--ink-rgb) / 0.18);
   padding: 1px 4px;
 }
 .atlas-strata-btn.is-active .key {
@@ -486,7 +510,7 @@ body {
 
 .atlas-divider {
   height: 1px; margin: 8px 0 4px;
-  background: linear-gradient(to right, rgba(31, 80, 99, 0.25), transparent);
+  background: linear-gradient(to right, rgb(var(--ink-rgb) / 0.25), transparent);
 }
 
 .atlas-current {
@@ -518,11 +542,11 @@ body {
 .atlas-globe-wrap {
   position: relative;
   display: grid; place-items: center;
-  border: 1px dashed rgba(31, 80, 99, 0.22);
+  border: 1px dashed rgb(var(--ink-rgb) / 0.22);
   background:
-    radial-gradient(ellipse at 50% 50%, rgba(31, 80, 99, 0.04) 0%, transparent 70%),
-    repeating-linear-gradient(0deg, transparent 0 28px, rgba(31, 80, 99, 0.04) 28px 29px),
-    repeating-linear-gradient(90deg, transparent 0 28px, rgba(31, 80, 99, 0.04) 28px 29px);
+    radial-gradient(ellipse at 50% 50%, rgb(var(--ink-rgb) / 0.04) 0%, transparent 70%),
+    repeating-linear-gradient(0deg, transparent 0 28px, rgb(var(--ink-rgb) / 0.04) 28px 29px),
+    repeating-linear-gradient(90deg, transparent 0 28px, rgb(var(--ink-rgb) / 0.04) 28px 29px);
   overflow: hidden;
   min-height: 540px;
 }
@@ -596,7 +620,7 @@ body {
   margin-bottom: 3px;
 }
 .atlas-readout-row {
-  border: 1px solid rgba(31, 80, 99, 0.12);
+  border: 1px solid rgb(var(--ink-rgb) / 0.12);
   padding: 7px 9px;
   background: rgba(237, 231, 218, 0.35);
   display: grid; gap: 4px;
@@ -647,7 +671,7 @@ body {
   font-family: var(--font-mono);
   font-size: 8.5px; letter-spacing: 0.1em;
   color: var(--ink-soft);
-  padding-top: 10px; border-top: 1px dashed rgba(31, 80, 99, 0.28);
+  padding-top: 10px; border-top: 1px dashed rgb(var(--ink-rgb) / 0.28);
   text-transform: uppercase;
 }
 .atlas-foot-row {
@@ -716,7 +740,7 @@ body {
 }
 .atlas-netra .id-box {
   display: flex; flex-direction: column; gap: 1px;
-  border-right: 1px solid rgba(77, 122, 146, 0.3);
+  border-right: 1px solid rgb(var(--netra-rgb) / 0.3);
   padding-right: 10px;
 }
 .atlas-netra .id-box .lab { color: var(--netra); font-weight: 500; letter-spacing: 0.22em; }
@@ -743,7 +767,7 @@ body {
   padding: 5px 8px; cursor: pointer; text-transform: uppercase;
   transition: background 0.2s;
 }
-.atlas-netra .jump:hover { background: rgba(77, 122, 146, 0.12); }
+.atlas-netra .jump:hover { background: rgb(var(--netra-rgb) / 0.12); }
 @keyframes atlas-netra-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }

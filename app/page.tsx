@@ -25,7 +25,7 @@ export default function Home() {
         <section
           data-section="hero"
           className="relative z-[3] px-10 py-9 section-rule"
-          style={{ background: "rgba(31, 80, 99, 0.03)" }}
+          style={{ background: "rgb(var(--ink-rgb) / 0.03)" }}
         >
           <DivergenceMeter size="lg" />
         </section>

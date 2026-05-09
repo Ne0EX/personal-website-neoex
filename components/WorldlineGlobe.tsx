@@ -24,6 +24,20 @@ import {
  *
  * Click any entry pin → camera focuses + article side panel slides in with
  * the entry's title and summary. ESC / outside click reverses.
+ *
+ * ─────────────────────────────────────────────────────────────────────────
+ * PALETTE BACKUP — these values cannot read CSS vars (Three.js / canvas).
+ * The rest of the palette swap lives in app/globals.css under the palette
+ * toggle. To revert this file to the INK baseline, run two find/replaces:
+ *
+ *   ACTIVE  (TEAL — Re:Boot reference)         BACKUP (INK — v2 navy)
+ *   ────────────────────────────────────       ────────────────────────────
+ *   line / material color   0x1f5063           0x1a2832
+ *   surface gradient stops  #BDBBAF, #D2CFC4   #9E9377, #B5AA8B
+ *   surface aging blotches  rgba(70,95,108,…)  rgba(120,100,70,…)
+ *   inner-shade tint        0xb4bbc0           0xcfc4ad
+ *   article shadow rgba     31,80,99           26,40,50
+ * ─────────────────────────────────────────────────────────────────────────
  */
 
 const GLOBE_RADIUS = 1;
