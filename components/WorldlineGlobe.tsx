@@ -8,6 +8,13 @@ import {
   type Entry,
   type ArchiveNode,
 } from "@/lib/entries";
+import {
+  dampVec3,
+  formatNetraCoord,
+  globeSurfacePointAtRotation,
+  latLonToVec3 as geoLatLonToVec3,
+  netraCoordFromCameraPosition,
+} from "@/lib/globe-coordinates";
 
 /**
  * WorldlineGlobe — A.T.L.A.S. (Archive · Topology · Localizer · Atlas Surface).
@@ -70,27 +77,8 @@ type Stratum = {
 };
 
 function latLonToVec3(latDeg: number, lonDeg: number, r = GLOBE_RADIUS) {
-  const phi = ((90 - latDeg) * Math.PI) / 180;
-  const theta = (lonDeg * Math.PI) / 180;
-  return new THREE.Vector3(
-    r * Math.sin(phi) * Math.cos(theta),
-    r * Math.cos(phi),
-    -r * Math.sin(phi) * Math.sin(theta)
-  );
-}
-
-function vecToLatLon(v: THREE.Vector3): { lat: number; lon: number } {
-  const lat = 90 - (Math.acos(Math.max(-1, Math.min(1, v.y))) * 180) / Math.PI;
-  let lon = (Math.atan2(v.z, -v.x) * 180) / Math.PI - 180;
-  if (lon < -180) lon += 360;
-  if (lon > 180) lon -= 360;
-  return { lat, lon };
-}
-
-function fmtCoord(lat: number, lon: number) {
-  const ns = lat >= 0 ? "N" : "S";
-  const ew = lon >= 0 ? "E" : "W";
-  return `${Math.abs(lat).toFixed(2)}°${ns} · ${Math.abs(lon).toFixed(2)}°${ew}`;
+  const v = geoLatLonToVec3(latDeg, lonDeg, r);
+  return new THREE.Vector3(v.x, v.y, v.z);
 }
 
 function easeInOutCubic(x: number) {
@@ -241,6 +229,7 @@ type SceneRefs = {
   raysGroup: THREE.Group;
   northPole: THREE.Group;
   southPole: THREE.Group;
+  netraTracker: THREE.Group;
   alphaRing: THREE.Mesh | null;
   arcLine: THREE.Line;
   pinObjects: { entry: Entry; head: THREE.Mesh; hit: THREE.Mesh }[];
@@ -616,6 +605,25 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
     observerObjects.push({ node: n, head });
   }
 
+  // NETRA active tracker — exact surface anchor, kept on the globe so the
+  // marker follows ATLAS rotation while the camera follows with softened lag.
+  const netraTracker = new THREE.Group();
+  netraTracker.visible = false;
+  const trackerRing = new THREE.Mesh(
+    new THREE.RingGeometry(0.045, 0.06, 48),
+    new THREE.MeshBasicMaterial({ color: 0x4d7a92, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
+  );
+  const trackerHalo = new THREE.Mesh(
+    new THREE.RingGeometry(0.075, 0.078, 64),
+    new THREE.MeshBasicMaterial({ color: 0x4d7a92, side: THREE.DoubleSide, transparent: true, opacity: 0.34 })
+  );
+  const trackerDot = new THREE.Mesh(
+    new THREE.SphereGeometry(0.009, 12, 12),
+    new THREE.MeshBasicMaterial({ color: 0x4d7a92 })
+  );
+  netraTracker.add(trackerRing, trackerHalo, trackerDot);
+  globe.add(netraTracker);
+
   // ─── Worldline arc — α point swooping out into NeX field ───
   const arcStart = latLonToVec3(ALPHA_LAT, ALPHA_LON, 1.01);
   const arcMid = arcStart.clone().multiplyScalar(1.35).add(new THREE.Vector3(0.2, 0.15, 0));
@@ -645,6 +653,7 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
       raysGroup,
       northPole,
       southPole,
+      netraTracker,
       alphaRing,
       arcLine,
       pinObjects,
@@ -718,6 +727,7 @@ export function WorldlineGlobe() {
   // Jump-to-next-node (NETRA) — cycles through observer + entry nodes.
   const jumpIdxRef = useRef(0);
   const jumpTargetsRef = useRef<{ label: string; place: string; coords: { lat: number; lon: number } }[]>([]);
+  const netraLockRef = useRef<{ coords: { lat: number; lon: number }; range: number } | null>(null);
   useEffect(() => {
     jumpTargetsRef.current = [
       ...OBSERVER_NODES.map((n) => ({ label: n.label, place: n.coords.place, coords: { lat: n.coords.lat, lon: n.coords.lon } })),
@@ -758,6 +768,49 @@ export function WorldlineGlobe() {
     let dragging = false;
     let lastX = 0;
     let baseRotY = 0;
+    const ringNormal = new THREE.Vector3(0, 0, 1);
+    const atlasPoint = (coords: { lat: number; lon: number }, radius = GLOBE_RADIUS) => {
+      const v = globeSurfacePointAtRotation(coords.lat, coords.lon, refs.globe.rotation.y, radius);
+      return new THREE.Vector3(v.x, v.y, v.z);
+    };
+    const setTrackerMarker = (coords: { lat: number; lon: number }) => {
+      const marker = latLonToVec3(coords.lat, coords.lon, 1.024);
+      refs.netraTracker.position.copy(marker);
+      refs.netraTracker.quaternion.setFromUnitVectors(ringNormal, marker.clone().normalize());
+      refs.netraTracker.visible = true;
+    };
+    const clearNetraLock = () => {
+      netraLockRef.current = null;
+      refs.netraTracker.visible = false;
+    };
+    const setNetraLock = (coords: { lat: number; lon: number }, range: number) => {
+      netraLockRef.current = { coords, range };
+      setTrackerMarker(coords);
+    };
+    const cameraTrack = (coords: { lat: number; lon: number }, range: number) => {
+      const look = atlasPoint(coords, GLOBE_RADIUS);
+      const radial = look.clone().normalize();
+      const up = Math.abs(radial.y) > 0.92 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+      const tangent = new THREE.Vector3().crossVectors(up, radial).normalize();
+      const lift = new THREE.Vector3().crossVectors(radial, tangent).normalize();
+
+      return {
+        position: radial
+          .clone()
+          .multiplyScalar(range)
+          .add(tangent.clone().multiplyScalar(0.28))
+          .add(lift.clone().multiplyScalar(0.12)),
+        look: look.clone().add(tangent.multiplyScalar(0.08)),
+      };
+    };
+    const softTrackCamera = (coords: { lat: number; lon: number }, range: number, dt: number) => {
+      const track = cameraTrack(coords, range);
+      const nextPos = dampVec3(camera.position, track.position, dt, 2.8);
+      const nextLook = dampVec3(currentLook, track.look, dt, 4.2);
+      camera.position.set(nextPos.x, nextPos.y, nextPos.z);
+      currentLook.set(nextLook.x, nextLook.y, nextLook.z);
+      camera.lookAt(currentLook);
+    };
     const onDown = (e: PointerEvent) => {
       dragging = true;
       lastX = e.clientX;
@@ -769,6 +822,7 @@ export function WorldlineGlobe() {
       lastX = e.clientX;
       const sk = stratumRef.current;
       if (sk === "all" || sk === "nex") {
+        clearNetraLock();
         baseRotY += dx * 0.005;
         refs.globe.rotation.y = baseRotY;
       }
@@ -812,6 +866,7 @@ export function WorldlineGlobe() {
     // ─── Camera transitions per stratum ───
     let cameraAnim: ((now: number) => void) | null = null;
     const applyStratum = (key: StratumKey) => {
+      clearNetraLock();
       const T = STRATA[key];
       const startPos = camera.position.clone();
       const startLook = currentLook.clone();
@@ -843,9 +898,7 @@ export function WorldlineGlobe() {
       }
       const entry = RECENT_ENTRIES.find((e) => e.fileNum === id);
       if (!entry) return;
-      const v = latLonToVec3(entry.coords.lat, entry.coords.lon, 1.0);
-      const camTarget = v.clone().multiplyScalar(2.4);
-      const lookTarget = v.clone();
+      setNetraLock(entry.coords, 2.4);
       const startPos = camera.position.clone();
       const startLook = currentLook.clone();
       const dur = 1100;
@@ -853,6 +906,7 @@ export function WorldlineGlobe() {
       cameraAnim = (now: number) => {
         const k = Math.min(1, (now - t0) / dur);
         const e = easeInOutCubic(k);
+        const { position: camTarget, look: lookTarget } = cameraTrack(entry.coords, 2.4);
         camera.position.lerpVectors(startPos, camTarget, e);
         currentLook.lerpVectors(startLook, lookTarget, e);
         camera.lookAt(currentLook);
@@ -867,16 +921,18 @@ export function WorldlineGlobe() {
       if (!targets.length) return;
       jumpIdxRef.current = (jumpIdxRef.current + 1) % targets.length;
       const n = targets[jumpIdxRef.current];
-      const dest = latLonToVec3(n.coords.lat, n.coords.lon, 2.6);
+      setNetraLock(n.coords, 2.6);
       const startPos = camera.position.clone();
+      const startLook = currentLook.clone();
       const t0 = performance.now();
       const dur = 1100;
       cameraAnim = (now: number) => {
         const k = Math.min(1, (now - t0) / dur);
         const e = easeInOutCubic(k);
+        const { position: dest, look } = cameraTrack(n.coords, 2.6);
         camera.position.lerpVectors(startPos, dest, e);
-        camera.lookAt(0, 0, 0);
-        currentLook.set(0, 0, 0);
+        currentLook.lerpVectors(startLook, look, e);
+        camera.lookAt(currentLook);
         if (k >= 1) cameraAnim = null;
       };
       setNetraTarget(`${n.label} · ${n.place}`);
@@ -893,7 +949,7 @@ export function WorldlineGlobe() {
       lastT = now;
       const sk = stratumRef.current;
 
-      if (!selectedIdRef.current) {
+      if (!selectedIdRef.current || netraLockRef.current) {
         if (sk === "all") {
           baseRotY += dt * 0.10;
           refs.globe.rotation.y = baseRotY;
@@ -928,11 +984,17 @@ export function WorldlineGlobe() {
       if (refs.alphaRing) {
         ((refs.alphaRing.material) as THREE.MeshBasicMaterial).opacity = 0.5 + 0.45 * Math.sin(now * 0.005);
       }
+      if (refs.netraTracker.visible) {
+        refs.netraTracker.scale.setScalar(1 + 0.08 * Math.sin(now * 0.006));
+      }
       // Arc dash march.
       const arcM = refs.arcLine.material as THREE.LineDashedMaterial;
       arcM.dashSize = 0.04 + Math.sin(now * 0.002) * 0.005;
 
       if (cameraAnim) cameraAnim(now);
+      else if (netraLockRef.current) {
+        softTrackCamera(netraLockRef.current.coords, netraLockRef.current.range, dt);
+      }
 
       // Update HUD camera readout — DOM ref, no React render.
       const camAngle = Math.atan2(camera.position.x, camera.position.z) * 180 / Math.PI;
@@ -941,12 +1003,10 @@ export function WorldlineGlobe() {
         hudCamRef.current.textContent = hudCamText;
       }
 
-      // Update NETRA coord/range readouts — DOM refs.
-      const camDir = camera.position.clone().normalize();
-      const localDir = camDir.clone().applyMatrix4(new THREE.Matrix4().copy(refs.globe.matrixWorld).invert());
-      localDir.normalize();
-      const { lat, lon } = vecToLatLon(localDir);
-      const coordText = fmtCoord(lat, lon);
+      // NETRA coordinates are earth-fixed; visual globe rotation must not
+      // mutate longitude.
+      const { lat, lon } = netraLockRef.current?.coords ?? netraCoordFromCameraPosition(camera.position);
+      const coordText = formatNetraCoord(lat, lon);
       if (netraCoordRef.current && netraCoordRef.current.textContent !== coordText) {
         netraCoordRef.current.textContent = coordText;
       }
