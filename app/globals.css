@@ -1,26 +1,899 @@
 @import "tailwindcss";
 
+/* =============================================================
+   WORLDLINE — Design tokens (PROJECT_BRIEF §3)
+   ============================================================= */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Paper / surface */
+  --paper-base:    #E8E2D5;
+  --paper-warm:    #EDE7DA;
+  --paper-deep:    #D8CFB9;
+  --paper-bright:  #F0EBDD;
+
+  /* Ink */
+  --ink-primary:   #1A2832;
+  --ink-soft:      rgba(26, 40, 50, 0.5);
+  --ink-faint:     rgba(26, 40, 50, 0.3);
+  --ink-hairline:  rgba(26, 40, 50, 0.12);
+  --ink-dashed:    rgba(26, 40, 50, 0.25);
+
+  /* Accent */
+  --accent-orange: #D4602A;
+  --accent-orange-soft: rgba(212, 96, 42, 0.18);
+
+  /* Type scale */
+  --h1-size:       56px;
+  --h1-leading:    0.95;
+  --h1-tracking:   -0.01em;
+  --body-size:     13.5px;
+  --meta-size:     9px;
+  --meta-tracking: 0.3em;
+  --num-size:      38px;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-paper:         var(--paper-base);
+  --color-paper-warm:    var(--paper-warm);
+  --color-paper-deep:    var(--paper-deep);
+  --color-paper-bright:  var(--paper-bright);
+  --color-ink:           var(--ink-primary);
+  --color-ink-soft:      var(--ink-soft);
+  --color-ink-faint:     var(--ink-faint);
+  --color-accent:        var(--accent-orange);
+
+  --font-display: var(--font-cormorant), 'Cormorant Garamond', serif;
+  --font-mono:    var(--font-jetbrains), 'JetBrains Mono', ui-monospace, monospace;
+  --font-type:    var(--font-elite),     'Special Elite', ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* =============================================================
+   Base — paper canvas, ink default
+   ============================================================= */
+html, body {
+  background: var(--paper-base);
+  color: var(--ink-primary);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-mono);
+  font-feature-settings: "ss01", "tnum";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--accent-orange);
+  color: var(--paper-bright);
+}
+
+/* =============================================================
+   Ambient texture — paper grain + scanlines
+   Applied via two stacked pseudo elements on .paper-canvas
+   ============================================================= */
+.paper-canvas {
+  position: relative;
+  background: var(--paper-base);
+}
+.paper-canvas::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 1px 1px, rgba(26, 40, 50, 0.08) 1px, transparent 0);
+  background-size: 3px 3px;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.6;
+}
+.paper-canvas::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 2px,
+    rgba(26, 40, 50, 0.02) 2px,
+    rgba(26, 40, 50, 0.02) 3px
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.paper-warm-surface {
+  background: var(--paper-warm);
+}
+
+/* =============================================================
+   Corner reticles — engineering blueprint motif (§3)
+   ============================================================= */
+.corner-marks {
+  position: absolute;
+  inset: 16px;
+  pointer-events: none;
+  z-index: 4;
+}
+.corner-marks::before,
+.corner-marks::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--accent-orange);
+}
+.corner-marks::before {
+  top: 0; left: 0;
+  border-right: none;
+  border-bottom: none;
+}
+.corner-marks::after {
+  bottom: 0; right: 0;
+  border-left: none;
+  border-top: none;
+}
+
+/* =============================================================
+   Type primitives
+   ============================================================= */
+.t-display       { font-family: var(--font-display); font-style: italic; font-weight: 400; }
+.t-mono          { font-family: var(--font-mono); }
+.t-type          { font-family: var(--font-type); }
+.t-meta {
+  font-family: var(--font-mono);
+  font-size: var(--meta-size);
+  letter-spacing: var(--meta-tracking);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.t-meta-accent { color: var(--accent-orange); font-weight: 500; }
+
+/* =============================================================
+   Worldline section divider — dashed hairline
+   ============================================================= */
+.section-rule {
+  border-bottom: 1px solid var(--ink-hairline);
+}
+.section-rule-dashed {
+  border-bottom: 1px dashed var(--ink-dashed);
+}
+
+/* =============================================================
+   Survey cursor — native cursor hidden on fine-pointer devices
+   ============================================================= */
+.hide-native-cursor,
+.hide-native-cursor *,
+.hide-native-cursor a,
+.hide-native-cursor button {
+  cursor: none !important;
+}
+.survey-cursor .sc-survey       { display: block; }
+.survey-cursor .sc-triangulate  { display: none;  }
+.survey-cursor[data-mode="triangulate"] .sc-survey      { display: none; }
+.survey-cursor[data-mode="triangulate"] .sc-triangulate { display: block; }
+
+/* =============================================================
+   Marginalia — fixed right-edge instrument readout
+   ============================================================= */
+.marginalia {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 28px;
+  z-index: 30;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  border-left: 1px dashed var(--ink-dashed);
+  background:
+    repeating-linear-gradient(
+      0deg,
+      transparent 0,
+      transparent 9px,
+      rgba(26, 40, 50, 0.05) 9px,
+      rgba(26, 40, 50, 0.05) 10px
+    );
+}
+.marginalia > * {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+}
+.marginalia .ma-accent { color: var(--accent-orange); }
+
+/* Top scroll meter — marching dashes filling left → right */
+.scroll-meter {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 28px; /* leave room for marginalia */
+  height: 2px;
+  z-index: 31;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      90deg,
+      var(--accent-orange) 0,
+      var(--accent-orange) var(--scroll-pct, 0%),
+      transparent var(--scroll-pct, 0%)
+    );
+}
+.scroll-meter::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(232, 226, 213, 0) 0,
+    rgba(232, 226, 213, 0) 5px,
+    rgba(232, 226, 213, 0.6) 5px,
+    rgba(232, 226, 213, 0.6) 8px
+  );
+  background-size: 16px 2px;
+  animation: scroll-march 1.4s linear infinite;
+}
+@keyframes scroll-march {
+  to { background-position-x: -16px; }
+}
+
+/* =============================================================
+   Entry hover — restrained: title color shifts to ink-deep with a
+   marching-dash underline that draws across in 460ms. No ghost text.
+   ============================================================= */
+.entry-glitch {
+  position: relative;
+  display: inline-block;
+  transition: color 200ms ease-out;
+}
+.entry-card:hover .entry-glitch {
+  color: var(--ink-primary);
+}
+.entry-glitch::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -0.18em;
+  height: 1px;
+  width: 0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      var(--accent-orange) 0,
+      var(--accent-orange) 4px,
+      transparent 4px,
+      transparent 7px
+    );
+  transition: width 460ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+}
+.entry-card:hover .entry-glitch::after {
+  width: 100%;
+}
+
+/* =============================================================
+   Divergence panel — featured compact display in the hero header
+   ============================================================= */
+.diverge-panel {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto;
+  column-gap: 18px;
+  row-gap: 4px;
+  align-items: baseline;
+  padding: 9px 16px 10px;
+  border: 1px solid rgba(26, 40, 50, 0.22);
+  background: rgba(240, 235, 221, 0.45);
+  min-width: 280px;
+}
+.diverge-panel::before,
+.diverge-panel::after {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--accent-orange);
+}
+.diverge-panel::before {
+  top: -1px; left: -1px;
+  border-right: none; border-bottom: none;
+}
+.diverge-panel::after {
+  bottom: -1px; right: -1px;
+  border-left: none; border-top: none;
+}
+.diverge-panel-head {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.diverge-panel-label b {
+  color: var(--accent-orange);
+  font-weight: 500;
+  font-style: italic;
+  font-family: var(--font-display);
+  letter-spacing: 0;
+  font-size: 11px;
+  margin-left: 2px;
+}
+.diverge-panel-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-soft);
+}
+.diverge-panel-state.is-drift {
+  color: var(--accent-orange);
+}
+.diverge-panel-glyph {
+  font-size: 9px;
+  line-height: 1;
+}
+.diverge-panel-num {
+  font-family: var(--font-type);
+  font-size: 26px;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: var(--ink-primary);
+  white-space: nowrap;
+}
+.diverge-panel-num .acc {
+  color: var(--accent-orange);
+}
+.diverge-panel-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  text-align: right;
+  white-space: nowrap;
+}
+.diverge-panel-meta b {
+  color: var(--ink-primary);
+  font-weight: 400;
+  font-family: var(--font-type);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+/* =============================================================
+   A.T.L.A.S. — instrument frame around the 3D globe
+   Three-column layout: strata aside · globe canvas · readout aside
+   ============================================================= */
+:root {
+  --netra: #4F6E80;
+  --netra-soft: rgba(79, 110, 128, 0.55);
+}
+
+.atlas-frame {
+  position: relative;
+  background: var(--paper-base);
+  border: 1px solid rgba(26, 40, 50, 0.18);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  padding: 18px 22px 16px;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.atlas-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed rgba(26, 40, 50, 0.28);
+  white-space: nowrap;
+}
+.atlas-head b { color: var(--accent-orange); font-weight: 500; letter-spacing: 0.26em; }
+.atlas-head i {
+  color: var(--ink-primary); font-style: normal;
+  font-family: var(--font-type); letter-spacing: 0.05em;
+}
+
+/* ── 3-column content row ── */
+.atlas-content {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr) 145px;
+  gap: 12px;
+  padding: 8px 0;
+  min-height: 0;
+}
+
+/* ── LEFT: strata aside ── */
+.atlas-strata-list { display: flex; flex-direction: column; gap: 5px; }
+.atlas-strata-head {
+  font-family: var(--font-mono);
+  font-size: 8px; letter-spacing: 0.32em;
+  color: var(--ink-faint); text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.atlas-strata-btn {
+  appearance: none; background: transparent;
+  border: 1px solid rgba(26, 40, 50, 0.15);
+  text-align: left; padding: 9px 11px;
+  font-family: var(--font-mono); color: var(--ink-primary);
+  cursor: pointer;
+  display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 9px;
+  transition: border-color 0.25s, background 0.25s, color 0.25s, transform 0.25s;
+  position: relative;
+}
+.atlas-strata-btn:hover {
+  border-color: rgba(212, 96, 42, 0.5);
+  transform: translateX(2px);
+}
+.atlas-strata-btn.is-active {
+  border-color: var(--accent-orange);
+  background: rgba(212, 96, 42, 0.06);
+}
+.atlas-strata-btn.is-active::before {
+  content: '';
+  position: absolute;
+  left: -6px; top: 50%;
+  width: 4px; height: 1px;
+  background: var(--accent-orange);
+  transform: translateY(-50%);
+}
+.atlas-strata-btn .glyph {
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  color: var(--ink-soft);
+}
+.atlas-strata-btn.is-active .glyph { color: var(--accent-orange); }
+.atlas-strata-btn .label-id {
+  font-family: var(--font-mono); font-weight: 500;
+  font-size: 10px; letter-spacing: 0.1em; color: var(--ink-primary);
+  display: block;
+}
+.atlas-strata-btn .label-role {
+  font-size: 7.5px; letter-spacing: 0.22em;
+  color: var(--ink-faint); text-transform: uppercase;
+  display: block; margin-top: 2px;
+}
+.atlas-strata-btn .key {
+  font-family: var(--font-type); font-size: 8.5px;
+  color: var(--ink-faint); letter-spacing: 0.05em;
+  border: 1px solid rgba(26, 40, 50, 0.18);
+  padding: 1px 4px;
+}
+.atlas-strata-btn.is-active .key {
+  color: var(--accent-orange);
+  border-color: rgba(212, 96, 42, 0.55);
+}
+
+.atlas-divider {
+  height: 1px; margin: 8px 0 4px;
+  background: linear-gradient(to right, rgba(26, 40, 50, 0.25), transparent);
+}
+
+.atlas-current {
+  border-left: 2px solid var(--accent-orange);
+  padding: 4px 0 4px 10px;
+  margin-top: 4px;
+}
+.atlas-current-key {
+  font-family: var(--font-mono);
+  font-size: 7px; letter-spacing: 0.32em;
+  color: var(--ink-faint); text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.atlas-current-val {
+  font-family: var(--font-mono);
+  font-size: 11px; letter-spacing: 0.18em;
+  color: var(--accent-orange); font-weight: 500;
+  text-transform: uppercase;
+}
+.atlas-current-meta {
+  font-family: var(--font-mono);
+  font-size: 7.5px; letter-spacing: 0.12em;
+  color: var(--ink-soft);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+/* ── CENTER: globe canvas wrap ── */
+.atlas-globe-wrap {
+  position: relative;
+  display: grid; place-items: center;
+  border: 1px dashed rgba(26, 40, 50, 0.22);
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(26, 40, 50, 0.04) 0%, transparent 70%),
+    repeating-linear-gradient(0deg, transparent 0 28px, rgba(26, 40, 50, 0.04) 28px 29px),
+    repeating-linear-gradient(90deg, transparent 0 28px, rgba(26, 40, 50, 0.04) 28px 29px);
+  overflow: hidden;
+  min-height: 540px;
+}
+.atlas-globe-wrap canvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%; display: block;
+}
+.atlas-axis-label {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 7.5px; letter-spacing: 0.18em;
+  color: var(--ink-soft); text-transform: uppercase;
+  background: var(--paper-base); padding: 1px 5px;
+  z-index: 5;
+}
+.atlas-axis-label.t { top: -7px; left: 50%; transform: translateX(-50%); }
+.atlas-axis-label.b { bottom: -7px; left: 50%; transform: translateX(-50%); }
+.atlas-axis-label.l { left: -10px; top: 50%; transform: translate(-50%, -50%) rotate(-90deg); white-space: nowrap; }
+.atlas-axis-label.r { right: -10px; top: 50%; transform: translate(50%, -50%) rotate(90deg); white-space: nowrap; }
+
+.atlas-alpha-mark {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-style: italic;
+  font-size: 200px; line-height: 1;
+  color: rgba(212, 96, 42, 0.10);
+  pointer-events: none; z-index: 0;
+  letter-spacing: -0.03em; user-select: none;
+}
+
+.atlas-hud {
+  position: absolute; inset: 0;
+  pointer-events: none; z-index: 4;
+  font-family: var(--font-mono);
+}
+.atlas-hud-corner {
+  position: absolute;
+  font-size: 7px; letter-spacing: 0.22em;
+  color: var(--ink-soft); text-transform: uppercase;
+  line-height: 1.5;
+}
+.atlas-hud-corner b { color: var(--ink-primary); font-weight: 500; }
+.atlas-hud-corner b.acc { color: var(--accent-orange); }
+.atlas-hud-corner.tl { top: 8px; left: 8px; }
+.atlas-hud-corner.tr { top: 8px; right: 8px; text-align: right; }
+.atlas-hud-corner.bl { bottom: 8px; left: 8px; }
+.atlas-hud-corner.br { bottom: 8px; right: 8px; text-align: right; }
+
+.atlas-coord-pin {
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none; z-index: 5;
+  font-family: var(--font-type);
+  font-size: 9px; letter-spacing: 0.05em;
+  color: var(--ink-primary);
+  background: rgba(232, 226, 213, 0.85);
+  padding: 4px 8px;
+  border: 1px solid rgba(212, 96, 42, 0.55);
+  white-space: nowrap;
+  opacity: 0; transition: opacity 0.4s ease;
+}
+.atlas-coord-pin.is-show { opacity: 1; }
+.atlas-coord-pin .acc { color: var(--accent-orange); }
+
+/* ── RIGHT: stratum readout ── */
+.atlas-readout { display: flex; flex-direction: column; gap: 7px; }
+.atlas-readout-head {
+  font-family: var(--font-mono);
+  font-size: 8px; letter-spacing: 0.32em;
+  color: var(--ink-faint); text-transform: uppercase;
+  margin-bottom: 3px;
+}
+.atlas-readout-row {
+  border: 1px solid rgba(26, 40, 50, 0.12);
+  padding: 7px 9px;
+  background: rgba(237, 231, 218, 0.35);
+  display: grid; gap: 4px;
+}
+.atlas-readout-row.is-pair { grid-template-columns: auto 1fr; align-items: baseline; column-gap: 8px; }
+.atlas-readout-row.is-pair .val { text-align: right; white-space: nowrap; font-size: 9.5px; }
+.atlas-readout-row.is-pair .meta { grid-column: 1 / -1; }
+.atlas-readout-row.is-trio { grid-template-columns: repeat(3, 1fr); align-items: start; column-gap: 8px; row-gap: 4px; }
+.atlas-readout-row.is-trio > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow: hidden; }
+.atlas-readout-row .key {
+  font-family: var(--font-mono);
+  font-size: 6.5px; letter-spacing: 0.18em;
+  color: var(--ink-faint); text-transform: uppercase;
+  white-space: nowrap;
+}
+.atlas-readout-row .val {
+  font-family: var(--font-type); font-size: 10px;
+  color: var(--ink-primary); letter-spacing: 0.04em;
+}
+.atlas-readout-row .val.acc { color: var(--accent-orange); }
+.atlas-readout-row .meta {
+  font-family: var(--font-mono);
+  font-size: 7.5px; letter-spacing: 0.16em;
+  color: var(--ink-soft);
+}
+
+.atlas-flow {
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 7.5px; letter-spacing: 0.18em;
+  color: var(--ink-soft); text-transform: uppercase;
+  line-height: 1.85;
+}
+.atlas-flow b { color: var(--accent-orange); font-weight: 500; }
+.atlas-flow .step { display: grid; grid-template-columns: 16px 1fr; gap: 5px; }
+.atlas-flow .step span:first-child {
+  color: var(--ink-faint);
+  font-family: var(--font-type);
+}
+.atlas-flow .step.is-active { color: var(--ink-primary); }
+.atlas-flow .step.is-active span:first-child { color: var(--accent-orange); }
+
+/* ── FOOT ── */
+.atlas-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 8.5px; letter-spacing: 0.1em;
+  color: var(--ink-soft);
+  padding-top: 10px; border-top: 1px dashed rgba(26, 40, 50, 0.28);
+  text-transform: uppercase;
+}
+.atlas-foot-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr minmax(220px, 1.4fr);
+  gap: 14px; align-items: center;
+}
+.atlas-foot .cell { display: flex; flex-direction: column; gap: 2px; }
+.atlas-foot .cell span {
+  color: var(--ink-faint);
+  font-size: 7.5px; letter-spacing: 0.28em;
+}
+.atlas-foot .cell b {
+  color: var(--ink-primary); font-weight: 400;
+  font-family: var(--font-type);
+  font-size: 10px; letter-spacing: 0.05em;
+}
+.atlas-foot .cell b.acc { color: var(--accent-orange); }
+
+/* NETRA voice strip — companion-intelligence narration below the controls */
+.atlas-netra-voice {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 7px 11px 8px;
+  border-left: 2px solid var(--netra);
+  background: rgba(79, 110, 128, 0.07);
+}
+.atlas-netra-voice .voice-tag {
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  letter-spacing: 0.32em;
+  color: var(--netra);
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+.atlas-netra-voice .voice-body {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 12px;
+  letter-spacing: 0.005em;
+  line-height: 1.35;
+  color: var(--ink-primary);
+  text-transform: none;
+}
+
+/* NETRA console */
+.atlas-netra {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto; gap: 0 10px;
+  align-items: center;
+  padding: 5px 9px;
+  border: 1px solid var(--netra-soft);
+  background: rgba(232, 226, 213, 0.92);
+  font-family: var(--font-mono);
+  font-size: 8.5px; letter-spacing: 0.16em;
+  color: var(--ink-primary); text-transform: uppercase;
+  align-self: stretch; min-width: 0;
+}
+.atlas-netra .reticle {
+  color: var(--netra);
+  display: grid; place-items: center;
+  animation: atlas-netra-pulse 2.4s ease-in-out infinite;
+}
+.atlas-netra .id-box {
+  display: flex; flex-direction: column; gap: 1px;
+  border-right: 1px solid rgba(79, 110, 128, 0.3);
+  padding-right: 10px;
+}
+.atlas-netra .id-box .lab { color: var(--netra); font-weight: 500; letter-spacing: 0.22em; }
+.atlas-netra .id-box .tgt {
+  font-family: var(--font-type); font-size: 9.5px;
+  letter-spacing: 0.04em; color: var(--ink-primary); text-transform: none;
+}
+.atlas-netra .readout {
+  display: grid; grid-template-columns: auto 1fr;
+  gap: 1px 8px;
+  font-size: 7px; letter-spacing: 0.22em;
+  color: var(--ink-faint); align-items: baseline;
+}
+.atlas-netra .readout b {
+  font-family: var(--font-type); font-size: 9.5px;
+  letter-spacing: 0.04em; color: var(--ink-primary);
+  font-weight: 400; text-transform: none; justify-self: end;
+}
+.atlas-netra .jump {
+  appearance: none; background: transparent;
+  border: 1px solid var(--netra-soft);
+  color: var(--netra); font-family: var(--font-mono);
+  font-size: 8px; letter-spacing: 0.22em;
+  padding: 5px 8px; cursor: pointer; text-transform: uppercase;
+  transition: background 0.2s;
+}
+.atlas-netra .jump:hover { background: rgba(79, 110, 128, 0.12); }
+@keyframes atlas-netra-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* =============================================================
+   Nav shell — top header with id strip / nav links / clock
+   Replaces inline flex so it can reflow cleanly at mobile widths.
+   ============================================================= */
+.nav-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: start;
+  column-gap: 24px;
+  row-gap: 12px;
+  padding: 24px 40px;
+}
+.nav-id { min-width: 0; }
+.nav-links {
+  display: flex;
+  gap: 28px;
+  letter-spacing: 0.2em;
+  align-items: center;
+  white-space: nowrap;
+}
+.nav-clock {
+  text-align: right;
+  line-height: 1.6;
+  min-width: 0;
+}
+
+/* =============================================================
+   Mobile breakpoints — stack ATLAS + Nav at narrow widths.
+   Prevents the multi-column grids in the atlas/footer from clipping.
+   ============================================================= */
+@media (max-width: 880px) {
+  /* Nav reflows: id-strip stays top, links + clock drop below */
+  .nav-shell {
+    grid-template-columns: 1fr;
+    padding: 18px 18px;
+  }
+  .nav-links {
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .nav-clock {
+    text-align: left;
+  }
+
+  /* ATLAS: left aside + globe + right aside collapse to a single column */
+  .atlas-frame {
+    padding: 14px 14px 12px;
+  }
+  .atlas-content {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .atlas-globe-wrap {
+    min-height: 380px;
+  }
+
+  /* ATLAS head can wrap */
+  .atlas-head {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    white-space: normal;
+  }
+
+  /* ATLAS foot collapses 4-col to 2-col + NETRA below */
+  .atlas-foot-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .atlas-netra {
+    grid-column: 1 / -1;
+    grid-template-columns: auto auto 1fr auto;
+    gap: 0 8px;
+  }
+
+  /* Hero strip — counts + divergence stack vertically */
+  .hero-stack-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  /* Page-level horizontal padding shrinks on small screens */
+  main.paper-canvas {
+    padding-right: 22px;
+  }
+
+  /* Article side panel narrows to nearly fullwidth at small sizes */
+  .atlas-frame > article {
+    width: min(82%, 420px) !important;
+  }
+}
+
+@media (max-width: 600px) {
+  /* Section padding shrinks further */
+  [data-section] {
+    padding-left: 18px !important;
+    padding-right: 18px !important;
+  }
+
+  /* Foot drops to 1 column */
+  .atlas-foot-row {
+    grid-template-columns: 1fr;
+  }
+
+  /* NETRA console stacks: id / readout / jump in their own rows */
+  .atlas-netra {
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    row-gap: 8px;
+  }
+  .atlas-netra .id-box {
+    border-right: none;
+    padding-right: 0;
+  }
+  .atlas-netra .readout {
+    grid-column: 1 / -1;
+  }
+  .atlas-netra .jump {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  /* NETRA voice can wrap freely */
+  .atlas-netra-voice {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  /* Marginalia HUD takes too much room — hide on tiny screens */
+  .marginalia {
+    display: none;
+  }
+  .scroll-meter {
+    right: 0;
+  }
+  main.paper-canvas {
+    padding-right: 0;
+  }
+}
+
+/* =============================================================
+   Reduced motion — kill all keyframes per §7
+   ============================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition-duration: 0.001ms !important;
+  }
 }
