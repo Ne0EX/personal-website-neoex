@@ -257,23 +257,24 @@ function buildSurfaceTextures(): {
   const ctx = c.getContext("2d");
   if (!ctx) throw new Error("Canvas 2D context failed");
 
-  // Aged olive paper base — slightly darker at poles, warm at equator
+  // Pale cream paper base — slightly cooler at poles, paler at equator
+  // (was olive #9E9377 / #B5AA8B; lifted to lose the brown weight)
   const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, "#9E9377");
-  grad.addColorStop(0.45, "#B5AA8B");
-  grad.addColorStop(0.55, "#B5AA8B");
-  grad.addColorStop(1, "#9E9377");
+  grad.addColorStop(0, "#BDBBAF");
+  grad.addColorStop(0.45, "#D2CFC4");
+  grad.addColorStop(0.55, "#D2CFC4");
+  grad.addColorStop(1, "#BDBBAF");
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
 
-  // Subtle aging blotches
+  // Subtle aging blotches — cool grey instead of brown
   ctx.globalCompositeOperation = "multiply";
   for (let i = 0; i < 18; i++) {
     const x = rand() * W, y = rand() * H;
     const r = 200 + rand() * 300;
     const g2 = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g2.addColorStop(0, "rgba(120,100,70,0.10)");
-    g2.addColorStop(1, "rgba(120,100,70,0)");
+    g2.addColorStop(0, "rgba(70,95,108,0.08)");
+    g2.addColorStop(1, "rgba(70,95,108,0)");
     ctx.fillStyle = g2;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -282,7 +283,7 @@ function buildSurfaceTextures(): {
   ctx.globalCompositeOperation = "source-over";
 
   // Baked lat/long grid — faint dashed
-  ctx.strokeStyle = "rgba(26,40,50,0.18)";
+  ctx.strokeStyle = "rgba(31,80,99,0.18)";
   ctx.lineWidth = 0.6;
   ctx.setLineDash([3, 4]);
   for (let lon = 0; lon < 360; lon += 30) {
@@ -298,7 +299,7 @@ function buildSurfaceTextures(): {
     ctx.stroke();
   }
   ctx.setLineDash([]);
-  ctx.strokeStyle = "rgba(26,40,50,0.28)";
+  ctx.strokeStyle = "rgba(31,80,99,0.28)";
   ctx.lineWidth = 0.8;
   ctx.beginPath();
   ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2);
@@ -410,13 +411,13 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
   // Inner darker shell — gives depth at the rim.
   const innerShade = new THREE.Mesh(
     new THREE.SphereGeometry(0.998, 64, 64),
-    new THREE.MeshBasicMaterial({ color: 0xcfc4ad, side: THREE.BackSide, transparent: true, opacity: 0.35 })
+    new THREE.MeshBasicMaterial({ color: 0xb4bbc0, side: THREE.BackSide, transparent: true, opacity: 0.35 })
   );
   globe.add(innerShade);
 
   // ─── Engraved lat/long lines (the user explicitly wanted line contour) ───
-  const lineMat = new THREE.LineBasicMaterial({ color: 0x1a2832, transparent: true, opacity: 0.55 });
-  const lineMatFaint = new THREE.LineBasicMaterial({ color: 0x1a2832, transparent: true, opacity: 0.3 });
+  const lineMat = new THREE.LineBasicMaterial({ color: 0x1f5063, transparent: true, opacity: 0.55 });
+  const lineMatFaint = new THREE.LineBasicMaterial({ color: 0x1f5063, transparent: true, opacity: 0.3 });
 
   const makeLatRing = (latDeg: number, mat: THREE.LineBasicMaterial) => {
     const lat = (latDeg * Math.PI) / 180;
@@ -452,7 +453,7 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
   // ─── Contour rings — irregular elevation lines on the surface ───
   const contoursGroup = new THREE.Group();
   globe.add(contoursGroup);
-  const contourMat = new THREE.LineBasicMaterial({ color: 0x1a2832, transparent: true, opacity: 0.7 });
+  const contourMat = new THREE.LineBasicMaterial({ color: 0x1f5063, transparent: true, opacity: 0.7 });
   const makeContour = (latCenter: number, ampl: number, phase: number) => {
     const pts: THREE.Vector3[] = [];
     const segs = 256;
@@ -474,11 +475,11 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
   // ─── Ne0N — polar axis spine + survey-triangle caps + pole beacons ───
   const axisGroup = new THREE.Group();
   globe.add(axisGroup);
-  const axisCylinderMat = new THREE.MeshBasicMaterial({ color: 0x1a2832 });
+  const axisCylinderMat = new THREE.MeshBasicMaterial({ color: 0x1f5063 });
   const axis = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 2.6, 16), axisCylinderMat);
   axisGroup.add(axis);
 
-  const axisLineMat = new THREE.LineBasicMaterial({ color: 0x1a2832 });
+  const axisLineMat = new THREE.LineBasicMaterial({ color: 0x1f5063 });
   const axisCap = (yPos: number, dir: number) => {
     const g = new THREE.Group();
     const sz = 0.04;
@@ -526,7 +527,7 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
   scene.add(nexField);
   const makeShell = (radius: number, opacity: number) => {
     const m = new THREE.MeshBasicMaterial({
-      color: 0x1a2832,
+      color: 0x1f5063,
       wireframe: true,
       transparent: true,
       opacity,
@@ -538,7 +539,7 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
 
   const raysGroup = new THREE.Group();
   nexField.add(raysGroup);
-  const rayMat = new THREE.LineBasicMaterial({ color: 0x1a2832, transparent: true, opacity: 0.35 });
+  const rayMat = new THREE.LineBasicMaterial({ color: 0x1f5063, transparent: true, opacity: 0.35 });
   for (let i = 0; i < 48; i++) {
     const phi = Math.acos(1 - 2 * ((i + 0.5) / 48));
     const theta = Math.PI * (1 + Math.sqrt(5)) * i;
@@ -554,7 +555,7 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
   const nodesGroup = new THREE.Group();
   globe.add(nodesGroup);
 
-  const nodeMatInk = new THREE.MeshBasicMaterial({ color: 0x1a2832 });
+  const nodeMatInk = new THREE.MeshBasicMaterial({ color: 0x1f5063 });
   const nodeMatAcc = new THREE.MeshBasicMaterial({ color: 0xd4602a });
 
   // Entry pins (clickable, with hit proxies for raycaster)
@@ -1155,7 +1156,7 @@ export function WorldlineGlobe() {
           background: "var(--paper-warm)",
           border: "1px solid var(--ink-primary)",
           padding: "18px 20px",
-          boxShadow: "3px 3px 0 rgba(26,40,50,0.16)",
+          boxShadow: "3px 3px 0 rgba(31,80,99,0.16)",
           transform: selectedId ? "translateX(0)" : "translateX(calc(100% + 30px))",
           opacity: selectedId ? 1 : 0,
           transition: "transform 520ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 320ms ease-out",
