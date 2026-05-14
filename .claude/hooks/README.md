@@ -90,7 +90,7 @@ bash tests/hooks/agent-name-trigger.test.sh
 **Owner:** Canopus
 
 **Known limitations:**
-- Regex may false-positive on codenames followed by `=` (e.g. `Polaris=value` in pasted code). Tracked at `docs/tech-specs/2026-05-14-agent-voice-tuning-design.md` §11.4.
+- Regex may false-positive when a codename appears as a JavaScript / bash variable name with surrounding spaces (e.g. `const Polaris = x` — the space before and after Polaris are both in the trigger class). Forms without surrounding space, like `Polaris=value` or `Polaris's`, correctly do not match. Tracked at `docs/tech-specs/2026-05-14-agent-voice-tuning-design.md` §11.4.
 
 ---
 
