@@ -134,6 +134,9 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 ! Algol's audit scripts at `scripts/audit-*.ts` themselves — Algol; Canopus only wraps them
 ! Signature payloads in `.claude/signatures/*.json` — agent-generated per their own task; Canopus owns the schema and the writer (`sign-work.sh`), not the individual payloads
 
+- `.claude/agents/*.md` — YAML frontmatter block only (harness subagent registration: `name`, `description`, `model` fields)
+! `.claude/agents/*.md` prose body — owned by the named agent; Vega sign-off required before prose merges
+
 > Canopus and Algol share the audit surface: Algol writes the TypeScript audit logic, Canopus writes the bash wrappers that hooks invoke. Clean separation: TS = Algol, bash = Canopus.
 
 ---
@@ -149,7 +152,7 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 
 ! Frontmatter of MDX files — Procyon; Vega writes body only
 
-> Vega's authority is over words, not files. She cannot push edits directly to Arcturus's prompt files or Polaris's task documents — she writes proposed edits as a handoff, the owner integrates. Body content of MDX files is the only direct write authority Vega has.
+> Vega's authority is over words, not files. She cannot push edits directly to Arcturus's prompt files or Polaris's task documents — she writes proposed edits as a handoff, the owner integrates. Body content of MDX files is the only direct write authority Vega has. For `.claude/agents/*.md` prose bodies, Vega holds sign-off authority (same as NETRA prompts and AGENTS.md prose) but Canopus is the direct writer for frontmatter; prose edits by the named agent require Vega approval before merge.
 
 ---
 
@@ -162,6 +165,7 @@ These paths have rules but not single owners. Edits require handoff to Polaris f
 - `next.config.*` — Canopus; Polaris approves
 - `README.md` (repo root) — Vega writes; Polaris approves
 - `LICENSE` — Peat owns; no agent edits
+- `.claude/agents/*.md` — split ownership: Canopus writes YAML frontmatter; named agent writes prose body; Vega sign-off required on prose before merge
 
 ---
 

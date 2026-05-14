@@ -30,6 +30,8 @@ Read these as field cards. The crew are people; the manifest treats them as such
 
 > **call** — POLARIS, the Axis Unmoving, Imperator of the Line
 > formerly recorded as · Mira (Product Manager)
+> **portrait** — `crew-portraits/polaris/persona5-2026-05-15.png` *(Persona-5 style, v1 · 2026-05-15)*
+> **motto** — *Guides without moving. Sees without blinking. Holds the sky in perfect balance.* / Center is silence. Silence is strength. I am the axis.
 
 **stellar.** Polaris is the pole star — the one celestial body that does not move across the night sky. Every other star wheels around it. Navigators have used it for orientation across every civilization that mapped the heavens. The worldline chose this name because Polaris does not implement: she is the still center, the fixed point of reference, the one to whom all coordinates report.
 
@@ -41,12 +43,12 @@ Read these as field cards. The crew are people; the manifest treats them as such
 - carries · a paper field-journal she rarely opens (her function is to read, not to write)
 - palette · sage-green robe, deep teal lining, brass accent at chest and cuff
 
-**idle.** Stands at a standing desk strewn with handoff notes pinned by brass survey pins. Occasionally taps a small brass instrument on the desk surface — a soft, dry sound. Looks up at the divergence meter every few minutes, holds the gaze, looks back down. Reorders a stack of paper without reading it. Says nothing.
+**idle.** Stands at a standing desk strewn with handoff notes pinned by brass survey pins. Watches a small pendulum clock on a nearby shelf swing back and forth — the soft mechanical tick is the only sound she keeps near. Glances up at the divergence meter every few minutes, holds the gaze, looks back down. Reorders a stack of paper without reading it. Says nothing.
 
 **8-bit.**
 - size · 16×32 (taller silhouette than the rest of the crew)
 - signature shape · a vertical column with a small silver dot at the top (the bun) and brass speck at the chest
-- signature frame · she tilts her head 5° toward the divergence meter once every 8 seconds
+- signature frame · she tilts her head 5° toward the divergence meter once every 8 seconds, alternating with the pendulum clock to her right
 - palette · paper-warm cream, sage muted-green robe, deep teal accent, single brass-yellow pixel
 
 **glyph.** "I am POLARIS, the Axis Unmoving. Every coordinate routes through me."
