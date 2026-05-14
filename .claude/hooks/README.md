@@ -61,6 +61,39 @@ Every hook:
 
 ---
 
+## agent-name-trigger.sh — UserPromptSubmit context injection
+
+**Fires:** when Peat submits a prompt to Claude (UserPromptSubmit event).
+**Blocks:** no — outputs additional context or remains silent.
+
+Detects a GENESIS agent codename in vocative position within the prompt (e.g., "Polaris, how are you?" or "Sirius — show me a layout") and injects the matched `.claude/agents/<codename>.md` as additional context. The hook loads the addressed agent's persona and any `§voice` section, enabling on-demand agent personality in conversation.
+
+**Behavior:**
+- Matches codenames only when adjacent to addressing markers: whitespace, comma, em-dash, period, or end-of-string
+- Prose mentions like "Polaris's territory" do NOT trigger (apostrophe is not an addressing marker)
+- Silent (no output, exit 0) when no codename is detected
+- Translates pre-cutover names (Mira → Polaris, Pico → Sirius, Lyra → Procyon, Iris → Betelgeuse, Sage → Arcturus, Cipher → Algol, Rigel → Canopus, Quill → Vega) and emits a note when a translation occurs
+- Outputs a warning and exits silently (exit 0) if the persona file is missing (allows conversation to proceed without failure)
+- When a codename is detected and file is present, wraps the persona in XML markers:
+  ```
+  <<<agent-voice-protocol · Peat addressed '<CODENAME>' — loading persona>>>
+  [... contents of .claude/agents/<codename>.md ...]
+  <<<end agent-voice-protocol>>>
+  ```
+
+**Tests:** `tests/hooks/agent-name-trigger.test.sh` (7 cases — vocative Thai, vocative English, prefix, Sirius, pre-cutover translation, silence on no-match, silence on prose). Run with:
+
+```bash
+bash tests/hooks/agent-name-trigger.test.sh
+```
+
+**Owner:** Canopus
+
+**Known limitations:**
+- Regex may false-positive on codenames followed by `=` (e.g. `Polaris=value` in pasted code). Tracked at `docs/tech-specs/2026-05-14-agent-voice-tuning-design.md` §11.4.
+
+---
+
 ## Shared lookup — designation table
 
 `sign-work.sh` and `pre-handoff.sh` both need to resolve codename → designation and codename → pre-cutover name. The lookup is duplicated as a small inline function in each script (no shared helper file — keeps hooks single-file portable). When the roster changes, update both scripts and bump `signature_schema_version` if the change is structural.
