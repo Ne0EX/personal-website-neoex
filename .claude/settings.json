@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-start.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r 'select(.tool_name==\"Agent\" and .tool_input.subagent_type==\"polaris\") | .tool_input.description // \"no-desc\"' | { read -r desc; [ -n \"$desc\" ] && bash .claude/hooks/on-dispatch.sh \"$desc\" \"polaris\"; } 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

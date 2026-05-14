@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# harness runtime artifacts (logs) — keep dir, ignore content
+.claude/hook-logs/*.log
+.claude/worktrees/

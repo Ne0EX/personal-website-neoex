@@ -211,6 +211,37 @@ Rare; Peat overrides. Polaris documents the override in `STATUS.md` and proceeds
 
 ---
 
+## Dispatch depth
+
+**Polaris is the planning orchestrator. Actual agent dispatch runs through Peat's root session.** Algol's REVISE loop uses handoff documents, not Agent dispatch.
+
+- Polaris is the sole planning orchestrator: she decomposes tasks, assigns slices, and writes dispatch instructions for Peat.
+- Actual `Task` tool calls happen in Peat's root session — Polaris cannot dispatch subagents from within her own subagent session. This is a confirmed platform limitation of the current Claude Code version: subagents cannot dispatch further subagents. If this changes in future Claude Code versions, revisit here.
+- All other agents are single-task workers. If a subagent believes it needs to dispatch another agent, it writes a handoff to Polaris and stops. Polaris and Peat make the dispatch decision together.
+- Algol's REVISE loop is document-based: Algol writes a REVISE handoff to the author agent; the author agent picks it up on its next run. No `Task` call is involved.
+- Violation of this rule (any non-root-session entity calling `Task` to dispatch team agents) is a harness failure. Report to Canopus immediately.
+
+---
+
+## Model-tier dispatch (per-task escalation)
+
+Each persona has a default model declared in its frontmatter. Polaris holds discretion to override at dispatch time for four agents whose workload spans large complexity ranges:
+
+| Agent | Default | Escalate to opus when |
+|---|---|---|
+| Sirius | sonnet | Interactive 3D / WebGL, multi-component state across SSR boundaries, animation interlocked with audio/input, perf-critical render paths. |
+| Betelgeuse | sonnet | New visual language from scratch, motion/3D system spec, palette/token overhaul, anti-Codex review of a large surface. |
+| Arcturus | sonnet | NETRA system-prompt architecture, refusal taxonomy revisions, multi-tool agent design, eval-suite design. |
+| Vega | sonnet | Long-form article/fiction body, voice-register definition, full NETRA prose, multi-surface microcopy harmonization. |
+
+Stay on sonnet for: scoped single-slice work against a clear spec, individual microcopy, single-component impl, single-prompt tuning.
+
+When Polaris dispatches at opus, the TASK handoff includes a `model · opus — <one-sentence why>` line so the cost trail is auditable. Algol, Altair, Procyon, Canopus are not under this authority — if Polaris believes one of them needs opus, she writes an escalation handoff to Peat first.
+
+This authority was delegated by Peat on 2026-05-14. Rationale: interactive 3D UI work (Worldline globe) is hard enough that even frontier models miss frequently, so the option to escalate is held in reserve rather than locked off.
+
+---
+
 ## What this workflow optimizes for
 
 - **Transparency** — every step is traceable. Every decision is in writing.
