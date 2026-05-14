@@ -16,6 +16,9 @@ const eslintConfig = defineConfig([
     // ESLint would otherwise scan and emit errors for:
     ".claude/worktrees/**",
     "worldline-harness/**",
+    // Visual-diff capture directories contain vendored minified JS from
+    // design tool exports; these are not project source and must not be linted:
+    ".claude/visual-diffs/**",
   ]),
 ]);
 

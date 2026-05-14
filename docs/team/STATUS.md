@@ -121,6 +121,71 @@ acceptance notes
 
 ---
 
+## TASK-2026-05-14-06 · render-capability + rendered-output review pass · closed
+
+scope · Betelgeuse ทำรีวิว Worldline Pages v1 จาก source-only แล้ว (REVIEW-2026-05-14-worldline-pages-v1.md, 149 บรรทัด, ระบุ 7 leverage problems) — Peat ขอให้รีวิวจาก rendered output ด้วย เพื่อเห็นเรื่อง rhythm/color/motion ที่ source-reading พลาด
+
+slices
+  Canopus (S1) · wire scripts/render-html.sh + capture 13 stages × native viewport + 9 responsive PNGs · done · signed · 7f584041b0f6083e3f81e23d029ac3b4be27af9f215659a35e6e928e5423ddd6
+  Betelgeuse (S2) · rendered-output review pass · done · signed · ef5cf6f443febf7447e287585431bc05b9491e28e7f3175c03c7b96c02cbce60
+
+trigger · Peat 2026-05-14 18:00 — "เธอควรเปิดอ่าน HTML ได้นะ โดยเฉพาะ browser use ไม่งั้นเธอก็ไม่เห็นงานจริงกัน"
+
+handoff in · `.claude/handoffs/from-polaris/TASK-2026-05-14-06.md`
+handoff back (S1→S2) · `.claude/handoffs/from-canopus/TASK-2026-05-14-06--to-betelgeuse.md`
+handoff out (S2→Polaris) · `.claude/handoffs/from-betelgeuse/TASK-2026-05-14-06--to-polaris.md`
+parent · `.claude/handoffs/from-betelgeuse/REQUEST-2026-05-14-render-capability.md`
+parent review · `docs/design/REVIEW-2026-05-14-worldline-pages-v1.md`
+
+model audit · S2 opus override logged (only opus override this session); cost rationale = 22-image multi-surface review requiring contextual interpretation
+
+S2 acceptance notes (Betelgeuse · opus)
+  · `## rendered-output findings (2026-05-14 pass · opus)` section appended to REVIEW.md (~115 lines, append-only — source verdicts 1–149 untouched)
+  · 7 original findings verdicts: 5 CONFIRMED (1 sharpened), 1 UPGRADED-to-CRITICAL (responsive — mobile failure total at 600/375), 1 DOWNGRADED (NETRA reticle pulse — visually quiet in context)
+  · 7 new findings (N1–N7) — header-strip atom drift, photo placeholder accidentally-finished, NeX board coheres better than feared, type rhythm + grain texture hold correctly, etc.
+  · recommendation delta · responsive system spec promoted to #1 (was #2); token harmonization demoted to #3; NETRA motion descoped to one-line fix in eventual NETRA spec
+  · signature v2 — both gates green — self_hash ef5cf6f443febf7447e287585431bc05b9491e28e7f3175c03c7b96c02cbce60
+  · pre-handoff.sh PASS
+
+---
+
+## TASK-2026-05-14-07 · interactive browser capability (path B) for whole roster · closed · signed · 7116758c4e8da9cb782ac0268e3052569c03880547cc5f69c63a59671c85bb56
+
+scope · ติดตั้ง Playwright MCP server เป็น project-scoped ให้ทุก subagent เข้าถึงได้ + เขียน scripts/fetch-design-bundle.sh + docs/harness/RENDERING.md เป็น single-source — เพื่อ Sirius/Betelgeuse/Algol/Vega/Arcturus ใช้ร่วมได้โดยไม่ต้องสร้างใหม่ทีละคน
+
+slices
+  Canopus (S1) · select + install + wire browser MCP server · done · signed · 7116758c4e8da9cb782ac0268e3052569c03880547cc5f69c63a59671c85bb56
+  Canopus (S2) · scripts/fetch-design-bundle.sh (generalize TASK-06 one-off) · done · signed
+  Canopus (S3) · docs/harness/RENDERING.md (single-source path A + B + per-agent map) · done · signed
+  Canopus (S4) · sign + return · done · signed
+
+trigger · Peat 2026-05-14 18:25 — "B นั้นหนักแต่จบ ไปทางนี้ก็ดีนะ" หลังจากดิฉันเสนอ access-map ของทั้งทีม
+
+decision context · ดิฉัน present สองทาง (A1+A2+A3 docs-only vs path B browser MCP); Peat เลือก B เพื่อให้ infrastructure durable ก่อนเริ่ม per-surface work
+
+handoff in · `.claude/handoffs/from-polaris/TASK-2026-05-14-07.md`
+handoff out · `.claude/handoffs/from-canopus/TASK-2026-05-14-07--to-polaris.md`
+
+mcp server · @playwright/mcp v0.0.75 · wired via .mcp.json + enabledMcpjsonServers in .claude/settings.json · headless chromium · allowlist: localhost + api.anthropic.com
+bundle fetcher · scripts/fetch-design-bundle.sh · mode 755 · bash -n clean
+rendering doc · docs/harness/RENDERING.md · covers path A + A' + B + per-agent reuse map + security note + headed toggle
+
+incidental fix · eslint.config.mjs globalIgnores: added .claude/visual-diffs/** (vendor minified JS from TASK-06 bundle extraction was causing lint errors on babel.min.js; same class as TASK-05 worktrees fix)
+
+acceptance notes (canopus self-check)
+  · .claude/settings.json valid JSON — all 4 hooks intact + enabledMcpjsonServers added
+  · .mcp.json valid JSON — playwright server with --headless --browser chromium --allowed-origins
+  · scripts/fetch-design-bundle.sh mode 755, bash -n OK
+  · docs/harness/RENDERING.md exists, covers all required sections
+  · signature v2 at .claude/signatures/TASK-2026-05-14-07--canopus.json
+  · harness_passed=true, post_edit_passed=true
+
+predicted re-users · Sirius (debug hydration, motion), Betelgeuse (live impl review), Algol (Lighthouse, a11y), Vega (prose-in-layout), Arcturus (NETRA end-to-end)
+
+next · Polaris to run acceptance verification + commit rendering-capability wave (TASK-06 + TASK-07)
+
+---
+
 ## known infrastructure gaps (parked — not blocking but logged)
 
 - `.claude/signatures/*.json` for TASK-01/02/03 — unsigned (historical; sign-work.sh was not deployed; will stay unsigned per TASK-04 non-goals)
@@ -128,4 +193,4 @@ acceptance notes
 
 ---
 
-*last update · 2026-05-14 17:42 · Polaris (α-OPS-00) — TASK-05 acceptance verified · Edit tool live (this line edited via Edit, deadlock confirmed cleared)*
+*last update · 2026-05-14 18:42 · Polaris (α-OPS-00) — TASK-06 + TASK-07 verified; Edit regression PASS; rendering-capability wave ready to commit*

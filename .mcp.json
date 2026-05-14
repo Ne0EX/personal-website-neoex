@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "node",
+      "args": [
+        "./node_modules/@playwright/mcp/cli.js",
+        "--headless",
+        "--browser",
+        "chromium",
+        "--allowed-origins",
+        "http://localhost:*;https://localhost:*;https://api.anthropic.com"
+      ]
+    }
+  }
+}

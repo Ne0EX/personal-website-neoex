@@ -128,6 +128,7 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 - `.harness/**`
 - `scripts/audit-*.sh` (shells that wrap Algol's audit scripts)
 - `scripts/visual-capture.sh`
+- `scripts/fetch-design-bundle.sh`
 - `.github/workflows/**`
 - `docs/harness/**`
 - `eslint.config.mjs` — lint gate that `post-edit.sh` depends on; Canopus tunes ignore lists and rule wiring (project lint *rules* themselves are still cross-cutting, but the gate configuration is harness)

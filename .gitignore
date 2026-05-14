@@ -43,3 +43,8 @@ next-env.d.ts
 # harness runtime artifacts (logs) — keep dir, ignore content
 .claude/hook-logs/*.log
 .claude/worktrees/
+
+# harness runtime artifacts (baselines / runtime state) — keep dirs, ignore content
+.claude/hook-logs/*.json
+# visual-diff scratch sources — external-bundle extractions, regenerable via scripts/fetch-design-bundle.sh
+.claude/visual-diffs/*/source/
