@@ -130,6 +130,8 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 - `scripts/visual-capture.sh`
 - `.github/workflows/**`
 - `docs/harness/**`
+- `eslint.config.mjs` — lint gate that `post-edit.sh` depends on; Canopus tunes ignore lists and rule wiring (project lint *rules* themselves are still cross-cutting, but the gate configuration is harness)
+- `.gitignore` (runtime artifact entries — harness section only; non-harness entries remain cross-cutting)
 
 ! Algol's audit scripts at `scripts/audit-*.ts` themselves — Algol; Canopus only wraps them
 ! Signature payloads in `.claude/signatures/*.json` — agent-generated per their own task; Canopus owns the schema and the writer (`sign-work.sh`), not the individual payloads

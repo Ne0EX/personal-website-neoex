@@ -75,13 +75,57 @@ closed · 2026-05-14 17:24 · TASK-03 acceptance complete
 
 ---
 
-## known infrastructure gaps (parked — not blocking but logged)
+## TASK-2026-05-14-04 · deploy 6 remaining hook scripts · done · signed · 0d0f6cd7d2a9516972f33327f89cd4dfda82b738f3176c2780945ba6db9aa7bb
 
-- `.claude/hooks/*.sh` ทั้ง 6 ตัว (`pre-task`, `harness-check`, `post-edit`, `visual-diff`, `sign-work`, `pre-handoff`) — spec ครบใน `.claude/hooks/README.md` แต่ยังไม่ deploy เป็นไฟล์จริง ผลกระทบ: ทุก handoff/work ใน session ตั้งแต่ TASK-01 เป็นต้นมา unsigned
-- `.claude/signatures/*.json` — ยังไม่มี signature payload ใดเพราะ sign-work.sh ไม่ deploy
-- `.harness/worldline-harness.config.json` — รายชื่อ rails ยังไม่ exist · territory rail audit ยังทำงานด้วยการอ่าน FILE-OWNERSHIP.md ตรงๆ ผ่านสายตา Polaris ไม่ใช่ script
-- next task candidate · เปิด TASK ให้ Canopus deploy 6 hook scripts จาก README spec — รอ Peat ตัดสินใจว่าเร่งด่วนแค่ไหน
+scope · ติดตั้งสคริปต์ hook ที่ค้างมาตั้งแต่ TASK-01: `pre-task`, `harness-check`, `post-edit`, `visual-diff`, `sign-work`, `pre-handoff` — ปลด unsigned ออกจาก workflow
+
+slices
+  Canopus (S1) · deploy 6 scripts per README spec + wire settings.json + smoke test sign-work · done · signed · 0d0f6cd7d2a9516972f33327f89cd4dfda82b738f3176c2780945ba6db9aa7bb
+
+trigger · "ไปเคลียร์ task ต่อไปให้เรียบร้อย" — Peat (2026-05-14 17:27)
+
+handoff in · `.claude/handoffs/from-polaris/TASK-2026-05-14-04.md`
+handoff out · `.claude/handoffs/from-canopus/TASK-2026-05-14-04--to-polaris.md`
+
+acceptance notes
+  · all 6 scripts deployed, mode 755, syntax-clean (bash -n)
+  · settings.json valid JSON — SessionStart + PreToolUse(Agent) wiring preserved; PreToolUse(Write|Edit|MultiEdit) + PostToolUse + Stop added
+  · pre-task smoke test: PASS
+  · signature v2 at .claude/signatures/TASK-2026-05-14-04--canopus.json
+  · post_edit_passed: false — pre-existing lint failure in .claude/worktrees/**/.next/ (ESLint scans worktree build artifacts); not introduced by this task; logged as known deviation in handoff
 
 ---
 
-*last update · 2026-05-14 17:26 · Polaris (α-OPS-00) — TASK-01 closure cleaned (out-of-band qualifier dropped after triple re-verification)*
+## TASK-2026-05-14-05 · fix CLAUDE_TASK_ID wiring deadlock + eslint worktree ignore · closed · signed · 6231a0c3c8a3fe19c7e0f784299b1525c3bd1800af79f2eddb18e16f03bb6c30
+
+scope · TASK-04 ทิ้ง wiring bug ใน settings.json — `pre-task.sh "$CLAUDE_TASK_ID"` ที่ wire เข้า PreToolUse(Write|Edit|MultiEdit) ทำให้ทุก Edit ใน session ใหม่ (รวม session นี้หลัง hot-reload) ถูก block + eslint scan worktree artifacts ทำให้ post_edit_passed=false ทุกครั้ง
+
+slices
+  Canopus (S1) · fix settings.json wiring + update README Installation section · done · signed · 6231a0c3c8a3fe19c7e0f784299b1525c3bd1800af79f2eddb18e16f03bb6c30
+  Canopus (S2) · add .claude/worktrees/** to eslint.config.mjs globalIgnores · done
+  Canopus (S3) · self-sign + return handoff with both gates green · done · signed · 6231a0c3c8a3fe19c7e0f784299b1525c3bd1800af79f2eddb18e16f03bb6c30
+
+trigger · TASK-04 return handoff flagged two issues; ดิฉันเทส Edit บน STATUS.md ได้ error ยืนยัน deadlock จริง · 2026-05-14 17:35
+
+ownership update · `eslint.config.mjs` + `.gitignore` (harness section) ย้ายเข้าเขต Canopus ใน FILE-OWNERSHIP.md เพื่อให้ S2 ลงได้
+
+handoff in · `.claude/handoffs/from-polaris/TASK-2026-05-14-05.md`
+handoff out · `.claude/handoffs/from-canopus/TASK-2026-05-14-05--to-polaris.md`
+
+acceptance notes
+  · PreToolUse(Write|Edit|MultiEdit) block removed from settings.json — deadlock cleared
+  · Stop → sign-work.sh wrapped with option (c) guard (silent no-op when CLAUDE_TASK_ID unset)
+  · .claude/worktrees/** added to eslint.config.mjs globalIgnores — post_edit_passed=true
+  · signature v2 at .claude/signatures/TASK-2026-05-14-05--canopus.json
+  · harness_passed=true, post_edit_passed=true
+
+---
+
+## known infrastructure gaps (parked — not blocking but logged)
+
+- `.claude/signatures/*.json` for TASK-01/02/03 — unsigned (historical; sign-work.sh was not deployed; will stay unsigned per TASK-04 non-goals)
+- `.harness/worldline-harness.config.json` — รายชื่อ rails ยังไม่ exist · territory rail audit ยังทำงานด้วยการอ่าน FILE-OWNERSHIP.md ตรงๆ ผ่านสายตา Polaris ไม่ใช่ script
+
+---
+
+*last update · 2026-05-14 17:42 · Polaris (α-OPS-00) — TASK-05 acceptance verified · Edit tool live (this line edited via Edit, deadlock confirmed cleared)*

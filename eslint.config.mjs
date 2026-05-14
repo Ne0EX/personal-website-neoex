@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Harness-runtime paths — worktrees contain full Next.js builds that
+    // ESLint would otherwise scan and emit errors for:
+    ".claude/worktrees/**",
+    "worldline-harness/**",
   ]),
 ]);
 

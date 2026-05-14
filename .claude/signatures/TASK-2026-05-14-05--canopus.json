@@ -1,0 +1,50 @@
+{
+  "signature_schema_version": 2,
+  "task_id": "TASK-2026-05-14-05",
+  "agent": "Canopus",
+  "agent_designation": "α-HRN-07",
+  "pre_cutover_codename": "Rigel",
+  "started_at": "2026-05-14T10:51:15Z",
+  "completed_at": "2026-05-14T10:51:15Z",
+  "files_touched": [
+    ".claude/hooks/README.md",
+    ".claude/hooks/harness-check.sh",
+    ".claude/hooks/post-edit.sh",
+    ".claude/hooks/pre-handoff.sh",
+    ".claude/hooks/pre-task.sh",
+    ".claude/hooks/sign-work.sh",
+    ".claude/hooks/visual-diff.sh",
+    ".claude/settings.json",
+    "README.md",
+    "components/WorldlineGlobe.tsx",
+    "docs/team/FILE-OWNERSHIP.md",
+    "docs/team/STATUS.md",
+    "eslint.config.mjs"
+  ],
+  "summary": "fix CLAUDE_TASK_ID wiring deadlock + eslint worktree ignore (TASK-05)",
+  "steps": [],
+  "hashes": {
+    "files_sha256": {
+      ".claude/hooks/README.md": "b6588d8de26e6575c5a73d1ea2f13405c2777fd633498ae36f4b9609133c1593",
+      ".claude/hooks/harness-check.sh": "a9d64f3f51c1ee6955246d9a3dd987da18459454afd3f5e601cc03317c4821a3",
+      ".claude/hooks/post-edit.sh": "8239796578447672fa0297ac36a425cfdfe1c9a18bf2f7bf83368957935681bf",
+      ".claude/hooks/pre-handoff.sh": "4e0b0f9a775189ade14cb5fbf2aa3bc762e99e96142722a6ba05ece78b7bb469",
+      ".claude/hooks/pre-task.sh": "e57bab01ed50c2857fd9930c62c80451b0a19d4c264b97c0763932007e76a053",
+      ".claude/hooks/sign-work.sh": "2b1953d59d805021d46e756b0d486c77719151cf25e120d7e064a00b5941daa6",
+      ".claude/hooks/visual-diff.sh": "d6d0a6928323506d292e11c6c910c4bbd50a8dd4c6457be9bad273d7e18715c5",
+      ".claude/settings.json": "d6c4eea9cf889583cb75cc872f727d269e84b72a4edccfc8dbd5c70b7706c6b6",
+      "README.md": "ce098bcb4acfe23aabce5533971527c5204cb9eb118c86e32cad5cf23cce8c16",
+      "components/WorldlineGlobe.tsx": "e4e9d20d2016fe192aa67ba7af0235f402bc09e53aeec028f94f7b11903e1faa",
+      "docs/team/FILE-OWNERSHIP.md": "9c8b197c723abf99b20dbe56e38415bce0b0a7334febe38234db3ddf2d97be9e",
+      "docs/team/STATUS.md": "39327fbb818234fef81193425aeb9137b052442d2305ad2a7489032104a174fe",
+      "eslint.config.mjs": "672e05ceffa6f4de11aa9b096bf1f0e799aedabc2b875cd4bdaea7cc297edbc2"
+    },
+    "self_hash": "6231a0c3c8a3fe19c7e0f784299b1525c3bd1800af79f2eddb18e16f03bb6c30"
+  },
+  "harness_passed": true,
+  "post_edit_passed": true,
+  "next_recipient": {
+    "agent": "Polaris",
+    "designation": "α-OPS-00"
+  }
+}

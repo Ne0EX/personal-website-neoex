@@ -15,12 +15,6 @@ In your Claude Code config (`~/.claude/settings.json` or per-project `.claude/se
 ```json
 {
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Write|Edit|MultiEdit",
-        "hooks": [{ "type": "command", "command": "bash .claude/hooks/pre-task.sh \"$CLAUDE_TASK_ID\"" }]
-      }
-    ],
     "PostToolUse": [
       {
         "matcher": "Write|Edit|MultiEdit",
@@ -28,11 +22,41 @@ In your Claude Code config (`~/.claude/settings.json` or per-project `.claude/se
       }
     ],
     "Stop": [
-      { "hooks": [{ "type": "command", "command": "bash .claude/hooks/sign-work.sh \"$CLAUDE_TASK_ID\"" }] }
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -n \"$CLAUDE_TASK_ID\" ]; then bash .claude/hooks/sign-work.sh \"$CLAUDE_TASK_ID\"; fi"
+          }
+        ]
+      }
     ]
   }
 }
 ```
+
+> **Why no auto `pre-task` hook on `PreToolUse`?**
+>
+> `pre-task.sh` requires a `<task_id>` argument so it can locate the assignment file at
+> `.claude/handoffs/from-polaris/<task_id>.md` and check required reads. Claude Code does not
+> export `CLAUDE_TASK_ID` to hook subprocesses — the variable expands to empty string, and
+> `pre-task.sh` correctly exits 2 on a missing task_id, which **blocks every Write/Edit/MultiEdit
+> in the session**.
+>
+> The correct pattern: **invoke `pre-task.sh` manually at task start**, after reading the
+> assignment, before the first file edit:
+>
+> ```bash
+> bash .claude/hooks/pre-task.sh TASK-2026-05-14-XX canopus
+> ```
+>
+> Do not wire `pre-task.sh` to any automatic event. If you find it wired to `PreToolUse` in
+> `.claude/settings.json`, remove that block immediately — it is a deadlock.
+>
+> The `Stop → sign-work.sh` wiring uses option (c): wrapped with
+> `if [ -n "$CLAUDE_TASK_ID" ]; then ...; fi` so it silently no-ops when `CLAUDE_TASK_ID` is
+> unset (all normal sessions). Agents still invoke `sign-work.sh` manually before handoff via
+> env vars (`WL_AGENT`, `WL_NEXT`, `WL_SUMMARY`), which is the canonical usage pattern.
 
 ### Codex
 

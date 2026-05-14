@@ -1,0 +1,44 @@
+{
+  "signature_schema_version": 2,
+  "task_id": "TASK-2026-05-14-04",
+  "agent": "Canopus",
+  "agent_designation": "α-HRN-07",
+  "pre_cutover_codename": "Rigel",
+  "started_at": "2026-05-14T10:40:31Z",
+  "completed_at": "2026-05-14T10:40:31Z",
+  "files_touched": [
+    ".claude/hooks/harness-check.sh",
+    ".claude/hooks/post-edit.sh",
+    ".claude/hooks/pre-handoff.sh",
+    ".claude/hooks/pre-task.sh",
+    ".claude/hooks/sign-work.sh",
+    ".claude/hooks/visual-diff.sh",
+    ".claude/settings.json",
+    "README.md",
+    "components/WorldlineGlobe.tsx",
+    "docs/team/STATUS.md"
+  ],
+  "summary": "deploy 6 hook scripts (TASK-04)",
+  "steps": [],
+  "hashes": {
+    "files_sha256": {
+      ".claude/hooks/harness-check.sh": "a9d64f3f51c1ee6955246d9a3dd987da18459454afd3f5e601cc03317c4821a3",
+      ".claude/hooks/post-edit.sh": "8239796578447672fa0297ac36a425cfdfe1c9a18bf2f7bf83368957935681bf",
+      ".claude/hooks/pre-handoff.sh": "4e0b0f9a775189ade14cb5fbf2aa3bc762e99e96142722a6ba05ece78b7bb469",
+      ".claude/hooks/pre-task.sh": "e57bab01ed50c2857fd9930c62c80451b0a19d4c264b97c0763932007e76a053",
+      ".claude/hooks/sign-work.sh": "2b1953d59d805021d46e756b0d486c77719151cf25e120d7e064a00b5941daa6",
+      ".claude/hooks/visual-diff.sh": "d6d0a6928323506d292e11c6c910c4bbd50a8dd4c6457be9bad273d7e18715c5",
+      ".claude/settings.json": "4b53336038f748c7080d72cc3695815f6f485586b084edbd1ae61c34e2585dd0",
+      "README.md": "ce098bcb4acfe23aabce5533971527c5204cb9eb118c86e32cad5cf23cce8c16",
+      "components/WorldlineGlobe.tsx": "e4e9d20d2016fe192aa67ba7af0235f402bc09e53aeec028f94f7b11903e1faa",
+      "docs/team/STATUS.md": "478e6831e6e7b97bd0414496fc4e060ef07cb432d8a3079755e812c5b09ad873"
+    },
+    "self_hash": "0d0f6cd7d2a9516972f33327f89cd4dfda82b738f3176c2780945ba6db9aa7bb"
+  },
+  "harness_passed": true,
+  "post_edit_passed": false,
+  "next_recipient": {
+    "agent": "Polaris",
+    "designation": "α-OPS-00"
+  }
+}
