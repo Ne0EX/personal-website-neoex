@@ -15,6 +15,16 @@ Signatures live in this directory as `<task_id>--<codename>.json`, one file per 
 
 Algol reads `signature_schema_version` first to select the verifier. Absent field ⇒ assume v1.
 
+### v2 behavioral update — file-discovery scoping (2026-05-14)
+
+The `files_touched` and `hashes.files_sha256` fields in a v2 signature are now produced by a baseline-aware algorithm in `sign-work.sh` rather than a raw `git diff HEAD`. This is a behavioral fix, not a schema bump (the fields retain the same name, type, and required status).
+
+**Mechanism:** `pre-task.sh` writes a snapshot of all currently-dirty files and their sha256 hashes to `.claude/hook-logs/<task_id>--baseline.json` at task start. At sign time, `sign-work.sh` loads this baseline and excludes any file whose current hash matches the baseline hash (carry-over unchanged since task start). Only files that are new, deleted, or modified relative to the baseline appear in `files_touched`.
+
+**Backward-compatible fallback:** If the baseline file is absent (tasks started before this fix, manual sign-work invocations), `sign-work.sh` falls back to the prior behavior (full `git diff HEAD`) and emits a warning to stderr. Exit codes are unchanged.
+
+**Algol verification:** step 4 of verification (recompute `hashes.files_sha256` from working tree) is unchanged. Algol still verifies every file listed in `files_touched` against the current working tree. The only change is that the list of files is now correctly scoped to this task rather than the full dirty tree.
+
 ---
 
 ## v2 payload (canonical example)

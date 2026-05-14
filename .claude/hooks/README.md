@@ -190,6 +190,8 @@ titlecase() {
 **Fires:** when an agent begins a task.
 **Blocks:** yes — refuses to allow work to start without context acknowledgement.
 
+**Also writes:** `.claude/hook-logs/<task_id>--baseline.json` — a sha256 snapshot of all currently-dirty files. `sign-work.sh` uses this baseline to distinguish carry-over dirty files (already in tree before this task) from files actually touched during this task. Run `pre-task.sh` before making any edits for accurate signature scoping.
+
 ```bash
 #!/usr/bin/env bash
 # .claude/hooks/pre-task.sh
@@ -240,6 +242,30 @@ awk -v agent="$AGENT" '
   in_block && /^## / { in_block=0 }
   in_block && /^- / { print "  " $0 }
 ' docs/team/FILE-OWNERSHIP.md | tee -a "$LOG"
+
+# Baseline snapshot — record sha256 of every currently-dirty file so
+# sign-work.sh can distinguish carry-over dirty files from files this task touches.
+BASELINE_FILE="$LOG_DIR/${TASK_ID}--baseline.json"
+echo "[pre-task] recording dirty-file baseline → $BASELINE_FILE" | tee -a "$LOG"
+
+# Collect all files that are currently modified vs HEAD (staged or unstaged).
+# --diff-filter=AMD: Added, Modified, Deleted (no Renamed — those are two entries).
+BASELINE_JSON=$(git diff --name-only --diff-filter=AMD HEAD 2>/dev/null \
+  | sort \
+  | while read -r f; do
+      if [[ -f "$f" ]]; then
+        h=$(sha256sum "$f" | awk '{print $1}')
+      else
+        # Deleted file — record sentinel so sign-work knows it was gone at task start
+        h="DELETED"
+      fi
+      jq -n --arg p "$f" --arg h "$h" '{($p): $h}'
+    done \
+  | jq -s '{recorded_at: now | todate, task_id: "'"$TASK_ID"'", agent: "'"$AGENT"'", files: (add // {})}')
+
+echo "$BASELINE_JSON" > "$BASELINE_FILE"
+BASELINE_COUNT=$(echo "$BASELINE_JSON" | jq '.files | length')
+echo "[pre-task] baseline: $BASELINE_COUNT carry-over dirty file(s) recorded" | tee -a "$LOG"
 
 echo "[pre-task] PASS — proceed with the assigned slice. Reach for files outside your territory only via handoff."
 exit 0
@@ -416,6 +442,8 @@ exit 0
 
 Conforms to `.claude/signatures/SCHEMA.md` v2.
 
+**File-discovery mechanism (v2.1):** `sign-work.sh` uses a baseline-aware algorithm to identify files touched during the current task. It reads `.claude/hook-logs/<task_id>--baseline.json` (written by `pre-task.sh`) to determine which files were already dirty at task start, then subtracts unchanged carry-overs. The `files_touched` field in the signature reflects only files whose content changed after the baseline was recorded. If no baseline exists (in-flight tasks, manual sign-work calls), it falls back to the pre-baseline behavior with a stderr warning.
+
 ```bash
 #!/usr/bin/env bash
 # .claude/hooks/sign-work.sh
@@ -481,15 +509,65 @@ mkdir -p "$SIG_DIR"
 SIG_FILE="$SIG_DIR/${TASK_ID}--${AGENT}.json"
 STEPS_LOG=".claude/hook-logs/${TASK_ID}--steps.log"
 
-# 1. Gather files touched
-FILES_TOUCHED=$(git diff --name-only --diff-filter=AMD HEAD 2>/dev/null | jq -R . | jq -s .)
-if [[ "$FILES_TOUCHED" == "[]" ]]; then
-  echo "sign-work: no changed files since HEAD — nothing to sign" >&2
+# 1. Gather files touched — baseline-aware file discovery
+#
+# Strategy: pre-task.sh records a snapshot of all dirty files at task start into
+# .claude/hook-logs/<task_id>--baseline.json.  At sign time we compute the current
+# dirty set, then subtract any file whose sha256 is unchanged vs the baseline
+# (= carry-over from a prior task, not touched by this one).
+#
+# Fallback: if no baseline exists (in-flight tasks started before this fix, or
+# manual sign-work invocations), fall back to the full git diff with a warning.
+
+BASELINE_FILE=".claude/hook-logs/${TASK_ID}--baseline.json"
+
+# All files currently dirty vs HEAD (our universe before filtering)
+ALL_DIRTY=$(git diff --name-only --diff-filter=AMD HEAD 2>/dev/null | sort)
+
+if [[ -f "$BASELINE_FILE" ]]; then
+  BASELINE_MAP=$(jq -r '.files' "$BASELINE_FILE")
+
+  TASK_FILES_TOUCHED=""
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    BASELINE_HASH=$(echo "$BASELINE_MAP" | jq -r --arg p "$f" '.[$p] // "NOT_IN_BASELINE"')
+    if [[ "$BASELINE_HASH" == "NOT_IN_BASELINE" ]]; then
+      TASK_FILES_TOUCHED="${TASK_FILES_TOUCHED}"$'\n'"$f"
+    elif [[ "$BASELINE_HASH" == "DELETED" ]]; then
+      [[ -f "$f" ]] && TASK_FILES_TOUCHED="${TASK_FILES_TOUCHED}"$'\n'"$f"
+    else
+      if [[ -f "$f" ]]; then
+        CURRENT_HASH=$(sha256sum "$f" | awk '{print $1}')
+        if [[ "$CURRENT_HASH" != "$BASELINE_HASH" ]]; then
+          TASK_FILES_TOUCHED="${TASK_FILES_TOUCHED}"$'\n'"$f"
+        fi
+      else
+        TASK_FILES_TOUCHED="${TASK_FILES_TOUCHED}"$'\n'"$f"
+      fi
+    fi
+  done <<< "$ALL_DIRTY"
+
+  TASK_FILES_TOUCHED=$(echo "$TASK_FILES_TOUCHED" | grep -v '^$' || true)
+  FILES_TOUCHED=$(echo "$TASK_FILES_TOUCHED" | grep -v '^$' | jq -R . | jq -s . 2>/dev/null || echo "[]")
+
+  CARRY_OVER_COUNT=$(echo "$ALL_DIRTY" | grep -c '.' || echo 0)
+  TASK_COUNT=$(echo "$FILES_TOUCHED" | jq 'length')
+  echo "[sign-work] baseline-aware scope: $TASK_COUNT task file(s) from $CARRY_OVER_COUNT total dirty" >&2
+else
+  echo "sign-work: WARNING — no baseline found at $BASELINE_FILE" >&2
+  echo "sign-work: falling back to full git diff for files_touched (may include carry-overs)" >&2
+  echo "sign-work: run pre-task.sh before starting work to enable accurate file scoping" >&2
+  FILES_TOUCHED=$(echo "$ALL_DIRTY" | jq -R . | jq -s .)
+fi
+
+if [[ "$FILES_TOUCHED" == "[]" || -z "$FILES_TOUCHED" ]]; then
+  echo "sign-work: no changed files attributed to this task — nothing to sign" >&2
   exit 3
 fi
 
 # 2. Per-file sha256 map (object form for .hashes.files_sha256)
-FILES_SHA256=$(git diff --name-only --diff-filter=AM HEAD 2>/dev/null \
+# Only hash files that exist (not deleted-by-this-task entries)
+FILES_SHA256=$(echo "$FILES_TOUCHED" | jq -r '.[]' \
   | sort \
   | while read -r f; do
       [[ -f "$f" ]] || continue
@@ -717,6 +795,8 @@ exit 0
 | `visual-diff: awaiting-betelgeuse` | UI changed, not yet reviewed | Wait. Betelgeuse reviews on her cycle. Ping via handoff only if blocking. |
 | `sign-work: unknown agent codename` | `WL_AGENT` set to a name not in the roster | Use one of the 9 current codenames; see `.claude/AGENTS.md` roster. |
 | `sign-work: signature flagged` | Gates didn't pass | Fix gates, re-sign. The flagged signature stays in the audit log. |
+| `sign-work: WARNING — no baseline found` | `pre-task.sh` was not run before edits | Non-fatal — falls back to full git diff. For a clean signature, run `pre-task.sh` before any edits next task. |
+| `sign-work: no changed files attributed to this task` | All dirty files are carry-overs from a prior task; this task made no new changes | Verify work was actually done. If pre-task.sh was run after edits, the baseline captured those edits as carry-overs. In that case delete the baseline file and re-sign (triggers fallback). |
 | `pre-handoff: 'X' is not a current roster codename` | Recipient name was a pre-cutover codename or typo | Check `.claude/AGENTS.md` Nomenclature table for the current name. |
 | `pre-handoff: signature's next_recipient.designation does not match` | `WL_NEXT` at sign time didn't match the handoff recipient | Re-sign with the correct `WL_NEXT`, then retry. |
 | `pre-handoff: handoff missing section` | Template not fully filled | Fill the missing sections. The template is at `_template.md`. |

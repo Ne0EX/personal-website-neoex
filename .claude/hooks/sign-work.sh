@@ -62,15 +62,78 @@ mkdir -p "$SIG_DIR"
 SIG_FILE="$SIG_DIR/${TASK_ID}--${AGENT}.json"
 STEPS_LOG=".claude/hook-logs/${TASK_ID}--steps.log"
 
-# 1. Gather files touched
-FILES_TOUCHED=$(git diff --name-only --diff-filter=AMD HEAD 2>/dev/null | jq -R . | jq -s .)
-if [[ "$FILES_TOUCHED" == "[]" ]]; then
-  echo "sign-work: no changed files since HEAD — nothing to sign" >&2
+# 1. Gather files touched — baseline-aware file discovery
+#
+# Strategy (approach 1): pre-task.sh records a snapshot of all dirty files at task
+# start into .claude/hook-logs/<task_id>--baseline.json.  At sign time we compute
+# the current dirty set, then subtract any file whose sha256 is unchanged vs the
+# baseline (= carry-over from a prior task, not touched by this one).
+#
+# Fallback: if no baseline exists (in-flight tasks started before this fix, or
+# manual sign-work invocations), we fall back to the full git diff with a warning.
+
+BASELINE_FILE=".claude/hook-logs/${TASK_ID}--baseline.json"
+
+# All files currently dirty vs HEAD (our universe before filtering)
+ALL_DIRTY=$(git diff --name-only --diff-filter=AMD HEAD 2>/dev/null | sort)
+
+if [[ -f "$BASELINE_FILE" ]]; then
+  # Load the baseline map (file → hash at task-start time)
+  BASELINE_MAP=$(jq -r '.files' "$BASELINE_FILE")
+
+  # For each currently-dirty file, keep it in files_touched only if:
+  #   a) it was NOT in the baseline at task start (new dirty file = this task added it), OR
+  #   b) it WAS in the baseline but its hash has changed (this task modified a carry-over), OR
+  #   c) it was in the baseline as DELETED and now exists (this task restored it)
+  TASK_FILES_TOUCHED=""
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    BASELINE_HASH=$(echo "$BASELINE_MAP" | jq -r --arg p "$f" '.[$p] // "NOT_IN_BASELINE"')
+    if [[ "$BASELINE_HASH" == "NOT_IN_BASELINE" ]]; then
+      # Not present at task start → this task introduced the dirty state
+      TASK_FILES_TOUCHED="${TASK_FILES_TOUCHED}"$'\n'"$f"
+    elif [[ "$BASELINE_HASH" == "DELETED" ]]; then
+      # Was deleted at task start; if it exists now, this task created/restored it
+      [[ -f "$f" ]] && TASK_FILES_TOUCHED="${TASK_FILES_TOUCHED}"$'\n'"$f"
+    else
+      # Present at task start — compare current hash to baseline hash
+      if [[ -f "$f" ]]; then
+        CURRENT_HASH=$(sha256sum "$f" | awk '{print $1}')
+        if [[ "$CURRENT_HASH" != "$BASELINE_HASH" ]]; then
+          # Hash drifted → this task modified it
+          TASK_FILES_TOUCHED="${TASK_FILES_TOUCHED}"$'\n'"$f"
+        fi
+        # else: unchanged carry-over — excluded
+      else
+        # File was present at baseline but is now deleted — this task deleted it
+        TASK_FILES_TOUCHED="${TASK_FILES_TOUCHED}"$'\n'"$f"
+      fi
+    fi
+  done <<< "$ALL_DIRTY"
+
+  # Strip leading blank line and format as JSON array
+  TASK_FILES_TOUCHED=$(echo "$TASK_FILES_TOUCHED" | grep -v '^$' || true)
+  FILES_TOUCHED=$(echo "$TASK_FILES_TOUCHED" | grep -v '^$' | jq -R . | jq -s . 2>/dev/null || echo "[]")
+
+  CARRY_OVER_COUNT=$(echo "$ALL_DIRTY" | grep -c '.' || echo 0)
+  TASK_COUNT=$(echo "$FILES_TOUCHED" | jq 'length')
+  echo "[sign-work] baseline-aware scope: $TASK_COUNT task file(s) from $CARRY_OVER_COUNT total dirty" >&2
+else
+  # No baseline — fall back to full git diff (original behavior)
+  echo "sign-work: WARNING — no baseline found at $BASELINE_FILE" >&2
+  echo "sign-work: falling back to full git diff for files_touched (may include carry-overs)" >&2
+  echo "sign-work: run pre-task.sh before starting work to enable accurate file scoping" >&2
+  FILES_TOUCHED=$(echo "$ALL_DIRTY" | jq -R . | jq -s .)
+fi
+
+if [[ "$FILES_TOUCHED" == "[]" || -z "$FILES_TOUCHED" ]]; then
+  echo "sign-work: no changed files attributed to this task — nothing to sign" >&2
   exit 3
 fi
 
 # 2. Per-file sha256 map (object form for .hashes.files_sha256)
-FILES_SHA256=$(git diff --name-only --diff-filter=AM HEAD 2>/dev/null \
+# Only hash files that exist (not deleted-by-this-task entries)
+FILES_SHA256=$(echo "$FILES_TOUCHED" | jq -r '.[]' \
   | sort \
   | while read -r f; do
       [[ -f "$f" ]] || continue

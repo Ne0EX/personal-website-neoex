@@ -1,0 +1,36 @@
+{
+  "signature_schema_version": 2,
+  "task_id": "TASK-2026-05-14-canopus-signwork-scope",
+  "agent": "Canopus",
+  "agent_designation": "α-HRN-07",
+  "pre_cutover_codename": "Rigel",
+  "started_at": "2026-05-14T00:00:00Z",
+  "completed_at": "2026-05-14T11:03:42Z",
+  "files_touched": [
+    ".claude/hooks/README.md",
+    ".claude/hooks/pre-task.sh",
+    ".claude/hooks/sign-work.sh",
+    ".claude/signatures/SCHEMA.md",
+    "README.md",
+    "components/WorldlineGlobe.tsx"
+  ],
+  "summary": "Fixed sign-work.sh file discovery to use a pre-task baseline snapshot; carry-over dirty files are now excluded from files_touched, preventing bloated and integrity-failing signatures on a messy working tree.",
+  "steps": [],
+  "hashes": {
+    "files_sha256": {
+      ".claude/hooks/README.md": "388c0772e7a42a85a3e89e8f05ba3ee52b760a1a94ec66b75c95027235a10609",
+      ".claude/hooks/pre-task.sh": "c350d0d179e0ec6e3db4b43813d139a184b9e201861d9ea6be8ba143b2bedf06",
+      ".claude/hooks/sign-work.sh": "ee845bb74f3151014c7ba6bd0508c0da7890582ac98da4ccd6ba5a7d35974d94",
+      ".claude/signatures/SCHEMA.md": "93fa49d090f194da6d786e8ad6d342eeb1feb5e64a55089077c9ce64c98777ae",
+      "README.md": "ce098bcb4acfe23aabce5533971527c5204cb9eb118c86e32cad5cf23cce8c16",
+      "components/WorldlineGlobe.tsx": "e4e9d20d2016fe192aa67ba7af0235f402bc09e53aeec028f94f7b11903e1faa"
+    },
+    "self_hash": "02bd8b6c4d91e85293ec2c3edc4d2ccbe710edd337ac29eb7f561cd301e7403f"
+  },
+  "harness_passed": true,
+  "post_edit_passed": false,
+  "next_recipient": {
+    "agent": "Polaris",
+    "designation": "α-OPS-00"
+  }
+}
