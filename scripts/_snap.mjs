@@ -1,0 +1,17 @@
+import { chromium } from 'playwright';
+const url = process.argv[2];
+const out = process.argv[3];
+const [w, h] = process.argv[4].split('x').map(Number);
+const fullPage = process.argv[5] === 'full';
+const browser = await chromium.launch({ headless: true });
+const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: 2 });
+const page = await ctx.newPage();
+page.on('console', m => { if (m.type() === 'error') console.error('PAGE-ERR:', m.text()); });
+const resp = await page.goto(url, { waitUntil: 'networkidle', timeout: 45000 });
+console.log('http status:', resp?.status());
+await page.waitForTimeout(2500);
+await page.screenshot({ path: out, fullPage });
+const title = await page.title();
+console.log('title:', title);
+await browser.close();
+console.log('saved', out);

@@ -48,3 +48,7 @@ next-env.d.ts
 .claude/hook-logs/*.json
 # visual-diff scratch sources — external-bundle extractions, regenerable via scripts/fetch-design-bundle.sh
 .claude/visual-diffs/*/source/
+
+# next.js dev server logs (runtime artifacts in visual-diff capture dirs)
+.claude/visual-diffs/*/dev.log
+.claude/visual-diffs/*/.devpid
