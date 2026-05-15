@@ -74,14 +74,21 @@ STEPS_LOG=".claude/hook-logs/${TASK_ID}--steps.log"
 
 BASELINE_FILE=".claude/hook-logs/${TASK_ID}--baseline.json"
 
-# All files currently dirty vs HEAD (our universe before filtering)
+# D3 FIX: Collect the full picture of "what changed since the baseline":
+# - Tracked dirty files: git diff --name-only (files git knows about that changed)
+# - Untracked files: git ls-files --others --exclude-standard (newly created, never staged)
+#
+# Both paths (baseline-aware and fallback) now see the complete set. Without this,
+# newly-created deliverables that were never staged were invisible to files_touched —
+# the root cause of INTEGRITY-PARTIAL in TASK-08 (Betelgeuse) and TASK-12 (Canopus).
 ALL_DIRTY=$(git diff --name-only --diff-filter=AMD HEAD 2>/dev/null | sort)
+ALL_UNTRACKED=$(git ls-files --others --exclude-standard 2>/dev/null | sort || true)
 
 if [[ -f "$BASELINE_FILE" ]]; then
   # Load the baseline map (file → hash at task-start time)
   BASELINE_MAP=$(jq -r '.files' "$BASELINE_FILE")
 
-  # For each currently-dirty file, keep it in files_touched only if:
+  # For each currently-dirty TRACKED file, keep it in files_touched only if:
   #   a) it was NOT in the baseline at task start (new dirty file = this task added it), OR
   #   b) it WAS in the baseline but its hash has changed (this task modified a carry-over), OR
   #   c) it was in the baseline as DELETED and now exists (this task restored it)
@@ -111,19 +118,48 @@ if [[ -f "$BASELINE_FILE" ]]; then
     fi
   done <<< "$ALL_DIRTY"
 
-  # Strip leading blank line and format as JSON array
-  TASK_FILES_TOUCHED=$(echo "$TASK_FILES_TOUCHED" | grep -v '^$' || true)
-  FILES_TOUCHED=$(echo "$TASK_FILES_TOUCHED" | grep -v '^$' | jq -R . | jq -s . 2>/dev/null || echo "[]")
+  # D3 FIX (baseline-aware path): include currently-untracked files that are either:
+  #   a) absent from the baseline entirely → newly created by this task, OR
+  #   b) present in the baseline but with a different hash → modified by this task.
+  # pre-task.sh now records all untracked files at task start with their sha256 hashes.
+  # This mirrors the logic for tracked dirty files above (NOT_IN_BASELINE = new,
+  # hash-changed = modified, hash-same = carry-over excluded).
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    BASELINE_HASH=$(echo "$BASELINE_MAP" | jq -r --arg p "$f" '.[$p] // "NOT_IN_BASELINE"')
+    if [[ "$BASELINE_HASH" == "NOT_IN_BASELINE" ]]; then
+      # Not in baseline — created by this task
+      TASK_FILES_TOUCHED="${TASK_FILES_TOUCHED}"$'\n'"$f"
+    elif [[ "$BASELINE_HASH" == "DELETED" ]]; then
+      # Was absent at baseline, now exists as untracked — this task created it
+      TASK_FILES_TOUCHED="${TASK_FILES_TOUCHED}"$'\n'"$f"
+    else
+      # Was untracked at baseline — include only if hash changed (this task modified it)
+      if [[ -f "$f" ]]; then
+        CURRENT_HASH=$(sha256sum "$f" | awk '{print $1}')
+        [[ "$CURRENT_HASH" != "$BASELINE_HASH" ]] && \
+          TASK_FILES_TOUCHED="${TASK_FILES_TOUCHED}"$'\n'"$f"
+      fi
+      # hash-same = pre-existing untracked carry-over → excluded
+    fi
+  done <<< "$ALL_UNTRACKED"
+
+  # Strip leading blank line and format as JSON array (deduplicate in case of overlap)
+  TASK_FILES_TOUCHED=$(printf '%s\n' "$TASK_FILES_TOUCHED" | sort -u | grep -v '^$' || true)
+  FILES_TOUCHED=$(printf '%s\n' "$TASK_FILES_TOUCHED" | grep -v '^$' | jq -R . | jq -s . 2>/dev/null || echo "[]")
 
   CARRY_OVER_COUNT=$(echo "$ALL_DIRTY" | grep -c '.' || echo 0)
   TASK_COUNT=$(echo "$FILES_TOUCHED" | jq 'length')
-  echo "[sign-work] baseline-aware scope: $TASK_COUNT task file(s) from $CARRY_OVER_COUNT total dirty" >&2
+  echo "[sign-work] baseline-aware scope: $TASK_COUNT task file(s) from $CARRY_OVER_COUNT total tracked-dirty" >&2
 else
-  # No baseline — fall back to full git diff (original behavior)
+  # No baseline — fall back to full git diff + untracked files (D3 fix)
   echo "sign-work: WARNING — no baseline found at $BASELINE_FILE" >&2
-  echo "sign-work: falling back to full git diff for files_touched (may include carry-overs)" >&2
-  echo "sign-work: run pre-task.sh before starting work to enable accurate file scoping" >&2
-  FILES_TOUCHED=$(echo "$ALL_DIRTY" | jq -R . | jq -s .)
+  echo "sign-work: falling back to git diff + untracked files (may include carry-overs from prior tasks)" >&2
+  echo "sign-work: run pre-task.sh before starting work to enable accurate carry-over filtering" >&2
+  # D3 FIX: merge tracked-dirty and untracked, deduplicate, drop empty lines.
+  # ALL_UNTRACKED is already computed above (git ls-files --others --exclude-standard).
+  ALL_WITH_UNTRACKED=$(printf '%s\n%s\n' "$ALL_DIRTY" "$ALL_UNTRACKED" | sort -u | grep -v '^$' || true)
+  FILES_TOUCHED=$(printf '%s\n' "$ALL_WITH_UNTRACKED" | grep -v '^$' | jq -R . | jq -s . 2>/dev/null || echo "[]")
 fi
 
 if [[ "$FILES_TOUCHED" == "[]" || -z "$FILES_TOUCHED" ]]; then

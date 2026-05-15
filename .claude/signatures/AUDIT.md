@@ -247,3 +247,139 @@ cosmetically unclean but integrity-safe.
 Sending PASS handoff to Polaris. The two-task arc (hook-guard → signwork-scope) is closed.
 
 ---
+
+## 2026-05-15 · TASK-2026-05-15-08--betelgeuse.json
+
+**auditor** · Algol (α-VER-06)
+**verdict** · INTEGRITY-PARTIAL (first audit under feedback_algol_qa_cross_check rule)
+**full report** · `docs/qa/REPORTS/TASK-2026-05-15-08-betelgeuse.md`
+
+### self_hash
+
+Recomputed via `jq -cS 'del(.hashes.self_hash)' | sha256sum`:
+`427b82dd8ee18ef6cd8a36e39f2520461413cc2d36d938123c120475f2fcf479`
+
+Claimed in signature: `427b82dd8ee18ef6cd8a36e39f2520461413cc2d36d938123c120475f2fcf479`
+
+**MATCH** — the self_hash is internally consistent.
+
+### files_sha256 — working tree audit (3 files in files_touched)
+
+| file | sig claims | working tree | verdict |
+|------|-----------|--------------|---------|
+| README.md | ce098bcb… | ce098bcb… | MATCH (carry-over — not modified by this task) |
+| components/WorldlineGlobe.tsx | e4e9d20d… | e4e9d20d… | MATCH (carry-over — not modified by this task) |
+| docs/team/STATUS.md | 74c312… | 253330… | **MISMATCH** |
+
+### actual deliverable (not in files_touched)
+
+| file | working tree sha256 |
+|------|---------------------|
+| docs/design/journey-architecture.md | 6891ff37068879857dd6736f3b7f0645487a95a90211962bad9abe2ddc8926d7 |
+
+### root cause
+
+`pre-task.sh` was not run before TASK-08 started. No baseline file at
+`.claude/hook-logs/TASK-2026-05-15-08--baseline.json`. `sign-work.sh` fell back to
+`git diff --diff-filter=AMD HEAD` which: (a) captured three carry-over dirty files from
+prior tasks, and (b) missed the newly-created untracked `docs/design/journey-architecture.md`
+entirely (untracked files are invisible to `git diff`).
+
+`docs/team/STATUS.md` hash mismatch is a secondary consequence: Polaris wrote the TASK-08
+wave section into STATUS.md after the signature was written (signature at 11:48:56;
+STATUS.md mtime 11:51:09). The signature captured an intermediate state of STATUS.md
+that no longer exists in either HEAD or working tree.
+
+Betelgeuse disclosed both deviations in full in the return handoff §known deviations.
+
+### verdict classification
+
+**INTEGRITY-PARTIAL** — not INTEGRITY-FAIL.
+
+Classification rationale: the failure is fully disclosed, deterministically caused by a
+known tooling gap (sign-work.sh fallback + no untracked-file capture), and independently
+verifiable. The deliverable is real and at the correct path. The signature is internally
+self-consistent (self_hash matches). No agent malfeasance.
+
+INTEGRITY-FAIL is reserved for contradictions between signature claims and reality that
+require rejection. Here, reality is correct; only attribution is incomplete.
+
+### work quality
+
+PASS — all 10 contract sections present, all gaps A–F decided, 01–13 inventory complete,
+anti-Codex gauntlet embedded as §10. See full report for details.
+
+### action taken
+
+- QA report written at `docs/qa/REPORTS/TASK-2026-05-15-08-betelgeuse.md`
+- PASS handoff written to Polaris
+- HOOK PROPOSAL to Canopus: add `git ls-files --others --exclude-standard` to sign-work.sh
+  fallback path so untracked new files are captured
+
+---
+
+## 2026-05-15 · TASK-2026-05-15-12--canopus.json
+
+**auditor** · Algol (α-VER-06)
+**verdict** · PASS WITH INTEGRITY-PARTIAL (second sample — systemic bug confirmed)
+**full report** · `docs/qa/REPORTS/TASK-2026-05-15-12-canopus.md`
+
+### self_hash
+
+Recomputed via `jq -cS 'del(.hashes.self_hash)' | shasum -a 256`:
+`1965f7d9217f43756931e91057b703f556b78f27568e76e3d2f04b1e2c707074`
+
+Claimed: `1965f7d9217f43756931e91057b703f556b78f27568e76e3d2f04b1e2c707074`
+
+**MATCH** — self_hash internally consistent.
+
+### files_sha256 — working tree audit (2 files in files_touched)
+
+| file | sig claims | working tree | verdict |
+|------|-----------|--------------|---------|
+| `.claude/signatures/AUDIT.md` | `5dcafab1…` | `5dcafab1…` | MATCH |
+| `docs/team/STATUS.md` | `e4288aaf…` | `30dcc257…` | **MISMATCH** |
+
+STATUS.md mismatch: same root cause as TASK-08. Canopus updated STATUS.md (S5 requirement)
+after the signature was written. No baseline file → sign-work fallback → STATUS.md hash
+captured at intermediate state.
+
+### actual deliverables (untracked — not in files_touched)
+
+6 files confirmed present on disk: `.harness/worldline-harness.config.json`,
+`scripts/audit-territory.sh`, `scripts/audit-design-tokens.sh`, `scripts/audit-next-api.sh`,
+`scripts/audit-voice.sh`, `scripts/audit-a11y.sh`. All untracked → invisible to sign-work.sh
+fallback. Disclosed in return handoff §known deviations.
+
+### two defects found (non-blocking on current tree)
+
+**D1 — territory script glob parser: parenthetical comments not stripped**
+`FILE-OWNERSHIP.md` line 129: `scripts/audit-*.sh (shells that wrap Algol's audit scripts)`
+has no em-dash separator. The awk parser leaves the parenthetical in the glob, producing
+`scripts/audit-*.sh (shells...)` which will NOT match `scripts/audit-territory.sh`.
+Confirmed by direct test: staging `scripts/audit-territory.sh` and running territory check
+returns `scripts/audit-territory.sh:unassigned` (FAIL). Bug is dormant until scripts are
+committed. Fix: strip `<space>(...)` parenthetical in awk glob extractor.
+
+**D2 — design-tokens script silently no-ops on macOS (grep -P not supported)**
+`/usr/bin/grep` (BSD grep, "GNU compatible") passes the `grep -q 'GNU'` detection → GNU
+branch fires → `grep -nP` invoked → BSD grep exits 2 (invalid option) → `2>/dev/null || true`
+swallows all output → `MATCHES` empty → no violations reported regardless of actual content.
+The `-E` branch works correctly. Current tree DOES pass legitimately (no real violations), but
+the detection mechanism is silently broken. Fix: probe `-P` support directly, or use `-E` always.
+
+### systemic pattern confirmation
+
+TASK-08 + TASK-12 = two consecutive INTEGRITY-PARTIAL instances with identical root cause.
+Both agents (Betelgeuse, Canopus) ran without a baseline file. The hook proposal from TASK-08
+(`git ls-files --others --exclude-standard`) is strengthened by this second sample.
+TASK-13 (fix sign-work.sh) is now justified by two data points, not one.
+
+### action taken
+
+- QA report at `docs/qa/REPORTS/TASK-2026-05-15-12-canopus.md`
+- PASS handoff to Polaris (work is sound; deliverables real and correct)
+- Two REVISE items to Canopus (D1 + D2 — fix before first commit of audit scripts)
+- Systemic pattern noted for TASK-13 sign-work.sh fix
+
+---

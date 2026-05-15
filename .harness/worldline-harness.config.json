@@ -1,0 +1,66 @@
+{
+  "$schema": "https://worldline.local/harness-config.schema.json",
+  "config_version": 1,
+  "last_updated": "2026-05-15",
+  "owner": "canopus · α-HRN-07",
+  "rails": {
+    "territory": {
+      "description": "An agent only edits files within its own territory (per docs/team/FILE-OWNERSHIP.md). Cross-territory edits require an explicit handoff to the file's owner.",
+      "check": "scripts/audit-territory.sh",
+      "applies_to": ["**/*"],
+      "status": "enforcing",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-territory"
+    },
+    "design-tokens": {
+      "description": "No raw hex color values (#[0-9a-fA-F]{3,8}) outside two whitelisted locations: app/globals.css and components/WorldlineGlobe.tsx.",
+      "check": "scripts/audit-design-tokens.sh",
+      "applies_to": ["app/**", "components/**"],
+      "status": "enforcing",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-design-tokens"
+    },
+    "next-16-api": {
+      "description": "No deprecated Next.js API usage. Stub — awaiting Algol TS audit logic.",
+      "check": "scripts/audit-next-api.sh",
+      "applies_to": ["app/**"],
+      "status": "stub",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-next-16-api"
+    },
+    "voice-discipline": {
+      "description": "NETRA voice patterns intact in prompts and components. Stub — awaiting NETRA voice spec + Algol TS audit logic.",
+      "check": "scripts/audit-voice.sh",
+      "applies_to": ["lib/netra/**", "components/*Netra*.tsx"],
+      "status": "stub",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-voice-discipline"
+    },
+    "accessibility-floor": {
+      "description": "Lighthouse a11y >= 95 for any new entry template. Stub — awaiting Lighthouse runner + Algol TS audit logic.",
+      "check": "scripts/audit-a11y.sh",
+      "applies_to": ["app/articles/**", "app/photos/**", "app/fiction/**"],
+      "status": "stub",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-accessibility-floor"
+    }
+  },
+  "signature_policy": {
+    "algorithm": "sha256",
+    "schema_file": ".claude/signatures/SCHEMA.md",
+    "schema_version": 2,
+    "fields_required": [
+      "signature_schema_version",
+      "task_id",
+      "agent",
+      "agent_designation",
+      "pre_cutover_codename",
+      "started_at",
+      "completed_at",
+      "files_touched",
+      "summary",
+      "steps",
+      "hashes.files_sha256",
+      "hashes.self_hash",
+      "harness_passed",
+      "next_recipient.agent",
+      "next_recipient.designation"
+    ],
+    "block_handoff_if_invalid": true
+  }
+}

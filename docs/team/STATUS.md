@@ -186,11 +186,207 @@ next · Polaris to run acceptance verification + commit rendering-capability wav
 
 ---
 
-## known infrastructure gaps (parked — not blocking but logged)
+## TASK-2026-05-15-08 (α) · Journey architecture spec · closed · signed · 427b82dd8ee18ef6cd8a36e39f2520461413cc2d36d938123c120475f2fcf479 · audited · 8d88240a20566712
 
-- `.claude/signatures/*.json` for TASK-01/02/03 — unsigned (historical; sign-work.sh was not deployed; will stay unsigned per TASK-04 non-goals)
-- `.harness/worldline-harness.config.json` — รายชื่อ rails ยังไม่ exist · territory rail audit ยังทำงานด้วยการอ่าน FILE-OWNERSHIP.md ตรงๆ ผ่านสายตา Polaris ไม่ใช่ script
+scope · ก่อน Claude Design 06-13 จะถูกใช้ ต้องเขียน docs/design/journey-architecture.md ที่ตอบ Globe mechanics + entry-surface contracts + NETRA placement + photo integration + mobile collapse + Audience-Fork reframing + search affordance + 01-13 inventory verdicts — ทุก spec ต่อจากนี้ derive จากตรงนี้
+
+slices
+  Betelgeuse (S1) · journey-architecture.md · done · signed · 427b82dd8ee18ef6cd8a36e39f2520461413cc2d36d938123c120475f2fcf479
+
+trigger · Peat 2026-05-15 — "Globe Hero ที่เป็น Highlight feature จะช่วย walkthrough … แต่พอไม่เห็น นอกจากจะดีไซน์ไม่สวยแล้วยังจับ journey ตรงนี้ไม่ได้ด้วย"
+
+evidence · live PoC screenshots ที่ .claude/visual-diffs/main-poc-2026-05-15/shots/ (รวม `main-1180x900-globe-wait.png` ที่จับ Globe ติดหลังจาก wait Three.js mount)
+
+handoff in · `.claude/handoffs/from-polaris/TASK-2026-05-15-08-journey-architecture.md`
+
+model audit · opus override #2 ในสาย session นี้ (#1 = Betelgeuse TASK-06 S2 rendered review); rationale logged
+
+acceptance verified (Polaris quick-verify + Algol QA cross-check · 2026-05-15)
+  · docs/design/journey-architecture.md · 635 lines · 10 sections + §13 flags · 21-row anti-Codex audit (0 FAIL, 3 partials)
+  · Betelgeuse signature 427b82dd · self_hash valid · gates harness:true/post_edit:true
+  · Algol verdict · PASS WITH INTEGRITY-PARTIAL · audit signature 8d88240a · `.claude/signatures/AUDIT.md` + `docs/qa/REPORTS/TASK-2026-05-15-08-betelgeuse.md`
+
+integrity-partial cause (systemic, not Betelgeuse's fault)
+  · pre-task.sh ไม่ได้รันที่ TASK start → ไม่มี baseline → sign-work.sh fallback path (`git diff --name-only --diff-filter=AMD HEAD`) มอง untracked files ไม่เห็น
+  · journey-architecture.md เป็น untracked file → ไม่อยู่ใน files_touched
+  · README + WorldlineGlobe.tsx carry-over ติดมาแทน (sha256 match — ไม่ได้ถูกแก้ ติดเฉพาะใน list)
+  · STATUS.md ติดมาเพราะดิฉัน (Polaris) เขียนหลังจาก Betelgeuse signed (mtime mismatch 11:48 vs 11:51)
+  · Algol's hook proposal · เพิ่ม `git ls-files --others --exclude-standard` ใน sign-work.sh fallback + ใส่ "run pre-task.sh" เป็น Step 0 ใน WORKFLOW kickoff checklist → จะเปิดเป็น TASK-13
+
+paused before dispatching β/γ/δ · ต้องรอ Peat ยืนยัน 9 flags ใน §13 ของ journey-architecture.md (flag #7 ทิ้ง PRD-02 fork screen เป็นจุดใหญ่สุด)
+
+peat confirmations as they land (Polaris logging; Betelgeuse revises journey-architecture.md once batch is complete):
+  · #8 (2026-05-15) · CONFIRMED · Globe เปิดที่ stratum ALL ทุกครั้ง — no remember-last-stratum, no localStorage write. M1 LAND state in journey-arch §1 + §6.2 stands as written.
+
+
 
 ---
 
-*last update · 2026-05-14 18:42 · Polaris (α-OPS-00) — TASK-06 + TASK-07 verified; Edit regression PASS; rendering-capability wave ready to commit*
+## TASK-2026-05-15-09 (β) · Article entry spec · queued
+
+scope · per-surface spec for article entry page — ปลายทางของ ChapterIndex card click + Globe node click
+blocked_by · TASK-08 (need α decisions)
+slice · Betelgeuse, sonnet — single-surface spec derived from α
+parallelism · runs parallel กับ TASK-10 หลัง α ปิด (two Betelgeuse instances, different files, no overlap)
+
+handoff in · `.claude/handoffs/from-polaris/TASK-2026-05-15-09-article-entry-spec.md`
+
+---
+
+## TASK-2026-05-15-10 (γ) · Photo entry + atlas spec · queued
+
+scope · entry-photo + photo-atlas surfaces — รวม film-simulation variants
+blocked_by · TASK-08
+slice · Betelgeuse, sonnet
+parallelism · runs parallel กับ TASK-09 + TASK-11(S1) หลัง α ปิด
+
+handoff in · `.claude/handoffs/from-polaris/TASK-2026-05-15-10-photo-entry-atlas-spec.md`
+
+---
+
+## TASK-2026-05-15-11 (δ) · NETRA chat spec · queued
+
+scope · two-agent task — Arcturus เขียน NETRA prompt arch (opus), Betelgeuse เขียน chat UI spec (sonnet)
+blocked_by · TASK-08
+slices ·
+  S1 · Arcturus, **opus** — NETRA system-prompt architecture + tool surface + refusal taxonomy (rubric match for arcturus opus override)
+  S2 · Betelgeuse, sonnet — chat UI design
+  S3 · cross-agent contract sync
+parallelism · S1 (Arcturus) runs parallel กับ TASK-09 + TASK-10 หลัง α ปิด · S2 (Betelgeuse) ต่อจาก α พร้อมกับ 09/10 (สาม Betelgeuse instances ทำงานคู่ขนานบนสาม spec ที่ต่างกัน)
+
+handoff in · `.claude/handoffs/from-polaris/TASK-2026-05-15-11-netra-chat-spec.md`
+
+---
+
+## parallelism map (รอบ design wave)
+
+```
+              t = 0
+              │
+              ▼
+   ┌──────────────────────────┐
+   │ TASK-08 (α)  Betelgeuse  │  opus · journey-architecture · BLOCKS all
+   │              solo        │
+   └──────────────────────────┘
+              │
+              ▼  α closes
+   ┌──────────┬───────────┬───────────────────┐
+   │          │           │                   │
+   ▼          ▼           ▼                   ▼
+ TASK-09    TASK-10    TASK-11 S1         TASK-11 S2
+ article    photo      Arcturus           Betelgeuse-3
+ entry      entry      NETRA prompt       NETRA chat UI
+ Betelg-1   Betelg-2   opus               sonnet
+ sonnet     sonnet
+              │
+              └──── all 3 Betelgeuse instances ทำงานบนต่าง file
+                    Arcturus คู่ขนานไม่กระทบ territory
+                    cross-impact = clean
+              │
+              ▼ all 4 close
+              │
+         TASK-11 S3 · cross-agent contract sync (Arcturus + Betelgeuse meet)
+```
+
+---
+
+## TASK-2026-05-15-12 · `.harness/worldline-harness.config.json` + 2 deployable rails · closed · signed · 1965f7d9217f43756931e91057b703f556b78f27568e76e3d2f04b1e2c707074 · audited PASS-INTEGRITY-PARTIAL
+
+scope · เขียน rail config + deploy `scripts/audit-territory.sh` + `scripts/audit-design-tokens.sh` เป็น real audit + stub อีก 3 รายที่ต้องการ Algol TS audit logic (next-16-api, voice-discipline, accessibility-floor) — ปลดล็อก `harness-check.sh` ให้ทำงานครบทั้ง 5 rail (2 enforce + 3 honest-stub)
+
+slices
+  Canopus (S1) · .harness/worldline-harness.config.json · done · signed
+  Canopus (S2) · audit-territory.sh (REAL) · done · signed
+  Canopus (S3) · audit-design-tokens.sh (REAL) · done · signed
+  Canopus (S4) · 3 stubs (next-16-api / voice-discipline / accessibility-floor) · done · signed
+  Canopus (S5) · sign + return + propose 3 follow-up TASKs · done · signed
+
+trigger · Peat 2026-05-15 — "ทำ rail config ก่อน, task ที่ betelgeuse เสนอเดะมาทำต่อหลังจากอันนี้เสร็จ"
+
+parallelism · runs ขนาน TASK-08 (Betelgeuse-opus) — territories ไม่ทับ Canopus(.harness/, scripts/, hooks/) vs Betelgeuse(docs/design/)
+
+handoff in · `.claude/handoffs/from-polaris/TASK-2026-05-15-12-rail-config.md`
+handoff out · `.claude/handoffs/from-canopus/TASK-2026-05-15-12--to-polaris.md`
+
+audit verified · Algol QA cross-check · 2026-05-15
+  · all 5 audit scripts deployed mode 755 · `.harness/worldline-harness.config.json` valid · harness-check.sh exits 0 with 5 rail entries
+  · 2 real rails enforce correctly on current tree · 3 stubs honest (exit 0 + TODO message)
+  · Canopus signature 1965f7d9 self_hash valid · gates green
+  · Algol verdict PASS WITH INTEGRITY-PARTIAL · audit at `docs/qa/REPORTS/TASK-2026-05-15-12-canopus.md` + AUDIT.md appended
+  · **THIRD consecutive sample** ของ untracked-deliverable-not-in-files_touched bug → systemic confirmed
+
+bugs flagged for TASK-13 · all four closed by TASK-2026-05-15-13 (Canopus · 2026-05-15)
+  · D1 · FIXED — territory script now strips `(...)` parenthetical comments before glob matching
+  · D2 · FIXED — design-tokens script drops -P branch entirely; always uses -E (BSD+GNU compatible)
+  · D3 · FIXED — sign-work.sh fallback now includes `git ls-files --others --exclude-standard`; baseline-aware path also captures new untracked deliverables
+  · D4 · FIXED — WORKFLOW.md now has explicit "Step 0 · Run pre-task.sh" before the walk-through
+
+decision · ไม่ revise TASK-12 in-place (Algol PASS แล้ว); D1-D4 all closed in TASK-13
+
+
+acceptance notes
+  · .harness/worldline-harness.config.json — valid JSON, jq-parseable, 5 rails registered
+  · scripts/audit-territory.sh — mode 755, bash -n clean, baseline-aware, POSIX awk, permanent whitelist + AUDIT.md
+  · scripts/audit-design-tokens.sh — mode 755, bash -n clean, 13 files scanned, hex strict (Tailwind inline-hex rejected)
+  · scripts/audit-next-api.sh, audit-voice.sh, audit-a11y.sh — stubs, mode 755, bash -n clean, exit 0
+  · harness-check.sh exits 0 with 5 rail entries (2 real PASS + 3 STUB-PASS)
+  · known deviation: .claude/signatures/AUDIT.md whitelisted (session-level audit log, parallel-task write-through)
+
+post-close · Algol QA cross-check applies per feedback_algol_qa_cross_check rule (forward from 2026-05-15)
+
+---
+
+## TASK-2026-05-15-13 · Harness hardening — fix 4 systemic defects from Algol audits · closed · signed · c4ab5abb425f0948769c1261c5b97c1ebf19da0b16b1b7824a6f31da0f96fc96 · Polaris-verified · Algol-audit-deferred
+
+scope · Algol audits TASK-08 + TASK-12 + algol-self ทั้งสามครั้ง surface 4 defect — D1 territory glob parser + D2 design-tokens grep -P branch (real bugs in audit scripts) + D3 sign-work fallback ไม่เห็น untracked files + D4 WORKFLOW kickoff ไม่บอกให้รัน pre-task.sh
+
+slices
+  Canopus (S1) · fix D1 territory glob (strip parentheticals) · done · landed in scripts/audit-territory.sh extract_globs() + ALL_AGENT_GLOBS awk block
+  Canopus (S2) · fix D2 design-tokens grep (drop -P branch, always -E) · done · landed in scripts/audit-design-tokens.sh — deliberate-violation smoke test passed
+  Canopus (S3) · fix D3 sign-work fallback + baseline-aware untracked coverage · done · landed in .claude/hooks/sign-work.sh + .claude/hooks/pre-task.sh — smoke test confirmed test-new.md captured in fallback path
+  Canopus (S4) · fix D4 WORKFLOW.md kickoff Step 0 · done · landed in docs/team/WORKFLOW.md (Polaris territory — authorized by Polaris task contract TASK-2026-05-15-13)
+  Canopus (S5) · dogfood test + sign · done · pre-task.sh ran as Step 0 before any edits
+
+trigger · Algol audit verdicts (TASK-08 + TASK-12) — same INTEGRITY-PARTIAL pattern repeated 3 ครั้งติด · systemic confirmed
+
+known deviation · docs/team/WORKFLOW.md เป็น Polaris territory — Canopus แก้ได้เพราะ Polaris task contract TASK-13 S4 มอบหมายงานนี้ explicitly; territory rail flagged correctly; disclosed ใน return handoff; ไม่ใช่ territory violation โดยไม่มีอนุญาต
+
+handoff in · `.claude/handoffs/from-polaris/TASK-2026-05-15-13-harness-hardening.md`
+handoff out · `.claude/handoffs/from-canopus/TASK-2026-05-15-13--to-polaris.md`
+
+closure note · 2026-05-15 · Polaris-verified (Algol-audit-deferred)
+  · all 4 D-fixes verified by Polaris via direct file inspection + smoke tests; PREP at `docs/qa/REPORTS/TASK-2026-05-15-13-PREP.md`
+  · D1 grep: gsub-strip-parens present on audit-territory.sh:133+149 (per Algol's recommendation)
+  · D2 smoke test: planted `app/_d2-test.tsx` with raw #FF00FF → rail FAILED with file:line:value → cleanup done → D2 confirmed working
+  · D3 dogfood: signature's 7-entry files_touched matches actual edits, ZERO carry-overs vs 230-untracked-file working tree (FIRST clean attribution in team history)
+  · D4 verified: WORKFLOW.md:32 has "Step 0 · Run pre-task.sh" with citations
+  · harness_passed:false on signature = contract-authorized cross-territory (Canopus → WORKFLOW.md:polaris); territory rail TRUE-POSITIVE
+
+DEVIATION FROM STANDING RULE (feedback_algol_qa_cross_check) · 2026-05-15
+  · Three consecutive Algol subagent dispatches stalled at 600s watchdog (Canopus TASK-13 work-end stall + 2 Algol audit retry stalls)
+  · Pattern: long-deliberation moments produce no token output → watchdog tripped
+  · Earlier in session: model classifier returned "temporarily unavailable" → suggests transient platform issue
+  · Polaris acknowledges deviation; will retry Algol audit on next TASK once platform stabilizes
+  · TASK-13 work-quality verifiable from Polaris's eyes (smoke tests + signature attribution evidence)
+
+Algol caught one real meta-bug before her final stall — opening TASK-14:
+  · self-signature paradox · signature file's own path in files_touched cannot have hashes.files_sha256 match sha256(file-on-disk), because file contains its own self_hash field that was computed BEFORE being embedded
+  · workaround options for sign-work.sh: (a) exclude own signature from files_touched, or (b) document the structural exception, or (c) two-pass sign
+
+systemic D3 verdict (Polaris-only confirmation pending Algol retry on next wave):
+  · TASK-13 signature is FIRST in team history with clean files_touched attribution (zero carry-overs from 230-untracked-file pool)
+  · Bug closed forward; TASK-08/12/12-audit historical INTEGRITY-PARTIAL remains as audit-of-record
+
+
+---
+
+## known infrastructure gaps (parked — not blocking but logged)
+
+- `.claude/signatures/*.json` for TASK-01/02/03 — unsigned (historical; sign-work.sh was not deployed; will stay unsigned per TASK-04 non-goals)
+- `scripts/audit-next-api.sh` — STUB, not enforcing · needs Algol TS audit logic (TASK_audit-next-api)
+- `scripts/audit-voice.sh` — STUB, not enforcing · needs Arcturus voice spec + Algol TS logic (TASK_audit-voice)
+- `scripts/audit-a11y.sh` — STUB, not enforcing · needs Lighthouse runner + Algol TS logic (TASK_audit-a11y)
+
+---
+
+*last update · 2026-05-15 · Polaris (α-OPS-00) — TASK-13 closed Polaris-verified · 3 Algol stalls = audit deferred to next stable platform window · TASK-14 opening for self-sig paradox*

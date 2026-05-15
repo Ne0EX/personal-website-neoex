@@ -29,6 +29,26 @@ polaris reports to peat (CLOSE handoff)
 
 ---
 
+## Step 0 · Run pre-task.sh before your first edit (mandatory)
+
+Every agent must run `pre-task.sh` as the **first action** after receiving a TASK assignment — before reading code, before writing a single line:
+
+```bash
+WL_TASK_ID=<task_id> WL_AGENT=<your-codename> bash .claude/hooks/pre-task.sh <task_id> <your-codename>
+```
+
+This writes a baseline snapshot at `.claude/hook-logs/<task_id>--baseline.json` recording the sha256 of every file that is currently dirty in the working tree. `sign-work.sh` later uses this baseline to scope `files_touched` to ONLY the files this task actually changed — excluding carry-over dirty files from prior tasks that were already present.
+
+Skipping this step yields INTEGRITY-PARTIAL signatures because:
+1. `sign-work.sh` falls back to `git diff HEAD`, which captures the full dirty tree including carry-overs from other tasks.
+2. Newly created files (never staged) are invisible to `git diff HEAD` — your real deliverables vanish from `files_touched`.
+
+This pattern was confirmed across three consecutive tasks: TASK-2026-05-15-08 (Betelgeuse's `journey-architecture.md` absent from signature), TASK-2026-05-15-12 (Canopus's five audit scripts absent), and TASK-2026-05-15-12-audit (Algol's QA report absent). Algol audits `pre-task.sh` baseline presence as part of the U4 hook trail check.
+
+Cross-reference: `.claude/hooks/pre-task.sh` for implementation; `docs/harness/RAIL-DEFINITIONS.md` for the baseline mechanism docs.
+
+---
+
 ## Example walk-through — TASK-2026-05-14-02 · audience fork screen
 
 This trace shows the workflow on a concrete task.

@@ -1,0 +1,32 @@
+{
+  "signature_schema_version": 2,
+  "task_id": "TASK-2026-05-15-12-audit",
+  "agent": "Algol",
+  "agent_designation": "α-VER-06",
+  "pre_cutover_codename": "Cipher",
+  "started_at": "2026-05-15T05:18:16Z",
+  "completed_at": "2026-05-15T05:18:16Z",
+  "files_touched": [
+    ".claude/signatures/AUDIT.md",
+    "README.md",
+    "components/WorldlineGlobe.tsx",
+    "docs/team/STATUS.md"
+  ],
+  "summary": "QA cross-check TASK-12 rail config",
+  "steps": [],
+  "hashes": {
+    "files_sha256": {
+      ".claude/signatures/AUDIT.md": "67c31dd873e911933557a17aa37e271f09e52bc7685348734664c9da4643e884",
+      "README.md": "ce098bcb4acfe23aabce5533971527c5204cb9eb118c86e32cad5cf23cce8c16",
+      "components/WorldlineGlobe.tsx": "e4e9d20d2016fe192aa67ba7af0235f402bc09e53aeec028f94f7b11903e1faa",
+      "docs/team/STATUS.md": "30dcc257f014c91750639cf75b8863d8f58f49cda658c0bd85bb002f6cf3e67f"
+    },
+    "self_hash": "c4486b4ba7f0c8fd93dd3b5cc9ae7cac8479b19075e6fb92ff65f9c1d1e61995"
+  },
+  "harness_passed": true,
+  "post_edit_passed": false,
+  "next_recipient": {
+    "agent": "Polaris",
+    "designation": "α-OPS-00"
+  }
+}
