@@ -1,5 +1,7 @@
 # Globe Ontology
 
+> **SUPERSEDED · 2026-05-15.** This document is v0.1. The canonical source is `docs/prds/00-globe-ontology-1.2.md` (v1.3). Do not implement against v0.1. Retained for changelog provenance only.
+
 > Status: v0.1 — 2026.05.12
 > Companion: `docs/00-netra-character.md`, `docs/00-atlas-boot.md`, PRD 0 (worldline master), PRD 01 (entries), PRD 03 (photos)
 > Audience: implementers, content authors, future contributors, and runtime systems that must reason about the globe's spatial model.

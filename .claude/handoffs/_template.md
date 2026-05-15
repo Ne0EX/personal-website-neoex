@@ -12,6 +12,18 @@
 
 <One paragraph. What is this handoff about? Reference the TASK that authorized it.>
 
+## vision fidelity
+
+<Required for brand-bearing work. If this task does not touch Globe, ATLAS, Hero, Nav, NETRA, article surfaces, photo surfaces, search, or the digital-garden navigation model, write `not applicable`.
+
+When applicable, include:
+- soul baseline · approved artifact(s), exact file/path/section
+- aesthetic invariants · which items from `docs/team/VISION-FIDELITY.md` must survive
+- Peat signal · short quote or paraphrase of Peat's intent
+- allowed evolution · what may change from the baseline
+- forbidden dilution · what must not happen even if the feature works
+- rendered checkpoint · screenshot/prototype/browser review required before acceptance>
+
 ## what i did
 
 <List every meaningful step. Be specific. "I implemented audience-fork screen" is too vague. "I scaffolded components/AudienceFork.tsx with two-path layout, wired into PageShell to render after BootSequence, added wl:audience-path to localStorage on selection, and ensured hydration safety by reading localStorage in useEffect rather than initial render" is the level of detail expected.

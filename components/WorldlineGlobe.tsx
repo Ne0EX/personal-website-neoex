@@ -15,6 +15,7 @@ import {
   latLonToVec3 as geoLatLonToVec3,
   netraCoordFromCameraPosition,
 } from "@/lib/globe-coordinates";
+import { WL_STRATUM_EVENT, type StratumChangeDetail } from "@/lib/client-state/globe-store";
 
 /**
  * WorldlineGlobe — A.T.L.A.S. (Archive · Topology · Localizer · Atlas Surface).
@@ -691,6 +692,18 @@ export function WorldlineGlobe() {
   const selectedIdRef = useRef<string | null>(null);
   useEffect(() => { stratumRef.current = stratum; }, [stratum]);
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
+
+  // Broadcast stratum changes to the module-level globe-store so Nav and
+  // other client components can read the current stratum without coupling
+  // directly to this component's state.
+  // Note: additive only — does not affect rendering or camera logic.
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent<StratumChangeDetail>(WL_STRATUM_EVENT, {
+        detail: { stratum },
+      })
+    );
+  }, [stratum]);
 
   const entryById = useMemo(
     () => Object.fromEntries(RECENT_ENTRIES.map((e) => [e.fileNum, e])),

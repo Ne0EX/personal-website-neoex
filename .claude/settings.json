@@ -33,6 +33,24 @@
             "command": "bash .claude/hooks/post-edit.sh"
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/postuse-agent-counter.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/prototype-ready.sh"
+          }
+        ]
       }
     ],
     "Stop": [
@@ -41,6 +59,14 @@
           {
             "type": "command",
             "command": "if [ -n \"$CLAUDE_TASK_ID\" ]; then bash .claude/hooks/sign-work.sh \"$CLAUDE_TASK_ID\"; fi"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/save-checkpoint.sh stop"
           }
         ]
       }

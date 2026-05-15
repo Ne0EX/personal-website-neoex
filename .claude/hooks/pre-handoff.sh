@@ -69,13 +69,118 @@ if [[ "$SIG_NEXT_DES" != "$RECIPIENT_DESIGNATION" ]]; then
   exit 7
 fi
 
-# 4. Visual-diff approval if UI changed
+# 4a. STATUS.md write guard
+#
+# docs/team/STATUS.md is shared Polaris-maintained state.  Concurrent agent
+# writes are the confirmed root cause of the STATUS.md modification race
+# (DIAG-2026-05-15-status-md-race).  This guard enforces the write protocol:
+#
+#   - Root Polaris (AGENT=polaris) may write freely — exempt from this check.
+#   - Any other agent that lists STATUS.md in files_touched must have made a
+#     SECTION-SCOPED edit only (not a full-file rewrite).  Heuristic: if the
+#     net line delta vs HEAD exceeds STATUS_MAX_LINES it is treated as a
+#     full-file rewrite and the handoff is blocked (exit 11).
+#
+# The safe path for non-Polaris agents: write the STATUS section to
+#   docs/team/.status-drafts/<task_id>--<agent>.md
+# Root-Polaris merges all drafts into STATUS.md in a single Edit.
+#
+# STATUS_MAX_LINES rationale: a normal section-append is 20-40 lines.
+# 80 is generous headroom.  Anything beyond 80 is structurally a rewrite.
+
+STATUS_MAX_LINES=80
+STATUS_GUARD_FILE="docs/team/STATUS.md"
+
+if jq -r '.files_touched | .[]' "$SIG_FILE" | grep -qF "$STATUS_GUARD_FILE"; then
+  if [[ "$AGENT" != "polaris" ]]; then
+    HEAD_LINES=0
+    CURRENT_LINES=0
+    if git cat-file -e HEAD:"$STATUS_GUARD_FILE" 2>/dev/null; then
+      HEAD_LINES=$(git show HEAD:"$STATUS_GUARD_FILE" | wc -l | tr -d ' ')
+    fi
+    if [[ -f "$STATUS_GUARD_FILE" ]]; then
+      CURRENT_LINES=$(wc -l < "$STATUS_GUARD_FILE" | tr -d ' ')
+    fi
+    NET_DELTA=$(( CURRENT_LINES - HEAD_LINES ))
+    [[ "$NET_DELTA" -lt 0 ]] && NET_DELTA=$(( -NET_DELTA ))
+
+    if [[ "$NET_DELTA" -gt "$STATUS_MAX_LINES" ]]; then
+      echo "pre-handoff: STATUS.md write guard — BLOCKED (exit 11)" >&2
+      echo "  agent '$AGENT' net STATUS.md delta = $NET_DELTA lines (max $STATUS_MAX_LINES)." >&2
+      echo "  A delta this large indicates a full-file rewrite, which causes the" >&2
+      echo "  parallel-write race (DIAG-2026-05-15-status-md-race)." >&2
+      echo "" >&2
+      echo "  SAFE PATH:" >&2
+      echo "    1. Revert your STATUS.md edits." >&2
+      echo "    2. Write your section to:" >&2
+      echo "         docs/team/.status-drafts/${TASK_ID}--${AGENT}.md" >&2
+      echo "    3. Polaris merges all drafts → STATUS.md in a single Edit." >&2
+      echo "" >&2
+      echo "  EXCEPTION: if Polaris explicitly authorized a large STATUS.md write," >&2
+      echo "  request that Polaris run the merge (AGENT=polaris bypasses this guard)." >&2
+      exit 11
+    fi
+  fi
+fi
+
+# 4b. Visual-diff approval if UI changed
 if jq -r '.files_touched | .[]' "$SIG_FILE" | grep -qE '^(app|components)/'; then
   VIS_STATUS=".claude/visual-diffs/${TASK_ID}/STATUS"
   if [[ ! -f "$VIS_STATUS" || "$(cat "$VIS_STATUS")" != "betelgeuse-approved" ]]; then
     echo "pre-handoff: UI changed but visual-diff not approved by Betelgeuse" >&2
     echo "  status: $(cat "$VIS_STATUS" 2>/dev/null || echo missing)" >&2
     exit 8
+  fi
+fi
+
+# 4c. Prototype port checklist — required when Betelgeuse hands off to Sirius
+#     with prototype files in files_touched.
+#
+# When Betelgeuse (designer) hands to Sirius (implementer) AND the handoff includes
+# prototype paths, Sirius needs a structured port checklist to address production
+# concerns (hydration, types, a11y, motion, SSR) that don't appear in a vanilla
+# HTML prototype. Without this checklist, soul-loss occurs silently at porting time.
+#
+# Required fields when triggered:
+#   - production target path (which app/* or components/* file Sirius writes)
+#   - production concerns to address (hydration · types · a11y · motion · SSR safety)
+#   - expected diff tolerance (how much visual drift from prototype is acceptable)
+#   - rendered checkpoint path (Playwright screenshot from prototype run)
+#
+# Triggered when: source agent = betelgeuse AND recipient = sirius AND
+#                 files_touched contains a prototype path.
+
+PROTO_CHECKLIST_REQUIRED=false
+if [[ "$AGENT" == "betelgeuse" && "$RECIPIENT_LC" == "sirius" ]]; then
+  if jq -r '.files_touched | .[]' "$SIG_FILE" | grep -qE '^(prototypes/|\.claude/visual-diffs/.*/prototype/)'; then
+    PROTO_CHECKLIST_REQUIRED=true
+  fi
+fi
+
+if $PROTO_CHECKLIST_REQUIRED; then
+  if [[ -f "$HANDOFF_FILE" ]]; then
+    if ! grep -qiE '^##\s+prototype\s+port\s+checklist' "$HANDOFF_FILE"; then
+      echo "pre-handoff: Betelgeuse → Sirius handoff with prototype path requires" >&2
+      echo "  '## prototype port checklist' section in the handoff document." >&2
+      echo "" >&2
+      echo "  Required fields:" >&2
+      echo "    - production target path   (which app/* or components/* Sirius writes)" >&2
+      echo "    - production concerns      (hydration · types · a11y · motion · SSR safety)" >&2
+      echo "    - expected diff tolerance  (acceptable visual drift from prototype)" >&2
+      echo "    - rendered checkpoint path (Playwright screenshot from prototype run)" >&2
+      echo "" >&2
+      echo "  Add the section to $HANDOFF_FILE and re-run pre-handoff.sh." >&2
+      exit 12
+    fi
+    # Validate that the checklist has at least the four required fields
+    CHECKLIST_FIELDS=("production target" "production concerns" "diff tolerance" "rendered checkpoint")
+    for field in "${CHECKLIST_FIELDS[@]}"; do
+      if ! grep -qiE "${field}" "$HANDOFF_FILE"; then
+        echo "pre-handoff: prototype port checklist is missing required field: '$field'" >&2
+        echo "  Add '$field:' to the '## prototype port checklist' section." >&2
+        exit 12
+      fi
+    done
   fi
 fi
 

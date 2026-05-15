@@ -52,3 +52,10 @@ next-env.d.ts
 # next.js dev server logs (runtime artifacts in visual-diff capture dirs)
 .claude/visual-diffs/*/dev.log
 .claude/visual-diffs/*/.devpid
+
+# checkpoint archive (timestamped immutable history) — keep rolling head SAVE-POINT.md, ignore archive
+# .gitkeep is tracked so the directory exists in fresh clones
+docs/team/.checkpoints/*.md
+
+# checkpoint session state (temp marker + agent counter temp dirs)
+.claude/.last-checkpoint

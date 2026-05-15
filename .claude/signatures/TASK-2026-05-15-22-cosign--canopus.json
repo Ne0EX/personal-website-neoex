@@ -1,0 +1,32 @@
+{
+  "signature_schema_version": 2,
+  "task_id": "TASK-2026-05-15-22-cosign",
+  "agent": "Canopus",
+  "agent_designation": "α-HRN-07",
+  "pre_cutover_codename": "Rigel",
+  "started_at": "2026-05-15T12:00:00Z",
+  "completed_at": "2026-05-15T12:30:00Z",
+  "files_touched": [
+    ".claude/signatures/TASK-2026-05-15-22-cosign--canopus.json"
+  ],
+  "summary": "Co-sign review of Procyon TASK-22 cross-territory touches to next.config.ts and package.json — accepted as-is.",
+  "steps": [
+    "read next.config.ts — turbopack:{} addition, correct, minimal, within harness-approved pattern",
+    "read package.json — --strict flag on content:build + prebuild, content:build + content:dev scripts; all mechanically required by velite integration, fail-closed pattern approved",
+    "read .claude/handoffs/from-procyon/TASK-2026-05-15-22--to-polaris.md — rationale reviewed, transparent flagging confirmed",
+    "read docs/team/FILE-OWNERSHIP.md — cross-cutting ownership rules verified; no amendment needed",
+    "read .claude/signatures/TASK-2026-05-15-22--procyon.json — hash integrity spot-checked",
+    "decision: accept as-is; no FILE-OWNERSHIP.md amendment required",
+    "ran sign-work (manual co-sign) — harness_passed: true"
+  ],
+  "hashes": {
+    "files_sha256": {},
+    "self_hash": "9fd63f5cfb3e01c396f21fa641aec1fb2c7ac6b4a7dac3fb82b573a1d502961d"
+  },
+  "harness_passed": true,
+  "post_edit_passed": true,
+  "next_recipient": {
+    "agent": "Polaris",
+    "designation": "α-OPS-00"
+  }
+}

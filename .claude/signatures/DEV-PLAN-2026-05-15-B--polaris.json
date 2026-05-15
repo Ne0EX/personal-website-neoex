@@ -1,0 +1,36 @@
+{
+  "signature_schema_version": 2,
+  "task_id": "DEV-PLAN-2026-05-15-B",
+  "agent": "Polaris",
+  "agent_designation": "α-OPS-00",
+  "pre_cutover_codename": "Mira",
+  "started_at": "2026-05-15T11:29:28Z",
+  "completed_at": "2026-05-15T11:29:28Z",
+  "files_touched": [
+    ".claude/handoffs/from-polaris/DEV-PLAN-2026-05-15-C.md",
+    ".claude/handoffs/from-polaris/DEV-PLAN-2026-05-15-D.md",
+    ".claude/signatures/DEV-PLAN-2026-05-15-A--polaris.json",
+    ".claude/signatures/DEV-PLAN-2026-05-15-B--polaris.json",
+    "docs/team/DEV-PLAN-2026-05-15/01-tasks-by-prd.md",
+    "docs/team/DEV-PLAN-2026-05-15/02-per-agent-workload.md"
+  ],
+  "summary": "DEV-PLAN section B · per-agent workload",
+  "steps": [],
+  "hashes": {
+    "files_sha256": {
+      ".claude/handoffs/from-polaris/DEV-PLAN-2026-05-15-C.md": "18ad2a38bfa2a432fbce9add7fef297e96e4424be47093f7022fa41bff9ef140",
+      ".claude/handoffs/from-polaris/DEV-PLAN-2026-05-15-D.md": "b8f416d8bfbe1677036c36d05645798de36b28c56c24b3cfad9a5a1a2268e835",
+      ".claude/signatures/DEV-PLAN-2026-05-15-A--polaris.json": "bee06d746ab6e106cb342d0cc1313ecaa393ae6cae956478e3da12550cba873c",
+      ".claude/signatures/DEV-PLAN-2026-05-15-B--polaris.json": "38ea3a01fae42989d13b363c6b34e85885da238e011bdca39320cf26dbd9dad5",
+      "docs/team/DEV-PLAN-2026-05-15/01-tasks-by-prd.md": "4fc27472521c98ea3102687388c51edb43aacbdf2f0c9a4f8260cfe5e48cef23",
+      "docs/team/DEV-PLAN-2026-05-15/02-per-agent-workload.md": "3b7a185cf978b4a47e2abe8ac6b9f6dd5b40ff3de0e198b591cd215228bc9263"
+    },
+    "self_hash": "0d228d1ce04eceffdc0574aa0226ad1088dc6cb965bc53dbe9e1e8d9778f6355"
+  },
+  "harness_passed": true,
+  "post_edit_passed": true,
+  "next_recipient": {
+    "agent": "Polaris",
+    "designation": "α-OPS-00"
+  }
+}

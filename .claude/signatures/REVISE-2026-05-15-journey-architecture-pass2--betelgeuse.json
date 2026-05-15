@@ -1,0 +1,30 @@
+{
+  "signature_schema_version": 2,
+  "task_id": "REVISE-2026-05-15-journey-architecture-pass2",
+  "agent": "Betelgeuse",
+  "agent_designation": "α-VIS-04",
+  "pre_cutover_codename": "Iris",
+  "started_at": "2026-05-15T11:21:21Z",
+  "completed_at": "2026-05-15T11:21:21Z",
+  "files_touched": [
+    ".claude/signatures/REVISE-2026-05-15-jarc-pass2--betelgeuse.json",
+    ".claude/signatures/REVISE-2026-05-15-journey-architecture-pass2--betelgeuse.json",
+    "docs/design/journey-architecture.md"
+  ],
+  "summary": "REVISE-2 journey-arch v1.1→v1.2 (Peat #3/#4/#5/#6 + Polaris #5 rule)",
+  "steps": [],
+  "hashes": {
+    "files_sha256": {
+      ".claude/signatures/REVISE-2026-05-15-jarc-pass2--betelgeuse.json": "c719e4435056f91c77dba33fde5a94ad3d62b9ef0a4fbc5f85e19a3bfe286f38",
+      ".claude/signatures/REVISE-2026-05-15-journey-architecture-pass2--betelgeuse.json": "84ad2935eee749629564fcdeff8d67fc40d493f58612d8800367371813924f0c",
+      "docs/design/journey-architecture.md": "42ac005d0b5998cd26f28c361bd5895cfdef5760640a0d4ba26e0d431f539cc1"
+    },
+    "self_hash": "57d12d3e7c3d8e0e6d9e27ffb7ae5fd1633d5ee2350bdd1d5dea37415968010a"
+  },
+  "harness_passed": true,
+  "post_edit_passed": true,
+  "next_recipient": {
+    "agent": "Polaris",
+    "designation": "α-OPS-00"
+  }
+}

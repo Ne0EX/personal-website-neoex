@@ -348,6 +348,8 @@ The live PoC does not have it. **And it shouldn't.** Here's why:
 
 `[Peat: confirm or redirect — this is the biggest decision in this doc and the one most likely to be revised. If you want a hard fork screen, this entire section flips back to PRD-02 as written.]`
 
+> **v1.3 reconcile note · 2026-05-15 (TASK-2026-05-15-16).** The running Globe ships four camera framings (`all` / `nex` / `neon` / `neo`) that toggle layer visibility — flagged in §0 ground rule 2 as a real divergence from the ontology's co-equal strata model. **PRD-00 v1.3 (`docs/prds/00-globe-ontology-1.2.md`) is now canonical; the toggleable framings retire per binding mechanic §1.3a + §7.2a migration plan (`docs/design/attractor-binding-mechanic.md`).** The as-shipped behavior recorded in §2.1 remains a valid historical record of the current PoC. Implementation TASKs 16–19 targeting the v1.3 renderer must consume the co-present strata model: `surfaceGroup` / `orbitGroup` / `axisGroup` always mounted; `cameraFocus` replaces `stratum` as a camera-aid-only pointer that never hides any group. PRD-00 v0.1 (`docs/prds/00-globe-ontology.md`) is SUPERSEDED and retained for changelog provenance only.
+
 ### 6.2 first-time vs returning — what differs
 
 **First-time:**
@@ -630,6 +632,9 @@ The following decisions are tagged `[Peat: confirm or redirect]` throughout. Lis
 
 Any one of these can flip; the rest of the doc would re-thread cleanly.
 
+> **2026-05-15 update — TASK-16 v1.3 ontology reconciliation.** #2 (§1 M6 · AttractorFields ↔ Globe two-way binding) — RESOLVED 2026-05-15 via TASK-14 binding mechanic spec at `docs/design/attractor-binding-mechanic.md`. The canonical binding contract lives in the separate doc. Journey-arch §2.2 node glyphs remain canonical; the binding doc references but does not redesign them. Additionally: PRD-00 v1.3 (`docs/prds/00-globe-ontology-1.2.md`) is confirmed canonical; v0.1 (`docs/prds/00-globe-ontology.md`) is SUPERSEDED. The §6 strata-divergence flag (§0 ground rule 2) is resolved: toggleable framings retire per binding §1.3a + §7.2a migration plan; implementation TASKs 16–19 target the v1.3 co-present renderer. The as-shipped four-framing PoC record in §2.1 is preserved as historical.
+
 ---
 
 *betelgeuse · α-VIS-04 · the Red Sentinel · TASK-2026-05-15-08 · opus tier · journey-architecture v1.0*
+*reconcile note appended 2026-05-15 · TASK-2026-05-15-16 · v1.3 ontology closes §0 ground rule 2 gap*

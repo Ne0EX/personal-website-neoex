@@ -43,6 +43,9 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 ! `app/api/**` — Altair
 ! `app/globals.css` — Betelgeuse
 ! `lib/netra/**` — Arcturus
+! `prototypes/**` — Betelgeuse owns; Sirius CANNOT write (clean ownership; prevents accidental "shortcut" where Sirius edits the prototype instead of porting properly)
+! `docs/design/prototypes/**` — Betelgeuse owns; Sirius reads as visual reference only
+! `.claude/visual-diffs/**/prototype/**` — Betelgeuse owns; Sirius reads as source of truth only
 
 > Server actions inside `app/**` route directories: Sirius can write the file shell but every `'use server'` block must be authored by Altair and carry a `// server-action: altair` marker on the export. Algol audits this.
 
@@ -83,11 +86,21 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 - `app/globals.css`
 - `tailwind.config.*` (token-level extends; not utility wiring)
 - `docs/design/**`
+- `docs/design/prototypes/**` (interactive HTML/CSS/JS prototypes — design artifacts, not production code)
 - `.claude/visual-diffs/<task_id>/REVIEW.md`
+- `prototypes/**/*.html`
+- `prototypes/**/*.css`
+- `prototypes/**/*.js`
+- `prototypes/**/*.md`
+- `.claude/visual-diffs/**/prototype/**`
 
 ! Component implementation (`.tsx` files) — Sirius
+! `prototypes/**/*.ts` — FAIL · prototypes must stay vanilla; no TypeScript (prevents Next-importable artifacts)
+! `prototypes/**/*.tsx` — FAIL · prototypes must stay vanilla; no JSX/TypeScript
 
 > Betelgeuse owns the design tokens at the CSS variable level. Tailwind utility classes Sirius applies in `.tsx` files are not Betelgeuse's territory (Sirius applies; Betelgeuse specifies). But the `@theme` block, the `:root` variables, and any `globals.css` rule that defines visual identity belong to Betelgeuse.
+>
+> Betelgeuse also owns the prototype layer: standalone HTML/CSS/JS files under `prototypes/**` and per-task visual-diff prototypes under `.claude/visual-diffs/**/prototype/**`. Prototypes are the rendered ground-truth that Sirius ports from. They must remain vanilla (no TypeScript, no JSX, no Next.js imports, no `@/` aliases) so they cannot be accidentally imported into the production graph.
 
 ---
 
@@ -156,6 +169,52 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 ! Frontmatter of MDX files — Procyon; Vega writes body only
 
 > Vega's authority is over words, not files. She cannot push edits directly to Arcturus's prompt files or Polaris's task documents — she writes proposed edits as a handoff, the owner integrates. Body content of MDX files is the only direct write authority Vega has. For `.claude/agents/*.md` prose bodies, Vega holds sign-off authority (same as NETRA prompts and AGENTS.md prose) but Canopus is the direct writer for frontmatter; prose edits by the named agent require Vega approval before merge.
+
+---
+
+## Prototype layer — territory contract
+
+> Introduced 2026-05-15 · TASK-2026-05-15-META-10 · Canopus
+
+The prototype layer is Worldline's mechanism for rendered-artifact-as-ground-truth handover from design to implementation. Betelgeuse ships a working HTML/CSS/JS prototype; Sirius ports it to production TypeScript with production concerns (hydration, types, a11y, motion, SSR). The prototype is Sirius's source of truth — specs are secondary annotation.
+
+### Paths
+
+| Path | Owner | Notes |
+|------|-------|-------|
+| `prototypes/**/*.html` | Betelgeuse | Standalone HTML prototypes |
+| `prototypes/**/*.css` | Betelgeuse | Prototype-scoped stylesheets |
+| `prototypes/**/*.js` | Betelgeuse | Vanilla JS only — no TS, no Next imports |
+| `prototypes/**/*.md` | Betelgeuse | Per-prototype README (required by discipline rail) |
+| `.claude/visual-diffs/**/prototype/**` | Betelgeuse | Per-task iteration prototypes |
+| `prototypes/.gitkeep` | Canopus | Directory establishment |
+
+### Constraint matrix
+
+| Agent | prototypes/** | Read | Write |
+|-------|--------------|------|-------|
+| Betelgeuse | HTML/CSS/JS/MD | yes | yes — vanilla only |
+| Sirius | all | yes (reads as ground truth) | NO — blocked by territory rail |
+| Algol | all | yes (diff audit) | NO |
+| Canopus | .gitkeep | yes | yes (.gitkeep only) |
+| All others | all | yes | NO |
+
+### Discipline rules (enforced by audit-prototype-discipline.sh)
+
+1. No `.ts` or `.tsx` files in `prototypes/**` — TypeScript must not enter the prototype layer (prevents accidentally importable artifacts)
+2. No `from 'next/...'` imports in any prototype JS
+3. No `import` statements referencing `@/` (Next.js path alias) in any prototype JS
+4. Each prototype directory must contain a `README.md` explaining what it represents
+
+### Handover flow
+
+```
+Betelgeuse ships prototypes/<surface>/index.html + README.md
+    ↓ handoff to Sirius (with ## prototype port checklist block)
+Sirius reads prototype as ground truth
+    ↓ writes components/*.tsx + app/* with production concerns
+Algol diff rail (META-11) catches translation drift
+```
 
 ---
 

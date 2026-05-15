@@ -11,6 +11,8 @@ peat (directive)
   ↓
 polaris (decomposes into TASK assignment, names 3-5 agents, defines parallelism)
   ↓
+vision fidelity gate (brand-bearing work only: soul baseline + invariants + rendered checkpoint)
+  ↓
 .claude/handoffs/from-polaris/TASK-<id>.md  ←── this is the contract
   ↓
 [ named agents pick up in parallel ]
@@ -46,6 +48,25 @@ Skipping this step yields INTEGRITY-PARTIAL signatures because:
 This pattern was confirmed across three consecutive tasks: TASK-2026-05-15-08 (Betelgeuse's `journey-architecture.md` absent from signature), TASK-2026-05-15-12 (Canopus's five audit scripts absent), and TASK-2026-05-15-12-audit (Algol's QA report absent). Algol audits `pre-task.sh` baseline presence as part of the U4 hook trail check.
 
 Cross-reference: `.claude/hooks/pre-task.sh` for implementation; `docs/harness/RAIL-DEFINITIONS.md` for the baseline mechanism docs.
+
+---
+
+## Step 0.5 · Vision fidelity gate for brand-bearing work
+
+Before Polaris dispatches any TASK that touches Globe, ATLAS, Hero, Nav, NETRA, article surfaces, photo surfaces, search, or the digital-garden navigation model, Polaris must read `docs/team/VISION-FIDELITY.md` and add a `## vision fidelity` block to the assignment.
+
+This gate exists because Peat identified a hidden failure mode: implementation can preserve features while diluting the product's brand, voice, and soul. The team must prevent semantic compression loss before work begins, not after the rendered artifact has drifted.
+
+The assignment must name:
+
+- the **soul baseline** (for Globe/ATLAS work, include `/Users/neospiritth/Downloads/Worldline Globe v7.html`; for broader site work, include the main branch web)
+- the **aesthetic invariants** that must survive
+- the **Peat signal** being preserved
+- the **allowed evolution**
+- the **forbidden dilution**
+- the **rendered checkpoint** required before acceptance
+
+If the task is not brand-bearing, the handoff may write `not applicable` in the vision fidelity section. If it is brand-bearing and the section is missing, Algol treats it as an acceptance defect and returns the work to Polaris for re-cut.
 
 ---
 

@@ -60,7 +60,25 @@ In your Claude Code config (`~/.claude/settings.json` or per-project `.claude/se
 
 ### Codex
 
-Codex's hook configuration is more limited. Wire what you can in `~/.codex/config.toml` under `[hooks]`; what cannot be auto-fired must be invoked manually by the agent at the named pause points. Codex agents who skip hooks will fail at Algol's signature audit.
+Project-local Codex hooks are wired in `.codex/hooks.json`, with `.codex/config.toml`
+enabling the hook feature for this repo layer. Codex discovers this only when the
+project is trusted; run `/hooks` in Codex after startup to review/trust any newly
+changed non-managed hooks.
+
+Current Codex wiring:
+
+- `SessionStart` → `.codex/hooks/genesis-session-start.sh`
+  - injects the G.E.N.E.S.I.S roster, `.claude/AGENTS.md` operating frame, and default Polaris persona
+- `UserPromptSubmit` → `.claude/hooks/agent-name-trigger.sh`
+  - loads the addressed agent persona on codename prompts
+- `PostToolUse` (`apply_patch|Edit|Write`) → `.codex/hooks/post-edit-bridge.sh`
+  - adapts `post-edit.sh` output to Codex's JSON hook contract
+- `Stop` → `.codex/hooks/stop-sign-work.sh`
+  - signs only when `WL_TASK_ID` or `CLAUDE_TASK_ID` is explicitly set; otherwise no-ops
+
+What cannot be reliably inferred (for example the current task id at task start)
+must still be invoked manually at the named pause points. Codex agents who skip
+hooks will fail at Algol's signature audit.
 
 ### Manual
 

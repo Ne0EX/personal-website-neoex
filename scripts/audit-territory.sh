@@ -24,6 +24,16 @@
 #   .claude/signatures/TASK-*--<WL_AGENT>.json — agent's own signature files
 #   .claude/hook-logs/**                       — runtime artifacts (gitignored)
 #
+# Prototype layer (introduced TASK-2026-05-15-META-10):
+#   prototypes/**/*.html, *.css, *.js, *.md   — Betelgeuse PASS
+#   .claude/visual-diffs/**/prototype/**       — Betelgeuse PASS
+#   prototypes/**/*.ts, *.tsx                 — FAIL (unassigned; no TypeScript in prototype layer)
+#   prototypes/** by Sirius                   — FAIL (Sirius cannot write to prototype layer)
+#
+#   Enforcement is dynamic: this script reads FILE-OWNERSHIP.md which carries the globs
+#   for Betelgeuse's prototype territory. No hard-coded logic needed — the territory map
+#   drives the rail. See docs/team/FILE-OWNERSHIP.md §Prototype layer for the constraint matrix.
+#
 # Ambiguity policy:
 #   If a touched file matches no agent's territory in FILE-OWNERSHIP.md, this script
 #   returns FAIL with "file:unassigned". Polaris routes ownership in a follow-up handoff.

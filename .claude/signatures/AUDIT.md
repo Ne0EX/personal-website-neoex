@@ -383,3 +383,171 @@ TASK-13 (fix sign-work.sh) is now justified by two data points, not one.
 - Systemic pattern noted for TASK-13 sign-work.sh fix
 
 ---
+
+## 2026-05-15 · TASK-2026-05-15-14--betelgeuse.json
+
+**auditor** · Algol (α-VER-06)
+**verdict** · PASS WITH NOTED EXCEPTIONS (D.3.3 platform-stability audit — no stall)
+**full report** · `docs/qa/REPORTS/TASK-2026-05-15-14.md`
+
+### step 1 — signature integrity
+
+**schema version:** `signature_schema_version: 2` — present. All v2 required fields present.
+
+**self_hash recomputation** (canonical method: `jq -cS 'del(.hashes.self_hash)' | sha256sum`):
+
+```
+computed  : 8e078c82e66b372f3b6c719e64605346749b64d084bc19951993367333e54dda
+claimed   : 8e078c82e66b372f3b6c719e64605346749b64d084bc19951993367333e54dda
+verdict   : MATCH
+```
+
+Note: Python `json.dumps(sort_keys=True, separators=(',', ':'))` (SCHEMA.md Python reference)
+and `jq -cS` (SCHEMA.md bash reference) produce DIFFERENT bytes — jq adds a trailing newline
+(0x0a); Python does not. The two reference implementations in SCHEMA.md disagree, producing
+different hashes for the same payload. This is a pre-existing SCHEMA inconsistency (noted in
+prior audits). The jq reference matches the actual sign-work.sh implementation and is used as
+authoritative here. HOOK PROPOSAL to Canopus queued below.
+
+**next_recipient:** `α-OPS-00` = Polaris — on roster. PASS.
+
+**pre_cutover_codename:** `Iris` → Betelgeuse (α-VIS-04) — Nomenclature table confirms. PASS.
+
+**files_sha256 — working tree audit (36 files):**
+
+Primary deliverable:
+- `docs/design/attractor-binding-mechanic.md` — MATCH. The canonical output.
+- `docs/design/journey-architecture.md` — MISMATCH (expected: post-TASK-14 modifications by TASK-16).
+
+Concurrent-task carry-over (sign-work.sh correctly captured TASK-14 new/modified; subsequent concurrent tasks modified these):
+- `docs/team/STATUS.md` — MISMATCH (post-sign update by concurrent task; recurrent pattern).
+- `.claude/signatures/TASK-2026-05-15-21--arcturus.json` — MISMATCH (Arcturus TASK-21 completed after TASK-14 signed; its signature file was updated post-snapshot).
+- `velite.config.ts` — MISMATCH (also in Procyon TASK-22 files_touched; modified post-sign by concurrent task).
+- `components/Nav.tsx` — MISMATCH (in Arcturus TASK-21 files_touched; modified post-sign by concurrent task).
+
+Double-attribution (files in BOTH TASK-14 and TASK-22/21 files_touched):
+- `velite.config.ts`, `next.config.ts`, `package.json`, `content/photos/2026-04-chiang-mai/roll.mdx` — all in both TASK-14 and TASK-22 (Procyon). These were created by Procyon's concurrent TASK-22 and captured by TASK-14's sign-work.sh as "new since baseline."
+- Multiple component and content files — similarly in both TASK-14 and TASK-21 (Arcturus).
+
+Root cause: concurrent tasks running during TASK-14 session. The sign-work.sh baseline algorithm correctly excluded files that were unchanged since the TASK-14 pre-task.sh snapshot, but files created or modified by OTHER concurrent agents during TASK-14 were captured as "new in TASK-14." Betelgeuse explicitly flagged this pattern in the return handoff §known deviations. This is the systemic concurrent-attribution problem first logged in TASK-13 D1-D4.
+
+All 31 remaining files in files_touched: MATCH (hashes consistent with sig at sign time).
+
+**out-of-Betelgeuse-territory files in files_touched:** Multiple (components/, content/, lib/client-state/, velite.config.ts, package.json, next.config.ts, scripts/). NONE were modified by TASK-14 itself — all are concurrent-task carry-overs per baseline cross-check. TASK-14 deliverables are strictly `docs/design/**`. Territory compliance is CLEAN for actual work done.
+
+**Handoff self_hash discrepancy:** Return handoff claims `b6c583da…`; JSON file contains `8e078c82…`; jq recomputation produces `8e078c82…`. The handoff was written in an intermediate signing state; the JSON is canonical. Not a failure — the JSON self_hash is internally consistent.
+
+**STEP 1 VERDICT: PASS-WITH-NOTED-EXCEPTIONS (all exceptions are concurrent-task artifacts, not TASK-14 malfeasance)**
+
+### step 2 — acceptance criteria
+
+All 9 required sections present (mapped to doc §0–§11 which are more comprehensive than the template):
+
+| criterion | result |
+|---|---|
+| All 9 sections present | PASS (§0 framing + §1 cosmology + §2 binding contracts + §3 vocabulary + §4 state machine + §5 motion + §6 mobile + §7 handoff + §8 audit + §9 cross-ref + §10 non-goals + §11 open items) |
+| v1.3 ontology §1.1 co-equality honored | PASS — §1.3 + §1.3a explicitly encode three peer sets; no fourth FULL-as-parent |
+| v1.3 §"This ontology supersedes" honored | PASS — §1.3a explicitly retires toggleable framings; §7.1 v1.1 note mandates same-PR retirement per §10.4 sequence |
+| §10.4 migration order honored | PASS — §7.1 specifies: (1) Sirius rebuilds under feature flag; (2) binding ships in same PR; (3) legacy toggle UI retires in that same PR |
+| FEEDBACK directions explicitly folded in | PASS — §1.6 table maps each of the three Peat locked directions to exact spec sections |
+| Anti-Codex audit 0 FAIL | PASS — 0 FAILs; 3 partials (2 pre-existing DM loops, 1 delegated mobile FOCUS placement) |
+| Signature v2 clean, both gates green | PASS — harness_passed: true, post_edit_passed: true |
+| Under 800 lines | PASS — 762 lines |
+
+**STEP 2 VERDICT: PASS**
+
+### step 3 — quality bar
+
+- No new tokens introduced (var(--accent-orange), var(--ink-faint) only; Three.js `0xd4602a` is existing constant). PASS.
+- No raw CSS hex in spec. Three.js integer constants are not CSS tokens. PASS.
+- No new fonts. PASS.
+- No code written (spec-only). lib/binding/attractor.ts and lib/store/globe.ts do not exist — confirmed. PASS.
+- lib/client-state/globe-store.ts appears in files_touched but was NOT modified by TASK-14 (concurrent carry-over; still uses legacy stratum typing, not cameraFocus). PASS.
+- Motion calibration all within anti-Codex buckets (see §8 audit summary). PASS.
+- DivergenceMeter partials (pre-existing decorative loops) — accepted as out-of-scope; both predate TASK-14 and are defensible per meter's instrument role. PASS.
+- Mobile FOCUS placement partial — appropriately delegated to Sirius during the v1.3 renderer rebuild. PASS.
+- Body-transparency 600ms tween: slightly exceeds the 300–500ms overlay bucket; falls at the low end of the 700–1400ms camera bucket. Betelgeuse's own audit notes "slight over, defensible." Accepted: the transparency modulation is a global-body transition, semantically closer to a camera/render-mode transition than an overlay. NOTES (not blocking).
+
+**STEP 3 VERDICT: PASS WITH NOTES**
+
+### step 4 — regression scan
+
+TASK-14 is spec-only; no code changes. No npm run test or build regression possible from a markdown file. The doc's §7 implementation handoff is pre-implementation; no existing tests can break from a spec doc. PASS BY DEFINITION.
+
+### step 5 — a11y
+
+No UI surface shipped. Spec documents a11y requirements (keyboard nav, aria-live, 44×44 touch targets, screen-reader announcements) for Sirius's implementation TASK. PASS BY DEFINITION (Algol will re-audit at TASK-19 Globe binding implementation).
+
+### step 6 — cross-impact
+
+- journey-architecture.md §13 cross-reference: confirmed present in the working-tree version (§13 now references attractor-binding-mechanic.md and TASK-14). PASS.
+- attractor-binding-mechanic.md internally consistent; §7.6 "what Sirius must NOT do" list is comprehensive and correctly prohibits attractor→DivergenceMeter subscription, fourth state variable, reverse-binding on pin-click, new tokens, axis-node edges, and decorative animation. PASS.
+- Downstream TASK identifiers cited correctly (TASK-09, TASK-10, TASK-11, TASK-16, TASK-19, TASK-31, TASK-33, TASK-63). PASS.
+
+**STEP 6 VERDICT: PASS**
+
+### schema inconsistency — SCHEMA-FAIL flagged to Canopus
+
+SCHEMA.md provides two reference implementations for self_hash:
+- Python: `json.dumps(sort_keys=True, separators=(',', ':'))` — NO trailing newline
+- bash/jq: `jq -cS 'del(.hashes.self_hash)' | sha256sum` — INCLUDES trailing newline (jq adds 0x0a)
+
+These produce different hashes for the same payload. The sign-work.sh uses jq (bash reference), making all existing v2 signatures computed with the trailing-newline form. A pure-Python verifier following the SCHEMA.md Python reference will incorrectly report INTEGRITY-FAIL on every correctly-signed payload.
+
+This is a SCHEMA.md documentation defect, not a sign-work.sh bug. The fix: add `| tr -d '\n'` to the bash reference, or change the Python reference to strip the trailing newline from the jq output when validating (i.e., treat jq output as authoritative). Either way, the two references must agree.
+
+Routing to Canopus as SCHEMA-FAIL.
+
+### concurrent-attribution systemic note
+
+The double-attribution pattern (TASK-14 and TASK-22 both claiming velite.config.ts, package.json, next.config.ts) has now appeared in multiple concurrent-task sessions. The baseline mechanism works correctly for sequential tasks; for concurrent tasks that overlap sign-time, it cannot prevent cross-attribution. This is a known harness limitation noted in D.3.3. No action from Algol — the pattern is documented and Canopus is tracking.
+
+### action taken
+
+- Wrote AUDIT.md entry (this section)
+- Wrote QA report at `docs/qa/REPORTS/TASK-2026-05-15-14.md`
+- Sending PASS handoff to Polaris
+- SCHEMA-FAIL to Canopus: two reference implementations in SCHEMA.md disagree on trailing newline
+- DivergenceMeter decorative loops: accepted as pre-existing/out-of-scope; no separate REVISE
+
+---
+
+## 2026-05-15 · TASK-2026-05-15-BRC--algol.json (self-audit)
+
+**auditor** · Algol (α-VER-06) (self-audit — no external auditor for Algol's own tasks)
+**verdict** · INTEGRITY-PARTIAL (systemic concurrent-attribution; deliverable present and correct)
+
+### self_hash
+
+Recomputed via `jq -cS 'del(.hashes.self_hash)' | sha256sum`:
+`fc3acbeea9e9d68eebe16bb12f004bfdb36dde32a8a83d8608c0996475b16d64`
+
+Claimed in signature: `fc3acbeea9e9d68eebe16bb12f004bfdb36dde32a8a83d8608c0996475b16d64`
+
+**MATCH** — self_hash internally consistent.
+
+### files_sha256 — working tree audit
+
+Primary deliverable confirmed present:
+- `docs/team/BRAND-REGRESSION-CHECKLIST.md` — in files_touched, hash recorded. MATCH at sign time.
+- `.claude/handoffs/from-algol/TASK-2026-05-15-BRC--to-betelgeuse.md` — in files_touched, hash recorded. MATCH at sign time.
+
+Carry-over / concurrent-attribution files in files_touched (17 additional files):
+- Files created by other concurrent agents (SBA-1, SBA-2, SBA-3 signatures; META-4 signature; META-5/6/7/8/9 handoffs; soul-baseline docs; hooks; SAVE-POINT.md) — all present in files_touched because they were created after the pre-task.sh baseline was recorded, making them appear as new files attributable to this task.
+- This is the same systemic concurrent-attribution pattern documented in TASK-14 audit above. None of these files were authored by TASK-2026-05-15-BRC.
+
+### self-audit limitation note
+
+Algol auditing Algol's own signature is structurally weaker than a third-party audit. No independent auditor exists on this team for Algol's own work. The limitation is noted. Polaris is the designated escalation path if integrity of this signature is disputed.
+
+### steps field
+
+`steps` is an empty array `[]` in the signature. This is a known limitation of sign-work.sh's auto-generation behavior (same pattern as TASK-08). Steps are recorded in the conversation transcript, not auto-captured. Non-blocking; noted.
+
+### action taken
+
+- Self-audit entry written here
+- PASS handoff written at `.claude/handoffs/from-algol/TASK-2026-05-15-BRC--to-polaris.md`
+- Ratification handoff written to Betelgeuse at `.claude/handoffs/from-algol/TASK-2026-05-15-BRC--to-betelgeuse.md`
+
+---

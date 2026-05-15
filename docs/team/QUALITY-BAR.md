@@ -30,6 +30,20 @@ Each of these is a category. This bar names each category, makes the requirement
 
 ## Universal floor — every agent, every task
 
+### U0 · Vision fidelity for brand-bearing work
+
+Any task that touches the Worldline brand surface — Globe, ATLAS, Hero, Nav, NETRA, article surfaces, photo surfaces, search, or the overall digital-garden navigation model — must satisfy `docs/team/VISION-FIDELITY.md`.
+
+The short version:
+
+- identify the soul baseline before writing
+- preserve aesthetic invariants, not only feature requirements
+- name allowed evolution and forbidden dilution
+- include rendered checkpoints for UI
+- treat `Worldline Globe v7.html` as an approved soul baseline for ATLAS / Globe work
+
+Passing structural acceptance while losing the digital-garden feeling is a failure, not a polish issue.
+
 ### U1 · Signature integrity
 
 Every agent's signed work record (`.claude/signatures/<task>--<agent>.json`) must accurately reflect what they did, conforming to the v2 schema at `.claude/signatures/SCHEMA.md`. Algol audits. If the diff shows changes the signature does not list, that is the highest-severity failure on this team (an `INTEGRITY-FAIL` handoff). Polaris writes a postmortem regardless of the work's quality.

@@ -211,8 +211,9 @@ Six hooks live in `.claude/hooks/`. They are bash so they work under any CLI (Cl
 The full bar is at `docs/team/QUALITY-BAR.md`. The short version:
 
 - **Reference fidelity** — if the PRD specifies a structure (header / body / patches log / related branches), every element appears. Missing elements = reject.
+- **Vision fidelity** — brand-bearing work must satisfy `docs/team/VISION-FIDELITY.md`. Passing feature criteria while losing the digital-garden feeling = reject.
 - **Design system compliance** — every color must be a CSS variable from `app/globals.css`. Hardcoded hex outside the palette toggle = reject. Betelgeuse audits.
-- **Voice consistency** — NETRA's voice rules in PRD-05 are absolute. Lowercase, italic, terse. Any drift = reject. Vega audits.
+- **Voice consistency** — NETRA's character bible and voice rules are absolute. Preserve librarian-witness persona, instrument/companion separation, grounding, and bilingual register. Any flattening into generic assistant voice = reject. Vega + Arcturus audit.
 - **Patches log truth** — every modification to an entry's content increments its patches log. No silent edits.
 - **Accessibility floor** — Lighthouse a11y ≥ 95 on every entry template, 100 on the audience-fork screen.
 
@@ -227,10 +228,11 @@ If you are about to submit work that violates any of the above and you have a re
 3. `.claude/AGENTS.md` (this file)
 4. `.claude/agents/<your-codename>.md` (your own persona)
 5. `docs/team/QUALITY-BAR.md`
-6. `docs/team/FILE-OWNERSHIP.md`
-7. `AGENTS.md` at repo root (Next 16 caveats — verify framework APIs against `node_modules/next/dist/docs/` before writing route/server code)
-8. `.claude/signatures/SCHEMA.md` — only for agents who sign or audit (i.e., everyone)
-9. `.claude/CREW.md` — optional, for visual / lore reference only
+6. `docs/team/VISION-FIDELITY.md` — mandatory for brand-bearing work
+7. `docs/team/FILE-OWNERSHIP.md`
+8. `AGENTS.md` at repo root (Next 16 caveats — verify framework APIs against `node_modules/next/dist/docs/` before writing route/server code)
+9. `.claude/signatures/SCHEMA.md` — only for agents who sign or audit (i.e., everyone)
+10. `.claude/CREW.md` — optional, for visual / lore reference only
 
 Anything not derivable from these is a question for Polaris, not an assumption.
 
@@ -247,7 +249,7 @@ The five active PRDs (build order):
 4. PRD-04 · Triangulate search + RSS
 5. PRD-05 · NETRA chat (grounded)
 
-Reference set lives in `/mnt/project/`. The pilot UI draft at `frontend-ui-pilot-draft.md` is **non-canonical** — Betelgeuse references it but does not implement from it directly without Polaris's instruction.
+Reference set lives in `/mnt/project/` and in approved local artifacts named by Peat. The pilot UI draft at `frontend-ui-pilot-draft.md` is **non-canonical** unless Polaris names it in a TASK. The currently approved fidelity baselines are recorded in `docs/team/VISION-FIDELITY.md`; at this checkpoint they include the main branch web and `/Users/neospiritth/Downloads/Worldline Globe v7.html`.
 
 ---
 

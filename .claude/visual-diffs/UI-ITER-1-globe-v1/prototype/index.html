@@ -1,0 +1,1681 @@
+<!doctype html>
+<html lang="en" data-palette="teal">
+<head>
+<meta charset="utf-8"/>
+<title>Worldline Globe — v1 direction · UI-ITER-1</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="description" content="Betelgeuse · α-VIS-04 · rendered prototype · iteration 1 of UI-lock cycle"/>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=JetBrains+Mono:wght@300;400;500&family=Special+Elite&display=swap" rel="stylesheet">
+<!-- font fallback if CDN blocked: prototype still reads as instrument via system mono + serif -->
+
+<style>
+/* =============================================================
+   TOKEN VOCABULARY — mirrors app/globals.css (TEAL active).
+   Every value here is a token rebroadcast for the standalone
+   prototype. No new tokens are introduced — these are the
+   exact same names/values present in globals.css.
+   ============================================================= */
+:root{
+  /* Paper / surface */
+  --paper-base:    #E8E2D5;
+  --paper-warm:    #EDE7DA;
+  --paper-deep:    #D8CFB9;
+  --paper-bright:  #F0EBDD;
+  /* Ink — TEAL (active, main-branch web baseline) */
+  --ink-rgb:       31 80 99;
+  --ink-primary:   rgb(var(--ink-rgb));
+  --ink-soft:      rgb(var(--ink-rgb) / 0.5);
+  --ink-faint:     rgb(var(--ink-rgb) / 0.3);
+  --ink-hairline:  rgb(var(--ink-rgb) / 0.12);
+  --ink-dashed:    rgb(var(--ink-rgb) / 0.25);
+  /* NETRA accent */
+  --netra-rgb:     77 122 146;
+  --netra:         rgb(var(--netra-rgb));
+  --netra-soft:    rgb(var(--netra-rgb) / 0.55);
+  /* Accent */
+  --accent-orange: #D4602A;
+  --accent-orange-soft: rgba(212, 96, 42, 0.18);
+  /* Type */
+  --font-display:'Cormorant Garamond',serif;
+  --font-mono:'JetBrains Mono',ui-monospace,monospace;
+  --font-type:'Special Elite','JetBrains Mono',monospace;
+  --meta-size:9px;
+  --meta-tracking:0.3em;
+}
+[data-palette="ink"]{ --ink-rgb:26 40 50; --netra-rgb:79 110 128; }
+
+*{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{
+  min-height:100vh;
+  font-family:var(--font-mono); color:var(--ink-primary);
+  background:var(--paper-base);
+  /* Page-level paper base (was paper-deep with radial — now matches main-branch body background:var(--paper-base)) */
+  overflow:auto;
+}
+/* =============================================================
+   PAGE-LEVEL SHELL — restored per MAIN-DRIFT-AUDIT §1.1
+   Mirrors app/page.tsx structure: Nav + Hero + ATLAS frame + marginalia + scroll-meter + N badge.
+   ============================================================= */
+.page{
+  position:relative;
+  max-width:1240px; margin:0 auto;
+  padding:24px 28px 32px 28px;
+  min-height:100vh;
+}
+.page-corner-marks{
+  position:fixed; inset:14px; pointer-events:none; z-index:30;
+}
+.page-corner-marks::before, .page-corner-marks::after{
+  content:''; position:absolute; width:14px; height:14px;
+  border:1px solid var(--accent-orange);
+}
+.page-corner-marks::before{ top:0; left:0; border-right:none; border-bottom:none; }
+.page-corner-marks::after { bottom:0; right:0; border-left:none; border-top:none; }
+
+/* Top-edge scroll-meter rail — main-branch components/MarginaliaHUD.tsx ScrollMeter() */
+.scroll-meter{
+  position:fixed; top:0; left:0; right:0; height:2px; z-index:25;
+  background:repeating-linear-gradient(90deg,
+    var(--accent-orange) 0 6px, transparent 6px 12px);
+  opacity:0.45;
+}
+
+/* Right-edge vertical marginalia HUD — globals.css .marginalia */
+.marginalia{
+  position:fixed; right:6px; top:0; bottom:0; z-index:20;
+  width:22px; display:flex; flex-direction:column; justify-content:space-between;
+  align-items:center; padding:60px 0; pointer-events:none;
+  font-family:var(--font-mono); font-size:8.5px; letter-spacing:.32em;
+  color:var(--ink-soft); text-transform:uppercase;
+}
+.marginalia > span{
+  writing-mode:vertical-rl; transform:rotate(180deg);
+  white-space:nowrap;
+}
+.marginalia .ma-accent{ color:var(--accent-orange); font-weight:500; }
+
+/* N floating badge — main-branch fold shot bottom-left */
+.n-badge{
+  position:fixed; bottom:18px; left:18px; z-index:22;
+  width:36px; height:36px; border-radius:50%;
+  background:var(--ink-primary); color:var(--paper-base);
+  display:grid; place-items:center;
+  font-family:var(--font-display); font-style:italic; font-size:16px;
+  font-weight:500;
+  cursor:pointer; user-select:none;
+  transition:transform .15s ease, background .15s ease;
+}
+.n-badge:hover{ background:var(--accent-orange); transform:scale(1.06); }
+
+/* Nav strip — Nav.tsx structure */
+.nav-shell{
+  display:grid; grid-template-columns:1fr auto 1fr; align-items:start;
+  gap:24px; padding:8px 0 14px;
+  border-bottom:1px solid var(--ink-hairline);
+  font-family:var(--font-mono); font-size:9px; letter-spacing:.3em;
+  color:var(--ink-soft); text-transform:uppercase;
+}
+.nav-shell .nav-id  { text-align:left; line-height:1.6; }
+.nav-shell .nav-links{ display:flex; gap:18px; justify-content:center; padding-top:1px; }
+.nav-shell .nav-links a{
+  color:var(--ink-primary); text-decoration:none;
+  transition:color .15s ease;
+}
+.nav-shell .nav-links a:first-child{ color:var(--accent-orange); }
+.nav-shell .nav-links a:hover{ color:var(--accent-orange); }
+.nav-shell .nav-clock{ text-align:right; line-height:1.6; }
+.nav-shell .nav-id .acc{ color:var(--accent-orange); font-weight:500; }
+.nav-shell .nav-id .soft{ color:var(--ink-soft); }
+
+/* Hero strip — HeroBlock.tsx structure (compact mode for prototype) */
+.hero-strip{
+  display:grid; grid-template-columns:minmax(0,1fr) auto auto;
+  align-items:end; gap:32px; padding:22px 0 18px;
+  border-bottom:1px solid var(--ink-hairline);
+}
+.hero-tagrow{
+  display:flex; align-items:center; gap:12px;
+  font-family:var(--font-mono); font-size:9px; letter-spacing:.3em;
+  color:var(--ink-soft); text-transform:uppercase; margin-bottom:10px;
+}
+.hero-tagrow .acc{ color:var(--accent-orange); font-weight:500; }
+.hero-tagrow .rule{ display:inline-block; width:24px; height:1px; background:var(--accent-orange); }
+.hero-title{
+  font-family:var(--font-display); font-style:italic; font-weight:400;
+  font-size:30px; line-height:1.08; color:var(--ink-primary); margin:0;
+  letter-spacing:-.005em; max-width:680px;
+}
+.hero-title em{ color:var(--accent-orange); font-style:italic; }
+.hero-stack{
+  display:flex; gap:24px; font-family:var(--font-mono); font-size:8.5px;
+  letter-spacing:.18em; color:var(--ink-soft); text-transform:uppercase;
+  align-items:flex-end;
+}
+.hero-stack .cell{ display:flex; flex-direction:column; gap:3px; align-items:flex-start; }
+.hero-stack .cell .num{
+  font-family:var(--font-type); font-size:14px; letter-spacing:.04em;
+  color:var(--ink-primary);
+}
+.hero-stack .cell.is-alpha .num{ color:var(--accent-orange); }
+.hero-divergence{
+  border:1px solid var(--ink-hairline); padding:8px 11px;
+  background:rgba(240,235,221,.5); position:relative;
+  min-width:140px;
+}
+.hero-divergence::before, .hero-divergence::after{
+  content:''; position:absolute; width:8px; height:8px;
+  border:1px solid var(--accent-orange);
+}
+.hero-divergence::before{ top:-1px; left:-1px; border-right:none; border-bottom:none; }
+.hero-divergence::after { bottom:-1px; right:-1px; border-left:none; border-top:none; }
+.hero-divergence-label{
+  font-size:7.5px; letter-spacing:.32em; color:var(--ink-faint);
+  text-transform:uppercase; margin-bottom:5px;
+}
+.hero-divergence-num{
+  font-family:var(--font-type); font-size:22px; letter-spacing:.04em;
+  color:var(--ink-primary); line-height:1;
+}
+.hero-divergence-num .mid{ color:var(--accent-orange); }
+.hero-divergence-meta{
+  margin-top:5px; font-size:7.5px; letter-spacing:.18em;
+  color:var(--ink-soft); text-transform:uppercase;
+}
+
+/* Page-stack adjustments at narrower viewports */
+@media (max-width: 880px){
+  .page{ padding:16px 18px 24px; }
+  .nav-shell{ grid-template-columns:1fr 1fr; gap:14px; }
+  .nav-shell .nav-links{ grid-column:1 / -1; justify-content:flex-start; gap:14px; }
+  .hero-strip{ grid-template-columns:1fr; gap:14px; }
+  .hero-title{ font-size:24px; }
+  .hero-stack{ gap:18px; }
+  .marginalia{ display:none; }
+}
+@media (max-width: 600px){
+  .page{ padding:12px 14px 20px; }
+  .hero-title{ font-size:20px; }
+  .nav-shell .nav-clock{ font-size:8.5px; }
+}
+
+/* paper grain + scanlines — verbatim from globals.css .paper-canvas::before/::after */
+.paper-canvas{ position:relative; }
+.paper-canvas::before{
+  content:''; position:absolute; inset:0;
+  background-image:radial-gradient(circle at 1px 1px, rgb(var(--ink-rgb) / 0.08) 1px, transparent 0);
+  background-size:3px 3px; pointer-events:none; z-index:1; opacity:.6;
+}
+.paper-canvas::after{
+  content:''; position:absolute; inset:0;
+  background:repeating-linear-gradient(0deg, transparent 0, transparent 2px,
+    rgb(var(--ink-rgb) / 0.02) 2px, rgb(var(--ink-rgb) / 0.02) 3px);
+  pointer-events:none; z-index:2;
+}
+
+/* corner reticles — globals.css .corner-marks */
+.corner-marks{ position:absolute; inset:14px; pointer-events:none; z-index:6; }
+.corner-marks::before,.corner-marks::after{
+  content:''; position:absolute; width:14px; height:14px;
+  border:1px solid var(--accent-orange);
+}
+.corner-marks::before{ top:0; left:0; border-right:none; border-bottom:none; }
+.corner-marks::after { bottom:0; right:0; border-left:none; border-top:none; }
+
+/* =============================================================
+   THE INSTRUMENT — ATLAS frame as containing form (v7 .frame)
+   ============================================================= */
+.stage{
+  width:1180px; height:760px; position:relative;
+  transform-origin:top left;
+  /* Stage now sits within .page (page-level shell). Was centered via body grid;
+     reflow via transform-origin top-left so it anchors below the Hero strip. */
+  margin:22px 0 0;
+}
+.artifact{
+  position:absolute; inset:0; background:var(--paper-base);
+  border:1px solid var(--ink-hairline);
+  overflow:hidden;
+}
+.frame{
+  position:relative; z-index:3; height:100%;
+  display:grid; grid-template-rows:auto 1fr auto;
+  padding:24px 32px 22px;
+}
+
+/* HEAD — file strip */
+.frame-head{
+  display:flex; align-items:baseline; justify-content:space-between; gap:24px;
+  font-size:9.5px; letter-spacing:.22em; color:var(--ink-soft); text-transform:uppercase;
+  padding-bottom:12px; border-bottom:1px dashed var(--ink-dashed); white-space:nowrap;
+}
+.frame-head b{ color:var(--accent-orange); font-weight:500; letter-spacing:.26em; }
+.frame-head .head-l{ display:flex; align-items:baseline; gap:14px; }
+.frame-head .head-r{ display:flex; gap:24px; align-items:baseline; }
+.frame-head i{ color:var(--ink-primary); font-style:normal; font-family:var(--font-type); letter-spacing:.05em; }
+
+/* CONTENT ROW — left rail · globe · right rail (matches v7 ratios) */
+.content{
+  display:grid; grid-template-columns:220px minmax(0,1fr) 240px; gap:22px;
+  position:relative; padding:14px 0; min-height:0;
+}
+.legend,.readout,.globe-wrap{ min-width:0; }
+
+/* LEFT: cameraFocus hint + divergence card */
+.legend{ display:flex; flex-direction:column; gap:6px; font-size:10px; letter-spacing:.08em; }
+.legend-head{
+  font-size:8.5px; letter-spacing:.32em; color:var(--ink-faint);
+  text-transform:uppercase; margin-bottom:4px;
+}
+/* cameraFocus buttons — labelled "FRAMING" not "STRATA" per v1.3 ontology */
+.focus-btn{
+  appearance:none; background:transparent; border:1px solid var(--ink-hairline);
+  text-align:left; padding:11px 14px; font:inherit; color:var(--ink-primary); cursor:pointer;
+  display:grid; grid-template-columns:30px 1fr auto; align-items:center; gap:12px;
+  transition:border-color .25s, background .25s, color .25s; position:relative;
+}
+.focus-btn:hover{ border-color:rgba(212,96,42,.5); }
+.focus-btn.is-active{ border-color:var(--accent-orange); background:rgba(212,96,42,.06); }
+.focus-glyph{ width:30px; height:30px; display:grid; place-items:center; color:var(--ink-soft); }
+.focus-btn.is-active .focus-glyph{ color:var(--accent-orange); }
+.focus-id{ font-family:var(--font-mono); font-weight:500; font-size:11px; letter-spacing:.1em; display:block; }
+.focus-role{ font-size:8.5px; letter-spacing:.22em; color:var(--ink-faint); text-transform:uppercase; display:block; margin-top:3px; }
+.focus-key{
+  font-family:var(--font-type); font-size:9px; color:var(--ink-faint);
+  letter-spacing:.05em; border:1px solid var(--ink-hairline); padding:1px 5px;
+}
+.focus-btn.is-active .focus-key{ color:var(--accent-orange); border-color:rgba(212,96,42,.5); }
+
+.legend-divider{
+  height:1px; margin:10px 0 4px;
+  background:linear-gradient(to right, var(--ink-dashed), transparent);
+}
+
+/* § CAMERA · ACTIVE — annotation block restored from main-branch atlas-current rhythm.
+   Per MAIN-DRIFT-AUDIT §1.2 D4. */
+.camera-current{ margin-bottom:8px; }
+.camera-current-key{
+  font-size:7.5px; letter-spacing:.32em; color:var(--ink-faint);
+  text-transform:uppercase; margin-bottom:4px;
+}
+.camera-current-val{
+  font-family:var(--font-mono); font-size:11px; font-weight:500;
+  letter-spacing:.1em; color:var(--accent-orange);
+}
+.camera-current-meta{
+  font-family:var(--font-mono); font-size:8px; letter-spacing:.22em;
+  color:var(--ink-soft); text-transform:uppercase; margin-top:2px;
+}
+
+/* DivergenceMeter — micro variant inside the rail */
+.divergence-card{
+  border:1px solid var(--ink-hairline); padding:8px 10px;
+  background:rgba(240,235,221,.5);
+  position:relative;
+}
+.divergence-card::before, .divergence-card::after{
+  content:''; position:absolute; width:8px; height:8px;
+  border:1px solid var(--accent-orange);
+}
+.divergence-card::before{ top:-1px; left:-1px; border-right:none; border-bottom:none; }
+.divergence-card::after { bottom:-1px; right:-1px; border-left:none; border-top:none; }
+.divergence-card-label{
+  font-size:8px; letter-spacing:.32em; color:var(--ink-faint);
+  text-transform:uppercase; margin-bottom:6px;
+}
+.divergence-card-num{
+  font-family:var(--font-type); font-size:19px; letter-spacing:.04em;
+  color:var(--ink-primary); line-height:1; min-height:19px;
+}
+.divergence-card-num .dm-mid{ color:var(--accent-orange); }
+.divergence-card-num .dm-mid span, .divergence-card-num .dm-tail span{
+  display:inline-block; min-width:.55em; text-align:center;
+}
+.divergence-card-coord{ margin-top:7px; font-size:8.5px; letter-spacing:.14em; color:var(--ink-soft); line-height:1.6; }
+.divergence-card-coord b{ color:var(--ink-primary); font-weight:500; }
+
+/* CENTER: 3D globe stage — frame with crosshatch + axis labels */
+.globe-wrap{
+  position:relative; display:grid; place-items:center;
+  background:
+    radial-gradient(ellipse at 50% 50%, rgb(var(--ink-rgb) / 0.04) 0%, transparent 70%),
+    repeating-linear-gradient(0deg, transparent 0 28px, rgb(var(--ink-rgb) / 0.04) 28px 29px),
+    repeating-linear-gradient(90deg, transparent 0 28px, rgb(var(--ink-rgb) / 0.04) 28px 29px);
+  border:1px dashed var(--ink-dashed);
+}
+.axis-label{
+  position:absolute; font-size:8.5px; letter-spacing:.18em; color:var(--ink-soft);
+  font-family:var(--font-mono); z-index:5; background:var(--paper-base);
+  padding:1px 6px; text-transform:uppercase;
+}
+.axis-label.t{ top:-7px; left:50%; transform:translateX(-50%); }
+.axis-label.b{ bottom:-7px; left:50%; transform:translateX(-50%); }
+.axis-label.l{ left:-12px; top:50%; transform:translate(-50%,-50%) rotate(-90deg); white-space:nowrap; }
+.axis-label.r{ right:-12px; top:50%; transform:translate(50%,-50%) rotate(90deg); white-space:nowrap; }
+
+#globe-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+
+/* big italic α watermark behind the globe — globals.css .atlas-alpha-mark */
+.alpha-mark{
+  position:absolute; inset:0; display:grid; place-items:center;
+  font-family:var(--font-display); font-style:italic;
+  font-size:200px; line-height:1;
+  color:rgba(212,96,42,.10);
+  pointer-events:none; z-index:0; letter-spacing:-.03em; user-select:none;
+}
+
+/* HUD overlay — globals.css .atlas-hud-corner */
+.hud-overlay{ position:absolute; inset:0; pointer-events:none; z-index:4; font-family:var(--font-mono); }
+.hud-corner{
+  position:absolute; font-size:7.5px; letter-spacing:.22em;
+  color:var(--ink-soft); text-transform:uppercase; line-height:1.5;
+}
+.hud-corner b{ color:var(--ink-primary); font-weight:500; }
+.hud-corner b.acc{ color:var(--accent-orange); }
+.hud-corner.tl{ top:10px; left:10px; }
+.hud-corner.tr{ top:10px; right:10px; text-align:right; }
+.hud-corner.bl{ bottom:10px; left:10px; }
+.hud-corner.br{ bottom:10px; right:10px; text-align:right; }
+
+/* coord pin — shows narrative-reason on node hover */
+.coord-pin{
+  position:absolute; pointer-events:none; z-index:5;
+  font-family:var(--font-type); font-size:9px; letter-spacing:.05em;
+  color:var(--ink-primary); background:rgba(232,226,213,.92);
+  padding:5px 9px; border:1px solid rgba(212,96,42,.45);
+  white-space:nowrap; opacity:0; transition:opacity .25s ease;
+  transform:translate(12px, -50%);
+}
+.coord-pin.show{ opacity:1; }
+.coord-pin .acc{ color:var(--accent-orange); }
+.coord-pin .why{
+  display:block; font-family:var(--font-mono); font-size:8.5px;
+  letter-spacing:.06em; color:var(--ink-soft); text-transform:none;
+  margin-top:2px; font-style:italic;
+}
+
+/* RIGHT: AttractorFields rail — pills sit at top, signal-flow below */
+.readout{ display:flex; flex-direction:column; gap:10px; font-size:9.5px; letter-spacing:.08em; }
+.readout-head{
+  font-size:8.5px; letter-spacing:.32em; color:var(--ink-faint);
+  text-transform:uppercase; margin-bottom:4px;
+}
+.attractor-row{ display:flex; flex-wrap:wrap; gap:4px 4px; margin-bottom:2px; }
+.attractor-pill{
+  appearance:none; cursor:pointer; font:inherit;
+  background:transparent; border:1px solid var(--ink-hairline);
+  padding:4px 8px; font-size:8px; letter-spacing:.22em;
+  color:var(--ink-soft); text-transform:uppercase; font-family:var(--font-mono);
+  /* 150ms hover transition per MAIN-DRIFT-AUDIT §1.3 (match main-branch Tailwind default ~150ms) */
+  transition:border-color .15s, background .15s, color .15s;
+}
+.attractor-pill:hover{ border-color:rgba(212,96,42,.5); color:var(--ink-primary); }
+.attractor-pill.is-active{
+  border-color:var(--accent-orange); background:rgba(212,96,42,.10);
+  color:var(--ink-primary);
+}
+
+.readout-row{
+  border:1px solid var(--ink-hairline); padding:9px 11px;
+  background:rgba(237,231,218,.35); display:grid; gap:5px;
+}
+.readout-row.is-pair{ grid-template-columns:auto 1fr; align-items:baseline; column-gap:10px; }
+.readout-row.is-pair .readout-val{ text-align:right; white-space:nowrap; font-size:10px; }
+.readout-row.is-pair .readout-meta{ grid-column:1/-1; }
+.readout-row.is-trio{ grid-template-columns:repeat(3,1fr); align-items:start; }
+.readout-row.is-trio>div{ display:flex; flex-direction:column; gap:3px; min-width:0; }
+.readout-row.is-trio .readout-val{ font-size:10px; }
+.readout-key{
+  font-size:8px; letter-spacing:.28em; color:var(--ink-faint); text-transform:uppercase;
+}
+.readout-val{ font-family:var(--font-type); font-size:11px; color:var(--ink-primary); letter-spacing:.04em; }
+.readout-val.acc{ color:var(--accent-orange); }
+.readout-meta{ font-size:8.5px; letter-spacing:.16em; color:var(--ink-soft); font-family:var(--font-mono); }
+
+.signal-flow{
+  margin-top:6px; font-size:8.5px; letter-spacing:.18em;
+  color:var(--ink-soft); text-transform:uppercase; line-height:1.85;
+  font-family:var(--font-mono);
+}
+.signal-flow b{ color:var(--accent-orange); font-weight:500; }
+.signal-flow .step{ display:grid; grid-template-columns:18px 1fr; gap:6px; }
+.signal-flow .step span:first-child{ color:var(--ink-faint); font-family:var(--font-type); }
+.signal-flow .step.is-active{ color:var(--ink-primary); }
+.signal-flow .step.is-active span:first-child{ color:var(--accent-orange); }
+
+/* FOOT — NETRA console + stratum counts, sharing dashed top border */
+.frame-foot{
+  display:grid; grid-template-columns:1fr 1fr 1fr minmax(220px,1.3fr);
+  gap:18px; align-items:center;
+  font-size:9px; letter-spacing:.1em; color:var(--ink-soft);
+  padding-top:12px; border-top:1px dashed var(--ink-dashed); text-transform:uppercase;
+}
+.frame-foot>div{ display:flex; flex-direction:column; gap:3px; }
+.frame-foot span{ color:var(--ink-faint); font-size:8px; letter-spacing:.28em; }
+.frame-foot b{ color:var(--ink-primary); font-weight:400; font-family:var(--font-type); font-size:11px; letter-spacing:.05em; }
+.frame-foot b.acc{ color:var(--accent-orange); }
+
+/* NETRA console — globals.css .atlas-netra */
+.netra-console{
+  display:grid !important; grid-template-columns:auto auto 1fr auto;
+  gap:0 12px; align-items:center; padding:6px 10px;
+  border:1px solid var(--netra-soft);
+  background:rgba(232,226,213,.92);
+  font-family:var(--font-mono); font-size:9px; letter-spacing:.16em;
+  color:var(--ink-primary); text-transform:uppercase; align-self:stretch; min-width:0;
+}
+.netra-reticle{
+  color:var(--netra); display:grid; place-items:center;
+  animation:atlas-netra-pulse 2.4s ease-in-out infinite;
+}
+.netra-id{
+  display:flex; flex-direction:column; gap:1px;
+  border-right:1px solid rgb(var(--netra-rgb) / 0.3);
+  padding-right:12px;
+}
+.netra-id .lab{ color:var(--netra); font-weight:500; letter-spacing:.22em; }
+.netra-id .tgt{
+  font-family:var(--font-type); font-size:10px; letter-spacing:.04em;
+  color:var(--ink-primary); text-transform:none;
+}
+.netra-readout{
+  display:grid; grid-template-columns:auto 1fr; gap:1px 10px;
+  font-size:7.5px; letter-spacing:.22em; color:var(--ink-faint); align-items:baseline;
+}
+.netra-readout b{
+  font-family:var(--font-type); font-size:10px; letter-spacing:.04em;
+  color:var(--ink-primary); font-weight:400; text-transform:none; justify-self:end;
+}
+.netra-jump{
+  appearance:none; background:transparent; border:1px solid var(--netra-soft);
+  color:var(--netra); font:inherit; font-size:8.5px; letter-spacing:.22em;
+  padding:6px 9px; cursor:pointer; text-transform:uppercase;
+}
+.netra-jump:hover{ background:rgb(var(--netra-rgb) / 0.12); }
+@keyframes atlas-netra-pulse{ 0%,100%{opacity:1;} 50%{opacity:.45;} }
+
+/* NETRA voice strip — globals.css .atlas-netra-voice */
+.netra-voice{
+  grid-column:1 / -1;
+  display:flex; align-items:baseline; gap:12px;
+  padding:7px 11px 8px; margin-top:8px;
+  border-left:2px solid var(--netra);
+  background:rgba(79,110,128,0.07);
+}
+.netra-voice .tag{
+  font-family:var(--font-mono); font-size:7.5px; letter-spacing:.32em;
+  color:var(--netra); text-transform:uppercase; white-space:nowrap;
+  flex-shrink:0; font-weight:500;
+}
+.netra-voice .body{
+  font-family:var(--font-display); font-style:italic; font-size:12px;
+  letter-spacing:.005em; line-height:1.35; color:var(--ink-primary); text-transform:none;
+}
+
+/* =============================================================
+   MOBILE — ATLAS STANDBY card (≤880px and ≤600px)
+   Three.js retired; identity preserved per 60-responsive-system §7.2
+   ============================================================= */
+.standby{ display:none; }
+@media (max-width: 880px){
+  body{ padding:14px; align-items:start; }
+  .stage{
+    width:100%; height:auto; max-width:740px;
+    transform:none !important;
+  }
+  .artifact{ position:relative; inset:auto; }
+  .frame{ padding:18px 18px 16px; grid-template-rows:auto auto auto; }
+  .content{ grid-template-columns:1fr; }
+  .legend{ order:2; flex-direction:row; flex-wrap:wrap; gap:5px; }
+  .legend-head, .legend-divider, .divergence-card{ width:100%; }
+  .focus-btn{ flex:1 1 40%; }
+  .globe-wrap{ order:1; min-height:380px; aspect-ratio:1 / 1; }
+  /* axis-label · suppress paper-base background patch at narrow viewports
+     per MAIN-DRIFT-AUDIT §1.2 D5 — at tablet the patch reads as a notch through
+     the dashed rule. Smaller font + transparent bg keeps identity without the cut. */
+  .axis-label{ font-size:7.5px; background:transparent; padding:0 4px; }
+  .axis-label.t{ top:-4px; }
+  .axis-label.b{ bottom:-4px; }
+  .readout{ order:3; }
+  .frame-foot{
+    grid-template-columns:1fr 1fr; row-gap:10px;
+  }
+  .netra-console{ grid-column:1 / -1; }
+}
+@media (max-width: 600px){
+  body{ padding:10px; background:var(--paper-deep); }
+  .stage{ max-width:100%; }
+  .frame{ padding:14px 14px 12px; }
+  .frame-head{
+    flex-direction:column; align-items:flex-start; gap:6px; font-size:8.5px;
+  }
+  .frame-head .head-r{ gap:14px; }
+  /* Three.js retires — STANDBY card replaces .globe-wrap */
+  .globe-wrap > #globe-canvas, .globe-wrap > .hud-overlay, .globe-wrap > .alpha-mark{ display:none; }
+  .standby{
+    display:grid; place-items:center; gap:14px; padding:32px 18px;
+    position:relative; z-index:5;
+  }
+  .standby .mini-globe{
+    width:130px; height:130px; border-radius:50%;
+    background:
+      radial-gradient(circle at 35% 35%, var(--paper-warm), var(--paper-deep) 70%, rgba(31,80,99,0.25) 100%),
+      repeating-linear-gradient(0deg, transparent 0 8px, rgb(var(--ink-rgb) / 0.10) 8px 9px),
+      repeating-linear-gradient(90deg, transparent 0 8px, rgb(var(--ink-rgb) / 0.10) 8px 9px);
+    box-shadow:inset 0 0 24px rgba(31,80,99,0.18);
+    position:relative;
+  }
+  .standby .mini-globe::after{
+    content:''; position:absolute; left:50%; top:50%;
+    width:10px; height:10px; border-radius:50%;
+    background:var(--accent-orange); transform:translate(-50%,-50%);
+    box-shadow:0 0 0 5px rgba(212,96,42,0.18);
+  }
+  .standby .label{
+    font-family:var(--font-mono); font-size:9px; letter-spacing:.32em;
+    color:var(--ink-soft); text-transform:uppercase; text-align:center;
+  }
+  .standby .label b{ color:var(--accent-orange); font-weight:500; }
+  .standby .alpha-readout{
+    font-family:var(--font-type); font-size:13px; letter-spacing:.04em; color:var(--ink-primary);
+    text-align:center;
+  }
+  .standby .alpha-readout .acc{ color:var(--accent-orange); }
+  .standby .cta-row{ display:flex; gap:8px; }
+  .standby .cta{
+    appearance:none; background:transparent; border:1px solid var(--accent-orange);
+    color:var(--ink-primary); padding:8px 12px; font-family:var(--font-mono);
+    font-size:9px; letter-spacing:.22em; text-transform:uppercase; cursor:pointer;
+  }
+  .globe-wrap{ aspect-ratio:auto; min-height:0; }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .netra-reticle{ animation:none !important; }
+}
+</style>
+</head>
+<body class="paper-canvas">
+
+<!-- Page-level chrome restored per MAIN-DRIFT-AUDIT §1.1 PRESERVE-MAIN.
+     ScrollMeter rail · MarginaliaHUD vertical band · page CornerMarks · N badge -->
+<div class="scroll-meter" aria-hidden></div>
+<aside class="marginalia" aria-hidden>
+  <span>∇ WORLDLINE · <span class="ma-accent">1.130426</span></span>
+  <span class="ma-accent">§ GENESIS</span>
+  <span>DRIFT · +0.000</span>
+</aside>
+<div class="page-corner-marks" aria-hidden></div>
+<div class="n-badge" role="button" aria-label="NETRA" tabindex="0">N</div>
+
+<div class="page">
+
+  <!-- Nav strip — mirrors components/Nav.tsx structure -->
+  <div class="nav-shell">
+    <div class="nav-id">
+      <div><span class="acc">∇ NEOSPIRIT // WORLDLINE 1.130426</span></div>
+      <div class="soft">EST. 2026 — BANGKOK / THAILAND</div>
+    </div>
+    <nav class="nav-links">
+      <a href="#hero">◇ INDEX</a>
+      <a href="#index">◇ TRACES</a>
+      <a href="#attractor">◇ ARCHIVE</a>
+      <a href="#transmit">◇ TRANSMIT</a>
+    </nav>
+    <div class="nav-clock">
+      <div>SYS // CALIBRATED</div>
+      <div>UTC+7 // 11:30</div>
+    </div>
+  </div>
+
+  <!-- Hero strip — mirrors components/HeroBlock.tsx compact mode -->
+  <section class="hero-strip" id="hero">
+    <div>
+      <div class="hero-tagrow">
+        <span class="rule"></span>
+        <span>FILE — 000 / GENESIS</span>
+        <span style="color:var(--ink-faint);">·</span>
+        <span class="acc">WORLDLINE 1.130426</span>
+      </div>
+      <h1 class="hero-title">
+        an archive of <em>unfinished</em> thought, surveyed openly.
+      </h1>
+    </div>
+    <div class="hero-stack">
+      <div class="cell is-alpha"><span class="num">047</span><span>ENTRIES</span></div>
+      <div class="cell"><span class="num">012</span><span>ACTIVE</span></div>
+      <div class="cell"><span class="num">∞</span><span>BRANCHES</span></div>
+    </div>
+    <div class="hero-divergence">
+      <div class="hero-divergence-label">DIVERGENCE α</div>
+      <div class="hero-divergence-num"><span>1.</span><span class="mid">1304</span><span>26</span></div>
+      <div class="hero-divergence-meta">OBSERVED · Ne0EX-LOCUS</div>
+    </div>
+  </section>
+
+  <!-- ATLAS frame — preserved as the dominant artifact -->
+  <div class="stage-fit" id="stage-fit">
+  <div class="stage" id="stage">
+  <div class="artifact paper-canvas">
+    <div class="corner-marks"></div>
+
+    <div class="frame">
+
+      <header class="frame-head">
+        <!-- frame-head label · advances main-branch v.07 → v.08 per MAIN-DRIFT-AUDIT §1.2 D3.
+             Was "WORLDLINE · OBSERVATORY v.01" — that regressed; main-branch already shipped v.07. -->
+        <div class="head-l">
+          <span>OBSERVATORY · WORLDLINE STRUCTURE <b>v.08</b></span>
+          <span style="color:var(--ink-faint);">∇ Ne0EX · 3D ORTHOGRAPHIC</span>
+        </div>
+        <div class="head-r">
+          <span>α <i>1.130426</i></span>
+          <span>NAV <i>NETRA</i></span>
+        </div>
+      </header>
+
+      <div class="content">
+
+        <!-- LEFT: cameraFocus + divergence -->
+        <aside class="legend">
+          <div class="legend-head">§ FRAMING · CAMERA-AID</div>
+
+          <button class="focus-btn is-active" data-focus="rest" type="button" aria-pressed="true">
+            <span class="focus-glyph">
+              <svg width="22" height="22" viewBox="-12 -12 24 24" aria-hidden="true">
+                <circle cx="0" cy="0" r="10" fill="none" stroke="currentColor" stroke-width=".6"/>
+                <line x1="-11" y1="0" x2="11" y2="0" stroke="currentColor" stroke-width=".5"/>
+                <line x1="0" y1="-11" x2="0" y2="11" stroke="currentColor" stroke-width=".5"/>
+                <circle cx="0" cy="0" r="2.2" fill="currentColor"/>
+              </svg>
+            </span>
+            <span>
+              <span class="focus-id">0 · REST</span>
+              <span class="focus-role">All Strata · Co-present</span>
+            </span>
+            <span class="focus-key">0</span>
+          </button>
+
+          <button class="focus-btn" data-focus="surface" type="button">
+            <span class="focus-glyph">
+              <svg width="22" height="22" viewBox="-12 -12 24 24" aria-hidden="true">
+                <circle cx="0" cy="0" r="7" fill="none" stroke="currentColor" stroke-width=".7"/>
+                <path d="M -6 -2 Q -2 -4 2 -2 Q 5 0 6 2" fill="none" stroke="currentColor" stroke-width=".5"/>
+                <path d="M -6 1 Q -2 -1 2 1 Q 5 3 6 4" fill="none" stroke="currentColor" stroke-width=".5"/>
+                <polygon points="0,-1 1.3,1 -1.3,1" fill="currentColor"/>
+              </svg>
+            </span>
+            <span>
+              <span class="focus-id">1 · SURFACE</span>
+              <span class="focus-role">Ne0 · Archive Face</span>
+            </span>
+            <span class="focus-key">1</span>
+          </button>
+
+          <button class="focus-btn" data-focus="axis" type="button">
+            <span class="focus-glyph">
+              <svg width="22" height="22" viewBox="-12 -12 24 24" aria-hidden="true">
+                <ellipse cx="0" cy="0" rx="9" ry="3" fill="none" stroke="currentColor" stroke-width=".6"/>
+                <ellipse cx="0" cy="0" rx="3" ry="9" fill="none" stroke="currentColor" stroke-width=".6"/>
+                <line x1="0" y1="-10" x2="0" y2="10" stroke="currentColor" stroke-width=".7"/>
+              </svg>
+            </span>
+            <span>
+              <span class="focus-id">2 · AXIS</span>
+              <span class="focus-role">Ne0N · Pole Bearer</span>
+            </span>
+            <span class="focus-key">2</span>
+          </button>
+
+          <button class="focus-btn" data-focus="orbit" type="button">
+            <span class="focus-glyph">
+              <svg width="22" height="22" viewBox="-12 -12 24 24" aria-hidden="true">
+                <circle cx="0" cy="0" r="10" fill="none" stroke="currentColor" stroke-width=".7"/>
+                <circle cx="0" cy="0" r="6"  fill="none" stroke="currentColor" stroke-width=".5" opacity=".5"/>
+                <line x1="0" y1="-11" x2="0" y2="-9" stroke="currentColor" stroke-width=".7"/>
+                <line x1="0" y1="9"  x2="0" y2="11"  stroke="currentColor" stroke-width=".7"/>
+                <line x1="-11" y1="0" x2="-9" y2="0" stroke="currentColor" stroke-width=".7"/>
+                <line x1="9"  y1="0" x2="11"  y2="0" stroke="currentColor" stroke-width=".7"/>
+              </svg>
+            </span>
+            <span>
+              <span class="focus-id">3 · ORBIT</span>
+              <span class="focus-role">NeX · Possibility Field</span>
+            </span>
+            <span class="focus-key">3</span>
+          </button>
+
+          <div class="legend-divider"></div>
+
+          <!-- § CAMERA · ACTIVE — restored from main-branch rhythm per MAIN-DRIFT-AUDIT §1.2 D4.
+               Mirrors components/WorldlineGlobe.tsx line 1107-1112 (`atlas-current`) but reads
+               cameraFocus, not stratum, because v1.3 ontology decouples camera from layer. -->
+          <div class="camera-current">
+            <div class="camera-current-key">§ CAMERA · ACTIVE</div>
+            <div class="camera-current-val" id="camera-current-val">0 · REST</div>
+            <div class="camera-current-meta" id="camera-current-meta">All Strata · Co-present</div>
+          </div>
+
+          <div class="divergence-card">
+            <div class="divergence-card-label">DIVERGENCE α</div>
+            <div class="divergence-card-num" id="divergence-card-num">
+              <span>1.</span><span class="dm-mid"><span data-final="1">1</span><span data-final="3">3</span><span data-final="0">0</span><span data-final="4">4</span></span><span class="dm-tail"><span data-final="2">2</span><span data-final="6">6</span></span>
+            </div>
+            <div class="divergence-card-coord">
+              <b>13.04°N</b> · <b>26.00°E</b>
+            </div>
+          </div>
+        </aside>
+
+        <!-- CENTER: 3D globe (always co-present) -->
+        <div class="globe-wrap" id="globeWrap">
+          <span class="axis-label t">+Z · NORTH</span>
+          <span class="axis-label b">−Z · SOUTH</span>
+          <span class="axis-label l">PROJECTION FIELD</span>
+          <span class="axis-label r">ARCHIVE FACE</span>
+
+          <div class="alpha-mark">α</div>
+          <canvas id="globe-canvas"></canvas>
+
+          <div class="hud-overlay">
+            <div class="hud-corner tl">
+              <div>OBSERVING</div>
+              <div><b id="hud-stratum">FULL · Ne0EX</b></div>
+            </div>
+            <div class="hud-corner tr">
+              <div>CAMERA</div>
+              <div><b id="hud-camera">ORBIT · 0°</b></div>
+            </div>
+            <div class="hud-corner bl">
+              <div>α &nbsp;<b class="acc">1.130426</b></div>
+              <div>13.04°N · 26.00°E</div>
+            </div>
+            <div class="hud-corner br">
+              <div>SCALE</div>
+              <div>1 : 1.30E+26</div>
+            </div>
+          </div>
+
+          <div class="coord-pin" id="coordPin">
+            <span class="acc" id="coordPinLabel">α</span>
+            <span id="coordPinTxt">BANGKOK · TH · 13.76°N · 100.50°E</span>
+            <span class="why" id="coordPinWhy">observer’s locus</span>
+          </div>
+
+          <!-- mobile STANDBY card replacement -->
+          <div class="standby" aria-label="ATLAS standby">
+            <div class="mini-globe" aria-hidden="true"></div>
+            <div class="label">ATLAS · <b>STANDBY</b></div>
+            <div class="alpha-readout">α <span class="acc">1.130426</span> · 13.04°N · 26.00°E</div>
+            <div class="cta-row">
+              <button class="cta">OPEN ATLAS</button>
+              <button class="cta">AS LIST</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: AttractorFields + readouts + signal-flow -->
+        <aside class="readout">
+          <div class="readout-head">§ ATTRACTOR · FIELD</div>
+          <div class="attractor-row" id="attractorRow">
+            <button class="attractor-pill is-active" data-attractor="all">all</button>
+            <button class="attractor-pill" data-attractor="coffee">coffee</button>
+            <button class="attractor-pill" data-attractor="ai · ml">ai · ml</button>
+            <button class="attractor-pill" data-attractor="narrative">narrative</button>
+            <button class="attractor-pill" data-attractor="japan / 日本">japan / 日本</button>
+            <button class="attractor-pill" data-attractor="meta">meta</button>
+          </div>
+
+          <div class="readout-head" style="margin-top:6px;">§ STRATUM READOUT</div>
+
+          <div class="readout-row is-pair">
+            <span class="readout-key">ACTIVE</span>
+            <span class="readout-val acc" id="active-name">FULL SYSTEM</span>
+            <span class="readout-meta" id="active-role">all strata observed · ne0ex aggregate</span>
+          </div>
+
+          <div class="readout-row is-trio">
+            <div><span class="readout-key">SURVEYED</span><span class="readout-val acc">047</span></div>
+            <div><span class="readout-key">ACTIVE</span><span class="readout-val">012</span></div>
+            <div><span class="readout-key">BRANCHES</span><span class="readout-val">∞</span></div>
+          </div>
+
+          <div class="readout-row is-trio">
+            <div><span class="readout-key">BEARING</span><span class="readout-val">TRUE N</span></div>
+            <div><span class="readout-key">RADIUS</span><span class="readout-val" id="hud-radius">1.00</span></div>
+            <div><span class="readout-key">DEPTH</span><span class="readout-val" id="hud-depth">0.00</span></div>
+          </div>
+
+          <div class="signal-flow" id="signalFlow">
+            <div class="step" data-step="nex"><span>01</span><span>SIGNAL EMITTED &nbsp;<b>NeX</b></span></div>
+            <div class="step" data-step="neon"><span>02</span><span>BORNE BY POLE &nbsp;<b>Ne0N</b></span></div>
+            <div class="step" data-step="neo"><span>03</span><span>ARCHIVED IN &nbsp;<b>Ne0</b></span></div>
+            <div class="step"><span>04</span><span>NAVIGATED · <span style="color:var(--netra);font-weight:500;">NETRA</span></span></div>
+          </div>
+        </aside>
+
+      </div>
+
+      <footer class="frame-foot">
+        <div><span>NeX · FIELD</span><b>247 RAYS</b></div>
+        <div><span>Ne0N · POLE</span><b>+90°N</b></div>
+        <div><span>Ne0 · NODES</span><b class="acc">047</b></div>
+
+        <div class="netra-console" role="status" aria-live="polite">
+          <span class="netra-reticle" aria-hidden="true">
+            <svg width="16" height="16" viewBox="-10 -10 20 20">
+              <circle r="6" fill="none" stroke="currentColor" stroke-width=".9"/>
+              <circle r="1.4" fill="currentColor"/>
+              <line x1="-9" y1="0" x2="-6" y2="0" stroke="currentColor" stroke-width=".9"/>
+              <line x1="6"  y1="0" x2="9"  y2="0" stroke="currentColor" stroke-width=".9"/>
+              <line x1="0" y1="-9" x2="0" y2="-6" stroke="currentColor" stroke-width=".9"/>
+              <line x1="0" y1="6"  x2="0" y2="9"  stroke="currentColor" stroke-width=".9"/>
+            </svg>
+          </span>
+          <span class="netra-id">
+            <span class="lab">◎ NETRA</span>
+            <span class="tgt" id="netra-target">standby</span>
+          </span>
+          <span class="netra-readout">
+            <span>RETICLE</span><b id="netra-coord">—</b>
+            <span>RANGE</span><b id="netra-range">2.50</b>
+          </span>
+          <button class="netra-jump" id="netra-jump" type="button">⟶ NEXT NODE</button>
+        </div>
+
+        <div class="netra-voice">
+          <span class="tag">NETRA</span>
+          <span class="body" id="netra-voice">standing by · ne0ex aggregate in view. any node anchors the reticle. keys 1 · 2 · 3 narrow to a stratum.</span>
+        </div>
+      </footer>
+
+    </div>
+  </div>
+</div>
+  </div><!-- /.stage-fit -->
+</div><!-- /.page -->
+
+<script type="importmap">
+{ "imports": { "three": "./three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+// =====================================================================
+// PALETTE (TEAL active — main-branch web baseline)
+// =====================================================================
+const COLOR = {
+  ink:        0x1F5063,      // = rgb(31,80,99)  · main-branch ink-primary
+  paperLine:  0x1F5063,      // contour / graticule
+  orange:     0xD4602A,      // accent · α / pole / arcs / halos
+  paperFloor: 0xBDBBAF,      // globe surface base (cool, TEAL-aligned)
+  paperPeak:  0xD2CFC4,      // globe surface highlight (cool)
+  netra:      0x4D7A92,      // = rgb(77,122,146) · NETRA companion
+};
+
+// =====================================================================
+// Scene · camera · renderer
+// =====================================================================
+const wrap = document.getElementById('globeWrap');
+const canvas = document.getElementById('globe-canvas');
+const scene = new THREE.Scene();
+scene.background = null;
+const camera = new THREE.PerspectiveCamera(36, 1, 0.01, 100);
+camera.position.set(0, 0, 4.2);
+
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+function resize(){
+  const r = wrap.getBoundingClientRect();
+  if (r.width < 1 || r.height < 1) return;
+  renderer.setSize(r.width, r.height, false);
+  camera.aspect = r.width / r.height;
+  camera.updateProjectionMatrix();
+}
+resize();
+window.addEventListener('resize', resize);
+new ResizeObserver(resize).observe(wrap);
+
+// soft paper lighting
+scene.add(new THREE.AmbientLight(0xefe7d6, 1.15));
+const key = new THREE.DirectionalLight(0xfff4dd, 0.18); key.position.set(2,2.5,3); scene.add(key);
+const rim = new THREE.DirectionalLight(0x2a3a48, 0.08); rim.position.set(-3,-1,-2); scene.add(rim);
+
+// =====================================================================
+// 1) PAPER-EARTH PROCEDURAL TEXTURE — aged warm w/ lat/lon contours
+//    Adapted from Globe v7.html lines 444–550, recoloured to TEAL ink.
+// =====================================================================
+const surfaceGroup = new THREE.Group();
+scene.add(surfaceGroup);
+
+function buildSurfaceTextures(){
+  const W = 2048, H = 1024;
+  let seed = 9173;
+  const rand = () => { seed = (seed * 9301 + 49297) % 233280; return seed/233280; };
+
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+
+  // aged warm paper gradient (cooler than v7 to align with TEAL ink)
+  const grad = ctx.createLinearGradient(0,0,0,H);
+  /* TEAL-compatible cool paper — main-branch active palette.
+     Was v7-inherited warm-olive #A89E89/#BAB099 — replaced per MAIN-DRIFT-AUDIT §1.4 D1.
+     Matches components/WorldlineGlobe.tsx lines 267-270. */
+  grad.addColorStop(0,   '#BDBBAF');
+  grad.addColorStop(.45, '#D2CFC4');
+  grad.addColorStop(.55, '#D2CFC4');
+  grad.addColorStop(1,   '#BDBBAF');
+  ctx.fillStyle = grad; ctx.fillRect(0,0,W,H);
+
+  // warm-wash blotches
+  ctx.globalCompositeOperation = 'multiply';
+  for (let i=0; i<18; i++){
+    const x = rand()*W, y = rand()*H, r = 200 + rand()*300;
+    const g2 = ctx.createRadialGradient(x,y,0,x,y,r);
+    g2.addColorStop(0, 'rgba(70,95,108,0.10)');   // ink-tinted aging (TEAL)
+    g2.addColorStop(1, 'rgba(70,95,108,0)');
+    ctx.fillStyle = g2;
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  // lat/lon grid baked in, faint
+  ctx.strokeStyle = 'rgba(31,80,99,0.18)'; ctx.lineWidth = 0.6; ctx.setLineDash([3,4]);
+  for (let lon = 0; lon < 360; lon += 30){
+    const x = (lon/360)*W;
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke();
+  }
+  for (let lat = 15; lat < 180; lat += 15){
+    const y = (lat/180)*H;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  ctx.strokeStyle = 'rgba(31,80,99,0.28)'; ctx.lineWidth = 0.8;
+  ctx.beginPath(); ctx.moveTo(0,H/2); ctx.lineTo(W,H/2); ctx.stroke();
+
+  // grain
+  const img = ctx.getImageData(0,0,W,H); const d = img.data;
+  for (let i=0; i<d.length; i+=4){
+    const n = (rand()-0.5)*10;
+    d[i]   = Math.max(0, Math.min(255, d[i]   + n));
+    d[i+1] = Math.max(0, Math.min(255, d[i+1] + n));
+    d[i+2] = Math.max(0, Math.min(255, d[i+2] + n));
+  }
+  ctx.putImageData(img, 0, 0);
+
+  // roughness + bump derivations
+  const rc = document.createElement('canvas'); rc.width = W; rc.height = H;
+  const rctx = rc.getContext('2d');
+  rctx.fillStyle = '#c8c8c8'; rctx.fillRect(0,0,W,H);
+  rctx.globalCompositeOperation = 'multiply'; rctx.drawImage(c,0,0);
+  rctx.globalCompositeOperation = 'source-over';
+  rctx.fillStyle = 'rgba(180,180,180,0.5)'; rctx.fillRect(0,0,W,H);
+
+  const bc = document.createElement('canvas'); bc.width = W; bc.height = H;
+  const bctx = bc.getContext('2d');
+  bctx.fillStyle = '#808080'; bctx.fillRect(0,0,W,H);
+  bctx.globalCompositeOperation = 'multiply'; bctx.drawImage(c,0,0);
+  bctx.globalCompositeOperation = 'lighten';
+  bctx.fillStyle = '#666'; bctx.fillRect(0,0,W,H);
+
+  const map  = new THREE.CanvasTexture(c);
+  map.colorSpace = THREE.SRGBColorSpace; map.anisotropy = 8;
+  const rough = new THREE.CanvasTexture(rc);
+  const bump  = new THREE.CanvasTexture(bc);
+
+  // soft-multiply real Earth coastlines (subtle, blurred)
+  const earthImg = new Image(); earthImg.crossOrigin = 'anonymous';
+  earthImg.onload = () => {
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha = 0.26; ctx.filter = 'blur(1.2px)';
+    ctx.drawImage(earthImg, 0, 0, W, H);
+    ctx.filter = 'none'; ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    map.needsUpdate = true;
+  };
+  earthImg.src = 'https://threejs.org/examples/textures/planets/earth_specular_2048.jpg';
+
+  return { map, rough, bump };
+}
+const surface = buildSurfaceTextures();
+
+// PAPER SPHERE — partially transparent so axis spine reads through poles
+const paperMat = new THREE.MeshStandardMaterial({
+  color: 0xFFFFFF, map: surface.map,
+  roughnessMap: surface.rough, roughness: 0.95,
+  bumpMap: surface.bump, bumpScale: 0.008,
+  metalness: 0.0,
+  transparent: true,
+  opacity: 0.92,           // §1.6 transparency · default baseline
+  depthWrite: true,
+});
+const sphere = new THREE.Mesh(new THREE.SphereGeometry(1, 128, 128), paperMat);
+surfaceGroup.add(sphere);
+
+// inner darker shade — TEAL-compatible cool grey-blue.
+// Was 0xBFB69F (v7-warm-olive inheritance) — replaced per MAIN-DRIFT-AUDIT §1.2 with
+// main-branch components/WorldlineGlobe.tsx line 418 value 0xb4bbc0.
+const innerShade = new THREE.Mesh(
+  new THREE.SphereGeometry(0.998, 96, 96),
+  new THREE.MeshBasicMaterial({ color: 0xb4bbc0, side: THREE.BackSide, transparent:true, opacity:0.30 })
+);
+surfaceGroup.add(innerShade);
+
+// engraved lat/lon lines (more faint at TEAL palette)
+const lineMat = new THREE.LineBasicMaterial({ color: COLOR.ink, transparent:true, opacity:0.55 });
+const lineMatFaint = new THREE.LineBasicMaterial({ color: COLOR.ink, transparent:true, opacity:0.30 });
+function makeLatitudeRing(latDeg, mat){
+  const lat = latDeg * Math.PI/180; const r = Math.cos(lat); const y = Math.sin(lat);
+  const pts = []; const segs = 128;
+  for (let i=0; i<=segs; i++){
+    const a = (i/segs)*Math.PI*2;
+    pts.push(new THREE.Vector3(Math.cos(a)*r*1.001, y*1.001, Math.sin(a)*r*1.001));
+  }
+  return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat);
+}
+function makeMeridian(lonDeg, mat){
+  const lon = lonDeg * Math.PI/180; const pts = []; const segs = 128;
+  for (let i=0; i<=segs; i++){
+    const t = (i/segs)*Math.PI - Math.PI/2; const r = Math.cos(t);
+    pts.push(new THREE.Vector3(Math.cos(lon)*r*1.001, Math.sin(t)*1.001, Math.sin(lon)*r*1.001));
+  }
+  return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat);
+}
+surfaceGroup.add(makeLatitudeRing(0, lineMat));
+for (let lat=-75; lat<=75; lat+=15) if (lat!==0) surfaceGroup.add(makeLatitudeRing(lat, lineMatFaint));
+for (let lon=0; lon<360; lon+=15){
+  const mat = (lon % 90 === 0) ? lineMat : lineMatFaint;
+  surfaceGroup.add(makeMeridian(lon, mat));
+}
+
+// contours
+function makeContour(latCenter, latAmplitude, mat, phase){
+  const pts=[]; const segs=256;
+  for (let i=0; i<=segs; i++){
+    const a = (i/segs)*Math.PI*2;
+    const lat = (latCenter + latAmplitude * (Math.sin(a*3 + phase)*0.6 + Math.sin(a*5 + phase*1.7)*0.4)) * Math.PI/180;
+    const r = Math.cos(lat); const y = Math.sin(lat);
+    pts.push(new THREE.Vector3(Math.cos(a)*r*1.003, y*1.003, Math.sin(a)*r*1.003));
+  }
+  return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat);
+}
+const contourMat = new THREE.LineBasicMaterial({ color: COLOR.ink, transparent:true, opacity:0.65 });
+const contoursGroup = new THREE.Group();
+[-65,-45,-25,-5,15,35,55].forEach((lat,i)=>{
+  contoursGroup.add(makeContour(lat, 6, contourMat, i*1.7));
+});
+surfaceGroup.add(contoursGroup);
+
+// =====================================================================
+// 2) Ne0N AXIS — spine through globe at both poles (always visible)
+// =====================================================================
+const axisGroup = new THREE.Group();
+scene.add(axisGroup);
+// IMPORTANT: axis is rendered BEFORE sphere transparency budget, but
+// surface opacity=0.92 means the spine reads through the poles. The
+// orange polar beacons sit AT the pole surface, the spine extends past.
+const axisMat = new THREE.MeshBasicMaterial({ color: COLOR.ink });
+const axis = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 2.6, 16), axisMat);
+axisGroup.add(axis);
+function axisCap(yPos, dir){
+  const g = new THREE.Group(); const sz = 0.04;
+  const tip = new THREE.Vector3(0, yPos + dir*0.06, 0);
+  const a = new THREE.Vector3( sz, yPos, 0), b = new THREE.Vector3(-sz, yPos, 0);
+  const c = new THREE.Vector3( 0, yPos,  sz), d = new THREE.Vector3( 0, yPos, -sz);
+  const m = new THREE.LineBasicMaterial({ color: COLOR.ink });
+  [[tip,a],[tip,b],[tip,c],[tip,d],[a,c],[c,b],[b,d],[d,a]].forEach(seg=>{
+    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(seg), m));
+  });
+  return g;
+}
+axisGroup.add(axisCap( 1.3,  1));
+axisGroup.add(axisCap(-1.3, -1));
+
+function poleBeacon(yPos){
+  const g = new THREE.Group();
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.04, 0.05, 48),
+    new THREE.MeshBasicMaterial({ color: COLOR.orange, side: THREE.DoubleSide, transparent:true, opacity:0.8 })
+  );
+  ring.rotation.x = Math.PI/2; ring.position.y = yPos; g.add(ring);
+  const dot = new THREE.Mesh(
+    new THREE.SphereGeometry(0.012, 12, 12),
+    new THREE.MeshBasicMaterial({ color: COLOR.orange })
+  );
+  dot.position.y = yPos; g.add(dot);
+  return g;
+}
+const northPole = poleBeacon( 1.0);
+const southPole = poleBeacon(-1.0);
+axisGroup.add(northPole, southPole);
+
+// =====================================================================
+// 3) NeX FIELD — orbital shells + emission rays (always visible)
+// =====================================================================
+const orbitalGroup = new THREE.Group();
+scene.add(orbitalGroup);
+function makeShell(radius, opacity){
+  return new THREE.Mesh(
+    new THREE.SphereGeometry(radius, 24, 16),
+    new THREE.MeshBasicMaterial({
+      color: COLOR.ink, wireframe:true,
+      transparent:true, opacity, depthWrite:false,
+    })
+  );
+}
+orbitalGroup.add(makeShell(1.18, 0.10));
+orbitalGroup.add(makeShell(1.32, 0.07));
+orbitalGroup.add(makeShell(1.48, 0.05));
+
+const raysGroup = new THREE.Group(); orbitalGroup.add(raysGroup);
+const rayMat = new THREE.LineBasicMaterial({ color: COLOR.ink, transparent:true, opacity:0.35 });
+for (let i=0; i<48; i++){
+  const phi = Math.acos(1 - 2*((i+0.5)/48));
+  const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+  const dx = Math.sin(phi)*Math.cos(theta), dy = Math.cos(phi), dz = Math.sin(phi)*Math.sin(theta);
+  const inner = new THREE.Vector3(dx*1.18, dy*1.18, dz*1.18);
+  const outer = new THREE.Vector3(dx*1.55, dy*1.55, dz*1.55);
+  raysGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([inner, outer]), rayMat));
+}
+
+// =====================================================================
+// 4) Ne0 ARCHIVE NODES — narrative coordinates, with attractor tagging
+//    α node is visually distinct: larger orange sphere + pulsing ring
+// =====================================================================
+function latLonToVec(lat, lon, r){
+  const phi = (90 - lat) * Math.PI/180;
+  const theta = lon * Math.PI/180;
+  return new THREE.Vector3(
+     r * Math.sin(phi) * Math.cos(theta),
+     r * Math.cos(phi),
+    -r * Math.sin(phi) * Math.sin(theta)
+  );
+}
+const nodesGroup = new THREE.Group(); surfaceGroup.add(nodesGroup);
+
+// nodes carry `attractors:[]` so the binding can light edges
+const archiveNodes = [
+  { lat: 13.7563, lon: 100.5018, label:'α',   primary:true,
+    place:'Bangkok · TH',       why:'observer’s locus',
+    attractors:['all','narrative','meta'] },
+  { lat: 35.0116, lon: 135.7681, label:'003',
+    place:'Kyoto · JP',         why:'architecture of taste',
+    attractors:['narrative','japan / 日本'] },
+  { lat: 18.7883, lon:  98.9853, label:'002',
+    place:'Chiang Mai · TH',    why:'why I paused the startup',
+    attractors:['narrative','ai · ml'] },
+  { lat:  6.1600, lon:  38.2058, label:'001',
+    place:'Yirgacheffe · ET',   why:'four pours — coffee origin',
+    attractors:['coffee'] },
+  { lat: 37.7749, lon:-122.4194, label:'000',
+    place:'San Francisco · US', why:'paused engineer — ml origin',
+    attractors:['ai · ml','narrative'] },
+  { lat: 35.6762, lon: 139.6503, label:'012',
+    place:'Tokyo · JP',         why:'narrative · active branch',
+    attractors:['japan / 日本','narrative'] },
+  { lat:-48.8767, lon:-123.3933, label:'047',
+    place:'Point Nemo · PAC',   why:'meta vantage — most remote',
+    attractors:['meta'] },
+];
+
+const nodeMatInk = new THREE.MeshBasicMaterial({ color: COLOR.ink });
+const nodeMatAcc = new THREE.MeshBasicMaterial({ color: COLOR.orange });
+const haloMat   = new THREE.LineBasicMaterial({ color: COLOR.orange, transparent:true, opacity:0.6 });
+
+archiveNodes.forEach(n => {
+  const v = latLonToVec(n.lat, n.lon, 1.005);
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(n.primary ? 0.022 : 0.012, 14, 14),
+    (n.primary ? nodeMatAcc : nodeMatInk).clone()
+  );
+  mesh.position.copy(v);
+  nodesGroup.add(mesh);
+  n.mesh = mesh;
+  n.basePos = v.clone();
+
+  if (n.primary){
+    // pulsing ring for α — observer locus marker
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.034, 0.044, 36),
+      new THREE.MeshBasicMaterial({ color: COLOR.orange, side: THREE.DoubleSide, transparent:true, opacity:0.85 })
+    );
+    ring.position.copy(v.clone().multiplyScalar(1.001));
+    ring.lookAt(0,0,0); ring.rotateY(Math.PI);
+    surfaceGroup.add(ring);
+    n.ring = ring;
+  }
+
+  // halo placeholder — created when attractor activates
+  n.halo = null;
+});
+
+// =====================================================================
+// 5) WORLDLINE ARC — α swooping into NeX field (the worldline gesture)
+// =====================================================================
+const arcMat = new THREE.LineDashedMaterial({
+  color: COLOR.orange, dashSize: 0.05, gapSize: 0.03, transparent:true, opacity:0.95
+});
+const arcStart = latLonToVec(13.7563, 100.5018, 1.01);
+const arcMid   = arcStart.clone().multiplyScalar(1.35).add(new THREE.Vector3(0.2, 0.15, 0));
+const arcEnd   = arcStart.clone().multiplyScalar(1.55).add(new THREE.Vector3(0.4, 0.3, -0.1));
+const arcLine  = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(new THREE.QuadraticBezierCurve3(arcStart, arcMid, arcEnd).getPoints(64)),
+  arcMat
+);
+arcLine.computeLineDistances();
+scene.add(arcLine);
+
+// =====================================================================
+// 6) ATTRACTOR EDGES — orbital network feel · per §2.1 step 4
+//    Surface↔surface great-circle arcs between in-membership nodes
+//    Activated when an attractor pill is clicked; cleared on `all`.
+// =====================================================================
+const edgesGroup = new THREE.Group(); scene.add(edgesGroup);
+const edgeMatTemplate = new THREE.LineBasicMaterial({
+  color: COLOR.orange, transparent:true, opacity:0.45,
+});
+function greatCircleArc(a, b, radius, segs = 96){
+  const va = a.clone().normalize(), vb = b.clone().normalize();
+  const omega = Math.acos(Math.max(-1, Math.min(1, va.dot(vb))));
+  const sinO = Math.sin(omega);
+  const pts = [];
+  for (let i=0; i<=segs; i++){
+    const t = i/segs;
+    let p;
+    if (sinO < 1e-6) p = va.clone().lerp(vb, t);
+    else {
+      p = va.clone().multiplyScalar(Math.sin((1-t)*omega)/sinO)
+         .add(vb.clone().multiplyScalar(Math.sin(t*omega)/sinO));
+    }
+    pts.push(p.multiplyScalar(radius));
+  }
+  return new THREE.BufferGeometry().setFromPoints(pts);
+}
+function clearEdges(){
+  while (edgesGroup.children.length){
+    const e = edgesGroup.children.pop();
+    e.geometry.dispose();
+  }
+}
+function drawAttractorEdges(attractor){
+  clearEdges();
+  if (attractor === 'all') return;
+  const members = archiveNodes.filter(n => n.attractors.includes(attractor));
+  for (let i=0; i<members.length; i++){
+    for (let j=i+1; j<members.length; j++){
+      const geo = greatCircleArc(members[i].basePos, members[j].basePos, 1.012, 96);
+      edgesGroup.add(new THREE.Line(geo, edgeMatTemplate));
+    }
+  }
+}
+
+// =====================================================================
+// 7) cameraFocus framings — camera-aid only, NO group is hidden
+//    Per attractor-binding §1.3a / SBA-1 §3 D3 (resolved): all three
+//    strata stay rendered at every value of cameraFocus.
+// =====================================================================
+const TARGETS = {
+  rest: {
+    name:'FULL SYSTEM', role:'all strata observed · ne0ex aggregate',
+    camPos: new THREE.Vector3(0, 0, 4.2), look: new THREE.Vector3(0,0,0),
+    netra:'STANDBY', netraCoord:'0°,0°', netraRange:'2.50',
+    hudCam:'ORBIT · 0°', hudRadius:'1.00', hudDepth:'0.00',
+    hudStratum:'FULL · Ne0EX', pinShow:false, flow:null,
+    voice:'standing by · ne0ex aggregate in view. any node anchors the reticle. keys 1 · 2 · 3 narrow to a stratum.',
+  },
+  surface: {
+    name:'Ne0 · ARCHIVE', role:'surface archive · α coordinate centered',
+    camPos: latLonToVec(13.04, 26, 2.05), look: latLonToVec(13.04, 26, 1.0),
+    netra:'Ne0', netraCoord:'13.04°N, 26.00°E', netraRange:'1.42',
+    hudCam:'SURFACE · α', hudRadius:'1.00', hudDepth:'−0.05',
+    hudStratum:'1 · Ne0', pinShow:true, flow:'neo',
+    voice:'the archive face. surveyed marks anchor real coordinates. each is an entry waiting at the reticle.',
+  },
+  axis: {
+    name:'Ne0N · NORTH POLE', role:'polar axis · the bearer · viewed from above',
+    camPos: new THREE.Vector3(0, 3.1, 0.2), look: new THREE.Vector3(0, 0.4, 0),
+    netra:'Ne0N', netraCoord:'90°N', netraRange:'1.85',
+    hudCam:'POLAR · 90°N', hudRadius:'0.85', hudDepth:'+1.00',
+    hudStratum:'2 · Ne0N', pinShow:false, flow:'neon',
+    voice:'the pole bearer. axis carries the worldline through both poles. the body remains.',
+  },
+  orbit: {
+    name:'NeX · POSSIBILITY', role:'projection field · outer shells emitting outward',
+    camPos: new THREE.Vector3(2.2, 1.2, 5.0), look: new THREE.Vector3(0,0,0),
+    netra:'NeX', netraCoord:'—', netraRange:'3.10',
+    hudCam:'WIDE · POSSIBILITY', hudRadius:'1.48', hudDepth:'+0.48',
+    hudStratum:'3 · NeX', pinShow:false, flow:'nex',
+    voice:'possibility shells, 247 rays emitting outward. branches not yet collapsed into surface.',
+  },
+};
+
+// =====================================================================
+// State + transition (cameraFocus and activeAttractor are independent)
+// =====================================================================
+let activeFocus = 'rest';
+let activeAttractor = 'all';
+let cameraAnim = null;
+let baseRotY = 0;
+
+const elActiveName = document.getElementById('active-name');
+const elActiveRole = document.getElementById('active-role');
+const elNetra = document.getElementById('netra-target');
+const elNetraCoord = document.getElementById('netra-coord');
+const elNetraRange = document.getElementById('netra-range');
+const elHudStratum = document.getElementById('hud-stratum');
+const elHudCam = document.getElementById('hud-camera');
+const elHudRadius = document.getElementById('hud-radius');
+const elHudDepth = document.getElementById('hud-depth');
+const elPin = document.getElementById('coordPin');
+const elPinLabel = document.getElementById('coordPinLabel');
+const elPinTxt = document.getElementById('coordPinTxt');
+const elPinWhy = document.getElementById('coordPinWhy');
+const elVoice = document.getElementById('netra-voice');
+const stepEls = document.querySelectorAll('#signalFlow .step');
+const elCameraCurrentVal  = document.getElementById('camera-current-val');
+const elCameraCurrentMeta = document.getElementById('camera-current-meta');
+
+/* Camera-current annotation labels — restored from main-branch atlas-current rhythm. */
+const CAMERA_CURRENT = {
+  rest:    { val:'0 · REST',    meta:'All Strata · Co-present' },
+  surface: { val:'1 · SURFACE', meta:'Ne0 · Archive Face' },
+  axis:    { val:'2 · AXIS',    meta:'Ne0N · Pole Bearer' },
+  orbit:   { val:'3 · ORBIT',   meta:'NeX · Possibility Field' },
+};
+
+function easeInOutCubic(x){ return x < 0.5 ? 4*x*x*x : 1 - Math.pow(-2*x + 2, 3)/2; }
+const currentLook = new THREE.Vector3(0,0,0);
+camera.lookAt(currentLook);
+
+function setFocus(target){
+  if (!TARGETS[target]) target = 'rest';
+  activeFocus = target;
+  const t = TARGETS[target];
+
+  // animate camera over 1400ms — DO NOT hide any group
+  const startPos = camera.position.clone();
+  const startLook = currentLook.clone();
+  const endPos = t.camPos.clone();
+  const endLook = t.look.clone();
+  const dur = 1400; const t0 = performance.now();
+  cameraAnim = (now)=>{
+    const k = Math.min(1, (now - t0)/dur); const e = easeInOutCubic(k);
+    camera.position.lerpVectors(startPos, endPos, e);
+    currentLook.lerpVectors(startLook, endLook, e);
+    camera.lookAt(currentLook);
+    if (k >= 1) cameraAnim = null;
+  };
+
+  // CO-PRESENT contract: no .visible toggling on surfaceGroup / axisGroup / orbitalGroup
+  // (the v7 model used `nexField.visible = t.showField` — removed in v1)
+
+  // UI sync
+  document.querySelectorAll('.focus-btn').forEach(b=>{
+    const on = b.dataset.focus === target;
+    b.classList.toggle('is-active', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+  elActiveName.textContent = t.name;
+  elActiveRole.textContent = t.role;
+  elNetra.textContent = t.netra;
+  elNetraCoord.textContent = t.netraCoord || '—';
+  elNetraRange.textContent = t.netraRange || '—';
+  elHudStratum.textContent = t.hudStratum;
+  elHudCam.textContent = t.hudCam;
+  elHudRadius.textContent = t.hudRadius;
+  elHudDepth.textContent = t.hudDepth;
+  stepEls.forEach(s => s.classList.toggle('is-active', s.dataset.step === t.flow));
+  /* update § CAMERA · ACTIVE annotation per MAIN-DRIFT-AUDIT §1.2 D4 */
+  if (elCameraCurrentVal  && CAMERA_CURRENT[target]) elCameraCurrentVal.textContent  = CAMERA_CURRENT[target].val;
+  if (elCameraCurrentMeta && CAMERA_CURRENT[target]) elCameraCurrentMeta.textContent = CAMERA_CURRENT[target].meta;
+
+  // voice — if no attractor is active, use focus voice; else, attractor voice wins
+  if (activeAttractor === 'all') elVoice.textContent = t.voice;
+}
+
+// =====================================================================
+// Attractor binding — body transparency modulation + edges + dim
+// Per §1.6 + §3.6: body 0.92 → 0.62 over 600ms when activeAttractor !== "all"
+// =====================================================================
+let opacityAnim = null;
+function setAttractor(attractor){
+  activeAttractor = attractor;
+
+  // pill state
+  document.querySelectorAll('.attractor-pill').forEach(p =>
+    p.classList.toggle('is-active', p.dataset.attractor === attractor)
+  );
+
+  // dim non-members; full opacity for members
+  archiveNodes.forEach(n=>{
+    const isMember = (attractor === 'all') || n.attractors.includes(attractor);
+    n.mesh.material.opacity = isMember ? 1.0 : 0.32;
+    n.mesh.material.transparent = true;
+  });
+
+  // edges + body opacity modulation
+  drawAttractorEdges(attractor);
+  const target = (attractor === 'all') ? 0.92 : 0.62;
+  const startO = paperMat.opacity; const t0 = performance.now(); const dur = 600;
+  opacityAnim = (now) => {
+    const k = Math.min(1, (now - t0)/dur); const e = easeInOutCubic(k);
+    paperMat.opacity = startO + (target - startO) * e;
+    if (k >= 1) opacityAnim = null;
+  };
+
+  // voice line — attractor wins over focus
+  if (attractor === 'all'){
+    elVoice.textContent = TARGETS[activeFocus].voice;
+  } else {
+    const members = archiveNodes.filter(n => n.attractors.includes(attractor));
+    const edgeCount = (members.length * (members.length-1)) / 2;
+    elVoice.textContent = `netra · field ${attractor} · ${members.length} traces clustered · ${edgeCount} edges drawn.`;
+  }
+}
+
+// =====================================================================
+// RAF loop
+// =====================================================================
+const clock = new THREE.Clock();
+function loop(){
+  const now = performance.now();
+  const dt = clock.getDelta();
+
+  // continuous gentle rotation when at rest
+  if (activeFocus === 'rest'){
+    baseRotY += dt * 0.08;
+    surfaceGroup.rotation.y = baseRotY;
+    orbitalGroup.rotation.y = -baseRotY * 0.4;
+    raysGroup.rotation.y = baseRotY * 0.6;
+    edgesGroup.rotation.y = baseRotY; // edges track surface
+  } else if (activeFocus === 'orbit'){
+    orbitalGroup.rotation.y += dt * 0.08;
+    raysGroup.rotation.y -= dt * 0.06;
+    surfaceGroup.rotation.y += dt * 0.04;
+    edgesGroup.rotation.y = surfaceGroup.rotation.y;
+  } else if (activeFocus === 'axis'){
+    surfaceGroup.rotation.y += dt * 0.18;
+    edgesGroup.rotation.y = surfaceGroup.rotation.y;
+  } else if (activeFocus === 'surface'){
+    surfaceGroup.rotation.y += dt * 0.02;
+    edgesGroup.rotation.y = surfaceGroup.rotation.y;
+  }
+
+  // contour breathing
+  contoursGroup.children.forEach((l, i)=>{
+    l.material.opacity = 0.55 + Math.sin(now*0.001 + i)*0.12;
+  });
+  // pulse pole beacons
+  const pulse = 0.55 + 0.45 * Math.sin(now*0.004);
+  northPole.children[0].material.opacity = pulse;
+  southPole.children[0].material.opacity = pulse * 0.6;
+  // pulse α ring
+  const alphaNode = archiveNodes[0];
+  if (alphaNode.ring) alphaNode.ring.material.opacity = 0.5 + 0.45 * Math.sin(now*0.005);
+  // arc march
+  arcLine.material.dashSize = 0.04 + Math.sin(now*0.002)*0.005;
+
+  if (cameraAnim) cameraAnim(now);
+  if (opacityAnim) opacityAnim(now);
+
+  renderer.render(scene, camera);
+  // NETRA live readout
+  if (window.__netraUpdate) window.__netraUpdate();
+  requestAnimationFrame(loop);
+}
+loop();
+
+// =====================================================================
+// NETRA navigator — live reticle + range readouts
+// =====================================================================
+(function netraNavigator(){
+  const elCoord = document.getElementById('netra-coord');
+  const elRange = document.getElementById('netra-range');
+  const elTgt   = document.getElementById('netra-target');
+  const elJump  = document.getElementById('netra-jump');
+  if (!elCoord || !elRange) return;
+
+  const _v = new THREE.Vector3();
+  function vecToLatLon(v){
+    const lat = 90 - Math.acos(Math.max(-1, Math.min(1, v.y))) * 180/Math.PI;
+    let lon = Math.atan2(v.z, -v.x) * 180/Math.PI - 180;
+    if (lon < -180) lon += 360;
+    if (lon >  180) lon -= 360;
+    return { lat, lon };
+  }
+  function fmtCoord(lat, lon){
+    const ns = lat >= 0 ? 'N' : 'S', ew = lon >= 0 ? 'E' : 'W';
+    return Math.abs(lat).toFixed(2) + '°' + ns + ' · ' + Math.abs(lon).toFixed(2) + '°' + ew;
+  }
+  window.__netraUpdate = function(){
+    _v.copy(camera.position).normalize();
+    _v.applyMatrix4(new THREE.Matrix4().copy(surfaceGroup.matrixWorld).invert()).normalize();
+    const { lat, lon } = vecToLatLon(_v);
+    elCoord.textContent = fmtCoord(lat, lon);
+    elRange.textContent = camera.position.length().toFixed(2);
+  };
+
+  let jumpIdx = 0;
+  elJump.addEventListener('click', () => {
+    jumpIdx = (jumpIdx + 1) % archiveNodes.length;
+    const n = archiveNodes[jumpIdx];
+    const dest = latLonToVec(n.lat, n.lon, 2.6);
+    const startPos = camera.position.clone(); const t0 = performance.now(); const dur = 1100;
+    function step(now){
+      const k = Math.min(1, (now - t0)/dur);
+      const e = k<0.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2,3)/2;
+      camera.position.lerpVectors(startPos, dest, e);
+      camera.lookAt(0,0,0);
+      if (k < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+    elTgt.textContent = n.label + ' · ' + (n.place || '');
+    // anchor coord pin to this node (narrative reason)
+    elPinLabel.textContent = n.label;
+    elPinTxt.textContent = n.place + ' · ' + n.lat.toFixed(2) + '°' + (n.lat>=0?'N':'S') + ' · ' + Math.abs(n.lon).toFixed(2) + '°' + (n.lon>=0?'E':'W');
+    elPinWhy.textContent = n.why;
+    elPin.classList.add('show');
+    const r = wrap.getBoundingClientRect();
+    elPin.style.left = (r.width * 0.62) + 'px';
+    elPin.style.top  = (r.height * 0.42) + 'px';
+  });
+})();
+
+// =====================================================================
+// INTERACTION
+// =====================================================================
+document.querySelectorAll('.focus-btn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    const f = b.dataset.focus;
+    setFocus(activeFocus === f ? 'rest' : f);
+  });
+});
+document.querySelectorAll('.attractor-pill').forEach(p=>{
+  p.addEventListener('click', ()=>{
+    setAttractor(p.dataset.attractor);
+  });
+});
+document.addEventListener('keydown', e=>{
+  if (e.key === '1') setFocus(activeFocus === 'surface' ? 'rest' : 'surface');
+  else if (e.key === '2') setFocus(activeFocus === 'axis' ? 'rest' : 'axis');
+  else if (e.key === '3') setFocus(activeFocus === 'orbit' ? 'rest' : 'orbit');
+  else if (e.key === '0' || e.key === 'Escape') setFocus('rest');
+});
+
+// drag-orbit
+let dragging = false, lastX = 0;
+canvas.addEventListener('pointerdown', e=>{ dragging = true; lastX = e.clientX; canvas.setPointerCapture(e.pointerId); });
+canvas.addEventListener('pointerup',   e=>{ dragging = false; });
+canvas.addEventListener('pointermove', e=>{
+  if (!dragging) return;
+  const dx = e.clientX - lastX; lastX = e.clientX;
+  if (activeFocus === 'rest' || activeFocus === 'orbit'){
+    baseRotY += dx * 0.005;
+    surfaceGroup.rotation.y = baseRotY;
+    edgesGroup.rotation.y = baseRotY;
+  }
+});
+
+// stage scale-fit (preserve 1180×760 design canvas at viewport widths >880)
+// Page-level shell: scale stage to fit available space below Nav + Hero, while
+// reserving outer footprint via a wrapper height so page layout stays stable.
+function fitStage(){
+  const stage = document.getElementById('stage');
+  const fit   = document.getElementById('stage-fit');
+  if (!stage || !fit) return;
+  if (window.innerWidth <= 880){
+    stage.style.transform = 'none';
+    fit.style.height = '';
+    return;
+  }
+  const pagePadX = 28 * 2;
+  const navHeroH = 240;
+  const availW = Math.min(1240, window.innerWidth) - pagePadX;
+  const availH = window.innerHeight - navHeroH - 60;
+  const s = Math.min(availW/1180, availH/760, 1);
+  stage.style.transform = `scale(${s})`;
+  fit.style.height = `${760 * s}px`;
+  fit.style.width  = `${1180 * s}px`;
+}
+fitStage();
+window.addEventListener('resize', fitStage);
+
+// init
+setFocus('rest');
+setAttractor('all');
+
+// =====================================================================
+// DivergenceMeter Nixie flicker — restored from main-branch behaviour
+// Per MAIN-DRIFT-AUDIT §1.3 BUG-INHERITED MINOR. Mirrors the per-digit
+// idle flicker in components/DivergenceMeter.tsx (line 70-87). Lighter
+// duty than the production component: no boot reroll, no full drift —
+// just enough breath that the dial does not read dead.
+// =====================================================================
+(function divergenceFlicker(){
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const num = document.getElementById('divergence-card-num');
+  if (!num) return;
+  const digits = Array.from(num.querySelectorAll('.dm-mid span, .dm-tail span'));
+  if (!digits.length) return;
+  function flickerOne(){
+    const node = digits[Math.floor(Math.random() * digits.length)];
+    if (!node) return;
+    const final = node.dataset.final ?? node.textContent ?? '0';
+    let f = 0;
+    const total = 3 + Math.floor(Math.random() * 4);
+    const id = setInterval(()=>{
+      if (f >= total){ node.textContent = final; clearInterval(id); return; }
+      node.textContent = String(Math.floor(Math.random() * 10));
+      f += 1;
+    }, 55);
+  }
+  setInterval(flickerOne, 3000 + Math.random() * 4000);
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,38 @@
+{
+  "signature_schema_version": 2,
+  "task_id": "DEV-PLAN-2026-05-15-C",
+  "agent": "Polaris",
+  "agent_designation": "α-OPS-00",
+  "pre_cutover_codename": "Mira",
+  "started_at": "2026-05-15T11:30:19Z",
+  "completed_at": "2026-05-15T11:30:19Z",
+  "files_touched": [
+    ".claude/signatures/DEV-PLAN-2026-05-15-A--polaris.json",
+    ".claude/signatures/DEV-PLAN-2026-05-15-B--polaris.json",
+    ".claude/signatures/DEV-PLAN-2026-05-15-D--polaris.json",
+    "docs/team/DEV-PLAN-2026-05-15/01-tasks-by-prd.md",
+    "docs/team/DEV-PLAN-2026-05-15/02-per-agent-workload.md",
+    "docs/team/DEV-PLAN-2026-05-15/03-e2e-pipeline.md",
+    "docs/team/DEV-PLAN-2026-05-15/04-risks-and-clarifications.md"
+  ],
+  "summary": "DEV-PLAN section C · E2E pipeline scope (Algol+Canopus)",
+  "steps": [],
+  "hashes": {
+    "files_sha256": {
+      ".claude/signatures/DEV-PLAN-2026-05-15-A--polaris.json": "bee06d746ab6e106cb342d0cc1313ecaa393ae6cae956478e3da12550cba873c",
+      ".claude/signatures/DEV-PLAN-2026-05-15-B--polaris.json": "770cb69def2f48caafe73dcda15eae137aae5d0426fd438d615079f916c8af10",
+      ".claude/signatures/DEV-PLAN-2026-05-15-D--polaris.json": "8c5419f06df7adbefe6cf9d77e35281f8d50b151c97156e2d9500bbe74218aa7",
+      "docs/team/DEV-PLAN-2026-05-15/01-tasks-by-prd.md": "4fc27472521c98ea3102687388c51edb43aacbdf2f0c9a4f8260cfe5e48cef23",
+      "docs/team/DEV-PLAN-2026-05-15/02-per-agent-workload.md": "3b7a185cf978b4a47e2abe8ac6b9f6dd5b40ff3de0e198b591cd215228bc9263",
+      "docs/team/DEV-PLAN-2026-05-15/03-e2e-pipeline.md": "6ef1b1ed4e861af5391033b3f55610a2ed72d55ec4b0d16c19452bc84cec83f8",
+      "docs/team/DEV-PLAN-2026-05-15/04-risks-and-clarifications.md": "49b7094ee40e5d526497c904877d87d0f4b8c2e6f85d8dc5a3fc6e122dc1549e"
+    },
+    "self_hash": "d6310a4f526732774e7533cd69583ed7654bd739625b310e25e31914f95b1fec"
+  },
+  "harness_passed": true,
+  "post_edit_passed": false,
+  "next_recipient": {
+    "agent": "Polaris",
+    "designation": "α-OPS-00"
+  }
+}

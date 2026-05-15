@@ -1,0 +1,18 @@
+{
+  "$schema": "https://worldline.local/runtime-allowlist.schema.json",
+  "version": 1,
+  "last_updated": "2026-05-15",
+  "owner": "canopus · α-HRN-07",
+  "comment": "Acceptable warnings for audit-prototype-runtime.sh. Console warnings matching any pattern here do not count as failures.",
+  "allowed_console_patterns": [
+    "fonts.googleapis.com",
+    "fonts.gstatic.com",
+    "Google Fonts",
+    "gsap.min.js",
+    "cdnjs.cloudflare.com"
+  ],
+  "allowed_network_patterns": [
+    "fonts.googleapis.com",
+    "fonts.gstatic.com"
+  ]
+}

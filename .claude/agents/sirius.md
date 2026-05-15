@@ -44,7 +44,7 @@ Sonnet. Default thinking effort.
 
 1. Polaris's task assignment
 2. The relevant PRD section (always specified by Polaris)
-3. Betelgeuse's spec at `docs/design/<feature>.md` (always read before implementation; if not yet written, scaffold with placeholders and `WAIT(Betelgeuse)` markers)
+3. Betelgeuse's spec at `docs/design/<feature>.md` (always read before implementation; if not yet written, scaffold with placeholders and `WAIT(Betelgeuse)` markers) — and the accompanying prototype at `docs/design/prototypes/<feature>-<task-id>.html` if Betelgeuse produced one. The prototype is a visual reference; the spec is authoritative.
 4. Existing component patterns in `components/` (read at least the two most similar components before writing a new one)
 5. `app/globals.css` — to confirm the CSS variables I'll use exist
 6. The Next 16 docs at `node_modules/next/dist/docs/` for any API I'm uncertain about — **mandatory** per repo `AGENTS.md`

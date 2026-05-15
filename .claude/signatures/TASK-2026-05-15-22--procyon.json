@@ -1,0 +1,36 @@
+{
+  "signature_schema_version": 2,
+  "task_id": "TASK-2026-05-15-22",
+  "agent": "Procyon",
+  "agent_designation": "α-IDX-03",
+  "pre_cutover_codename": "Lyra",
+  "started_at": "2026-05-15T11:51:00Z",
+  "completed_at": "2026-05-15T11:51:00Z",
+  "files_touched": [
+    ".claude/handoffs/from-procyon/TASK-2026-05-15-22--to-polaris.md",
+    ".claude/signatures/TASK-2026-05-15-22--procyon.json",
+    "content/photos/2026-04-chiang-mai/roll.mdx",
+    "next.config.ts",
+    "package.json",
+    "velite.config.ts"
+  ],
+  "summary": "velite skeleton + 3 collections + lib/content accessors (TASK-22)",
+  "steps": [],
+  "hashes": {
+    "files_sha256": {
+      ".claude/handoffs/from-procyon/TASK-2026-05-15-22--to-polaris.md": "48358129f8838bf9eb9b234fbc04e005b9bda51c59db08799d148b5a01c5ffdd",
+      ".claude/signatures/TASK-2026-05-15-22--procyon.json": "615008e57533bfd32c090ec8fc32ad1a822f80259a4c6de7600e419a59bc9bbb",
+      "content/photos/2026-04-chiang-mai/roll.mdx": "94e7243ab25a173817601402a69723ef11fd4596661805dfb0365f4014a71038",
+      "next.config.ts": "85f61f119e7c108b9963c0c4652adda7642ae218fb18a07f25058d84744e11e8",
+      "package.json": "27af7d1bb24e0ea51a4bb4cbd3fcc717e331ef09879169408e7fc11aea24513c",
+      "velite.config.ts": "38ea79f417370b371a7a81ef9c1b495d21890f89f1239c7cb63fea13a8287095"
+    },
+    "self_hash": "37a18fd5518155070bdc0580c4e1c5f11ae01760e7f69340c2384dd945c99382"
+  },
+  "harness_passed": true,
+  "post_edit_passed": true,
+  "next_recipient": {
+    "agent": "Polaris",
+    "designation": "α-OPS-00"
+  }
+}
