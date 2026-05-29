@@ -16,6 +16,10 @@ import {
   netraCoordFromCameraPosition,
 } from "@/lib/globe-coordinates";
 import { WL_STRATUM_EVENT, type StratumChangeDetail } from "@/lib/client-state/globe-store";
+// Worldline branching — 30-worldline-branching.md §13.2
+// FictionPin shape from types.ts (not yet in index barrel — use direct import).
+import type { FictionPin } from "@/lib/content/types";
+import { getFiction, getFictionSiblings } from "@/lib/content";
 
 /**
  * WorldlineGlobe — A.T.L.A.S. (Archive · Topology · Localizer · Atlas Surface).
@@ -49,6 +53,39 @@ import { WL_STRATUM_EVENT, type StratumChangeDetail } from "@/lib/client-state/g
  */
 
 const GLOBE_RADIUS = 1;
+
+// ─── Worldline Branching constants — 30-worldline-branching.md §9.1 + §13.2 ───
+// All Three.js materials use hard-coded hex/rgba; CSS vars are inaccessible here.
+// Token source: app/globals.css line 41–42 + branching spec §9.3.
+const SITE_ALPHA = 1.130426;           // observer α — spec §4.3 / Procyon SITE_ALPHA
+const NEX_SHELL_R = GLOBE_RADIUS * 1.18; // orbital shell radius — ontology §4.2
+const BRANCH_ORANGE_HEX = 0xD4602A;      // --accent-orange value (no opacity applied in hex)
+// Dashed tendril: 0.5px stroke, alpha 0.18 — spec §4.2 / §9.2
+const TENDRIL_ALPHA_BASE = 0.18;
+const TENDRIL_ALPHA_APEX = 0.22;       // breathing apex — spec §9.2
+const TENDRIL_ALPHA_TROUGH = 0.14;     // breathing trough — spec §9.2
+// Endpoint halo ring: alpha 0.6 — spec §4.4
+const ENDPOINT_ALPHA = 0.6;
+// Breathing — spec §7.1: ±15% control-point lift, ±0.012 rad sway, phase offset π/4
+const BREATH_LIFT_AMP = 0.15;          // ±15% of base control-point lift
+const BREATH_SWAY_AMP = 0.012;         // ±0.012 rad endpoint sway — spec §7.1
+const BREATH_PHASE_OFFSET = Math.PI / 4; // phase offset from camera drift — spec §7.1
+// Drift frequency used by spec §7.1 — matches NeX drift rate in tick()
+const DRIFT_FREQ_YAW = 0.07;           // rad/s — approximate yaw drift frequency
+// Timing — spec §9.1
+const BRANCH_ACTIVATE_DELAY_MS = 200;  // ms after drift fade-in starts before branches draw
+const TENDRIL_DRAW_MS = 600;           // stroke-dash-offset draw-in
+const ENDPOINT_FADE_MS = 400;          // endpoint opacity fade-in
+const BRANCH_FADE_OUT_LINE_MS = 220;   // tendril fade-out on deactivate
+const BRANCH_FADE_OUT_HALO_MS = 180;   // halo fade-out (finishes first — spec §5.2)
+// NeX domain→meridian mapping (ontology §4.2) — maps author domains to sphere longitude
+const DOMAIN_MERIDIAN: Record<string, number> = {
+  identity:   0,
+  reflection: Math.PI / 2,
+  method:     Math.PI,
+  meta:       (3 * Math.PI) / 2,
+};
+// ─────────────────────────────────────────────────────────────────────────────
 
 type StratumKey = "all" | "nex" | "neon" | "neo";
 
@@ -85,6 +122,85 @@ function latLonToVec3(latDeg: number, lonDeg: number, r = GLOBE_RADIUS) {
 function easeInOutCubic(x: number) {
   return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
 }
+
+function easeOutQuad(x: number) {
+  return 1 - (1 - x) * (1 - x);
+}
+
+// ─── NeX orbital coordinate model — ontology §4.2 + branching §4.3 ───
+
+/**
+ * Compute a NeX orbital position from a fiction entry's domain + isoDate.
+ * Returns a THREE.Vector3 on the orbital shell (r = NEX_SHELL_R).
+ * Domain drives meridian longitude; date drives latitude.
+ * Per ontology §4.2: placement by meaning-coords, not GPS.
+ */
+function nexOrbitalPosition(domain: string, isoDate: string): THREE.Vector3 {
+  const meridian = DOMAIN_MERIDIAN[domain] ?? 0;
+  // Parse date latitude: map year-month to lat range [-60°, +60°]
+  // isoDate format: "YYYY-MM-DD" (velite schema)
+  const parts = isoDate.split("-");
+  const month = parseInt(parts[1] ?? "6", 10); // 1–12
+  // Map month 1–12 to latitude −55° to +55° — spread across shell
+  const latDeg = ((month - 6.5) / 6.5) * 55;
+  const latRad = (latDeg * Math.PI) / 180;
+  const r = NEX_SHELL_R;
+  return new THREE.Vector3(
+    Math.cos(latRad) * Math.sin(meridian) * r,
+    Math.sin(latRad) * r,
+    Math.cos(latRad) * Math.cos(meridian) * r,
+  );
+}
+
+/**
+ * Deterministic phase offset for a fiction node — stable across reloads.
+ * Per spec §4.3: angle_i = (2π × i / N) + phase_offset_node
+ * Uses a simple hash of the slug string.
+ */
+function slugPhaseOffset(slug: string): number {
+  let h = 0;
+  for (let i = 0; i < slug.length; i++) {
+    h = (Math.imul(31, h) + slug.charCodeAt(i)) | 0;
+  }
+  return (Math.abs(h) % 1000) / 1000 * Math.PI * 2;
+}
+
+/**
+ * Data bundle for a single active tendril — stored per-branch in activation state.
+ */
+type TendrilData = {
+  channel: "variant" | "sibling";
+  pNode: THREE.Vector3;      // attended node world position
+  pEndpoint: THREE.Vector3;  // endpoint (variant = virtual, sibling = real)
+  pControlBase: THREE.Vector3; // control point at baseline (no breathing)
+  divergenceVec: THREE.Vector3; // radial outward direction from globe center
+  // Three.js objects
+  curve: THREE.QuadraticBezierCurve3;
+  line: THREE.Line;
+  endpointMesh: THREE.Mesh | null; // null for sibling (real glyph already exists)
+  // Animation state
+  drawProgress: number;   // 0→1 during draw-in, 1 when complete, -1 during fade-out
+  drawStartMs: number;
+  fadeOutStartMs: number; // -1 if not fading out
+  isDrawComplete: boolean;
+  // For sway — variant only
+  variantIndex: number;
+  variantCount: number;
+};
+
+/**
+ * Active branching session — attached to one NeX node while RW-5 drift holds.
+ */
+type BranchSession = {
+  pin: FictionPin;
+  pNode: THREE.Vector3;
+  tendrils: TendrilData[];
+  group: THREE.Group;
+  activatedMs: number;          // performance.now() when session started
+  isDeactivating: boolean;      // fade-out in progress
+  voiceLineEmitted: boolean;    // NETRA Q-F/Q-G line sent
+  firstDrawCompleteMs: number;  // performance.now() when first tendril draw completed; Infinity if not yet
+};
 
 const ALPHA_LAT = 13.7563;
 const ALPHA_LON = 100.5018;
@@ -227,6 +343,11 @@ type SceneRefs = {
   contoursGroup: THREE.Group;
   axisGroup: THREE.Group;
   nexField: THREE.Group;
+  // NeX orbital fiction node glyphs — hollow rings at domain+date positions.
+  // Added at runtime (async fiction load), empty initially.
+  nexFictionGlyphs: THREE.Group;
+  // Branching tendrils group — child of nexField (above orbital shell, per §13.2 step 1).
+  branchesGroup: THREE.Group;
   raysGroup: THREE.Group;
   northPole: THREE.Group;
   southPole: THREE.Group;
@@ -526,9 +647,20 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
   const southPole = poleBeacon(-1.0, -1);
   globe.add(northPole, southPole);
 
+  // ─── NeX orbital fiction glyph layer + branching tendrils group ───
+  // nexFictionGlyphs: hollow ring glyphs at domain+date orbital positions.
+  //   Populated asynchronously after fiction data loads.
+  // branchesGroup: holds active tendril curves + halo endpoints.
+  //   Z-order: above orbital shell mesh, below attractor-binding (per §13.2 step 1).
+  const nexFictionGlyphs = new THREE.Group();
+  const branchesGroup = new THREE.Group();
+  // Both go inside nexField so they inherit field visibility state.
+
   // ─── NeX — possibility field: concentric translucent wireframe spheres + radial rays ───
   const nexField = new THREE.Group();
   scene.add(nexField);
+  nexField.add(nexFictionGlyphs);
+  nexField.add(branchesGroup);
   const makeShell = (radius: number, opacity: number) => {
     const m = new THREE.MeshBasicMaterial({
       color: 0x1f5063,
@@ -587,7 +719,7 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
   for (const n of OBSERVER_NODES) {
     const v = latLonToVec3(n.coords.lat, n.coords.lon, 1.005);
     const head = new THREE.Mesh(
-      new THREE.SphereGeometry(n.primary ? 0.018 : 0.01, 12, 12),
+      new THREE.SphereGeometry(n.primary ? 0.022 : 0.01, 12, 12), // M4 sync: α sphere 0.018→0.022 per spec §5.3 / master gallery canonical
       n.primary ? nodeMatAcc.clone() : nodeMatInk.clone()
     );
     head.position.copy(v);
@@ -595,7 +727,7 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
 
     if (n.primary) {
       alphaRing = new THREE.Mesh(
-        new THREE.RingGeometry(0.03, 0.038, 32),
+        new THREE.RingGeometry(0.034, 0.044, 32), // M4 sync: halo ring 0.03→0.034 / 0.038→0.044 per spec §5.3 / master gallery canonical
         new THREE.MeshBasicMaterial({ color: 0xd4602a, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
       );
       alphaRing.position.copy(v.clone().multiplyScalar(1.001));
@@ -651,6 +783,8 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
       contoursGroup,
       axisGroup,
       nexField,
+      nexFictionGlyphs,
+      branchesGroup,
       raysGroup,
       northPole,
       southPole,
@@ -687,6 +821,9 @@ export function WorldlineGlobe() {
   const netraRangeRef = useRef<HTMLSpanElement | null>(null);
   // Target name only changes on click — fine to use React state.
   const [netraTarget, setNetraTarget] = useState("STANDBY");
+  // Branch voice — overrides stratum voice when NeX branching is active.
+  // Q-F/Q-G lines from Vega (TASK-2026-05-17-VEGA-BRANCHING-VOICE).
+  const [branchVoice, setBranchVoice] = useState<string | null>(null);
 
   const stratumRef = useRef<StratumKey>("all");
   const selectedIdRef = useRef<string | null>(null);
@@ -715,12 +852,17 @@ export function WorldlineGlobe() {
 
   /**
    * NETRA voice — companion-intelligence framing line shown below the console.
-   * When a pin is selected it speaks about that node. Otherwise it speaks
-   * about the current stratum. Italic, lowercase, terse — never chatty.
+   * Priority (highest to lowest):
+   *   1. branchVoice — NeX branching Q-F/Q-G lines (Vega locked copy)
+   *   2. selected entry trace line
+   *   3. current stratum voice
+   * Per spec §13.2 step 7: NETRA voice update uses existing aria-live strip.
    */
-  const netraVoice = selected
-    ? `trace · "${selected.title.toLowerCase()}". patched ${selected.date} · anchored ${selected.coords.place.toLowerCase()}.`
-    : t.voice;
+  const netraVoice = branchVoice
+    ? branchVoice
+    : selected
+      ? `trace · "${selected.title.toLowerCase()}". patched ${selected.date} · anchored ${selected.coords.place.toLowerCase()}.`
+      : t.voice;
 
   // ESC closes article panel.
   useEffect(() => {
@@ -737,21 +879,47 @@ export function WorldlineGlobe() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Jump-to-next-node (NETRA) — cycles through observer + entry nodes.
+  // Jump-to-next-node (NETRA) — cycles through observer + entry + fiction nodes.
   const jumpIdxRef = useRef(0);
-  const jumpTargetsRef = useRef<{ label: string; place: string; coords: { lat: number; lon: number } }[]>([]);
+  // Extended jump target: optional fictionSlug marks NeX orbital nodes (no real-world coords).
+  const jumpTargetsRef = useRef<{
+    label: string;
+    place: string;
+    coords: { lat: number; lon: number };
+    fictionSlug?: string; // set for NeX fiction nodes
+  }[]>([]);
   const netraLockRef = useRef<{ coords: { lat: number; lon: number }; range: number } | null>(null);
+
+  // Loaded fiction pins — populated by async load in THREE setup useEffect.
+  // Stored here so the NETRA jump logic outside that effect can read them.
+  const fictionPinsRef = useRef<FictionPin[]>([]);
+
+  // Active branching session — holds all tendril/halo objects for the current NeX node.
+  // Written only inside the THREE setup useEffect's closure.
+  const branchSessionRef = useRef<BranchSession | null>(null);
+
+  // Reduced-motion preference — read once in useEffect, stable for session.
+  // Per spec §10.2: no fade animations, instant alpha, no breathing.
+  const reducedMotionRef = useRef(false);
+
   useEffect(() => {
     jumpTargetsRef.current = [
       ...OBSERVER_NODES.map((n) => ({ label: n.label, place: n.coords.place, coords: { lat: n.coords.lat, lon: n.coords.lon } })),
       ...RECENT_ENTRIES.map((e) => ({ label: e.fileNum, place: e.coords.place, coords: { lat: e.coords.lat, lon: e.coords.lon } })),
     ];
+    // Fiction pins are appended to jumpTargets after async load — see THREE setup effect.
   }, []);
 
   // ─── THREE setup ───
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+
+    // Hydration-safe reduced-motion read — inside useEffect, not during render.
+    // Per AGENTS.md quality bar: check prefers-reduced-motion in useEffect only.
+    reducedMotionRef.current =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const { scene, refs, cleanup } = buildScene();
 
@@ -879,6 +1047,9 @@ export function WorldlineGlobe() {
     // ─── Camera transitions per stratum ───
     let cameraAnim: ((now: number) => void) | null = null;
     const applyStratum = (key: StratumKey) => {
+      // Stratum change = deactivate branches (spec §5.1 option iii rejection logic:
+      // framing change calls deactivateDrift — same applies here).
+      deactivateBranches();
       clearNetraLock();
       const T = STRATA[key];
       const startPos = camera.position.clone();
@@ -928,12 +1099,262 @@ export function WorldlineGlobe() {
     };
     (window as unknown as { __atlasApplySelected?: (id: string | null) => void }).__atlasApplySelected = applySelected;
 
-    // NETRA jump.
+    // ─── Worldline Branching — §13.2 activation/deactivation helpers ───
+
+    /**
+     * Build and animate a branch session for the given fiction pin.
+     * Called when NETRA RW-5 tracking engages on a NeX node.
+     * Per spec §13.2 steps 2–4.
+     */
+    const activateBranches = async (pin: FictionPin, pNode: THREE.Vector3) => {
+      // Deactivate any prior session immediately (no overlap — spec §7.2).
+      deactivateBranches();
+
+      const hasBranches = pin.variants.length > 0 || !!pin.divergence_cluster;
+      if (!hasBranches) {
+        // Empty-state — spec §3.3. Voice only; no visual.
+        // Q-G line: `// netra · {nodeTitle} holds. no speculative orbits at this α.`
+        const title = pin.slug.replace(/^transmission-/, "t.");
+        setBranchVoice(`${title} holds. no speculative orbits at this α.`);
+        return;
+      }
+
+      const group = new THREE.Group();
+      refs.branchesGroup.add(group);
+
+      const tendrils: TendrilData[] = [];
+      const now = performance.now();
+
+      // Divergence vector — radial outward from globe origin through node.
+      // Per spec §4.3.
+      const divergenceVec = pNode.clone().normalize();
+
+      // Build orthonormal tangent basis (t_yaw, t_pitch) perpendicular to divergenceVec.
+      // Stable per node — same algorithm as spec §4.3.
+      const worldUp = Math.abs(divergenceVec.y) > 0.92
+        ? new THREE.Vector3(1, 0, 0)
+        : new THREE.Vector3(0, 1, 0);
+      const tYaw = new THREE.Vector3().crossVectors(worldUp, divergenceVec).normalize();
+      const tPitch = new THREE.Vector3().crossVectors(divergenceVec, tYaw).normalize();
+
+      const phaseOffset = slugPhaseOffset(pin.slug);
+      const N = pin.variants.length;
+
+      // Channel A — variant tendrils (virtual coords per §4.3).
+      pin.variants.forEach((variant, i) => {
+        const deltaAlpha = Math.abs(parseFloat(variant.alpha) - SITE_ALPHA);
+        const distance = GLOBE_RADIUS * (0.06 + Math.min(deltaAlpha * 60, 0.10));
+        const angle = (2 * Math.PI * i / Math.max(N, 1)) + phaseOffset;
+        const direction = tYaw.clone().multiplyScalar(Math.cos(angle))
+          .addScaledVector(tPitch, Math.sin(angle));
+        const pEndpoint = pNode.clone().addScaledVector(direction, distance);
+
+        // Control point: midpoint, lifted outward by R × 0.015 along divergenceVec.
+        // Per spec §4.3 variant tendril control point.
+        const pControlBase = pNode.clone().lerp(pEndpoint, 0.5)
+          .addScaledVector(divergenceVec, GLOBE_RADIUS * 0.015);
+
+        const curve = new THREE.QuadraticBezierCurve3(pNode, pControlBase.clone(), pEndpoint.clone());
+        const pts = curve.getPoints(32);
+        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+        // LineDashedMaterial — dashed 4px / gap 3px per spec §4.2.
+        const mat = new THREE.LineDashedMaterial({
+          color: BRANCH_ORANGE_HEX,
+          transparent: true,
+          opacity: reducedMotionRef.current ? TENDRIL_ALPHA_BASE : 0,
+          dashSize: 0.025,
+          gapSize: 0.018,
+          linewidth: 1,
+          depthTest: true,
+          depthWrite: false,
+        });
+        const line = new THREE.Line(geo, mat);
+        line.computeLineDistances();
+        group.add(line);
+
+        // Variant endpoint halo — 3px open ring (geometry ~0.012 radius).
+        // Per spec §4.4: RingGeometry, accent-orange at 0.6 alpha.
+        const haloMat = new THREE.MeshBasicMaterial({
+          color: BRANCH_ORANGE_HEX,
+          transparent: true,
+          opacity: reducedMotionRef.current ? ENDPOINT_ALPHA : 0,
+          side: THREE.DoubleSide,
+          depthTest: true,
+          depthWrite: false,
+        });
+        const haloRing = new THREE.Mesh(
+          new THREE.RingGeometry(0.008, 0.012, 24),
+          haloMat,
+        );
+        haloRing.position.copy(pEndpoint);
+        // Orient ring to face camera (billboard via lookAt globe origin direction).
+        haloRing.lookAt(0, 0, 0);
+        haloRing.rotateY(Math.PI);
+        group.add(haloRing);
+
+        tendrils.push({
+          channel: "variant",
+          pNode: pNode.clone(),
+          pEndpoint: pEndpoint.clone(),
+          pControlBase: pControlBase.clone(),
+          divergenceVec: divergenceVec.clone(),
+          curve,
+          line,
+          endpointMesh: haloRing,
+          drawProgress: reducedMotionRef.current ? 1 : 0,
+          drawStartMs: now,
+          fadeOutStartMs: -1,
+          isDrawComplete: reducedMotionRef.current,
+          variantIndex: i,
+          variantCount: Math.max(N, 1),
+        });
+      });
+
+      // Channel B — sibling tendrils (real orbital positions per §4.3).
+      if (pin.divergence_cluster) {
+        const siblings = await getFictionSiblings(pin.slug);
+        for (const sibling of siblings) {
+          const pEndpoint = nexOrbitalPosition(sibling.domain, sibling.isoDate);
+
+          // Sibling control point: midpoint, lifted outward by R × 0.03.
+          // Per spec §4.3 sibling tendril — "lifted off shell by R × 0.03".
+          const pControlBase = pNode.clone().lerp(pEndpoint, 0.5)
+            .addScaledVector(divergenceVec, GLOBE_RADIUS * 0.03);
+
+          const curve = new THREE.QuadraticBezierCurve3(pNode, pControlBase.clone(), pEndpoint.clone());
+          const pts = curve.getPoints(32);
+          const geo = new THREE.BufferGeometry().setFromPoints(pts);
+          const mat = new THREE.LineDashedMaterial({
+            color: BRANCH_ORANGE_HEX,
+            transparent: true,
+            opacity: reducedMotionRef.current ? TENDRIL_ALPHA_BASE : 0,
+            dashSize: 0.025,
+            gapSize: 0.018,
+            linewidth: 1,
+            depthTest: true,
+            depthWrite: false,
+          });
+          const line = new THREE.Line(geo, mat);
+          line.computeLineDistances();
+          group.add(line);
+
+          // Sibling endpoint: no halo — sibling glyph already exists (spec §4.5).
+          tendrils.push({
+            channel: "sibling",
+            pNode: pNode.clone(),
+            pEndpoint: pEndpoint.clone(),
+            pControlBase: pControlBase.clone(),
+            divergenceVec: divergenceVec.clone(),
+            curve,
+            line,
+            endpointMesh: null,
+            drawProgress: reducedMotionRef.current ? 1 : 0,
+            drawStartMs: now,
+            fadeOutStartMs: -1,
+            isDrawComplete: reducedMotionRef.current,
+            variantIndex: 0,
+            variantCount: 1,
+          });
+        }
+      }
+
+      const title = pin.slug.replace(/^transmission-/, "t.");
+      const variantCount = pin.variants.length;
+      // Q-F line: `// netra · {nodeTitle} · {variantCount} speculative orbits in drift.`
+      // Emitted 100ms after first tendril draw completes — tracked in tick().
+
+      const session: BranchSession = {
+        pin,
+        pNode: pNode.clone(),
+        tendrils,
+        group,
+        activatedMs: now,
+        isDeactivating: false,
+        voiceLineEmitted: reducedMotionRef.current, // instant mode: emit on activation
+        firstDrawCompleteMs: Infinity, // set by tick when first tendril draw completes
+      };
+      branchSessionRef.current = session;
+
+      if (reducedMotionRef.current) {
+        // Instant alpha swap, no animation — spec §10.2.
+        setBranchVoice(`${title} · ${variantCount} speculative orbits in drift.`);
+      }
+    };
+
+    /**
+     * Deactivate current branch session — fade out and dispose.
+     * Per spec §13.2 step 6 + §5.2 timing table.
+     */
+    const deactivateBranches = () => {
+      const session = branchSessionRef.current;
+      if (!session || session.isDeactivating) return;
+      session.isDeactivating = true;
+      const now = performance.now();
+      // Set fade-out start on all tendrils.
+      session.tendrils.forEach((t) => { t.fadeOutStartMs = now; });
+      setBranchVoice(null); // revert to stratum voice
+    };
+
+    // ─── Extend NETRA jump to support NeX fiction nodes ───
+    /**
+     * Camera tracking for NeX orbital nodes — does not use lat/lon (no GPS).
+     * Positions camera to look at the orbital position from outside.
+     */
+    const cameraTrackNex = (pNode: THREE.Vector3, range: number) => {
+      const radial = pNode.clone().normalize();
+      const up = Math.abs(radial.y) > 0.92 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+      const tangent = new THREE.Vector3().crossVectors(up, radial).normalize();
+      const lift = new THREE.Vector3().crossVectors(radial, tangent).normalize();
+      return {
+        position: radial.clone().multiplyScalar(range)
+          .add(tangent.clone().multiplyScalar(0.28))
+          .add(lift.clone().multiplyScalar(0.12)),
+        look: pNode.clone().add(tangent.multiplyScalar(0.08)),
+      };
+    };
+
+    // NETRA jump — extended for fiction NeX nodes.
     (window as unknown as { __atlasNetraJump?: () => void }).__atlasNetraJump = () => {
       const targets = jumpTargetsRef.current;
       if (!targets.length) return;
       jumpIdxRef.current = (jumpIdxRef.current + 1) % targets.length;
       const n = targets[jumpIdxRef.current];
+
+      // Check if this is a NeX fiction node.
+      const fictionSlug = n.fictionSlug;
+      if (fictionSlug) {
+        const pin = fictionPinsRef.current.find((p) => p.slug === fictionSlug);
+        const startPos = camera.position.clone();
+        const startLook = currentLook.clone();
+        const t0 = performance.now();
+        const dur = 1100;
+        const pNode = nexOrbitalPosition(pin?.domain ?? "identity", pin?.isoDate ?? "2026-01-01");
+        cameraAnim = (now: number) => {
+          const k = Math.min(1, (now - t0) / dur);
+          const e = easeInOutCubic(k);
+          const { position: dest, look } = cameraTrackNex(pNode, 2.8);
+          camera.position.lerpVectors(startPos, dest, e);
+          currentLook.lerpVectors(startLook, look, e);
+          camera.lookAt(currentLook);
+          if (k >= 1) {
+            cameraAnim = null;
+            // Drift activates after slerp; branches activate BRANCH_ACTIVATE_DELAY_MS later.
+            if (pin) {
+              setTimeout(() => {
+                activateBranches(pin, nexOrbitalPosition(pin.domain, pin.isoDate));
+              }, BRANCH_ACTIVATE_DELAY_MS);
+            }
+          }
+        };
+        // NeX fiction nodes have no GPS coords — no netraLock so camera stays
+        // at slerp landing position (softTrackCamera is not called after slerp).
+        netraLockRef.current = null;
+        setNetraTarget(`${n.label} · ${n.place}`);
+        return;
+      }
+
+      // Standard Ne0 surface node.
+      deactivateBranches();
       setNetraLock(n.coords, 2.6);
       const startPos = camera.position.clone();
       const startLook = currentLook.clone();
@@ -950,6 +1371,63 @@ export function WorldlineGlobe() {
       };
       setNetraTarget(`${n.label} · ${n.place}`);
     };
+
+    // ─── Async fiction load — populates NeX glyph layer + jump targets ───
+    // Called once after scene is mounted. Runs in background; non-blocking.
+    (async () => {
+      try {
+        const fiction = await getFiction();
+        // Cast to FictionPin shape (getFiction returns Fiction[] which has same fields).
+        const pins: FictionPin[] = fiction.map((f) => ({
+          kind: "fiction" as const,
+          slug: f.slug,
+          title: f.title,
+          summary: f.summary,
+          domain: f.domain,
+          isoDate: f.isoDate,
+          tags: f.tags,
+          variants: f.variants ?? [],
+          divergence_cluster: f.divergence_cluster,
+        }));
+        fictionPinsRef.current = pins;
+
+        // Build NeX orbital glyph for each fiction pin.
+        // Hollow ring glyph — fiction node visual per ontology §4.5.
+        const glyphMat = new THREE.MeshBasicMaterial({
+          color: 0x1f5063,      // ink-primary teal (matches Ne0 surface pins)
+          transparent: true,
+          opacity: 0.75,
+          side: THREE.DoubleSide,
+        });
+        pins.forEach((pin) => {
+          const pos = nexOrbitalPosition(pin.domain, pin.isoDate);
+          const ring = new THREE.Mesh(
+            new THREE.RingGeometry(0.010, 0.016, 24),
+            glyphMat.clone(),
+          );
+          ring.position.copy(pos);
+          ring.lookAt(0, 0, 0);
+          ring.rotateY(Math.PI);
+          ring.userData.fictionSlug = pin.slug;
+          refs.nexFictionGlyphs.add(ring);
+        });
+
+        // Append fiction targets to jump list.
+        const fictionTargets = pins.map((pin) => ({
+          label: pin.slug.replace(/^transmission-/, "t."),
+          place: `NeX · ${pin.domain}`,
+          // Virtual orbital coord — we use lat=0 lon=0 as placeholder;
+          // camera tracking uses nexOrbitalPosition(), not these coords.
+          coords: { lat: 0, lon: 0 },
+          fictionSlug: pin.slug,
+        }));
+        jumpTargetsRef.current = [...jumpTargetsRef.current, ...fictionTargets];
+      } catch {
+        // Fiction load failure is non-fatal. Globe works without NeX branching.
+        // Intentional console.warn: surfaces load failures in browser devtools.
+        console.warn("[WorldlineGlobe] Fiction data load failed — NeX branching unavailable.");
+      }
+    })();
 
     // Initial stratum.
     applyStratum("all");
@@ -1004,6 +1482,142 @@ export function WorldlineGlobe() {
       const arcM = refs.arcLine.material as THREE.LineDashedMaterial;
       arcM.dashSize = 0.04 + Math.sin(now * 0.002) * 0.005;
 
+      // ─── Worldline Branching tick — §13.2 steps 3–6 + §7.1 breathing ───
+      const session = branchSessionRef.current;
+      if (session) {
+        // Phase clock: shared with camera drift (one clock per body — spec §7.1).
+        // driftPhaseT grows linearly. Yaw phase uses DRIFT_FREQ_YAW rad/s.
+        const driftPhaseT = now * 0.001; // seconds
+        const yawPhase = driftPhaseT * DRIFT_FREQ_YAW;
+        const pitchPhase = driftPhaseT * DRIFT_FREQ_YAW * 0.72; // pitch at slightly different freq
+
+        let allFadeComplete = true;
+
+        session.tendrils.forEach((td) => {
+          const lineMat = td.line.material as THREE.LineDashedMaterial;
+          const elapsed = now - td.drawStartMs;
+
+          if (td.fadeOutStartMs >= 0) {
+            // Fade-out phase — spec §5.2: 220ms line, 180ms halo (halo finishes first).
+            const lineT = Math.min(1, (now - td.fadeOutStartMs) / BRANCH_FADE_OUT_LINE_MS);
+            const haloT = Math.min(1, (now - td.fadeOutStartMs) / BRANCH_FADE_OUT_HALO_MS);
+            if (reducedMotionRef.current) {
+              lineMat.opacity = 0;
+              if (td.endpointMesh) (td.endpointMesh.material as THREE.MeshBasicMaterial).opacity = 0;
+            } else {
+              lineMat.opacity = TENDRIL_ALPHA_BASE * (1 - lineT);
+              if (td.endpointMesh) {
+                (td.endpointMesh.material as THREE.MeshBasicMaterial).opacity = ENDPOINT_ALPHA * (1 - haloT);
+              }
+            }
+            if (lineT < 1) allFadeComplete = false;
+          } else {
+            // Draw-in or steady-state.
+            if (!td.isDrawComplete) {
+              const drawT = Math.min(1, elapsed / TENDRIL_DRAW_MS);
+              const eased = easeOutQuad(drawT);
+              // Simulate stroke-dash-offset draw-in by scaling opacity.
+              // Full opacity arrives at draw complete; easing drives the "writing" feel.
+              lineMat.opacity = TENDRIL_ALPHA_BASE * eased;
+              if (td.endpointMesh) {
+                const haloT = Math.min(1, elapsed / ENDPOINT_FADE_MS);
+                (td.endpointMesh.material as THREE.MeshBasicMaterial).opacity = ENDPOINT_ALPHA * haloT;
+              }
+              if (drawT >= 1) {
+                td.isDrawComplete = true;
+                td.drawProgress = 1;
+                // Persist on session so the voice-emit check survives across ticks.
+                session.firstDrawCompleteMs = Math.min(session.firstDrawCompleteMs, now);
+              }
+            } else {
+              // Steady-state breathing — phase-locked to RW-5 drift (spec §7.1).
+              if (!reducedMotionRef.current) {
+                // ±15% control-point lift on yaw phase + π/4 offset.
+                const breathLift = Math.sin(yawPhase + BREATH_PHASE_OFFSET) * BREATH_LIFT_AMP;
+                const liftAmount = GLOBE_RADIUS * 0.015 * (1 + breathLift);
+                // ±0.012 rad endpoint sway on pitch phase (variant only).
+                const swayAngle = td.channel === "variant"
+                  ? Math.sin(pitchPhase) * BREATH_SWAY_AMP
+                  : 0;
+
+                // Recompute control point with current breathe offset.
+                const newCtrl = td.pNode.clone().lerp(td.pEndpoint, 0.5)
+                  .addScaledVector(td.divergenceVec, liftAmount);
+
+                // Endpoint sway for variants — rotate endpoint slightly around node.
+                let swayedEndpoint = td.pEndpoint.clone();
+                if (td.channel === "variant" && swayAngle !== 0) {
+                  const phaseOffset = slugPhaseOffset(session.pin.slug);
+                  const angleBase = (2 * Math.PI * td.variantIndex / td.variantCount) + phaseOffset;
+                  // Sway is azimuthal — rotate direction in tangent plane.
+                  const worldUp2 = Math.abs(td.divergenceVec.y) > 0.92
+                    ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+                  const tYaw2 = new THREE.Vector3().crossVectors(worldUp2, td.divergenceVec).normalize();
+                  const tPitch2 = new THREE.Vector3().crossVectors(td.divergenceVec, tYaw2).normalize();
+                  const deltaAlpha = Math.abs(parseFloat(session.pin.variants[td.variantIndex]?.alpha ?? "1.130426") - SITE_ALPHA);
+                  const dist = GLOBE_RADIUS * (0.06 + Math.min(deltaAlpha * 60, 0.10));
+                  const swayedAngle = angleBase + swayAngle;
+                  swayedEndpoint = td.pNode.clone()
+                    .addScaledVector(tYaw2, Math.cos(swayedAngle) * dist)
+                    .addScaledVector(tPitch2, Math.sin(swayedAngle) * dist);
+                  // Move halo ring.
+                  if (td.endpointMesh) {
+                    td.endpointMesh.position.copy(swayedEndpoint);
+                  }
+                }
+
+                // Update curve and line geometry — only when phase delta is meaningful.
+                td.curve.v0.copy(td.pNode);
+                td.curve.v1.copy(newCtrl);
+                td.curve.v2.copy(swayedEndpoint);
+                const newPts = td.curve.getPoints(32);
+                (td.line.geometry as THREE.BufferGeometry).setFromPoints(newPts);
+                td.line.computeLineDistances();
+
+                // Alpha breathing: ±0.04 around TENDRIL_ALPHA_BASE — spec §9.2.
+                const alphaBreathe = Math.sin(yawPhase + BREATH_PHASE_OFFSET) * 0.04;
+                lineMat.opacity = Math.max(
+                  TENDRIL_ALPHA_TROUGH,
+                  Math.min(TENDRIL_ALPHA_APEX, TENDRIL_ALPHA_BASE + alphaBreathe)
+                );
+              } else {
+                lineMat.opacity = TENDRIL_ALPHA_BASE;
+                if (td.endpointMesh) {
+                  (td.endpointMesh.material as THREE.MeshBasicMaterial).opacity = ENDPOINT_ALPHA;
+                }
+              }
+            }
+            allFadeComplete = false; // still active
+          }
+        });
+
+        // Emit NETRA Q-F voice line 100ms after first tendril draw completes.
+        if (!session.voiceLineEmitted && session.firstDrawCompleteMs < Infinity && now - session.firstDrawCompleteMs >= 100) {
+          const title = session.pin.slug.replace(/^transmission-/, "t.");
+          const variantCount = session.pin.variants.length;
+          // Q-F locked line from Vega: `// netra · {nodeTitle} · {variantCount} speculative orbits in drift.`
+          setBranchVoice(`${title} · ${variantCount} speculative orbits in drift.`);
+          session.voiceLineEmitted = true;
+        }
+
+        // All tendrils faded — dispose session.
+        if (session.isDeactivating && allFadeComplete) {
+          session.tendrils.forEach((td) => {
+            td.line.geometry.dispose();
+            (td.line.material as THREE.Material).dispose();
+            if (td.endpointMesh) {
+              (td.endpointMesh.geometry as THREE.BufferGeometry).dispose();
+              (td.endpointMesh.material as THREE.Material).dispose();
+              session.group.remove(td.endpointMesh);
+            }
+            session.group.remove(td.line);
+          });
+          refs.branchesGroup.remove(session.group);
+          branchSessionRef.current = null;
+        }
+      }
+      // ─── end branching tick ───
+
       if (cameraAnim) cameraAnim(now);
       else if (netraLockRef.current) {
         softTrackCamera(netraLockRef.current.coords, netraLockRef.current.range, dt);
@@ -1042,6 +1656,19 @@ export function WorldlineGlobe() {
       renderer.domElement.removeEventListener("pointerup", onUp);
       renderer.domElement.removeEventListener("pointercancel", onUp);
       renderer.domElement.removeEventListener("click", onClick);
+      // Dispose any active branch session geometry (memory hygiene — spec §13.2 step 6).
+      const finalSession = branchSessionRef.current;
+      if (finalSession) {
+        finalSession.tendrils.forEach((td) => {
+          td.line.geometry.dispose();
+          (td.line.material as THREE.Material).dispose();
+          if (td.endpointMesh) {
+            (td.endpointMesh.geometry as THREE.BufferGeometry).dispose();
+            (td.endpointMesh.material as THREE.Material).dispose();
+          }
+        });
+        branchSessionRef.current = null;
+      }
       cleanup();
       renderer.dispose();
       if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);

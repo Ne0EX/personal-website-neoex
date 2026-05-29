@@ -32,8 +32,8 @@ Four breakpoints. The values are not Tailwind defaults — they are derived from
 |---|---|---|---|
 | **WIDE** | ≥1180px | A.T.L.A.S. frame · Globe is the fold | Three.js, full render, auto-rotate |
 | **DESK** | 881–1179px | A.T.L.A.S. frame compacts · Globe stays | Three.js, compacted frame, no left-rail |
-| **MID** | 601–880px | ATLAS · STANDBY card + ChapterIndex primary | SVG mini-globe only, Three.js not loaded |
-| **NARROW** | ≤600px | ATLAS · STANDBY card (smaller) + ChapterIndex | SVG mini-globe, tighter padding |
+| **MID** | 601–880px | ATLAS · STANDBY card + ChapterIndex primary | **Live mini Three.js globe** (140px), full scene not loaded — lightweight mini mount only |
+| **NARROW** | ≤600px | ATLAS · STANDBY card (smaller) + ChapterIndex | **Live mini Three.js globe** (120px), tighter padding |
 
 ### 1.1 rationale per breakpoint
 
@@ -41,7 +41,7 @@ Four breakpoints. The values are not Tailwind defaults — they are derived from
 
 **880px (DESK floor / MID ceiling):** The `globals.css` existing `@media (max-width: 880px)` rule already collapses the ATLAS frame to a single column. This is the correct natural break. At 880px the Globe canvas still renders if tall enough, but at 880×900 the evidence shows it does not reach above the fold. The DESK behavior (compacted two-row pill layout) keeps Three.js loaded but restructures the frame so the Globe canvas occupies more of the viewport height. Globe remains usable — it just has no left rail, only a horizontal pill row.
 
-**600px (MID floor / NARROW ceiling):** Below 600px Three.js is dropped entirely. Rationale: on a 600px-wide device at typical mobile viewport height (~700–900px), a Three.js canvas that fits above the fold would be approximately 300px tall — too shallow for the orbital network + axis + surface layers to read at all. The cost of loading Three.js for a sub-legible render is not justified. The SVG mini-globe in the ATLAS · STANDBY card is the correct replacement: lightweight, legible, sufficient to show pin distribution and attractor membership.
+**600px (MID floor / NARROW ceiling):** Below 600px the full ATLAS Three.js scene does not mount — the three-column layout and full instrument frame are not loaded. **However** (Peat directive 2026-05-29): the mini-globe in the STANDBY card is a **miniaturized live Three.js globe**, not a 2D SVG/canvas abstraction. It mounts a lightweight Three.js scene scoped to a 140px (MID) or 120px (NARROW) canvas — earth-coastline sphere + Ne0N spine + pole beacons + α beacon + faint NeX hint. Auto-rotate on. No attractor interaction. The soul is the same object at smaller fidelity; the distinction is canvas size and scene complexity, not rendering stack. WebGL degradation fallback (SVG-equivalent flat render) applies only when WebGL is unavailable.
 
 **375px:** Not a separate breakpoint. Handled within NARROW by tighter padding (px-4) and a reduced STANDBY card height. 375px is the minimum supported viewport (iPhone SE/13 mini class). Below 375px no guarantees.
 
@@ -111,7 +111,7 @@ The `· STRATUM Ne0` readout (journey-arch §3.6) renders in the right-side Nav 
 │  │ ┌─┐  WORLDLINE 1.130426                              │   │
 │  │ └─┘  ATLAS · STANDBY · 047 surveyed                  │   │
 │  │                                                       │   │
-│  │      [SVG mini-globe · 140px diameter]               │   │
+│  │      [live mini-globe · 140px diameter]               │   │
 │  │                                                       │   │
 │  │      α 1.130426 · drift -1.300                       │   │
 │  │                                                       │   │
@@ -135,12 +135,18 @@ The `· STRATUM Ne0` readout (journey-arch §3.6) renders in the right-side Nav 
 - `ATLAS · STANDBY · 047 surveyed` · `t-mono` 9px uppercase tracking 0.3em · `var(--ink-primary)`
 - `α 1.130426 · drift -1.300` · `t-mono` 9px · `var(--ink-soft)` except `1.130426` in `var(--accent-orange)`
 
-**SVG mini-globe:** 140px diameter at MID, 120px at NARROW. Spec matches attractor-binding-mechanic.md §6.2 exactly:
+**Mini-globe:** 140px diameter at MID, 120px at NARROW. Canonical size — resolves prior divergence with `spec-globe-v1-direction.md` §11.
+
+> **Override — Peat directive 2026-05-29 (TASK-2026-05-29-SOUL-FACTORY-MINI-SPEC):**
+> The mini-globe is a **miniaturized live Three.js globe**, not an SVG/canvas 2D abstraction. Same soul as the full globe: earth-coastline sphere + Ne0N axis spine + pole beacons + α beacon (Bangkok) + faint NeX shell hint. Auto-rotate at `0.08 rad/s`. No attractor interaction (static `all` state). No cameraFocus controls. Single fixed rest-position camera.
+> The SVG/paper-canvas description below applies ONLY as a WebGL degradation fallback (no `WebGLRenderingContext`, `prefers-reduced-motion`, or `file://` origin). Not the primary at any viewport.
+
+**WebGL degradation fallback (only):**
 - Orthographic projection, paper-tone disc, faint graticule `var(--ink-faint)` 0.4 opacity dashed
 - Simplified continent paths, `var(--ink-soft)` fill 0.3 opacity
 - All surface pins as 4px circles at projected lat/lon
-- Attractor membership halo + dim treatment when `activeAttractor !== 'all'`
-- No interactivity — static map
+- No attractor membership treatment in degraded mode
+- No interactivity — static render
 
 **CTAs:** Two buttons on the same row.
 - `[ OPEN ATLAS ↗ ]` — routes to `/atlas`. Touch target: 44px tall. Font: `t-mono` 9px uppercase. Border: 1px solid `var(--ink-primary)`. Background: transparent on default, `var(--paper-deep)` on hover. Hover transition: 100ms.
@@ -165,7 +171,7 @@ Horizontal scrollable pill row. Renders directly below the STANDBY card, above C
 - Right-edge fade: `var(--paper-base)` → `transparent` over 24px (CSS `mask-image`)
 - Each pill: 44px min height (touch target). Width auto. `t-mono` 9px uppercase.
 - Active pill: `var(--ink-primary)` background, `var(--paper-bright)` text. Unchanged from existing `AttractorFields.tsx` styling.
-- Selecting a pill: filters ChapterIndex list below (per attractor-binding-mechanic §6.1). Also updates the SVG mini-globe attractor highlight (membership halos).
+- Selecting a pill: filters ChapterIndex list below (per attractor-binding-mechanic §6.1). Also updates the live mini-globe attractor highlight (membership halos); no-WebGL/reduced-motion fallback renders static — no pill-driven highlight in degraded mode.
 
 ### 4.5 ChapterIndex at MID
 
@@ -194,7 +200,7 @@ Identical to MID with the following overrides:
 |---|---|---|
 | horizontal padding | `px-7` (28px) | `px-4` (16px) |
 | STANDBY card height | 280px | 220px |
-| SVG mini-globe diameter | 140px | 120px |
+| live mini-globe diameter | 140px | 120px |
 | Nav padding | `18px 18px` (existing) | `14px 16px` |
 | ATLAS HEAD | visible | hides entirely — too dense at 375px |
 | section padding | `[data-section]` 18px L/R | `[data-section]` 16px L/R |
@@ -362,7 +368,7 @@ Under the v1.3 co-equal renderer (TASK-16 or successor), all three strata (surfa
 
 **FOCUS buttons at DESK:** The horizontal pill row above the Globe (§3.1) replaces the left rail. Four buttons. At 881px viewport the row has approximately 881px of width for four buttons plus padding — each button has ~200px of horizontal space. The `t-mono` 9px uppercase labels `FOCUS · SURFACE / ORBIT / AXIS / REST` fit comfortably. No wrapping needed.
 
-**At MID (601–880px):** Three.js is not loaded. The SVG mini-globe renders all three strata as simplified: surface pins as circles, orbital nodes as smaller circles (5px → 3px), axis line as a thin vertical line through the SVG globe center. The SVG is a static map and does not need the 60fps requirement. The co-equal strata read correctly at SVG scale.
+**At MID (601–880px):** The full ATLAS Three.js scene does not load, but the mini-globe in the STANDBY card IS a live Three.js globe at 140px (Peat directive 2026-05-29). It renders all three strata simplified for its canvas size: surface at 0.92 opacity, Ne0N spine visible through the body, pole beacons pulsing, NeX shell at faint opacity (0.05–0.10). No 60fps attractor network — single static attractor state. The co-equal strata read at miniature scale; the identity is preserved even at 140px.
 
 ---
 
@@ -395,11 +401,13 @@ Mobile devices (iPhone 12-class: A14 chip, 60fps) sustain 60fps for DOM-based CS
 
 **Keep at all breakpoints:** hover transitions (100–150ms), stratum indicator swap (200ms), attractor active transition (220ms), NETRA drawer slide-in (520ms GPU-composited transform), DivergenceMeter Nixie flicker (semantic identity, not decoration), boot sequence (~2500ms, not a scroll surface).
 
-**Keep at WIDE/DESK only (Three.js not loaded at MID/NARROW):** Globe auto-rotate, camera FOCUS moves (900ms), pin selection fly (1100ms), attractor edge stagger (220ms), body transparency tween (600ms).
+**Keep at WIDE/DESK only (full ATLAS Three.js scene):** camera FOCUS moves (900ms), pin selection fly (1100ms), attractor edge stagger (220ms), body transparency tween (600ms).
+
+**Keep at MID/NARROW (mini Three.js globe — Peat directive 2026-05-29):** mini-globe auto-rotate at `0.08 rad/s`. Pole beacon pulse (sin). α ring pulse (sin). NeX shell counter-rotate. All same soul motion, scoped to the mini canvas. Under `prefers-reduced-motion`: rotation pauses, static render.
 
 **Cut at MID/NARROW:**
-1. Globe auto-rotate — automatic (Three.js not loaded).
-2. Globe camera FOCUS moves — automatic.
+1. Globe camera FOCUS moves — the mini has no FOCUS controls.
+2. Attractor network edges — mini is static `all` state, no attractor interaction.
 3. Article side panel slide-in — replaced by full-page navigate. A 520ms panel over 35–50% of a 375px viewport destroys spatial orientation. Full-page navigate + `[← BACK]` is the correct replacement.
 
 **Reduced-motion:** The existing `globals.css` `prefers-reduced-motion` rule (`animation: none !important; transition-duration: 0.001ms !important`) covers all CSS. Sirius adds the JavaScript path: `window.matchMedia('(prefers-reduced-motion: reduce)').matches` → Three.js camera moves collapse to 0ms. This is a JavaScript concern the CSS rule cannot cover.

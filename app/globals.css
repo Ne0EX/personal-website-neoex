@@ -37,9 +37,22 @@
   --netra:         rgb(var(--netra-rgb));
   --netra-soft:    rgb(var(--netra-rgb) / 0.55);
 
-  /* Accent */
+  /* Accent — warm axis
+     Use for: all warm/spectrum/cinematic-warm palettes (Provia, Velvia, Eterna,
+     Reala Ace, Pro Neg Hi, Pro Neg Std, Astia, Nostalgic Neg, Classic Chrome, Acros variants).
+     The orange family. Any surface that ships without a data-palette override. */
   --accent-orange: #D4602A;
   --accent-orange-soft: rgba(212, 96, 42, 0.18);
+
+  /* Accent — cool axis
+     Use for: cool/silver/desaturated palettes where --accent-orange reads semantically
+     wrong (Classic Neg, Eterna Bleach Bypass, Seal).
+     Rule of thumb: warm/spectrum palettes → --accent-orange
+                    cool/silver/B&W-variant palettes → --accent-cool
+     Value: #3E5A6A — iron-slate. Desaturated, blue-cool cast, not system-blue.
+     Contrast verified: 5.93:1 vs --paper-warm, 4.71:1 vs --paper-deep (both ≥ 4.5:1). */
+  --accent-cool: #3E5A6A;
+  --accent-cool-soft: rgba(62, 90, 106, 0.18);
 
   /* Type scale */
   --h1-size:       56px;

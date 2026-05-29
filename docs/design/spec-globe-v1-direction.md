@@ -120,9 +120,29 @@ The shells sit OUTSIDE the surface sphere. Combined with their wireframe opaciti
 
 Per v7 lines 735-750. Every node has `lat`, `lon`, `label`, `place`, `why`. The narrative reason matters — these are not data points, they are surveyed marks (SBA-1 §2.4, §summary item 4).
 
+### 5.1 · the α node — live present observer (enriched definition, 2026-05-29)
+
+**α = Peat's live current primary location on Earth at that moment.** It is the place he currently inhabits as his main whereabouts ("ที่อยู่หลัก ณ เวลานั้น"). It is **movable**: when Peat travels, α relocates — Bangkok at home, Tokyo or Kyoto when in Japan, wherever he currently is. Peat updates it himself.
+
+This is why α is precisely the observer locus NETRA tracks: Peat tells NETRA where he is, so NETRA's coordinate is always α.
+
+α is **fundamentally distinct from the archive nodes**:
+
+| | α | archive nodes (000–047) |
+|---|---|---|
+| meaning | **present observer** — "here, now" | **past surveyed marks** — "where it was recorded" |
+| position | movable; Peat-updated | fixed; real GPS coordinates of record-making |
+| count | always 1 | 6 in the current archive |
+| color | `var(--accent-orange)` — the only orange node | `var(--ink-primary)` teal |
+| size | 0.022 radius sphere | 0.012 radius sphere |
+
+Note: α may sit at or near an archive node's place (e.g. α at Tokyo overlaps 012). This is the **present-observer-over-past-archive layering** — intended. The archive node marks where the record was made; α marks where Peat is now. They may coincide.
+
+### 5.2 · full node table
+
 | label | place | coords | why | attractors |
 |---|---|---|---|---|
-| **α** | Bangkok · TH | 13.7563°N · 100.5018°E | observer's locus | all · narrative · meta |
+| **α** | Peat's current primary location · movable | 13.7563°N · 100.5018°E (Bangkok default) | present observer — "here, now" · Peat-updated · NETRA-tracked | all · narrative · meta |
 | 003 | Kyoto · JP | 35.0116°N · 135.7681°E | architecture of taste | narrative · japan |
 | 002 | Chiang Mai · TH | 18.7883°N · 98.9853°E | why I paused the startup | narrative · ai · ml |
 | 001 | Yirgacheffe · ET | 6.16°N · 38.2058°E | four pours — coffee origin | coffee |
@@ -130,13 +150,15 @@ Per v7 lines 735-750. Every node has `lat`, `lon`, `label`, `place`, `why`. The 
 | 012 | Tokyo · JP | 35.6762°N · 139.6503°E | narrative · active branch | japan · narrative |
 | 047 | Point Nemo · PAC | −48.8767°S · −123.3933°W | meta vantage · most remote | meta |
 
-**Node treatment:**
+### 5.3 · node treatment
 
-- non-α nodes: 0.012 radius sphere, `var(--ink-primary)` material
-- **α node** (Bangkok): 0.022 radius sphere, `var(--accent-orange)` material, with an orange RingGeometry 0.034–0.044 around it pulsing at 0.5 ± 0.45 sin(0.005t). Visually distinct as the observer locus. (v7 lines 753-772; SBA-1 §2.4)
+- **archive nodes** (003, 002, 001, 000, 012, 047): 0.012 radius sphere, `var(--ink-primary)` teal material. Fixed GPS. Past surveyed marks.
+- **α node** (live current location, Bangkok default): 0.022 radius sphere, `var(--accent-orange)` material, with an orange RingGeometry 0.034–0.044 around it pulsing at 0.5 ± 0.45 sin(0.005t). The only orange node. Visually distinct as the movable present observer. (v7 lines 753-772; SBA-1 §2.4)
 - worldline arc: dashed orange QuadraticBezierCurve3 from α swooping outward into the NeX field, `dashSize` breathing animation. (v7 lines 774-786)
 
-**Hit behavior:** all nodes clickable. On click (or NETRA "⟶ NEXT NODE" jump), the coord-pin shows `LABEL · PLACE · COORDS` with the narrative `why` directly underneath in italic Cormorant — these surveyed reasons are part of the body's identity. (Evolution from v7 which only showed coords; the `why` field exists in v7's data structure but is not rendered. Surfacing it here is the soul gesture per SBA-1 §summary item 4.)
+The color system encodes the semantic: orange = live observer, teal = archive. At a glance, Peat reads the globe the way a navigator reads a chart — one moving mark (position, present) against fixed marks (where it was surveyed).
+
+**Hit behavior:** all nodes clickable. On click (or NETRA "⟶ NEXT NODE" jump), the coord-pin shows `LABEL · PLACE · COORDS` with the narrative `why` directly underneath in italic Cormorant — these surveyed reasons are part of the body's identity. For α, the coord-pin renders: `α · [current place] · [current coords]` with `why: present observer — Peat-updated`. (Evolution from v7 which only showed coords; the `why` field exists in v7's data structure but is not rendered. Surfacing it here is the soul gesture per SBA-1 §summary item 4.)
 
 ---
 
@@ -320,13 +342,31 @@ The chat drawer (TASK-52, journey-architecture §4) is **out of scope for this i
 
 ## 11 · breakpoints
 
+> **Override — Peat directive 2026-05-29 (TASK-2026-05-29-SOUL-FACTORY-MINI-SPEC):**
+> The standby/mini-globe is now a **miniaturized live Three.js globe** — same soul as the full globe, tuned lightweight and portable. The 2D paper-canvas abstraction described in the original §11 entry for ≤600px is **superseded**. "Three.js retires at ≤600px" is no longer the canonical behavior.
+> The paper-canvas fallback is retained ONLY as a degraded rendering path when WebGL is unavailable, `prefers-reduced-motion` is set, or the page is served over `file://`. It is not the primary at any viewport width.
+
 | viewport | behavior |
 |---|---|
 | ≥881 px | full 1180×760 stage with scale-fit (`scale(min(availW/1180, availH/760, 1))`) — v7 line 1086 carried forward |
 | 601–880 px | content collapses to single column. Focus buttons reflow to a 2-column row. globe-wrap min-height 380px. NETRA console spans full row. (Three.js still mounts.) |
-| ≤600 px | Three.js retires. `.standby` element activates: paper-canvas mini-globe (130×130 radial-gradient + lat/lon repeating-linear grid + orange α dot with 5px halo) + `ATLAS · STANDBY` label + α readout `1.130426 · 13.04°N · 26.00°E` + two CTAs (`OPEN ATLAS` · `AS LIST`). Frame-head stacks. NETRA console stays in foot. (per `60-responsive-system.md` §7.2 and SBA-1 §3 D5 / §4 F6) |
+| ≤600 px | **Miniaturized live globe** mounts in the STANDBY card. Same Three.js soul: earth-coastline sphere + Ne0N axis spine + pole beacons + α beacon at Bangkok (orange ring pulse) + faint NeX shell hint. Rendered at **140px diameter** (120px at ≤375px / NARROW). Auto-rotate enabled (same `0.08 rad/s`). No attractor interaction — static `all` attractor state. No cameraFocus controls — single fixed camera at the rest position. NETRA console stays in foot; frame-head stacks. Two CTAs (`OPEN ATLAS` · `AS LIST`). Canvas `prefers-reduced-motion`: rotation pauses, static render. |
 
-**375 px viewport check:** the STANDBY card renders, paper grain + dashed borders + corner reticles all preserved, α + divergence + a route back to full ATLAS all visible. Touch targets (CTAs) at ~88×34 px ≥ 44 px minimum. (SBA-1 §4 F6 loss budget honored.)
+**Mini-globe soul inventory (what it carries):**
+- earth-coastline sphere at `opacity: 0.92` (surface group)
+- Ne0N spine cylinder (axis group — thin, renders through body)
+- pole beacons at y=±1.0 with orange pulse (axis group)
+- α beacon at Bangkok (orange dot + ring pulse)
+- NeX shells at 0.05–0.10 opacity (orbital group — faint cage hint)
+- No attractor pills, no FOCUS buttons, no stratum readouts
+- The mini IS the same object at smaller fidelity. Not a simplified icon. Not a 2D abstract.
+
+**WebGL degradation (only):** if `!WebGLRenderingContext` or `canvas.getContext('webgl')` returns null, render the paper-canvas fallback (radial-gradient disc + lat/lon repeating-linear grid + orange α dot with 5px halo). This is a capability degradation, not a viewport decision.
+
+**Canonical mini-globe diameter:** 140px at MID (601–880px) / 120px at NARROW (≤600px / 375px).
+Source: `docs/design/60-responsive-system.md` §4.2 + §5. Previous spec value of 130×130 (paper-canvas era) is superseded by this directive and is no longer in use.
+
+**375 px viewport check:** STANDBY card renders with live mini-globe at 120px. α pulse + dashed borders + corner reticles preserved. Touch targets (CTAs) ≥ 44px. (SBA-1 §4 F6 loss budget honored.)
 
 ---
 
@@ -351,6 +391,7 @@ The chat drawer (TASK-52, journey-architecture §4) is **out of scope for this i
 - not a single-layer renderer with stratum toggles (v1.3 supersedes)
 - not the chat surface — NETRA chat lives in a separate component family (TASK-52)
 - not a final pixel-perfect mock — Sirius implements; this spec sets direction
+- **not a surface where the mobile mini-globe is a 2D paper-canvas abstraction** — the mini IS the live Three.js globe, smaller. The paper-canvas is a degradation fallback for no-WebGL / `prefers-reduced-motion` / `file://` only. (Peat directive 2026-05-29, §11 override.)
 
 ---
 
@@ -388,6 +429,11 @@ These are NOT decisions to revisit in this iteration; they are next-step bookmar
 2. **Lineage edges** (ontology §4.3): dashed/dotted edge styles reserved for lineage relationships. Attractor edges deliberately use solid in v1 to leave that vocabulary free.
 3. **AttractorFields component placement.** The prototype renders the pill row INSIDE the Globe right rail to demonstrate the binding. In production, AttractorFields ships as a separate component below the Globe per `journey-architecture.md`. The binding contract (§6) is the same in both placements. — Polaris-confirm before Sirius implements.
 4. **Body-transparency modulation tuning.** 0.92 → 0.62 reads strong in the prototype. If Peat finds it too aggressive on review, the v1 dial is 0.92 → 0.75 (softer step-back, still legible network). 600ms timing stays.
+
+**Closed items (resolved in TASK-2026-05-29-SOUL-FACTORY-MINI-SPEC):**
+
+5. ~~**Mini-globe size divergence** — §11 said "130×130 paper-canvas mini-globe"; `60-responsive-system.md` §4.2 said "SVG mini-globe 140px/120px." Closed.~~ Canonical size is now **140px at MID / 120px at NARROW**, sourced from the responsive-system spec and confirmed by the live-mini directive. Both docs now agree. Paper-canvas and SVG references are superseded by the live Three.js mini.
+6. ~~**"Three.js retires at ≤600px"**~~ — superseded by Peat directive 2026-05-29. The mini-globe at ≤600px is a live Three.js render, not a 2D fallback. See §11 override block.
 
 ---
 
@@ -469,3 +515,213 @@ These rows are PRESERVE-MAIN but explicitly out of the Globe-direction scope:
 - [x] Density preserved — top 5 drift items closed; remaining items inventoried for iter ≥2
 
 *Betelgeuse · α-VIS-04 · TASK-2026-05-15-UI-1 · iteration 1 · REVISE · 2026-05-15*
+
+---
+
+## 10.4 · REVISE-2 pass (2026-05-15)
+
+> appended after Peat verdict on iteration 1 REVISE:
+> *"ยัยนั่นเว้นที่เยอะมาก และแน่นอนว่าเลข coordinates ยังขยับเรื่อยๆตามการหมุนของโลกซึ่งตรงกับประวัติที่เคยแก้ใน MAIN BRANCH ไปทั้งนั้น ยังไม่ผ่าน"*
+> two main-branch fidelity rows missed in iter 1 REVISE.
+
+### 10.4.1 · empty-space-below-ATLAS · main-branch home-stack restored
+
+**Diagnosis.** Iter 1 REVISE restored Nav + Hero + MarginaliaHUD + ScrollMeter (the chrome wrapping ATLAS) but DID NOT extend the prototype below ATLAS to mirror main-branch's home-page stack. Below the ATLAS frame, main-branch ships three more canonical sections before the page ends:
+
+1. `components/ChapterIndex.tsx` — `§ 01 // CHAPTER INDEX // RECENT TRACES` — 2-column grid of entry cards with diamond reticles, file numbers, italic titles, tag rows.
+2. `components/AttractorFields.tsx` — `§ 02 // ATTRACTOR FIELDS // BROWSE BY DOMAIN` — single horizontal pill row with `is-active` invert state.
+3. `components/FooterManifesto.tsx` — `§ 03` — three columns: italic manifesto with orange opening quote · CHANNELS link list · TRANSMIT link list.
+
+The prototype previously jumped straight from ATLAS into pilot-exploratory sections (fork, entries, photos…) and ended with a 2-column site footer. The absent ChapterIndex/AttractorFields rhythm was the visible "เว้นที่เยอะมาก" — main-branch had spatial density there; the prototype had a gap.
+
+**Adjustments applied.**
+
+| change | source replicated | location |
+|---|---|---|
+| New `<section class="chapter-index-section">` with 2-col `entry-card` grid + diamond reticles | `components/ChapterIndex.tsx` lines 28-79; data from `lib/entries.ts` RECENT_ENTRIES (003 / 002 / 001 / 000) | `pilot-frontend-ui-design/index.html` insert before `#fork` |
+| New `<section class="attractor-fields-section">` with 11 pills | `components/AttractorFields.tsx` lines 9-52; data from `lib/entries.ts` ATTRACTOR_FIELDS (all / coffee / ai · ml / narrative / cubic copper / harness eng. / fragrance / film · letterboxd / trading / japan / 日本 / meta) | same |
+| Site-footer upgraded 2-col → 3-col (MANIFESTO · CHANNELS · TRANSMIT) with italic Cormorant manifesto, orange opening curly quote, mono uppercase link list | `components/FooterManifesto.tsx` lines 6-60 verbatim copy + link order | `pilot-frontend-ui-design/index.html` `<footer class="site-footer">` |
+| CSS added in `pilot-frontend-ui-design/styles.css` end-of-file (before `prefers-reduced-motion` rule) — entry-card hover bg, reticle, tag colors, pill `is-active` invert, footer 3-col grid, mobile breakpoints (≤880px stack, ≤600px tighter padding) | mirrors main-branch Tailwind values (`px-7 py-6`, `text-[22px]`, `tracking-[0.3em]`, etc.) — no new design tokens introduced | `styles.css` lines ~2283-end |
+
+**Zero new design tokens.** Every color, font family, font size, and spacing value reuses already-declared CSS vars (`--paper-warm`, `--ink`, `--ink-hairline`, `--accent`, `--font-mono`, `--font-display`) and the existing 9px/10px/12px mono scale. Reticles use `rgb(212 96 42 / 0.4)`, identical to the inline value in main-branch `ChapterIndex.tsx` line 51.
+
+### 10.4.2 · coordinate-jitter · earth-fixed readout per main-branch convention
+
+**Diagnosis.** The HUD camera bearing (`[data-bearing]` element, displayed as `ORBIT · X°` in the ATLAS canvas top-right corner) was being written every frame inside the `render()` loop:
+
+```js
+// BEFORE (iter 1):
+const bearing = $("[data-bearing]");
+if (bearing) bearing.textContent = `ORBIT · ${Math.round(...)}°`;
+```
+
+Even when the rounded integer angle did not change between frames, the text node was being mutated 60×/sec. Browsers force layout/paint on text-node mutation regardless of whether the new value equals the old; the result reads as jitter — the bearing "ขยับเรื่อยๆตามการหมุนของโลก" because the globe IS rotating and the bearing IS following.
+
+Main branch fixed this in commit **`9344368` "Fix NETRA atlas tracking"** (2026-05-10) — see `components/WorldlineGlobe.tsx` lines 1014-1029. Two mechanisms:
+
+1. **Gated write** — `textContent` is only mutated if the new string differs from the current text content (lines 1015-1017, 1023-1025, 1027-1029):
+   ```ts
+   if (hudCamRef.current && hudCamRef.current.textContent !== hudCamText) {
+     hudCamRef.current.textContent = hudCamText;
+   }
+   ```
+2. **Earth-fixed coordinate source** — NETRA reticle lat/lon is derived from camera position via `netraCoordFromCameraPosition(camera.position)`, NOT from globe rotation (line 1019-1021 comment: *"NETRA coordinates are earth-fixed; visual globe rotation must not mutate longitude"*). When the globe rotates but the camera is stationary, the coordinate stays put.
+
+**Adjustment applied.** `pilot-frontend-ui-design/app.js` line ~863-876:
+
+```js
+// AFTER (REVISE-2):
+const bearing = $("[data-bearing]");
+if (bearing) {
+  const angle = Math.round((((-state.yaw * 180) / Math.PI) % 360 + 360) % 360);
+  const next = `ORBIT · ${angle}°`;
+  if (bearing.textContent !== next) bearing.textContent = next;
+}
+```
+
+The integer-rounded bearing only changes ~once per degree of yaw (about every 200ms at the default `config.drift`). Between integer ticks, the text node is untouched — no layout, no paint, no jitter. Reads as a deliberate readout, not telemetry feed. The full earth-fixed coordinate derivation will land alongside the Three.js renderer migration (Sirius's TASK 16-19) since that is the only point at which a `camera.position` exists; for the SVG/canvas prototype, gating the only continuously-updated readout (`[data-bearing]`) is the correct first-stage equivalent.
+
+### 10.4.3 · acceptance trace
+
+- [x] ChapterIndex + AttractorFields + FooterManifesto rendered below ATLAS (replacing the 2-col site footer and preceding the pilot-exploratory sections) — verified by reading `pilot-frontend-ui-design/index.html` lines 269-356 (chapter-index + attractor-fields) and 591-624 (3-col site footer)
+- [x] Coordinate/bearing readout gated per main-branch convention with explicit citation to commit `9344368` and lines 1014-1017 of `components/WorldlineGlobe.tsx`
+- [x] Six screenshots captured at 1180/880/600/375 + one still during globe rotation showing bearing locked between ticks
+- [x] §10.4 documents both fixes with main-branch citations (this section)
+- [x] Prototype runtime audit (`audit-prototype-runtime.sh`) passes — no console errors, no exceptions, no 404s
+- [x] Zero new design tokens introduced; every value traces to an existing CSS var or to a verbatim main-branch literal
+
+### 10.4.4 · flagged forward (intentionally out of scope for this pass)
+
+- Full earth-fixed `netraCoordFromCameraPosition` equivalent for the prototype — deferred to Three.js renderer migration (Sirius TASK 16-19). The prototype's SVG/canvas globe has no `camera.position` vector to derive from; the gated-write fix is the correct stage-1 equivalent.
+- ChapterIndex entry-card stagger animation (`stagger(110)` from main-branch line 18-23) — deferred to motion polish iter. Iter ≥2 will add anime.js stagger once Sirius confirms anime.js is the prototype's accepted motion lib.
+- AttractorFields pill keyboard navigation (arrow keys cycling active pill) — deferred to a11y polish iter.
+
+*Betelgeuse · α-VIS-04 · TASK-2026-05-15-UI-1 · iteration 1 · REVISE-2 · 2026-05-15*
+
+---
+
+## 10.5 · REVISE-3 pass (2026-05-15)
+
+Peat reviewed a screen recording of the REVISE-2 prototype and returned two unresolved visible-craft failures:
+
+> "บอกยัยนั่นดูวิดิโอแล้วบอกว่า HERO แคบไป แถมมีกระพริบเยอะด้วยตอนเปลี่ยน NODE"
+
+Both are direct main-branch fidelity tasks. Both close in this pass.
+
+### 10.5.1 · Hero proportions — title scale + grid track reconciliation
+
+**Diagnosis (verified empirically at 1180px viewport, Playwright + getBoundingClientRect):**
+
+The prototype's italic Cormorant title rendered at **`87.32px`** because `.hero-copy h1` used `font-size: clamp(44px, 7.4vw, 104px)`. At the 1180px reference breakpoint, `7.4vw = 87.32px`. Main-branch (`components/HeroBlock.tsx` line 80) sets the title at **`text-[34px]`** — a deliberate "hook word" sized to NOT compete with the ATLAS artifact, as the HeroBlock jsdoc (lines 8-18) explicitly states:
+
+> "The title is the 'hook word' that enhances the aesthetic without competing with the globe for space. ATLAS is the dominant artifact."
+
+The prototype was rendering at **2.57× the main-branch size**. At 87px in a 431px-wide column (the left grid track at 1180px), the title wrapped into **4 visual lines** with a measured h1 box height of `393px`. The whole Hero pushed to `1528px` tall before ATLAS even appeared, which Peat experienced as "HERO แคบไป" — title overwhelms its container, so the container reads as narrow.
+
+Compounding factor: the `.hero` grid track was `minmax(0, 1fr) auto minmax(280px, 360px)`, forcing the right column to ≥ 280px (the divergence panel had `min-width: 300px` as a separate hard floor). Main-branch hero (`HeroBlock.tsx` line 68) uses `grid-cols-[minmax(0,1fr)_auto_auto]` — both side columns `auto`. The 280-360px clamp robbed the title column of the breathing room main-branch promises.
+
+**Adjustment applied.** `pilot-frontend-ui-design/styles.css`:
+
+```css
+/* line ~333 .hero — was: minmax(0,1fr) auto minmax(280px, 360px) */
+grid-template-columns: minmax(0, 1fr) auto auto;
+
+/* line ~395 .hero-copy h1 — was: clamp(44px, 7.4vw, 104px) */
+font-size: clamp(28px, 2.9vw, 40px);
+line-height: 1.05;
+letter-spacing: -0.005em;
+max-width: 720px;
+
+/* line ~430 .hero-copy p — was: 19px, max-width 680 */
+font-size: 14.5px;
+max-width: 560px;
+
+/* line ~436 .divergence-panel — was: min-width 300px */
+min-width: 230px;
+padding: 12px 16px;
+
+/* line ~495 .divergence-value — was: 42px */
+font-size: 30px;
+```
+
+**Measurement proof** (Playwright `getBoundingClientRect` at viewport 1180×820):
+
+| metric                   | BEFORE  | AFTER  | main-branch target |
+|--------------------------|---------|--------|--------------------|
+| h1 font-size             | 87.32px | 34.22px| 34px               |
+| h1 box height            | 393px   | 72px   | ~72px (2 lines)    |
+| left grid track width    | 431px   | 526px  | ~520-540px         |
+| right grid track width   | 360px   | 265px  | ~200-280px         |
+| Hero total height        | 1528px  | 1192px | ~1180-1220px       |
+
+Title now fits in **2 clean lines** at 1180px, ATLAS appears above the fold, and the proportional restraint matches main-branch.
+
+### 10.5.2 · NETRA node-jump flicker — single-source-of-truth delegation
+
+**Diagnosis** (root cause traced by reading prototype source against main-branch source):
+
+`pilot-frontend-ui-design/app.js` prior `jumpNode()` (lines 991-1004) executed this sequence on every `⟶ NEXT NODE` click:
+
+1. Write `[data-netra-target]` from `nodeCycle[i].target`
+2. Write `[data-netra-coord]` from `nodeCycle[i].coord`
+3. Write `[data-netra-voice]` from `nodeCycle[i].voice`
+4. Write tooltip `<b>` and `<span>` from `nodeCycle[i].tooltip[0..1]`
+5. Remove `is-selected` from all `.node, .pin, .fiction-node`; add to one
+6. Call `atlasGlobe.selectNode(id)` — which internally calls `updateDomForNode(mark)` and writes the SAME fields from `atlasMarks[i]` (a different source object)
+
+Two different source objects writing the same DOM nodes in the same tick = a guaranteed 1-frame flicker on every cycle. Additionally the `is-selected` class flip was performed twice per jump (in `jumpNode` AND inside `updateDomForNode`), forcing a double style-recompute.
+
+Main-branch (`components/WorldlineGlobe.tsx` lines 932-952, commit **`9344368` "Fix NETRA atlas tracking"**) has a SINGLE source of truth in its jump flow:
+
+```ts
+(window as unknown as { __atlasNetraJump?: () => void }).__atlasNetraJump = () => {
+  const targets = jumpTargetsRef.current;
+  if (!targets.length) return;
+  jumpIdxRef.current = (jumpIdxRef.current + 1) % targets.length;
+  const n = targets[jumpIdxRef.current];
+  setNetraLock(n.coords, 2.6);                     // ← lock to TARGET
+  // ... camera tween ...
+  setNetraTarget(`${n.label} · ${n.place}`);       // ← write once
+};
+```
+
+All readouts derive from `netraLockRef.current.coords` for the duration of the tween (lines 1019-1029) — no intermediate camera-position writes leak through. Target label is written exactly once per jump.
+
+**Adjustment applied.** `pilot-frontend-ui-design/app.js` line ~991:
+
+```js
+function jumpNode() {
+  activeNode = (activeNode + 1) % nodeCycle.length;
+  const node = nodeCycle[activeNode];
+  if (atlasGlobe) atlasGlobe.selectNode(node.id, true);
+}
+```
+
+`selectNode()` becomes the sole DOM-mutation pathway, via `updateDomForNode(mark)`. One write per field per tick. The legacy SVG-fallback `is-selected` toggle is already handled by `updateDomForNode` line 790-792 via the `[data-node-shape="${mark.id}"]` selector — no coverage loss. `atlasMarks` and `nodeCycle` carry identical `target`/`coord`/`voice` strings for the four cycled ids (003, 001, photo-043, t001), verified by reading lines 39-67 against 105-189 of `app.js` — no data loss either.
+
+**MutationObserver proof** (5 rapid clicks on `[data-next-node]`, 250ms apart, observing `[data-netra-target/coord/voice]`):
+
+- 5 clicks × 3 readouts = **exactly 15 textContent writes** captured
+- Per-jump writes cluster at the SAME `performance.now()` timestamp (e.g. `10681.9ms` for all 3 readouts on jump #1) → confirmed single-tick atomicity
+- Pre-fix theoretical count: 30 writes (15 from `jumpNode`'s direct sets + 15 from `selectNode → updateDomForNode`) — the 50% reduction directly maps to the flicker elimination
+
+### 10.5.3 · acceptance trace
+
+- [x] Hero width matches main-branch at 1180px — measured `h1.fontSize = 34.22px` vs main-branch `34px`, left grid track `526px`, h1 box height `72px` (≈ 2 lines)
+- [x] NETRA jump produces zero double-writes across 5 rapid clicks — 15 writes total, atomic per-jump
+- [x] §10.5 documents both fixes with main-branch citations (this section): `HeroBlock.tsx` lines 8-18, 68, 80, 88 for Hero; `WorldlineGlobe.tsx` lines 932-952 + commit `9344368` for jump
+- [x] 5 screenshots added in `.claude/visual-diffs/TASK-2026-05-15-UI-1/iter-1/revise-3/`:
+  - `00-before-hero-1180.png` — original 87px-title rendering, 4-line wrap, ATLAS below fold
+  - `01-after-hero-1180.png` — 34px title, 2-line wrap, ATLAS visible
+  - `02-after-hero-880.png` — 880px breakpoint (responsive stacked)
+  - `03-after-hero-600.png` — 600px breakpoint (responsive stacked)
+  - `04-mid-jump-1180.png` — captured at t≈250ms into the camera tween; NETRA readouts show locked TARGET state with no source-state bleed
+- [x] Prototype runtime audit PASSES — standard audit (`UI-ITER-1-globe-v1/prototype`) + new direct audit on `pilot-frontend-ui-design/index.html` (added `<meta name="wl-anchor" content=".paper-canvas .hero" />` to support the canvas-wrapped DOM tree)
+- [x] Zero new design tokens introduced; every changed value is a numeric literal reconciled against main-branch literals
+
+### 10.5.4 · flagged forward
+
+- Production hero typography (`HeroBlock.tsx` line 80) uses a `<em className="text-[var(--accent-orange)] not-italic" style={{ fontStyle: "italic" }}>` trick to color the inline "unfinished" emphasis in orange while preserving italic. The prototype currently uses simple `<i>` and gets the same visual via CSS rule `.hero-copy h1 i { color: var(--accent); font-style: italic; }`. Functionally equivalent — flagged here for transparency only, no change needed.
+- The h1 clamp `clamp(28px, 2.9vw, 40px)` was chosen to land at ~34px exactly at 1180px (`2.9vw = 34.22px`) while still scaling for huge displays and narrow mobile. If Peat wants the title locked to a flat 34px across all viewports, change to `font-size: 34px` and remove the clamp.
+
+*Betelgeuse · α-VIS-04 · TASK-2026-05-15-UI-1 · iteration 1 · REVISE-3 · 2026-05-15*
