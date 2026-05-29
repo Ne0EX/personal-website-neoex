@@ -59,3 +59,42 @@ docs/team/.checkpoints/*.md
 
 # checkpoint session state (temp marker + agent counter temp dirs)
 .claude/.last-checkpoint
+
+# beta private memory — grants are runtime artifacts (gitignored); ACCESS-LOG.md is kept
+.claude/beta/grants/*.json
+
+# session metadata — runtime artifacts written per-session
+.claude/sessions/*.meta.json
+
+# ─── lean working tree (2026-05-29) ───
+# stray/legacy scaffold + skills tooling artifacts (not project source)
+/worldline-harness/
+/.agents/
+/skills-lock.json
+.claude/.current-persona
+
+# scratch screenshots dropped in repo root (regenerable proof captures)
+/*.png
+
+# pre-handoff status drafts (Polaris merges these into STATUS.md)
+docs/team/.status-drafts/
+
+# inter-agent process metadata — audit trail lives in git history, not the tree
+.claude/handoffs/
+.claude/signatures/*.json
+
+# visual-diff proof screenshots (anywhere under visual-diffs) — regenerable; gallery/prototype SOURCE (html/css/fonts/js) stays tracked
+.claude/visual-diffs/**/*.png
+
+# build + tooling caches (not project source)
+/.velite/
+/.playwright-mcp/
+/.codex/
+.claude/skills/
+.claude/skill-staging/
+.claude/exports/
+.claude/parses/
+.claude/sessions/
+
+# session transcripts dropped in the tree
+*-this-session-is-being-continued-from-a-previous-c.txt
