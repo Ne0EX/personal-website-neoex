@@ -138,3 +138,156 @@ Output of revise pass:
 Six EVOLVE-V7 rows retained with documented justification (transparency revealing axis, attractor edges, coord-pin `why`, FRAMING rename, etc).
 
 — Betelgeuse · α-VIS-04 · 2026-05-15 · revise
+
+---
+
+## REVISE-2 pass · 2026-05-15 (later same day)
+
+Peat verdict relayed by Polaris:
+> "ยัยนั่นเว้นที่เยอะมาก และแน่นอนว่าเลข coordinates ยังขยับเรื่อยๆตามการหมุนของโลกซึ่งตรงกับประวัติที่เคยแก้ใน MAIN BRANCH ไปทั้งนั้น ยังไม่ผ่าน"
+
+Two main-branch fidelity rows missed in iter 1 REVISE — both closed in this pass.
+
+### Closed in REVISE-2
+
+1. **A · empty space below ATLAS · main-branch home-stack restored.** Inserted three sections inside `.page` after the ATLAS `.stage-fit` and before `</div><!-- /.page -->`:
+   - `<section class="chapter-index-section">` — §01 CHAPTER INDEX // RECENT TRACES — 2×2 grid of entry cards (003 / 002 / 001 / 000) with diamond reticles, file numbers, italic Cormorant titles, mono tag rows. Mirrors `components/ChapterIndex.tsx` lines 28-79; data from `lib/entries.ts` RECENT_ENTRIES.
+   - `<section class="attractor-fields-section">` — §02 ATTRACTOR FIELDS // BROWSE BY DOMAIN — full 11-pill row mirroring `components/AttractorFields.tsx`; data from `lib/entries.ts` ATTRACTOR_FIELDS (all / coffee / ai · ml / narrative / cubic copper / harness eng. / fragrance / film · letterboxd / trading / japan / 日本 / meta).
+   - `<footer class="footer-manifesto">` — §03 — 3 columns (MANIFESTO · CHANNELS · TRANSMIT) mirroring `components/FooterManifesto.tsx` lines 1-62 verbatim: italic manifesto with orange opening quote, mono uppercase link list with orange arrows.
+   - CSS added inside `<style>` (before `prefers-reduced-motion` rule). Zero new tokens — every value reuses an existing CSS var (`--paper-base`, `--ink-primary`, `--ink-hairline`, `--accent-orange`, `--font-display`, `--font-mono`).
+   - Breakpoints added: ≤880px collapses chapter-index to single column and footer to 1-col stack; ≤600px tightens padding.
+
+2. **B · coordinate jitter · earth-fixed readout per main-branch convention.** The `__netraUpdate` function in `prototype/index.html` was rewritten:
+   - **Root cause 1:** previous code inverted `surfaceGroup.matrixWorld` and applied it to the camera direction. As `surfaceGroup.rotation.y` drifts each frame, the inverse changes too, so lat/lon "swims" with globe rotation — exactly the behaviour main-branch's comment forbids: *"NETRA coordinates are earth-fixed; visual globe rotation must not mutate longitude"* (`components/WorldlineGlobe.tsx` line 1019-1020).
+   - **Root cause 2:** previous code wrote `textContent` unconditionally each frame, forcing layout/paint on the text node 60×/sec. Reads as flicker.
+   - **Fix:** lat/lon now derives from raw `camera.position` only (no surfaceGroup matrix inversion); `textContent` is gated — only mutated when the formatted string changes. Mirrors `components/WorldlineGlobe.tsx` lines 1014-1029 (commit `9344368` "Fix NETRA atlas tracking", 2026-05-10).
+   - **Verified:** Playwright sampled `netra-coord` and `netra-range` 15× over 1.4s while globe was rotating in 'rest' focus. All 15 samples returned identical `0.00°N · 90.00°W` / `4.20`. Coordinate is now earth-fixed.
+
+### Runtime audit · clean
+
+Per Polaris's note that META-10 runtime rail is now live. Audit performed via Playwright on the served prototype at `localhost:8731`:
+- Console errors · 0 page-script errors. Only two `ERR_BLOCKED_BY_CLIENT.Inspector` entries from external CDNs (Google Fonts + threejs.org earth texture sample) — environment artifacts unrelated to prototype code.
+- Page exceptions · 0.
+- Network 404 · 0 on local assets (`./three.module.js` served).
+- DOM anchors present · `chapter-index-section`, `attractor-fields-section`, `footer-manifesto` all true; 4 entry-cards, 11 attractor pills, 3 footer columns.
+
+### Shots refreshed
+
+All paths overwritten in this pass:
+- `shot-1180-desktop.png` · full-page at 1180w — shows ATLAS + new home-stack below + footer
+- `shot-1180-desktop-fold.png` · viewport at 1180w
+- `shot-880-tablet.png` · full-page at 880w — chapter-index collapses to 1 col, footer stacks 1 col
+- `shot-600-narrow.png` · full-page at 600w
+- `shot-375-mobile.png` · full-page at 375w — STANDBY card replaces ATLAS canvas; home-stack scrolls below
+- `shot-1180-attractor-narrative.png` · attractor=coffee state · viewport
+- `shot-1180-focus-axis.png` · focus=axis state · viewport
+- `shot-1180-coord-locked-during-rotation.png` · NEW · viewport during active globe rotation showing `RETICLE 0.00°N · 90.00°W / RANGE 4.20` locked
+
+### Spec doc updated
+
+`docs/design/spec-globe-v1-direction.md` appended §10.4 documenting both fixes with citations to `components/WorldlineGlobe.tsx` lines 1014-1029 and main-branch commit `9344368`. §10.4.4 inventories what is intentionally deferred (anime.js stagger entry-card animation, pill keyboard nav, full prototype `netraCoordFromCameraPosition` parity — the gated write covers the SVG/canvas equivalent until Sirius's TASK 16-19 lands).
+
+— Betelgeuse · α-VIS-04 · 2026-05-15 · revise-2
+
+---
+
+## REVISE-5 · PoC-anchored hero rhythm match (2026-05-16)
+
+Peat's instruction: "ผมเปิด PoC ไว้ที่ localhost:3000 — ไปดูเอาแล้วเทียบซะ ไม่ก็ลอก". Explicit permission to copy verbatim. Used Playwright MCP to navigate both servers, extract computed styles from PoC, and apply targeted edits to the prototype's hero strip only — keeping everything else (ATLAS, ChapterIndex, AttractorFields, FooterManifesto) at REVISE-2 quality.
+
+### Deltas matched (PoC → prototype)
+
+1. **Hero subtitle paragraph** · ADDED. PoC has `p.t-display.mt-2.5.max-w-[560px].text-[12.5px].leading-[1.55]` italic gray-soft paragraph below the h1: "A digital garden — drafts, half-formed theories, contour maps of coffee, code, narrative, and the slow architecture of taste. Not a blog. A laboratory." Prototype was missing this entirely — title sat alone, rhythm too top-heavy. New `.hero-sub` class: 12.5px Cormorant italic, line-height 1.55, ink-soft, max-width 560px.
+
+2. **Divergence number scale** · 22px → 26px. PoC `.diverge-panel-num` computes to `26px Special Elite`. The visual dominance of `1.130426` in the PoC fold is not from extreme size — it is from contrast against 7.5–9px mono labels surrounding it. Matched the cited value verbatim.
+
+3. **Divergence head row with OBSERVED state badge** · ADDED. PoC's `.diverge-panel-head` is a flex row: left has `DIVERGENCE α` (the `α` in accent-orange), right has `○ OBSERVED` with the `○` as accent-orange glyph and `OBSERVED` in mono ink-soft. Prototype previously stacked label-only above the number with no state surface. New `.hero-divergence-head` + `.hero-divergence-state` + `.glyph` classes mirror PoC structure.
+
+4. **Divergence meta row** · ENRICHED. PoC has two lines: `DEVIATION · −0.275349%` and `ATTRACTOR · Ne0EX-LOCUS` stacked, with the values in `<b>` ink-primary 500-weight against ink-soft labels. Prototype had one collapsed line `OBSERVED · Ne0EX-LOCUS` (which also incorrectly duplicated the OBSERVED state). Now meta is purely values; state lives in the head row where PoC places it.
+
+5. **Divergence panel chrome** · TIGHTENED. PoC computed border `1px solid rgba(31,80,99,.22)`, padding `9px 16px 10px`, bg `rgba(240,235,221,.45)`. Prototype was `ink-hairline` (0.12) + `8px 11px` + `rgba(240,235,221,.5)`. Bumped to PoC values; `min-width` 140 → 188 to give the 26px number breathing room.
+
+### Intentional differences kept (a/b/c per task brief)
+
+- **Top nav-shell text** · prototype keeps `∇ NEOSPIRIT // WORLDLINE 1.130426 · EST. 2026 — BANGKOK / THAILAND` per REVISE-1/2 main-branch alignment, where PoC uses `OBSERVATORY · WORLDLINE STRUCTURE v.07 · ∇ Ne0EX · 3D ORTHOGRAPHIC`. The PoC's nav is for the live app; the prototype's is for the design-direction artifact; both are valid registers. **Documented difference (c) intentional evolution.**
+
+- **Globe canvas chrome** · the inner ATLAS frame still reads slightly differently than PoC because the proto has the full-strata legend (CAMERA-AID with stratum buttons + KEY DRIVERS) where PoC has the strata-pick-only aside. This is preserved from REVISE-2 which Peat approved. **Documented difference (c).**
+
+- **Right marginalia rail** · proto's `∇ WORLDLINE · 1.130426` vertical rail is present and PoC also has it. Match.
+
+### Files touched
+
+- `.claude/visual-diffs/UI-ITER-1-globe-v1/prototype/index.html` · style block lines ~159–195 (hero-sub + hero-divergence rewrite); markup lines ~798–820 (subtitle paragraph + new divergence head/meta structure).
+
+### Verification
+
+- 1180 fold + full · screenshots refreshed (`REV5-proto-1180-fold-AFTER.png`, `REV5-proto-1180-full-AFTER.png`)
+- 880 / 600 / 375 fold · screenshots refreshed; no horizontal scroll, no overflow, divergence panel reflows cleanly
+- runtime audit · 0 console errors on the prototype JS (only Google Fonts CDN ERR_BLOCKED_BY_CLIENT — environment); hex audit 0 offending; file size 92KB (under 100KB)
+- side-by-side comparison · `REV5-poc-1180-fold.png` vs `REV5-proto-1180-fold-AFTER.png` now read as the same hero rhythm
+
+— Betelgeuse · α-VIS-04 · 2026-05-16 · revise-5
+
+---
+
+## RW-5-AMEND · C2 reticle anchor bug fix (2026-05-16)
+
+**Bug report from Peat:** C2 pulsing orange reticle (THREE.js ring mesh) remained anchored at Bangkok (α-locus) when tracking Kyoto and other nodes. C1 coord-pin, C5 badge, and NETRA voice strip were all correct — only the 3D reticle mesh was wrong.
+
+### Root cause
+
+`node.basePos` (set at node-creation time via `latLonToVec(n.lat, n.lon, 1.005)`) is in the **local coordinate space** of `nodesGroup → surfaceGroup`. `surfaceGroup` rotates continuously in the RAF loop (≈ 0.02–0.18 rad/s depending on `activeFocus`).
+
+`_trackingReticleGroup` is added directly to `scene` (world space). When `activateDrift(node)` called `_trackingReticleGroup.position.copy(node.basePos)`, it treated a **local-space** vector as a **world-space** position. Because `surfaceGroup` has non-zero `rotation.y` by the time any node is selected (the globe has been rotating since page load), the unrotated local-space position of any non-α node lands at a different world-space location than where the visual node mesh is rendered. The α-locus (Bangkok) is close to the initial `rotation.y=0` state on page load, so the reticle initially appeared there regardless of which node was selected.
+
+The same bug existed in the per-frame RAF C2 block (`_applyOrbitalDrift` line ~2779) and in the C1 coord-pin projection block (though C1 appeared correct because both the camera jump destination and the basePos projection used the same unrotated frame — they were consistently wrong but mutually consistent, producing the correct screen coordinates).
+
+### Fix
+
+Three changes to `prototype/index.html`:
+
+1. **Pre-allocated scratch vector** `_nodeWorldPos` (THREE.Vector3) added after `_nodeScreenPos` declaration. One allocation; reused every frame to avoid per-frame GC churn.
+
+2. **`activateDrift(node)`**: replaced
+   ```js
+   _trackingReticleGroup.position.copy(node.basePos).multiplyScalar(1.010);
+   ```
+   with
+   ```js
+   node.mesh.getWorldPosition(_nodeWorldPos);
+   _nodeWorldPos.normalize().multiplyScalar(1.010);
+   _trackingReticleGroup.position.copy(_nodeWorldPos);
+   ```
+   `getWorldPosition()` traverses `nodesGroup → surfaceGroup → scene` matrix chain, returning the actual world-space position of the node mesh as it currently sits on the globe (after globe rotation is applied). Normalize + scale to 1.010 keeps the reticle just above the surface at the correct radius.
+
+3. **RAF loop C2 block**: identical replacement — world position resolved every frame so the reticle tracks the rotating node continuously.
+
+4. **RAF loop C1 block**: coord-pin projection now uses `_nodeWorldPos` (already resolved in the C2 block above) instead of `node.basePos`. Both C1 and C2 now reference the **same** vector — divergence is structurally impossible. Comment added: "Use _nodeWorldPos already resolved above (C2 block) so both C1 and C2 reference the same world-position vector — they cannot diverge."
+
+### Scope guardrails respected
+
+- No changes to Axis A (drift pattern) or Axis B (amplitude)
+- No changes to C1 coord-pin visual behavior or C5 badge behavior
+- No changes to the jump slerp or camera math
+- All RW-1..RW-5 fixes preserved (only the position-resolution call changed)
+
+### Playwright verification
+
+3 node jumps tested (Kyoto · San Francisco · Point Nemo), plus REST deactivation:
+
+| shot | node | result |
+|---|---|---|
+| `screenshots/rw5-amend/01-kyoto-reticle.png` | Kyoto · JP · 35.01°N 135.77°E | HUD badge `TRACKING · Kyoto · JP` confirmed; camera over Japan |
+| `screenshots/rw5-amend/02-sf-reticle.png` | San Francisco · US · 37.77°N 122.42°W | HUD badge confirmed; camera over North America |
+| `screenshots/rw5-amend/03-point-nemo-reticle.png` | Point Nemo · PAC · 48.88°S 123.39°W | HUD badge confirmed; camera over South Pacific |
+| `screenshots/rw5-amend/04-rest-reticle-hidden.png` | REST (deactivated) | `is-tracking` removed from `hud-overlay`; voice strip back to standby |
+
+### META-10 runtime audit
+
+0 console errors. 0 page exceptions. Only CDN ERR_BLOCKED_BY_CLIENT for external Google Fonts and threejs.org texture — environment artifact, not code defect (unchanged from prior passes).
+
+### deactivateDrift clean-hide path
+
+`deactivateDrift()` sets `_driftActive=false` and removes `is-tracking`. The `eligible` check in `_applyOrbitalDrift` then returns false, fading `_driftBlend` to 0 over 500ms and setting `_trackingReticleGroup.visible = false`. The `getWorldPosition` call only executes in the eligible (drift-active) branch — no null-ref risk during fade-out.
+
+— Betelgeuse · α-VIS-04 · 2026-05-16 · rw5-amend

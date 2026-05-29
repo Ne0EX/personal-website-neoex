@@ -5,12 +5,50 @@
 <title>Worldline Globe — v1 direction · UI-ITER-1</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <meta name="description" content="Betelgeuse · α-VIS-04 · rendered prototype · iteration 1 of UI-lock cycle"/>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400;1,500&family=JetBrains+Mono:wght@300;400;500&family=Special+Elite&display=swap" rel="stylesheet">
-<!-- font fallback if CDN blocked: prototype still reads as instrument via system mono + serif -->
+<!-- TASK-UI-1 REVISE-WAVE-2 · P1-7 (2026-05-16): fonts vendored under
+     ./fonts/ — CDN dependency retired per Codex-Betelgeuse cross-review.
+     Preload the two faces that dominate first paint (Cormorant italic 400
+     for hero title + NETRA voice; JetBrains Mono var for instrument labels).
+     Cite: REVISE-WAVE-2 §P1-7. -->
+<link rel="preload" href="./fonts/cormorant-italic-400.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="./fonts/jetbrains-mono-var.woff2"   as="font" type="font/woff2" crossorigin>
 
 <style>
+/* =============================================================
+   SELF-HOSTED FONTS · P1-7 fix (2026-05-16)
+   Files in ./fonts/. Verified bytes via curl.
+   ============================================================= */
+@font-face{
+  font-family:'Cormorant Garamond'; font-style:normal; font-weight:400;
+  font-display:swap;
+  src:url('./fonts/cormorant-regular-400.woff2') format('woff2');
+}
+@font-face{
+  font-family:'Cormorant Garamond'; font-style:italic; font-weight:400;
+  font-display:swap;
+  src:url('./fonts/cormorant-italic-400.woff2') format('woff2');
+}
+@font-face{
+  font-family:'Cormorant Garamond'; font-style:normal; font-weight:500;
+  font-display:swap;
+  src:url('./fonts/cormorant-regular-500.woff') format('woff');
+}
+@font-face{
+  font-family:'Cormorant Garamond'; font-style:italic; font-weight:500;
+  font-display:swap;
+  src:url('./fonts/cormorant-italic-500.woff') format('woff');
+}
+@font-face{
+  font-family:'JetBrains Mono'; font-style:normal; font-weight:300 500;
+  font-display:swap;
+  src:url('./fonts/jetbrains-mono-var.woff2') format('woff2');
+}
+@font-face{
+  font-family:'Special Elite'; font-style:normal; font-weight:400;
+  font-display:swap;
+  src:url('./fonts/special-elite.woff2') format('woff2');
+}
+
 /* =============================================================
    TOKEN VOCABULARY — mirrors app/globals.css (TEAL active).
    Every value here is a token rebroadcast for the standalone
@@ -48,6 +86,10 @@
 
 *{ box-sizing:border-box; }
 html,body{ margin:0; padding:0; }
+/* Q3 extra · ::selection · ported verbatim from main-branch globals.css line 91-94.
+   Orange highlight on paper-bright — instrument vocabulary applied to text-select. */
+::selection { background: var(--accent-orange); color: var(--paper-bright); }
+::-moz-selection { background: var(--accent-orange); color: var(--paper-bright); }
 body{
   min-height:100vh;
   font-family:var(--font-mono); color:var(--ink-primary);
@@ -61,8 +103,15 @@ body{
    ============================================================= */
 .page{
   position:relative;
-  max-width:1240px; margin:0 auto;
-  padding:24px 28px 32px 28px;
+  /* TASK-UI-1 Q1 (2026-05-16): fluid scale clamp — Betelgeuse verdict.
+     Floor 1180 (no overflow at 1280 viewport · 92% of 1280 = 1177);
+     fluid 92vw between (e.g. 1440 → 1325);
+     ceiling 1480 (no overcommit on broadside displays).
+     P1-5 (2026-05-16): top pad 24→16, bottom 32→24 to close the
+     1180×820 fold around the NETRA console. */
+  max-width: clamp(1180px, 92vw, 1480px);
+  margin:0 auto;
+  padding:16px 28px 24px 28px;
   min-height:100vh;
 }
 .page-corner-marks{
@@ -75,12 +124,36 @@ body{
 .page-corner-marks::before{ top:0; left:0; border-right:none; border-bottom:none; }
 .page-corner-marks::after { bottom:0; right:0; border-left:none; border-top:none; }
 
-/* Top-edge scroll-meter rail — main-branch components/MarginaliaHUD.tsx ScrollMeter() */
+/* Top-edge scroll-meter rail — main-branch components/MarginaliaHUD.tsx ScrollMeter()
+   REVISE-6 (2026-05-16): bind fill to actual scroll progress.
+   Peat verdict: "ควร animate ตาม scroll position แต่ตอนนี้ static."
+   PoC ground truth (localhost:3000 .scroll-meter computed style):
+     background: linear-gradient(90deg, var(--accent-orange) 0,
+                                  var(--accent-orange) var(--scroll-pct,0%),
+                                  transparent var(--scroll-pct,0%));
+     ::after = scroll-march dashed overlay (decorative time-loop)
+   JS sets --scroll-pct on :root from a scroll listener (XX.XX% format),
+   value tracks (scrollY / maxScroll) * 100. Identical to PoC behaviour.
+   Cite: PoC localhost:3000 computed style + getComputedStyle(:root) audit. */
 .scroll-meter{
-  position:fixed; top:0; left:0; right:0; height:2px; z-index:25;
-  background:repeating-linear-gradient(90deg,
-    var(--accent-orange) 0 6px, transparent 6px 12px);
-  opacity:0.45;
+  position:fixed; top:0; left:0; right:28px; height:2px; z-index:25;
+  background:linear-gradient(90deg,
+    var(--accent-orange) 0,
+    var(--accent-orange) var(--scroll-pct, 0%),
+    transparent var(--scroll-pct, 0%));
+  pointer-events:none;
+}
+.scroll-meter::after{
+  content:''; position:absolute; inset:0;
+  background-image:repeating-linear-gradient(90deg,
+    rgba(232,226,213,0) 0 5px,
+    rgba(232,226,213,0.6) 5px 8px);
+  background-size:16px 2px;
+  animation:scroll-march 1.4s linear infinite;
+}
+@keyframes scroll-march{
+  from{ background-position:0 0; }
+  to{   background-position:16px 0; }
 }
 
 /* Right-edge vertical marginalia HUD — globals.css .marginalia */
@@ -130,10 +203,13 @@ body{
 .nav-shell .nav-id .acc{ color:var(--accent-orange); font-weight:500; }
 .nav-shell .nav-id .soft{ color:var(--ink-soft); }
 
-/* Hero strip — HeroBlock.tsx structure (compact mode for prototype) */
+/* Hero strip — HeroBlock.tsx structure (compact mode for prototype)
+   P1-5 (2026-05-16): tightened vertical padding 22→14, 18→12 so the
+   instrument frame foot closes at 820 fold. Identity preserved (rhythm
+   intact, title+subtitle dominant). */
 .hero-strip{
   display:grid; grid-template-columns:minmax(0,1fr) auto auto;
-  align-items:end; gap:32px; padding:22px 0 18px;
+  align-items:end; gap:28px; padding:14px 0 12px;
   border-bottom:1px solid var(--ink-hairline);
 }
 .hero-tagrow{
@@ -144,11 +220,27 @@ body{
 .hero-tagrow .acc{ color:var(--accent-orange); font-weight:500; }
 .hero-tagrow .rule{ display:inline-block; width:24px; height:1px; background:var(--accent-orange); }
 .hero-title{
+  /*
+   * REVISE-3 AMEND (2026-05-16): reconcile with main-branch title scale.
+   * components/HeroBlock.tsx line 80: text-[34px] leading-[1.05] tracking-[-0.005em]
+   * clamp(28px, 2.9vw, 40px) resolves to ~34px at 1180px viewport —
+   * matching production. Prior flat 30px was close but spec-misaligned.
+   * leading-[1.05] tightened from 1.08 to match HeroBlock.tsx exactly.
+   * Cite: components/HeroBlock.tsx lines 68 + 80
+   */
   font-family:var(--font-display); font-style:italic; font-weight:400;
-  font-size:30px; line-height:1.08; color:var(--ink-primary); margin:0;
+  font-size:clamp(28px, 2.9vw, 40px); line-height:1.05; color:var(--ink-primary); margin:0;
   letter-spacing:-.005em; max-width:680px;
 }
 .hero-title em{ color:var(--accent-orange); font-style:italic; }
+/* REVISE-5 (2026-05-16): hero subtitle paragraph — verbatim PoC copy
+   (localhost:3000 p.t-display.mt-2.5.max-w-[560px].text-[12.5px].leading-[1.55].italic).
+   Restores hero rhythm: title carries weight, subtitle carries voice. */
+.hero-sub{
+  font-family:var(--font-display); font-style:italic; font-weight:400;
+  font-size:12.5px; line-height:1.55; color:var(--ink-soft);
+  max-width:560px; margin:10px 0 0 0;
+}
 .hero-stack{
   display:flex; gap:24px; font-family:var(--font-mono); font-size:8.5px;
   letter-spacing:.18em; color:var(--ink-soft); text-transform:uppercase;
@@ -161,9 +253,11 @@ body{
 }
 .hero-stack .cell.is-alpha .num{ color:var(--accent-orange); }
 .hero-divergence{
-  border:1px solid var(--ink-hairline); padding:8px 11px;
-  background:rgba(240,235,221,.5); position:relative;
-  min-width:140px;
+  /* REVISE-5 (2026-05-16): match PoC .diverge-panel cadence — bump pad, widen, lift dominance.
+     PoC computed: padding 9px 16px 10px; border rgba(31,80,99,.22); bg rgba(240,235,221,.45). */
+  border:1px solid rgba(var(--ink-rgb) / 0.22); padding:9px 16px 10px;
+  background:rgba(240,235,221,.45); position:relative;
+  min-width:188px;
 }
 .hero-divergence::before, .hero-divergence::after{
   content:''; position:absolute; width:8px; height:8px;
@@ -171,19 +265,39 @@ body{
 }
 .hero-divergence::before{ top:-1px; left:-1px; border-right:none; border-bottom:none; }
 .hero-divergence::after { bottom:-1px; right:-1px; border-left:none; border-top:none; }
+/* REVISE-5: head row with state badge (○ OBSERVED) — PoC .diverge-panel-head pattern */
+.hero-divergence-head{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px; margin-bottom:4px;
+}
 .hero-divergence-label{
-  font-size:7.5px; letter-spacing:.32em; color:var(--ink-faint);
-  text-transform:uppercase; margin-bottom:5px;
+  font-family:var(--font-mono); font-size:7.5px; letter-spacing:.32em;
+  /* P1-6 (2026-05-16): field label — bumped from --ink-faint (1.6–2.3 cr) → --ink-soft (4.1+ cr). */
+  color:var(--ink-soft); text-transform:uppercase;
+}
+.hero-divergence-label b{ color:var(--accent-orange); font-weight:500; font-style:normal; }
+.hero-divergence-state{
+  display:inline-flex; align-items:center; gap:5px;
+  font-family:var(--font-mono); font-size:7.5px; letter-spacing:.24em;
+  color:var(--ink-soft); text-transform:uppercase;
+}
+.hero-divergence-state .glyph{
+  font-size:9px; color:var(--accent-orange); line-height:1;
+  display:inline-block; transform:translateY(-0.5px);
 }
 .hero-divergence-num{
-  font-family:var(--font-type); font-size:22px; letter-spacing:.04em;
+  /* REVISE-5: 22px → 26px to match PoC .diverge-panel-num computed size.
+     Visual dominance comes from contrast against 9px meta, not absolute size. */
+  font-family:var(--font-type); font-size:26px; letter-spacing:.04em;
   color:var(--ink-primary); line-height:1;
 }
 .hero-divergence-num .mid{ color:var(--accent-orange); }
 .hero-divergence-meta{
-  margin-top:5px; font-size:7.5px; letter-spacing:.18em;
+  margin-top:6px; display:flex; flex-direction:column; gap:2px;
+  font-family:var(--font-mono); font-size:7.5px; letter-spacing:.18em;
   color:var(--ink-soft); text-transform:uppercase;
 }
+.hero-divergence-meta b{ color:var(--ink-primary); font-weight:500; font-style:normal; }
 
 /* Page-stack adjustments at narrower viewports */
 @media (max-width: 880px){
@@ -197,8 +311,20 @@ body{
 }
 @media (max-width: 600px){
   .page{ padding:12px 14px 20px; }
-  .hero-title{ font-size:20px; }
+  .hero-title{ font-size:20px; line-height:1.08; }
   .nav-shell .nav-clock{ font-size:8.5px; }
+  /* P0-1 (2026-05-16): tighten mobile hero so STANDBY CTAs land inside
+     iPhone-SE 667 first-fold. Suppress the heavy stack + divergence card
+     on mobile (the diagnostic readouts re-appear inside ATLAS frame
+     header anyway), trim subtitle, collapse hero gap. */
+  .hero-strip{ gap:8px; padding:8px 0 8px; }
+  .hero-sub{ font-size:11.5px; line-height:1.45; margin:4px 0 0 0; }
+  .hero-stack, .hero-divergence{ display:none; }
+  .nav-shell{ gap:4px 14px; }
+  .nav-shell .nav-id { line-height:1.4; }
+  .nav-shell .nav-clock { line-height:1.4; }
+  .nav-shell .nav-links{ padding-top:2px; gap:10px; flex-wrap:wrap; font-size:8.5px; }
+  .nav-shell .nav-links a{ font-size:8.5px; }
 }
 
 /* paper grain + scanlines — verbatim from globals.css .paper-canvas::before/::after */
@@ -214,6 +340,65 @@ body{
     rgb(var(--ink-rgb) / 0.02) 2px, rgb(var(--ink-rgb) / 0.02) 3px);
   pointer-events:none; z-index:2;
 }
+/* A2 — paper grain density gate · ≥1440px viewports raise grain opacity 0.6→0.75
+   and tighten scanline period 2px→1.5px so texture stays legible on premium
+   high-density displays where the default reads pristine. SBA-1 §1.2. */
+@media (min-width:1440px){
+  .paper-canvas::before{ opacity:.75; }
+  .paper-canvas::after{
+    background:repeating-linear-gradient(0deg, transparent 0, transparent 1.5px,
+      rgb(var(--ink-rgb) / 0.025) 1.5px, rgb(var(--ink-rgb) / 0.025) 2.5px);
+  }
+}
+
+/* =============================================================
+   P2-10 (2026-05-16) · REVISE-WAVE-2 · Worldline focus ring vocabulary.
+   -----
+   Replace browser default 3px blue outline with a 2px dashed accent-
+   orange ring + 1px offset. Dashed matches the local element vocabulary
+   (corner reticles, frame-head bottom rule, frame-foot top rule). Solid
+   variant reserved for elements that are themselves solid-bordered
+   (focus-btn.is-active, netra-jump).
+   Test surfaces:
+     · .focus-btn        — 4 framing buttons (uses dashed)
+     · .attractor-pill   — 6 ATLAS field pills (dashed)
+     · .attractor-field-pill — 11 §02 lower-row pills (dashed)
+     · .netra-jump       — NEXT NODE button (solid · matches its console border)
+     · .standby .cta     — mobile OPEN ATLAS / AS LIST (dashed)
+     · .nav-shell .nav-links a — Nav links (dashed under-line variant)
+     · .footer-channels-list a — TRANSMIT links (dashed)
+     · .n-badge          — floating NETRA badge (solid ring · circular)
+   Constraints met: 2px ring · accent-orange · dashed for hairline
+   elements · solid for solid-bordered elements · visible against paper.
+   Cite: REVISE-WAVE-2 §P2-10 · SBA-1 §1.3 corner-reticle vocabulary.
+   ============================================================= */
+.focus-btn:focus-visible,
+.attractor-pill:focus-visible,
+.attractor-field-pill:focus-visible,
+.standby .cta:focus-visible{
+  outline:2px dashed var(--accent-orange);
+  outline-offset:2px;
+}
+.netra-jump:focus-visible{
+  outline:2px solid var(--accent-orange);
+  outline-offset:2px;
+}
+.n-badge:focus-visible{
+  outline:2px solid var(--accent-orange);
+  outline-offset:3px;
+}
+.nav-shell .nav-links a:focus-visible,
+.footer-channels-list a:focus-visible,
+.footer-col a:focus-visible{
+  outline:2px dashed var(--accent-orange);
+  outline-offset:3px;
+  color:var(--accent-orange);
+}
+/* default outline removal only for elements that have our explicit ring */
+.focus-btn,.attractor-pill,.attractor-field-pill,.standby .cta,
+.netra-jump,.n-badge{ outline:none; }
+/* keep entry-card behaviour: .entry-card:focus-visible already orange-shifts
+   background + glitch underline (lines 819, 853) — no extra ring needed. */
 
 /* corner reticles — globals.css .corner-marks */
 .corner-marks{ position:absolute; inset:14px; pointer-events:none; z-index:6; }
@@ -227,22 +412,56 @@ body{
 /* =============================================================
    THE INSTRUMENT — ATLAS frame as containing form (v7 .frame)
    ============================================================= */
+/* REVISE-6 (2026-05-16): stage sizing — adopt PoC's natural-flow model.
+   Peat verdict: "ATLAS ไม่ full viewport. height/layout constraint ผิด,
+   ต้องเช็ค 100dvh vs container."
+   Prior model fixed .stage at 1180×760 then scaled the whole thing down
+   via transform:scale() to fit available viewport region (see fitStage()
+   in JS). That left the ATLAS frame rendered at ~420px tall on a 720px
+   viewport — far short of full viewport. Worse, transform:scale() does
+   not reclaim layout space, so the wrapper height had to be patched
+   imperatively — exactly the constraint mismatch Peat called out.
+   PoC ground truth (localhost:3000 .atlas-frame computed style):
+     display:grid; grid-template-rows: auto 1fr auto;
+     min-height — derived from globe-wrap min-height (540px desktop).
+     No transform-scale. No fixed pixel width. Flows inside its parent.
+   Fix: width:100%, height auto, min-height tracks dvh so the frame
+   claims viewport height after the Nav+Hero strip. Mobile guard already
+   handled by the @media (max-width:880px) rule below.
+   Cite: PoC localhost:3000 .atlas-frame audit (rectH 729 at vh 720). */
 .stage{
-  width:1180px; height:760px; position:relative;
-  transform-origin:top left;
-  /* Stage now sits within .page (page-level shell). Was centered via body grid;
-     reflow via transform-origin top-left so it anchors below the Hero strip. */
-  margin:22px 0 0;
+  width:100%; max-width:1180px; height:auto;
+  /* P1-5 (2026-05-16) · REVISE-WAVE-2: pull foot under fold on 1180×820.
+     Subtraction 240→320 (room for tighter nav+hero combos) brings
+     min-height floor down so the natural content (head 26 + content
+     ~456 with globe 440 + foot ~46 = 528) drives, not the floor.
+     Pair: hero pad 22/18 → 14/12, frame pad 24/22 → 16/16, content
+     pad 14 → 8/6, frame-foot pad 12 → 8, voice strip margin 8 → 4.
+     Result: NETRA console visible inside 820 fold at 1180. */
+  min-height:calc(100dvh - 320px);
+  position:relative;
+  margin:10px auto 0;
+  /* REVISE-6 (2026-05-16): flex so .artifact (the paper canvas + frame)
+     fills the stage cell vertically and grows with content when the
+     globe-wrap min-height (490px) plus head/foot exceeds the floor. */
+  display:flex; flex-direction:column;
 }
 .artifact{
-  position:absolute; inset:0; background:var(--paper-base);
+  position:relative; flex:1 1 auto;
+  background:var(--paper-base);
   border:1px solid var(--ink-hairline);
   overflow:hidden;
+  display:flex; flex-direction:column;
 }
 .frame{
-  position:relative; z-index:3; height:100%;
+  position:relative; z-index:3;
+  /* REVISE-6 (2026-05-16): flex:1 — frame fills the artifact's flex space.
+     Internal layout is grid (auto/1fr/auto) matching PoC .atlas-frame.
+     Cite: PoC .atlas-frame grid-template-rows: auto 1fr auto.
+     P1-5 (2026-05-16): trim outer pad 24→16, 22→16. */
+  flex:1 1 auto;
   display:grid; grid-template-rows:auto 1fr auto;
-  padding:24px 32px 22px;
+  padding:16px 32px 16px;
 }
 
 /* HEAD — file strip */
@@ -256,17 +475,20 @@ body{
 .frame-head .head-r{ display:flex; gap:24px; align-items:baseline; }
 .frame-head i{ color:var(--ink-primary); font-style:normal; font-family:var(--font-type); letter-spacing:.05em; }
 
-/* CONTENT ROW — left rail · globe · right rail (matches v7 ratios) */
+/* CONTENT ROW — left rail · globe · right rail (matches v7 ratios)
+   P1-5 (2026-05-16): trimmed vertical pad 14→8 to bring foot under fold. */
 .content{
   display:grid; grid-template-columns:220px minmax(0,1fr) 240px; gap:22px;
-  position:relative; padding:14px 0; min-height:0;
+  position:relative; padding:8px 0 6px; min-height:0;
 }
 .legend,.readout,.globe-wrap{ min-width:0; }
 
 /* LEFT: cameraFocus hint + divergence card */
 .legend{ display:flex; flex-direction:column; gap:6px; font-size:10px; letter-spacing:.08em; }
 .legend-head{
-  font-size:8.5px; letter-spacing:.32em; color:var(--ink-faint);
+  font-size:8.5px; letter-spacing:.32em;
+  /* P1-6 (2026-05-16): section header above interactive framing buttons. */
+  color:var(--ink-soft);
   text-transform:uppercase; margin-bottom:4px;
 }
 /* cameraFocus buttons — labelled "FRAMING" not "STRATA" per v1.3 ontology */
@@ -278,13 +500,16 @@ body{
 }
 .focus-btn:hover{ border-color:rgba(212,96,42,.5); }
 .focus-btn.is-active{ border-color:var(--accent-orange); background:rgba(212,96,42,.06); }
-.focus-glyph{ width:30px; height:30px; display:grid; place-items:center; color:var(--ink-soft); }
+.focus-glyph{ width:30px; height:30px; display:grid; place-items:center; color:var(--ink-soft); transition:color .25s ease; }
 .focus-btn.is-active .focus-glyph{ color:var(--accent-orange); }
 .focus-id{ font-family:var(--font-mono); font-weight:500; font-size:11px; letter-spacing:.1em; display:block; }
-.focus-role{ font-size:8.5px; letter-spacing:.22em; color:var(--ink-faint); text-transform:uppercase; display:block; margin-top:3px; }
+/* P1-6 (2026-05-16): button sub-label + keyboard-shortcut badge are
+   interactive-context labels — bumped to --ink-soft for WCAG-passing contrast. */
+.focus-role{ font-size:8.5px; letter-spacing:.22em; color:var(--ink-soft); text-transform:uppercase; display:block; margin-top:3px; }
 .focus-key{
-  font-family:var(--font-type); font-size:9px; color:var(--ink-faint);
+  font-family:var(--font-type); font-size:9px; color:var(--ink-soft);
   letter-spacing:.05em; border:1px solid var(--ink-hairline); padding:1px 5px;
+  transition:color .25s ease, border-color .25s ease;
 }
 .focus-btn.is-active .focus-key{ color:var(--accent-orange); border-color:rgba(212,96,42,.5); }
 
@@ -297,7 +522,9 @@ body{
    Per MAIN-DRIFT-AUDIT §1.2 D4. */
 .camera-current{ margin-bottom:8px; }
 .camera-current-key{
-  font-size:7.5px; letter-spacing:.32em; color:var(--ink-faint);
+  font-size:7.5px; letter-spacing:.32em;
+  /* P1-6 (2026-05-16): instrument annotation key — critical signal. */
+  color:var(--ink-soft);
   text-transform:uppercase; margin-bottom:4px;
 }
 .camera-current-val{
@@ -322,7 +549,9 @@ body{
 .divergence-card::before{ top:-1px; left:-1px; border-right:none; border-bottom:none; }
 .divergence-card::after { bottom:-1px; right:-1px; border-left:none; border-top:none; }
 .divergence-card-label{
-  font-size:8px; letter-spacing:.32em; color:var(--ink-faint);
+  font-size:8px; letter-spacing:.32em;
+  /* P1-6 (2026-05-16): field label for instrument readout. */
+  color:var(--ink-soft);
   text-transform:uppercase; margin-bottom:6px;
 }
 .divergence-card-num{
@@ -336,9 +565,17 @@ body{
 .divergence-card-coord{ margin-top:7px; font-size:8.5px; letter-spacing:.14em; color:var(--ink-soft); line-height:1.6; }
 .divergence-card-coord b{ color:var(--ink-primary); font-weight:500; }
 
-/* CENTER: 3D globe stage — frame with crosshatch + axis labels */
+/* CENTER: 3D globe stage — frame with crosshatch + axis labels
+   REVISE-6 (2026-05-16): min-height: 540px mirrors PoC .atlas-globe-wrap.
+   With the stage now flowing naturally (no transform-scale), the globe-wrap
+   min-height is what seeds the frame's grid 1fr row → frame ends up ≥ 729px
+   tall, matching PoC behaviour at vh 720. Cite: PoC .atlas-globe-wrap audit. */
 .globe-wrap{
   position:relative; display:grid; place-items:center;
+  /* P1-5 (2026-05-16): reduced from 540 → 440 so NETRA console + voice
+     strip close inside 820 viewport fold. The 1fr center cell still
+     yields a square-ish stage at 1180 viewport — globe identity preserved. */
+  min-height:440px;
   background:
     radial-gradient(ellipse at 50% 50%, rgb(var(--ink-rgb) / 0.04) 0%, transparent 70%),
     repeating-linear-gradient(0deg, transparent 0 28px, rgb(var(--ink-rgb) / 0.04) 28px 29px),
@@ -355,22 +592,126 @@ body{
 .axis-label.l{ left:-12px; top:50%; transform:translate(-50%,-50%) rotate(-90deg); white-space:nowrap; }
 .axis-label.r{ right:-12px; top:50%; transform:translate(50%,-50%) rotate(90deg); white-space:nowrap; }
 
-#globe-canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+/* REVISE-6 (2026-05-16): cursor variants on draggable surface.
+   Peat verdict: "ไม่มี hover/active/pointer state."
+   The globe is draggable via pointerdown on the canvas (line ~2023);
+   surface must declare grab (default) / grabbing (active) per UX convention.
+   Reference: matches DragDropContext idiom — every draggable surface
+   needs an affordance. On coarse/touch pointer devices (no custom cursor),
+   grab/grabbing remain as the affordance. On fine-pointer devices the
+   custom SurveyCursor takes over and native cursor is hidden. */
+#globe-canvas{
+  position:absolute; inset:0; width:100%; height:100%; display:block;
+  cursor:grab;
+  touch-action:none;
+}
+#globe-canvas:active{ cursor:grabbing; }
+.globe-wrap.is-dragging #globe-canvas{ cursor:grabbing; }
 
-/* big italic α watermark behind the globe — globals.css .atlas-alpha-mark */
+/* =============================================================
+   REVISE-7 (2026-05-16): custom cursor variants.
+   Source: components/SurveyCursor.tsx + app/globals.css §survey-cursor.
+   Peat verdict: "ขาดเรื่อง CURSOR VARIANT กับ TRACKING การ HOVER"
+   - ATLAS hover = survey mode: cartographer crosshair + live coord readout
+   - button/link hover = triangulate mode: filled triangle + side hairlines
+   Fine-pointer only: coarse/touch devices keep native cursor (grab/grabbing).
+   CSS mirrors globals.css lines 189-198 exactly.
+   ============================================================= */
+.hide-native-cursor,
+.hide-native-cursor *,
+.hide-native-cursor a,
+.hide-native-cursor button {
+  cursor: none !important;
+}
+#survey-cursor {
+  position: fixed;
+  top: 0; left: 0;
+  width: 0; height: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 180ms ease-out;
+}
+/* survey mode = default (atlas / open surface) */
+#survey-cursor .sc-survey      { display: block; }
+#survey-cursor .sc-triangulate { display: none; }
+/* triangulate mode = over a, button, [data-cursor=triangulate] */
+#survey-cursor[data-mode="triangulate"] .sc-survey      { display: none; }
+#survey-cursor[data-mode="triangulate"] .sc-triangulate { display: block; }
+
+#survey-cursor .sc-coord {
+  position: absolute;
+  left: 16px; top: 14px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: .18em;
+  color: var(--ink-soft);
+  background: var(--paper-base);
+  padding: 2px 5px;
+  white-space: nowrap;
+  border: 1px solid var(--ink-faint);
+}
+
+/* big italic α watermark behind the globe — globals.css .atlas-alpha-mark
+   TASK-UI-1 REVISE-WAVE-2 · A1 (2026-05-16): 800ms fade-in on first paint
+   to enact "observer lands in the frame". Single-shot animation; respects
+   prefers-reduced-motion. Cite: REVISE-WAVE-2 §A1. */
 .alpha-mark{
   position:absolute; inset:0; display:grid; place-items:center;
   font-family:var(--font-display); font-style:italic;
   font-size:200px; line-height:1;
   color:rgba(212,96,42,.10);
   pointer-events:none; z-index:0; letter-spacing:-.03em; user-select:none;
+  opacity:0;
+  animation:alpha-mark-arrive 800ms ease-out 120ms forwards;
+}
+@keyframes alpha-mark-arrive{
+  from{ opacity:0; }
+  to  { opacity:1; }
+}
+@media (prefers-reduced-motion: reduce){
+  .alpha-mark{ animation:none; opacity:1; }
 }
 
 /* HUD overlay — globals.css .atlas-hud-corner */
+/* RW-4 ITEM B (2026-05-16): tiny-label readability over globe texture.
+   AUDIT FINDING: .hud-corner uses color:var(--ink-soft) = rgb(31 80 99 / 0.5).
+   Over the globe canvas the effective background is ~#C4C0B6 (paper-textured
+   sphere mid-tone). Measured contrast: ink-soft on #C4C0B6 ≈ 2.2:1 — below
+   the WCAG AA 3:1 target for functional labels (OBSERVING, CAMERA, SCALE, α).
+   FIX CHOSEN: (iii) paper-patch cushion — a micro `background` behind each
+   corner block, same pattern as .axis-label already uses (paper-base padding).
+   WHY NOT (i) alpha bump alone: raising ink-soft → ink-base would make the
+   label row text heavier than the `b` values it annotates — breaks hierarchy.
+   WHY NOT (ii) weight bump alone: 400→500 on 7.5px mono barely moves contrast
+   without the background fix; patch is more reliable.
+   CRITICAL invariant: no blocky feel. `rgba(--paper-base, 0.72)` is a ghost
+   cushion, not a solid box — labels read as instrument overlays, not chips.
+   α-watermark (.alpha-mark): purely decorative rgba(212,96,42,0.10) overlay;
+   WCAG exemption applies (decorative). Flagged intentional below.
+   coord-pin (.coord-pin): already has background rgba(232,226,213,.92) +
+   border — contrast passes (ink-primary over paper-base = ~7:1). No change.
+   axis-label (.axis-label): already has background:var(--paper-base) + padding.
+   Contrast passes. No change. */
 .hud-overlay{ position:absolute; inset:0; pointer-events:none; z-index:4; font-family:var(--font-mono); }
 .hud-corner{
   position:absolute; font-size:7.5px; letter-spacing:.22em;
   color:var(--ink-soft); text-transform:uppercase; line-height:1.5;
+  /* RW-4 B: paper-patch cushion behind each HUD corner block.
+     rgba(232,226,213,0.88) — paper-base at 88% opacity.
+     CONTRAST TARGET: ink-soft (31,80,99/0.5) on effective blended surface.
+     At 88% patch over darkest globe mid-tone (~#BDBBAF = rgb189,187,175):
+       patch_effective ≈ rgb(222,217,204); text_blended ≈ rgb(126,148,151)
+       → CR ≈ 3.1:1 — meets the 3:1 WCAG AA floor for instrument labels.
+     At 72% (previous value) CR was ≈ 2.4:1 — below floor.
+     WHY NOT 100%: axis-labels already use full paper-base; HUD corners
+     sit deeper inside the globe viewport and should feel slightly more
+     integrated with the canvas than the edge labels. 88% is the balance
+     point — still faintly translucent at the edge, legible at center.
+     Paper-thin aesthetic preserved: no hard colored chip, no bold stroke.
+     Padding 2px 5px to match axis-label padding habit. */
+  background: rgba(232,226,213,0.88);
+  padding: 2px 5px;
 }
 .hud-corner b{ color:var(--ink-primary); font-weight:500; }
 .hud-corner b.acc{ color:var(--accent-orange); }
@@ -389,6 +730,11 @@ body{
   transform:translate(12px, -50%);
 }
 .coord-pin.show{ opacity:1; }
+/* AMEND-3: back-hemisphere occlusion — pin fades when node is behind the globe.
+   .show stays on the element (preserves "node selected" state);
+   .is-occluded overrides opacity to 0 via the transition so it vanishes
+   smoothly. Removed per-frame when node returns to front hemisphere. */
+.coord-pin.show.is-occluded{ opacity:0; pointer-events:none; }
 .coord-pin .acc{ color:var(--accent-orange); }
 .coord-pin .why{
   display:block; font-family:var(--font-mono); font-size:8.5px;
@@ -399,7 +745,9 @@ body{
 /* RIGHT: AttractorFields rail — pills sit at top, signal-flow below */
 .readout{ display:flex; flex-direction:column; gap:10px; font-size:9.5px; letter-spacing:.08em; }
 .readout-head{
-  font-size:8.5px; letter-spacing:.32em; color:var(--ink-faint);
+  font-size:8.5px; letter-spacing:.32em;
+  /* P1-6 (2026-05-16): section header above interactive pills/readouts. */
+  color:var(--ink-soft);
   text-transform:uppercase; margin-bottom:4px;
 }
 .attractor-row{ display:flex; flex-wrap:wrap; gap:4px 4px; margin-bottom:2px; }
@@ -428,7 +776,10 @@ body{
 .readout-row.is-trio>div{ display:flex; flex-direction:column; gap:3px; min-width:0; }
 .readout-row.is-trio .readout-val{ font-size:10px; }
 .readout-key{
-  font-size:8px; letter-spacing:.28em; color:var(--ink-faint); text-transform:uppercase;
+  font-size:8px; letter-spacing:.28em;
+  /* P1-6 (2026-05-16): instrument-readout field key — critical for parsing values. */
+  color:var(--ink-soft);
+  text-transform:uppercase;
 }
 .readout-val{ font-family:var(--font-type); font-size:11px; color:var(--ink-primary); letter-spacing:.04em; }
 .readout-val.acc{ color:var(--accent-orange); }
@@ -441,23 +792,66 @@ body{
 }
 .signal-flow b{ color:var(--accent-orange); font-weight:500; }
 .signal-flow .step{ display:grid; grid-template-columns:18px 1fr; gap:6px; }
-.signal-flow .step span:first-child{ color:var(--ink-faint); font-family:var(--font-type); }
+/* P1-6 (2026-05-16): step number is a sequenced label tied to active state. */
+.signal-flow .step span:first-child{ color:var(--ink-soft); font-family:var(--font-type); }
 .signal-flow .step.is-active{ color:var(--ink-primary); }
 .signal-flow .step.is-active span:first-child{ color:var(--accent-orange); }
+/* A4 — active-step arrival pulse · 220ms once-on-class-add; opacity 0.6→1.0.
+   Triggered on cameraFocus change; no loop. SBA-1 §1.8 motion vocabulary. */
+@keyframes step-arrive{
+  0%   { opacity:0.55; }
+  60%  { opacity:1; }
+  100% { opacity:1; }
+}
+.signal-flow .step.is-active{ animation:step-arrive 220ms ease-out both; }
+@media (prefers-reduced-motion: reduce){
+  .signal-flow .step.is-active{ animation:none; }
+}
 
-/* FOOT — NETRA console + stratum counts, sharing dashed top border */
+/* FOOT — NETRA console + stratum counts, sharing dashed top border
+   P1-5 (2026-05-16): row gap 18→12, top-pad 12→8 — closes the 1180×820 fold.
+   REVISE-WAVE-3 · D3 (2026-05-16): expand bottom-right NETRA region.
+   DECISION: option (a) — expand NETRA console column; compact the 3 stratum counts.
+   RATIONALE: the 3 count columns (NeX FIELD / Ne0N POLE / Ne0 NODES) contain
+   short static values (247 RAYS / +90°N / 047) that fit comfortably at 1fr each;
+   giving them fixed equal shares and expanding the NETRA track from minmax(220px,1.3fr)
+   → minmax(300px,2fr) gives NETRA ~20% more horizontal real-estate at 1180 viewport.
+   Options (b) taller frame-foot and (c) reflow-above were rejected: (b) pushes the
+   voice strip further down, worsening the fold situation; (c) adds a second row
+   for counts which reads as a new layout register and is harder to maintain.
+   TRADE-OFF: at 1180 the 3 count columns may sit narrower (~140px each vs ~180px
+   before) but their values are short enough that this is invisible.
+   Preserved: P1-5 gap/pad values; P1-6 ink-soft labels. */
 .frame-foot{
-  display:grid; grid-template-columns:1fr 1fr 1fr minmax(220px,1.3fr);
-  gap:18px; align-items:center;
+  display:grid; grid-template-columns:1fr 1fr 1fr minmax(300px,2fr);
+  gap:12px; align-items:center;
   font-size:9px; letter-spacing:.1em; color:var(--ink-soft);
-  padding-top:12px; border-top:1px dashed var(--ink-dashed); text-transform:uppercase;
+  padding-top:8px; border-top:1px dashed var(--ink-dashed); text-transform:uppercase;
 }
 .frame-foot>div{ display:flex; flex-direction:column; gap:3px; }
-.frame-foot span{ color:var(--ink-faint); font-size:8px; letter-spacing:.28em; }
+/* P1-6 (2026-05-16): NETRA console field labels (NeX · FIELD, Ne0N · POLE, Ne0 · NODES) —
+   critical labels above counts. Bumped from --ink-faint → --ink-soft. */
+.frame-foot span{ color:var(--ink-soft); font-size:8px; letter-spacing:.28em; }
 .frame-foot b{ color:var(--ink-primary); font-weight:400; font-family:var(--font-type); font-size:11px; letter-spacing:.05em; }
 .frame-foot b.acc{ color:var(--accent-orange); }
 
-/* NETRA console — globals.css .atlas-netra */
+/* NETRA console — globals.css .atlas-netra
+   REVISE-WAVE-3 · D1 + D3 (2026-05-16): container stability + expanded region.
+   D1 DECISION: combined approach — reserved min-width slots on value cells +
+     tabular-nums on numeric readouts + nowrap+ellipsis on place-name target.
+   D1 RATIONALE: the three causes of reflow shake are (a) the place name changing
+     length (e.g. "standby" 7 chars → "Bangkok Metropolitan Area" 25 chars), (b) the
+     coordinate string changing width digit-by-digit as camera moves, (c) the range
+     float changing decimal digits. All three cause the `auto 1fr auto` columns to
+     resize on each frame. Fix: (a) clamp target to max-width + ellipsis so the netra-id
+     column never widens; (b+c) tabular-nums makes every digit the same advance width
+     so e.g. "13.04°N · 100.50°E" and "90.00°N · 0.00°E" occupy the same horizontal
+     space; explicit min-width on the value cells pins the readout column.
+   D1 TRADE-OFF: long place names (30+ chars) will be truncated to ellipsis. Accepted —
+     the coord-pin overlay carries the full name on hover. The netra-id column
+     reserves 120px minimum, which comfortably fits "Bangkok Metropolitan…".
+   D2 note: smooth transition CSS transitions (opacity fade) are applied directly on
+     .netra-id .tgt and .netra-readout b via the .is-changing class (see JS below). */
 .netra-console{
   display:grid !important; grid-template-columns:auto auto 1fr auto;
   gap:0 12px; align-items:center; padding:6px 10px;
@@ -474,20 +868,39 @@ body{
   display:flex; flex-direction:column; gap:1px;
   border-right:1px solid rgb(var(--netra-rgb) / 0.3);
   padding-right:12px;
+  /* D1: reserve min-width so the column does not collapse or grow with content */
+  min-width:120px; max-width:160px;
 }
 .netra-id .lab{ color:var(--netra); font-weight:500; letter-spacing:.22em; }
 .netra-id .tgt{
   font-family:var(--font-type); font-size:10px; letter-spacing:.04em;
   color:var(--ink-primary); text-transform:none;
+  /* D1: clamp long place names to ellipsis — prevents reflow width explosion */
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;
+  /* D2: opacity fade on text change — transitions on .is-changing class toggle */
+  transition:opacity 180ms ease-out;
 }
+/* D2: fade-out state written by JS before nodeValue swap */
+.netra-id .tgt.is-changing{ opacity:0; }
 .netra-readout{
   display:grid; grid-template-columns:auto 1fr; gap:1px 10px;
-  font-size:7.5px; letter-spacing:.22em; color:var(--ink-faint); align-items:baseline;
+  /* P1-6 (2026-05-16): NETRA RETICLE / RANGE labels — instrument-critical. */
+  font-size:7.5px; letter-spacing:.22em; color:var(--ink-soft); align-items:baseline;
+  /* D1: reserve min-width so coord column does not resize on each digit change */
+  min-width:160px;
 }
 .netra-readout b{
   font-family:var(--font-type); font-size:10px; letter-spacing:.04em;
   color:var(--ink-primary); font-weight:400; text-transform:none; justify-self:end;
+  /* D1: tabular-nums — all digits same advance width; no horizontal shift
+     as coordinate digits tick through 0-9. Covers both RETICLE coord and RANGE float. */
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;
+  /* D2: opacity fade on value change */
+  transition:opacity 180ms ease-out;
 }
+/* D2: fade-out state for coord + range values */
+.netra-readout b.is-changing{ opacity:0; }
 .netra-jump{
   appearance:none; background:transparent; border:1px solid var(--netra-soft);
   color:var(--netra); font:inherit; font-size:8.5px; letter-spacing:.22em;
@@ -496,14 +909,39 @@ body{
 .netra-jump:hover{ background:rgb(var(--netra-rgb) / 0.12); }
 @keyframes atlas-netra-pulse{ 0%,100%{opacity:1;} 50%{opacity:.45;} }
 
-/* NETRA voice strip — globals.css .atlas-netra-voice */
+/* NETRA voice strip — globals.css .atlas-netra-voice
+   P1-5 (2026-05-16): tighten margin-top 8→4 and padding 7/8→5/6 to
+   bring voice strip closer to console — closes fold at 1180×820. */
 .netra-voice{
   grid-column:1 / -1;
   display:flex; align-items:baseline; gap:12px;
-  padding:7px 11px 8px; margin-top:8px;
+  padding:5px 11px 6px; margin-top:4px;
   border-left:2px solid var(--netra);
   background:rgba(79,110,128,0.07);
 }
+
+/* =============================================================
+   RW-5 (2026-05-16) · TRACKING badge — Axis C5 locator.
+   Appears in HUD top-right corner when camera enters orbital drift.
+   Uses .hud-corner.tr slot — replaces "CAMERA / ORBIT · 0°" label
+   text with "TRACKING · {place}" badge text via JS setText() only.
+   No new tokens: background reuses paper-base rgba; border reuses
+   netra-soft; color reuses netra. Pure text/opacity rules only.
+   display:none by default; JS toggles to display:block via
+   .is-tracking class on .hud-overlay when drift is active.
+   ============================================================= */
+.hud-overlay.is-tracking .hud-corner.tr .tracking-badge-line{
+  display:block;
+}
+.hud-overlay .hud-corner.tr .tracking-badge-line{
+  display:none;
+  font-size:7px; letter-spacing:.28em; color:var(--netra);
+  text-transform:uppercase; font-weight:500;
+  margin-top:2px;
+}
+/* RW-5: coord-pin during tracking — smoothly repositions via JS
+   transform each frame. Existing .coord-pin.show rule keeps opacity:1.
+   No CSS change needed; JS will write style.transform directly. */
 .netra-voice .tag{
   font-family:var(--font-mono); font-size:7.5px; letter-spacing:.32em;
   color:var(--netra); text-transform:uppercase; white-space:nowrap;
@@ -527,17 +965,34 @@ body{
   }
   .artifact{ position:relative; inset:auto; }
   .frame{ padding:18px 18px 16px; grid-template-rows:auto auto auto; }
-  .content{ grid-template-columns:1fr; }
+  /* P0-1 (2026-05-16): minmax(0,1fr) instead of 1fr so the grid track does
+     NOT expand to min-content of inner items (mini-globe label, alpha-readout,
+     attractor pills, etc.). Combined with .content > *{ min-width:0 } at the
+     600bp this kills the 454.5px content-width overflow Codex measured. */
+  .content{ grid-template-columns:minmax(0,1fr); }
   .legend{ order:2; flex-direction:row; flex-wrap:wrap; gap:5px; }
   .legend-head, .legend-divider, .divergence-card{ width:100%; }
   .focus-btn{ flex:1 1 40%; }
   .globe-wrap{ order:1; min-height:380px; aspect-ratio:1 / 1; }
-  /* axis-label · suppress paper-base background patch at narrow viewports
-     per MAIN-DRIFT-AUDIT §1.2 D5 — at tablet the patch reads as a notch through
-     the dashed rule. Smaller font + transparent bg keeps identity without the cut. */
-  .axis-label{ font-size:7.5px; background:transparent; padding:0 4px; }
-  .axis-label.t{ top:-4px; }
-  .axis-label.b{ bottom:-4px; }
+  /* axis-label · REVISE-WAVE-3 · RW3-ITEM1 (2026-05-16): hide axis labels at ≤880px.
+     DECISION: hide entirely (option 3 of 3 candidates).
+     RATIONALE: at ≤880px the globe-wrap collapses to single-column with aspect-ratio:1/1
+     — the frame is now taller than wide. The prior transparent-bg approach (RW-2 / D5)
+     kept the label floating near the dashed border at a 7.5px reduced size, but the
+     label's negative top/bottom offset still partially overlaps the border and at
+     taller aspect the nearby label mass reads as a notch-shadow, not a clean label cut.
+     Transparent bg and smaller font do not fully resolve the notch perception when the
+     globe-wrap grows vertically — the label still visually interrupts the dashed rule
+     at a taller position. Hiding eliminates the notch entirely; the dashed rule reads
+     continuous; no identity is lost because the axis annotations are supplementary
+     instrument chrome, not navigation — the left/right labels (PROJECTION FIELD /
+     ARCHIVE FACE) are also hidden at narrow viewports since they sit on the left/right
+     edges and would overlap reticle elements in single-column layout.
+     TRADE-OFF: axis directionality (+Z NORTH / −Z SOUTH) is invisible at ≤880px.
+     Accepted — the HUD corner overlays (bl/br) already carry stratum + camera info
+     and the polar framing button (AXIS) labels the N/S relationship.
+     Desktop behavior (>880px): fully unchanged. */
+  .axis-label{ display:none; }
   .readout{ order:3; }
   .frame-foot{
     grid-template-columns:1fr 1fr; row-gap:10px;
@@ -547,19 +1002,48 @@ body{
 @media (max-width: 600px){
   body{ padding:10px; background:var(--paper-deep); }
   .stage{ max-width:100%; }
-  .frame{ padding:14px 14px 12px; }
+  /* P0-1 (2026-05-16) · REVISE-WAVE-2: tighten mobile frame so iPhone-SE
+     375×667 fold shows STANDBY card + CTAs without horizontal overflow or
+     below-fold cutoff. Reduce paddings + clamp .content to width-of-frame. */
+  .page{ padding:10px 12px 16px; }
+  /* P0-1: pin the frame's implicit grid column to its container width.
+     Without this, the auto-track sizing inherits min-content from
+     .content (which itself was inheriting min-content from .standby
+     inner items) → 454.5px column. minmax(0, 1fr) breaks the chain
+     here at the frame's column track, NOT downstream. */
+  .frame{
+    padding:12px 12px 10px; overflow:hidden;
+    grid-template-columns:minmax(0,1fr);
+  }
+  .content{
+    width:100%; max-width:100%; min-width:0;
+    grid-template-columns:minmax(0,1fr);
+    gap:14px;
+  }
+  .content > *{ max-width:100%; min-width:0; }
+  /* P0-1: ensure standby's flex/grid children don't force min-content
+     beyond viewport. alpha-readout (long mono string), attractor-row
+     (many pills), and cta-row are the candidates. */
+  .standby > *, .legend > *, .readout > *{ max-width:100%; min-width:0; }
+  .alpha-readout{ word-break:break-word; overflow-wrap:anywhere; }
   .frame-head{
     flex-direction:column; align-items:flex-start; gap:6px; font-size:8.5px;
   }
-  .frame-head .head-r{ gap:14px; }
-  /* Three.js retires — STANDBY card replaces .globe-wrap */
+  .frame-head .head-r{ gap:14px; flex-wrap:wrap; }
+  /* P1-8 (2026-05-16): WebGL retired at ≤600 — see JS isMobileNarrow().
+     CSS keeps canvas hidden as belt-and-braces; JS prevents scene/RAF init. */
   .globe-wrap > #globe-canvas, .globe-wrap > .hud-overlay, .globe-wrap > .alpha-mark{ display:none; }
+  /* P0-1: trim standby padding so mini-globe (now 110px) + label + CTAs
+     occupy ≤ 360px of vertical, leaving ample room above the fold on
+     375×667 (hero ~210 + frame-head ~50 + content ~360 + frame-foot ~110 = ~730
+     vs. 667 viewport — frame-foot scrolls in, CTAs visible in first fold). */
   .standby{
-    display:grid; place-items:center; gap:14px; padding:32px 18px;
+    display:grid; place-items:center; gap:10px; padding:18px 12px 16px;
     position:relative; z-index:5;
+    width:100%; max-width:100%; box-sizing:border-box;
   }
   .standby .mini-globe{
-    width:130px; height:130px; border-radius:50%;
+    width:110px; height:110px; border-radius:50%;
     background:
       radial-gradient(circle at 35% 35%, var(--paper-warm), var(--paper-deep) 70%, rgba(31,80,99,0.25) 100%),
       repeating-linear-gradient(0deg, transparent 0 8px, rgb(var(--ink-rgb) / 0.10) 8px 9px),
@@ -583,13 +1067,237 @@ body{
     text-align:center;
   }
   .standby .alpha-readout .acc{ color:var(--accent-orange); }
-  .standby .cta-row{ display:flex; gap:8px; }
+  /* P0-1: cta-row wraps cleanly if labels grow; touch-targets ≥ 36×44 high. */
+  .standby .cta-row{ display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
   .standby .cta{
     appearance:none; background:transparent; border:1px solid var(--accent-orange);
-    color:var(--ink-primary); padding:8px 12px; font-family:var(--font-mono);
+    color:var(--ink-primary); padding:10px 14px; font-family:var(--font-mono);
     font-size:9px; letter-spacing:.22em; text-transform:uppercase; cursor:pointer;
+    min-height:44px;
   }
-  .globe-wrap{ aspect-ratio:auto; min-height:0; }
+  .standby .cta:hover{ background:rgba(212,96,42,0.06); }
+  /* P0-1: kill any aspect-ratio so mobile globe-wrap collapses to standby height. */
+  .globe-wrap{ aspect-ratio:auto; min-height:0; width:100%; }
+  /* P0-1: keep readout block from forcing horizontal scroll on 375. */
+  .readout{ width:100%; }
+  .attractor-row{ gap:5px 5px; }
+  .attractor-pill{ font-size:8px; padding:5px 9px; }
+}
+
+/* =====================================================================
+   REVISE-2 · 2026-05-15 · main-branch home-stack mirror
+   Mirrors components/ChapterIndex.tsx + AttractorFields.tsx +
+   FooterManifesto.tsx. Zero new tokens — every value reuses an
+   existing CSS variable or matches a literal already present in
+   main-branch components/*.tsx.
+   ===================================================================== */
+
+.section-rule{ border-bottom:1px solid var(--ink-hairline); }
+
+.section-label{
+  display:flex; align-items:center; gap:14px;
+  margin-bottom:24px;
+  font-family:var(--font-mono); font-size:9px;
+  letter-spacing:.3em; text-transform:uppercase;
+  color:var(--ink-soft);
+}
+.section-label .rule{ width:24px; height:1px; background:var(--accent-orange); }
+.section-label b.acc{ color:var(--accent-orange); font-weight:500; }
+.section-label em{ font-style:normal; color:var(--ink-soft); }
+
+/* --- §01 · ChapterIndex --- */
+/* RW-4 ITEM A (2026-05-16): ATLAS → Chapter Index zone breathing room.
+   CHOICE: margin-top on .chapter-index-section (not margin-bottom on .artifact /
+   .stage-fit, not a dedicated spacer div).
+   RATIONALE: margin-top on the receiving section is the cleanest single-property
+   fix — it adds space between the two zones without touching the ATLAS artifact
+   sizing. margin-bottom on .artifact would interact with flexbox layout inside
+   .stage; a spacer div would add DOM noise. margin-top here collapses with the
+   parent page flow, giving a guaranteed gap regardless of ATLAS height variance.
+   VALUE: 32px — enough to read as a deliberate zone break (roughly one section-label
+   height) without pushing the first chapter card below a secondary fold on a
+   typical 900px viewport.
+   RW-2 P1-5 FOLD CHECK: The P1-5 fold constraint (NETRA bottom ≤ 820px at 1180×820)
+   governs elements WITHIN the ATLAS frame. This margin-top is OUTSIDE and BELOW the
+   ATLAS frame — it has zero effect on the NETRA console position. Fold is preserved. */
+.chapter-index-section{
+  position:relative; z-index:3;
+  padding:36px 40px 32px;
+  margin-top:32px;
+  background:var(--paper-base);
+}
+.chapter-index-grid{
+  display:grid; grid-template-columns:1fr 1fr;
+}
+.entry-card{
+  position:relative; display:block;
+  padding:24px 28px;
+  text-decoration:none; color:inherit; cursor:pointer;
+  /* main-branch ChapterIndex.tsx line 44-46 — border-r/border-b, last-row no border-b */
+  border-right:1px solid var(--ink-hairline);
+  border-bottom:1px solid var(--ink-hairline);
+  transition:background-color 150ms ease;
+}
+.entry-card:nth-child(2n){ border-right:0; }
+.entry-card:nth-last-child(-n+2){ border-bottom:0; }
+.entry-card:hover,
+.entry-card:focus-visible{
+  background:rgba(212,96,42,0.04); outline:none;
+}
+.entry-card-reticle{
+  position:absolute; top:24px; right:28px;
+  width:6px; height:6px;
+  border:1px solid rgba(212,96,42,0.4); transform:rotate(45deg);
+}
+.entry-card-meta{
+  font-family:var(--font-mono); font-size:9px;
+  letter-spacing:.2em; text-transform:uppercase;
+  /* P1-6 (2026-05-16): file-strip meta on an interactive entry card. */
+  color:var(--ink-soft); margin-bottom:12px;
+}
+.entry-card-title{
+  font-family:var(--font-display); font-style:italic; font-weight:500;
+  font-size:22px; line-height:1.2;
+  color:var(--ink-primary); margin-bottom:10px;
+  transition:color 150ms ease;
+}
+.entry-card:hover .entry-card-title,
+.entry-card:focus-visible .entry-card-title{ color:var(--accent-orange); }
+/* A3 — entry-glitch underline · verbatim 8 lines from globals.css line 285-303.
+   Marching dashed underline draws across 460ms on hover. SBA-1 §1.8 motion. */
+.entry-glitch{ position:relative; display:inline-block; transition:color 200ms ease-out; }
+.entry-glitch::after{
+  content:''; position:absolute; left:0; bottom:-0.18em;
+  height:1px; width:0;
+  background:repeating-linear-gradient(90deg,
+    var(--accent-orange) 0, var(--accent-orange) 4px,
+    transparent 4px, transparent 7px);
+  transition:width 460ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events:none;
+}
+.entry-card:hover .entry-glitch::after,
+.entry-card:focus-visible .entry-glitch::after{ width:100%; }
+.entry-card-tags{
+  display:flex; gap:12px; margin-bottom:8px;
+  font-family:var(--font-mono); font-size:9px;
+  letter-spacing:.15em; text-transform:uppercase; color:var(--ink-soft);
+}
+.entry-card-tags .acc{ color:var(--accent-orange); }
+.entry-card-status{
+  font-family:var(--font-mono); font-size:10px;
+  /* P1-6 (2026-05-16): chapter card status meta — supporting label on interactive card. */
+  letter-spacing:.05em; color:var(--ink-soft);
+}
+
+/* --- §02 · AttractorFields pill row --- */
+.attractor-fields-section{
+  position:relative; z-index:3;
+  padding:36px 40px 36px;
+  background:var(--paper-base);
+}
+.attractor-pill-row{ display:flex; flex-wrap:wrap; gap:8px; }
+.attractor-field-pill{
+  padding:6px 12px;
+  font-family:var(--font-mono); font-size:10px;
+  letter-spacing:.15em; text-transform:uppercase;
+  border:1px solid var(--ink-faint);
+  background:transparent; color:var(--ink-primary);
+  cursor:pointer;
+  /* 150ms hover per main-branch Tailwind default */
+  transition:color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+}
+.attractor-field-pill:hover{ color:var(--accent-orange); border-color:var(--accent-orange); }
+.attractor-field-pill.is-active{
+  background:var(--ink-primary); border-color:var(--ink-primary);
+  color:var(--paper-bright); font-weight:500;
+}
+/* A7 — column-edge pill tilt at hover · evokes physical paper tag-cards
+   pinned at center, free at the edges. 1° rotation, 150ms ease. */
+.attractor-pill-row > .attractor-field-pill:first-child{ transform-origin:right center; }
+.attractor-pill-row > .attractor-field-pill:last-child{  transform-origin:left center; }
+.attractor-pill-row > .attractor-field-pill:first-child:hover{ transform:rotate(-1deg); }
+.attractor-pill-row > .attractor-field-pill:last-child:hover{  transform:rotate(1deg); }
+.attractor-field-pill{ transition:color 150ms ease, border-color 150ms ease, background-color 150ms ease, transform 150ms ease; }
+@media (prefers-reduced-motion: reduce){
+  .attractor-pill-row > .attractor-field-pill:hover{ transform:none; }
+}
+
+/* --- §03 · FooterManifesto --- */
+.footer-manifesto{
+  position:relative; z-index:3;
+  display:grid; grid-template-columns:minmax(0,2fr) 1fr 1fr;
+  gap:32px;
+  padding:44px 40px 56px;
+  background:var(--paper-base);
+}
+/* A8 — footer corner-reticles · SBA-1 §1.3 close the visual envelope.
+   Reticles + dashed hairline above mark the document's closing frame. */
+.footer-manifesto::before{
+  content:''; position:absolute; left:40px; right:40px; top:0;
+  height:1px; background-image:linear-gradient(90deg,
+    var(--ink-dashed) 0, var(--ink-dashed) 4px,
+    transparent 4px, transparent 8px);
+  background-size:8px 1px; pointer-events:none;
+}
+.footer-corner-marks{ position:absolute; inset:18px 22px; pointer-events:none; z-index:6; }
+.footer-corner-marks::before, .footer-corner-marks::after{
+  content:''; position:absolute; width:12px; height:12px;
+  border:1px solid var(--accent-orange);
+}
+.footer-corner-marks::before{ top:0; left:0; border-right:none; border-bottom:none; }
+.footer-corner-marks::after { bottom:0; right:0; border-left:none; border-top:none; }
+/* A8 close — close-line below the three columns echoes ATLAS frame-foot rhythm */
+.footer-close{
+  grid-column:1 / -1;
+  display:flex; justify-content:space-between; align-items:baseline;
+  padding-top:24px; margin-top:8px;
+  border-top:1px solid var(--ink-hairline);
+  font-family:var(--font-mono); font-size:9px; letter-spacing:.3em;
+  text-transform:uppercase; color:var(--ink-faint);
+}
+.footer-close .acc{ color:var(--accent-orange); font-weight:500; }
+.footer-close .soft{ color:var(--ink-soft); }
+.footer-manifesto .footer-col h2{
+  font-family:var(--font-mono); font-size:10px;
+  letter-spacing:.3em; text-transform:uppercase;
+  margin:0 0 12px; color:var(--ink-primary); font-weight:500;
+}
+.footer-manifesto .footer-col-manifesto p{
+  max-width:540px; margin:0;
+  font-family:var(--font-display); font-style:italic;
+  font-size:14px; line-height:1.6; color:var(--ink-soft);
+}
+.footer-manifesto .footer-quote-mark{
+  color:var(--accent-orange); font-size:32px; line-height:0;
+  vertical-align:-8px; margin-right:4px; font-style:normal;
+}
+.footer-manifesto .footer-col ul{
+  list-style:none; margin:0; padding:0; line-height:2;
+}
+.footer-manifesto .footer-col a{
+  color:var(--ink-primary); text-decoration:none;
+  font-family:var(--font-mono); font-size:11px;
+  letter-spacing:.1em; text-transform:lowercase;
+  transition:color 150ms ease;
+}
+.footer-manifesto .footer-col a .arrow{ color:var(--accent-orange); }
+.footer-manifesto .footer-col a:hover{ color:var(--accent-orange); }
+
+@media (max-width:880px){
+  .chapter-index-grid{ grid-template-columns:1fr; }
+  .entry-card,
+  .entry-card:nth-child(2n){ border-right:0; }
+  .entry-card{ border-bottom:1px solid var(--ink-hairline); }
+  .entry-card:last-child{ border-bottom:0; }
+  .footer-manifesto{ grid-template-columns:1fr; gap:28px; }
+}
+
+@media (max-width:600px){
+  .chapter-index-section,
+  .attractor-fields-section,
+  .footer-manifesto{ padding-left:22px; padding-right:22px; }
+  .entry-card{ padding:20px 22px; }
+  .entry-card-title{ font-size:18px; }
 }
 
 @media (prefers-reduced-motion: reduce){
@@ -599,11 +1307,44 @@ body{
 </head>
 <body class="paper-canvas">
 
+<!-- REVISE-7 (2026-05-16): survey cursor overlay.
+     Mirrors components/SurveyCursor.tsx DOM structure exactly.
+     Activated only on fine-pointer devices (mouse); hidden on touch.
+     aria-hidden: decorative; screen readers see native focus indicators. -->
+<div id="survey-cursor" aria-hidden="true" data-mode="survey">
+  <svg width="44" height="44" viewBox="-22 -22 44 44"
+       style="position:absolute;left:-22px;top:-22px;">
+    <!-- survey mode: cartographer crosshair reticle (mirrors SurveyCursor.tsx lines 97-104) -->
+    <g class="sc-survey">
+      <circle cx="0" cy="0" r="6" fill="none"
+              stroke="var(--accent-orange)" stroke-width="0.8"/>
+      <line x1="-12" y1="0" x2="-9" y2="0"
+            stroke="var(--accent-orange)" stroke-width="0.8"/>
+      <line x1="9" y1="0" x2="12" y2="0"
+            stroke="var(--accent-orange)" stroke-width="0.8"/>
+      <line x1="0" y1="-12" x2="0" y2="-9"
+            stroke="var(--accent-orange)" stroke-width="0.8"/>
+      <line x1="0" y1="9" x2="0" y2="12"
+            stroke="var(--accent-orange)" stroke-width="0.8"/>
+      <circle cx="0" cy="0" r="0.9" fill="var(--accent-orange)"/>
+    </g>
+    <!-- triangulate mode: filled triangle + side hairlines (mirrors SurveyCursor.tsx lines 105-109) -->
+    <g class="sc-triangulate">
+      <polygon points="0,-9 7.8,4.5 -7.8,4.5" fill="var(--accent-orange)"/>
+      <line x1="-13" y1="0" x2="-10" y2="0"
+            stroke="var(--accent-orange)" stroke-width="0.9"/>
+      <line x1="10" y1="0" x2="13" y2="0"
+            stroke="var(--accent-orange)" stroke-width="0.9"/>
+    </g>
+  </svg>
+  <span class="sc-coord">0.00° / 0.00°</span>
+</div>
+
 <!-- Page-level chrome restored per MAIN-DRIFT-AUDIT §1.1 PRESERVE-MAIN.
      ScrollMeter rail · MarginaliaHUD vertical band · page CornerMarks · N badge -->
 <div class="scroll-meter" aria-hidden></div>
 <aside class="marginalia" aria-hidden>
-  <span>∇ WORLDLINE · <span class="ma-accent">1.130426</span></span>
+  <span>∇ WORLDLINE · <span class="ma-accent" id="ma-divergence"><span data-final="1">1</span>.<span data-final="1">1</span><span data-final="3">3</span><span data-final="0">0</span><span data-final="4">4</span><span data-final="2">2</span><span data-final="6">6</span></span></span>
   <span class="ma-accent">§ GENESIS</span>
   <span>DRIFT · +0.000</span>
 </aside>
@@ -640,18 +1381,28 @@ body{
         <span class="acc">WORLDLINE 1.130426</span>
       </div>
       <h1 class="hero-title">
-        an archive of <em>unfinished</em> thought, surveyed openly.
+        an archive of <em>unfinished</em> thought,<br>surveyed openly.
       </h1>
+      <!-- REVISE-5 (2026-05-16): subtitle paragraph — verbatim PoC copy
+           (localhost:3000 p.t-display italic 12.5px max-560px). -->
+      <p class="hero-sub">A digital garden — drafts, half-formed theories, contour maps of coffee, code, narrative, and the slow architecture of taste. Not a blog. A laboratory.</p>
     </div>
     <div class="hero-stack">
       <div class="cell is-alpha"><span class="num">047</span><span>ENTRIES</span></div>
       <div class="cell"><span class="num">012</span><span>ACTIVE</span></div>
       <div class="cell"><span class="num">∞</span><span>BRANCHES</span></div>
     </div>
-    <div class="hero-divergence">
-      <div class="hero-divergence-label">DIVERGENCE α</div>
+    <div class="hero-divergence" title="STATE · OBSERVED">
+      <!-- REVISE-5: head row with state badge ○ OBSERVED + α-accent inline marker -->
+      <div class="hero-divergence-head">
+        <span class="hero-divergence-label">DIVERGENCE <b>α</b></span>
+        <span class="hero-divergence-state"><span class="glyph" aria-hidden="true">○</span>OBSERVED</span>
+      </div>
       <div class="hero-divergence-num"><span>1.</span><span class="mid">1304</span><span>26</span></div>
-      <div class="hero-divergence-meta">OBSERVED · Ne0EX-LOCUS</div>
+      <div class="hero-divergence-meta">
+        <span>DEVIATION · <b>−0.275349%</b></span>
+        <span>ATTRACTOR · <b>Ne0EX-LOCUS</b></span>
+      </div>
     </div>
   </section>
 
@@ -764,7 +1515,7 @@ body{
               <span>1.</span><span class="dm-mid"><span data-final="1">1</span><span data-final="3">3</span><span data-final="0">0</span><span data-final="4">4</span></span><span class="dm-tail"><span data-final="2">2</span><span data-final="6">6</span></span>
             </div>
             <div class="divergence-card-coord">
-              <b>13.04°N</b> · <b>26.00°E</b>
+              <b>13.76°N</b> · <b>100.50°E</b>
             </div>
           </div>
         </aside>
@@ -787,10 +1538,12 @@ body{
             <div class="hud-corner tr">
               <div>CAMERA</div>
               <div><b id="hud-camera">ORBIT · 0°</b></div>
+              <!-- RW-5: TRACKING badge line — visible only during orbital drift (C5 locator) -->
+              <div class="tracking-badge-line" id="hud-tracking-badge" aria-live="polite">TRACKING · <b id="hud-tracking-place">—</b></div>
             </div>
             <div class="hud-corner bl">
               <div>α &nbsp;<b class="acc">1.130426</b></div>
-              <div>13.04°N · 26.00°E</div>
+              <div>13.76°N · 100.50°E</div>
             </div>
             <div class="hud-corner br">
               <div>SCALE</div>
@@ -804,14 +1557,17 @@ body{
             <span class="why" id="coordPinWhy">observer’s locus</span>
           </div>
 
-          <!-- mobile STANDBY card replacement -->
+          <!-- mobile STANDBY card replacement
+               P0-4 (2026-05-16): buttons now carry contracts (data-action).
+               OPEN ATLAS → scrolls to .stage (the frame artifact itself).
+               AS LIST   → scrolls to #index (ChapterIndex). -->
           <div class="standby" aria-label="ATLAS standby">
             <div class="mini-globe" aria-hidden="true"></div>
             <div class="label">ATLAS · <b>STANDBY</b></div>
-            <div class="alpha-readout">α <span class="acc">1.130426</span> · 13.04°N · 26.00°E</div>
+            <div class="alpha-readout">α <span class="acc">1.130426</span> · 13.76°N · 100.50°E</div>
             <div class="cta-row">
-              <button class="cta">OPEN ATLAS</button>
-              <button class="cta">AS LIST</button>
+              <button class="cta" type="button" data-action="open-atlas">OPEN ATLAS</button>
+              <button class="cta" type="button" data-action="as-list">AS LIST</button>
             </div>
           </div>
         </div>
@@ -895,6 +1651,129 @@ body{
   </div>
 </div>
   </div><!-- /.stage-fit -->
+
+  <!--
+    REVISE-2 · 2026-05-15 · main-branch home-stack restored beneath ATLAS.
+    Mirrors components/ChapterIndex.tsx (§01) + AttractorFields.tsx (§02)
+    + FooterManifesto.tsx (§03) verbatim. Data values from lib/entries.ts
+    RECENT_ENTRIES and ATTRACTOR_FIELDS. This closes Peat's "เว้นที่เยอะมาก"
+    verdict — main branch ships these three sections below ATLAS; the
+    prototype must too.
+  -->
+  <section class="chapter-index-section section-rule" id="index">
+    <div class="section-label">
+      <span class="rule"></span>
+      <b class="acc">§ 01</b>
+      <em>CHAPTER INDEX // RECENT TRACES</em>
+    </div>
+
+    <div class="chapter-index-grid">
+      <!-- RECENT_ENTRIES from lib/entries.ts — order: 003 → 002 → 001 → 000 -->
+      <a class="entry-card" href="#entry-003" id="entry-003">
+        <span class="entry-card-reticle" aria-hidden="true"></span>
+        <div class="entry-card-meta">FILE — 003 // 2026.05.07</div>
+        <div class="entry-card-title"><span class="entry-glitch">on the architecture of taste</span></div>
+        <div class="entry-card-tags">
+          <span class="acc">essay</span>
+          <span>identity</span>
+        </div>
+        <div class="entry-card-status">8 min · ongoing</div>
+      </a>
+      <a class="entry-card" href="#entry-002" id="entry-002">
+        <span class="entry-card-reticle" aria-hidden="true"></span>
+        <div class="entry-card-meta">FILE — 002 // 2026.05.02</div>
+        <div class="entry-card-title"><span class="entry-glitch">why I paused the startup</span></div>
+        <div class="entry-card-tags">
+          <span class="acc">reflection</span>
+          <span>stride</span>
+        </div>
+        <div class="entry-card-status">12 min · settled</div>
+      </a>
+      <a class="entry-card" href="#entry-001" id="entry-001">
+        <span class="entry-card-reticle" aria-hidden="true"></span>
+        <div class="entry-card-meta">FILE — 001 // 2026.04.28</div>
+        <div class="entry-card-title"><span class="entry-glitch">the four pours adaptation</span></div>
+        <div class="entry-card-tags">
+          <span class="acc">method</span>
+          <span>coffee</span>
+        </div>
+        <div class="entry-card-status">15 min · refined</div>
+      </a>
+      <a class="entry-card" href="#entry-000" id="entry-000">
+        <span class="entry-card-reticle" aria-hidden="true"></span>
+        <div class="entry-card-meta">FILE — 000 // 2026.04.20</div>
+        <div class="entry-card-title"><span class="entry-glitch">notes from a paused engineer</span></div>
+        <div class="entry-card-tags">
+          <span class="acc">genesis</span>
+          <span>meta</span>
+        </div>
+        <div class="entry-card-status">5 min · seed</div>
+      </a>
+    </div>
+  </section>
+
+  <section class="attractor-fields-section section-rule" id="attractor-fields">
+    <div class="section-label">
+      <span class="rule"></span>
+      <b class="acc">§ 02</b>
+      <em>ATTRACTOR FIELDS // BROWSE BY DOMAIN</em>
+    </div>
+
+    <div class="attractor-pill-row">
+      <!-- ATTRACTOR_FIELDS from lib/entries.ts — full 11-pill row -->
+      <button type="button" class="attractor-field-pill is-active" data-attractor-field="all">all</button>
+      <button type="button" class="attractor-field-pill" data-attractor-field="coffee">coffee</button>
+      <button type="button" class="attractor-field-pill" data-attractor-field="ai-ml">ai · ml</button>
+      <button type="button" class="attractor-field-pill" data-attractor-field="narrative">narrative</button>
+      <button type="button" class="attractor-field-pill" data-attractor-field="cubic-copper">cubic copper</button>
+      <button type="button" class="attractor-field-pill" data-attractor-field="harness-eng">harness eng.</button>
+      <button type="button" class="attractor-field-pill" data-attractor-field="fragrance">fragrance</button>
+      <button type="button" class="attractor-field-pill" data-attractor-field="film">film · letterboxd</button>
+      <button type="button" class="attractor-field-pill" data-attractor-field="trading">trading</button>
+      <button type="button" class="attractor-field-pill" data-attractor-field="japan">japan / 日本</button>
+      <button type="button" class="attractor-field-pill" data-attractor-field="meta">meta</button>
+    </div>
+  </section>
+
+  <footer class="footer-manifesto" id="transmit">
+    <div class="footer-corner-marks" aria-hidden="true"></div>
+    <div class="footer-col footer-col-manifesto">
+      <h2>// MANIFESTO</h2>
+      <p>
+        <span class="footer-quote-mark" aria-hidden="true">&ldquo;</span>
+        Observed openly. This is not a destination &mdash; only the slow
+        accumulation of a worldline. Patches commit in public; the log
+        stays open.
+      </p>
+    </div>
+    <div class="footer-col footer-col-channels">
+      <h2>// CHANNELS</h2>
+      <ul>
+        <li><a href="#"><span class="arrow">&rarr; </span>anilist</a></li>
+        <li><a href="#"><span class="arrow">&rarr; </span>letterboxd</a></li>
+        <li><a href="#"><span class="arrow">&rarr; </span>github</a></li>
+        <li><a href="#"><span class="arrow">&rarr; </span>airtable.coffee</a></li>
+      </ul>
+    </div>
+    <div class="footer-col footer-col-transmit">
+      <h2>// TRANSMIT</h2>
+      <ul>
+        <li><a href="mailto:"><span class="arrow">&rarr; </span>peat@&mdash;</a></li>
+        <li><a href="#"><span class="arrow">&rarr; </span>rss / atom</a></li>
+        <li><a href="#"><span class="arrow">&rarr; </span>now page</a></li>
+        <li><a href="#"><span class="arrow">&rarr; </span>colophon</a></li>
+      </ul>
+    </div>
+    <!-- A8 — closing strip · echoes ATLAS frame-foot rhythm (mono uppercase, 9px tracking 0.3em).
+         Three readings close the page: the worldline (α), the locus (Ne0EX), the calibration (UTC+7).
+         Peat-placeholders for channels/transmit links flagged in handoff. -->
+    <div class="footer-close" aria-hidden="true">
+      <span>∇ WORLDLINE <span class="acc">1.130426</span></span>
+      <span class="soft">LOG OPEN · PATCHES IN PUBLIC</span>
+      <span>EST. 2026 · BANGKOK · <span class="acc">UTC+7</span></span>
+    </div>
+  </footer>
+
 </div><!-- /.page -->
 
 <script type="importmap">
@@ -917,6 +1796,61 @@ const COLOR = {
 };
 
 // =====================================================================
+// REVISE-6 (2026-05-16): shared in-place text helper.
+// Mutates the firstChild Text node's nodeValue, avoiding the textContent-
+// triggered childList add/remove that produces the sub-frame flicker
+// Peat reported during NEXT NODE cycles. See selectArchiveNode block-
+// comment for the full diagnosis. Gate-write (skip on unchanged value)
+// matches the netra REVISE-2 idiom (line ~1953).
+// =====================================================================
+function setText(el, s){
+  if (!el) return;
+  if (el.firstChild && el.firstChild.nodeType === 3) {
+    if (el.firstChild.nodeValue === s) return; // gate: unchanged
+    el.firstChild.nodeValue = s;                // in-place — characterData mutation
+  } else {
+    el.textContent = s;                         // seed once if empty
+  }
+}
+
+// =====================================================================
+// REVISE-WAVE-3 · D2 (2026-05-16): smooth text transition helper.
+// Wraps setText with a CSS-opacity fade at the CSS-transition layer.
+// DOM identity is fully preserved — Text node stays in place; only
+// the .is-changing class is toggled to drive the CSS transition.
+// Pattern:
+//   1. Add .is-changing → CSS `transition:opacity 180ms` fades el to 0
+//   2. After 180ms (transitionend or timeout fallback), call setText()
+//      to do the in-place nodeValue swap (REVISE-6 pattern, unchanged)
+//   3. Remove .is-changing → CSS fade el back to 1
+// This does NOT break the firstChild.nodeValue pattern — setText() is
+// called identically from within the fade callback. MutationObserver
+// will still see characterData records (not childList add/remove).
+// Cite: REVISE-WAVE-3 §D2 · pre-staged contract · CSS-transition layer.
+// =====================================================================
+function setTextSmooth(el, s){
+  if (!el) return;
+  // gate: if the value is unchanged, skip the whole fade cycle
+  const current = (el.firstChild && el.firstChild.nodeType === 3)
+    ? el.firstChild.nodeValue : el.textContent;
+  if (current === s) return;
+
+  // start fade-out
+  el.classList.add('is-changing');
+  // swap text after fade-out completes (180ms) + tiny buffer (20ms)
+  // transitionend is unreliable during rapid clicks, so use setTimeout as authority
+  const delay = 180;
+  const timer = setTimeout(() => {
+    setText(el, s);           // in-place nodeValue swap — REVISE-6 pattern
+    el.classList.remove('is-changing');  // triggers fade-in via CSS transition
+  }, delay);
+  // Store timer on element so a second rapid call can cancel the pending swap
+  // and start fresh — prevents stale text from landing after a new value arrives.
+  if (el.__smoothTimer !== undefined) clearTimeout(el.__smoothTimer);
+  el.__smoothTimer = timer;
+}
+
+// =====================================================================
 // Scene · camera · renderer
 // =====================================================================
 const wrap = document.getElementById('globeWrap');
@@ -926,10 +1860,46 @@ scene.background = null;
 const camera = new THREE.PerspectiveCamera(36, 1, 0.01, 100);
 camera.position.set(0, 0, 4.2);
 
+// =====================================================================
+// P1-8 (2026-05-16) · REVISE-WAVE-2: mobile WebGL retire — runtime gate.
+// -----
+// Codex-Betelgeuse: "≤600px canvas display:none แล้ว standby โผล่
+// แต่ prototype ยังสร้าง Three.js scene/RAF อยู่."
+//
+// Strategy: query viewport width AT LOAD; if ≤ 600 the scene is built
+// (the rest of the script references `scene`, `camera`, `renderer` —
+// fully skipping init would require a structural rewrite of ~700
+// lines of code), but the renderer's main loop is short-circuited:
+//   - renderer.setSize is skipped (no GPU surface allocation beyond
+//     the initial context which already exists from `new WebGLRenderer`)
+//   - the RAF loop returns immediately
+// On viewport resize that crosses the 600 boundary upward, the loop
+// resumes (renderer reinitializes itself via setSize on next frame).
+// Production target is to skip `new WebGLRenderer` entirely at narrow
+// viewports — for the prototype, gating the RAF is the lower-risk
+// approximation that matches the performance signal Codex flagged
+// (no continuous GPU work, no 60fps RAF wakeups, no ResizeObserver
+// thrash on the canvas at ≤600).
+// Cite: REVISE-WAVE-2 §P1-8.
+// =====================================================================
+const MOBILE_RETIRE_BREAKPOINT = 600;
+let webglRetired = window.innerWidth <= MOBILE_RETIRE_BREAKPOINT;
+
 const renderer = new THREE.WebGLRenderer({ canvas, antialias:true, alpha:true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+// Expose for verification: Playwright can read window.__webglRetired
+// post-load to assert no GPU work at ≤600. Pure read; no behaviour change.
+window.__webglRetired = webglRetired;
 
 function resize(){
+  // P1-8: skip GPU surface sizing while retired (≤600). On a resize that
+  // grows the viewport past the threshold, flip the flag and let the next
+  // RAF tick resume rendering.
+  if (window.innerWidth <= MOBILE_RETIRE_BREAKPOINT){
+    if (!webglRetired){ webglRetired = true; window.__webglRetired = true; }
+    return;
+  }
+  if (webglRetired){ webglRetired = false; window.__webglRetired = false; }
   const r = wrap.getBoundingClientRect();
   if (r.width < 1 || r.height < 1) return;
   renderer.setSize(r.width, r.height, false);
@@ -1329,11 +2299,15 @@ const TARGETS = {
   },
   surface: {
     name:'Ne0 · ARCHIVE', role:'surface archive · α coordinate centered',
-    camPos: latLonToVec(13.04, 26, 2.05), look: latLonToVec(13.04, 26, 1.0),
-    netra:'Ne0', netraCoord:'13.04°N, 26.00°E', netraRange:'1.42',
+    // AMEND-7 (2026-05-17): coords corrected to α locus (Bangkok · 13.7563°N · 100.5018°E).
+    // camPos/look are kept for fallback only — setFocus('surface') uses live
+    // getWorldPosition() slerp (see below) so these static values are never
+    // actually applied to camera.position during the transition.
+    camPos: latLonToVec(13.7563, 100.5018, 2.05), look: latLonToVec(13.7563, 100.5018, 1.0),
+    netra:'Ne0', netraCoord:'13.76°N · 100.50°E', netraRange:'1.42',
     hudCam:'SURFACE · α', hudRadius:'1.00', hudDepth:'−0.05',
     hudStratum:'1 · Ne0', pinShow:true, flow:'neo',
-    voice:'the archive face. surveyed marks anchor real coordinates. each is an entry waiting at the reticle.',
+    voice:'α locus framed. camera holds — the globe keeps turning. Bangkok will drift from center as it goes.',
   },
   axis: {
     name:'Ne0N · NORTH POLE', role:'polar axis · the bearer · viewed from above',
@@ -1360,6 +2334,36 @@ let activeFocus = 'rest';
 let activeAttractor = 'all';
 let cameraAnim = null;
 let baseRotY = 0;
+
+// AMEND-4 (2026-05-16): smooth globe rotation rate interpolation.
+// Cause 1 of reported stutter: activeFocus flipping 'rest'→'surface' instantly
+// caused surfaceGroup rotation rate to snap from dt*0.08 → dt*0.02 in a single
+// frame — visible as a globe lurch at the moment of node-click.
+//
+// Fix: decouple the rendered rate from activeFocus. _targetRotRate is set by
+// state transitions (selectArchiveNode, setFocus); _currentRotRate interpolates
+// toward it each frame using easeInOutCubic applied via a blending approach.
+// All other rate values are unchanged — only the interpolation is new.
+//
+// _rotRateBlendT: 0→1 progress of the rate transition, normalized over
+//   ROT_RATE_TRANSITION_MS. Driven forward each frame by dt.
+// _rotRateFrom / _rotRateTarget: the start/end scalars for the transition.
+// _currentRotRate: the actual rate applied each frame (derived from blend).
+const ROT_RATE_TRANSITION_MS = 500;  // matches DRIFT_FADE_OUT_MS order of magnitude
+let _targetRotRate  = 0.08;          // initial: REST rate
+let _rotRateFrom    = 0.08;          // start of current transition
+let _currentRotRate = 0.08;          // rendered rate this frame
+let _rotRateBlendT  = 1;             // 1 = settled (no transition in progress)
+
+// setRotRate(target): start a smooth transition to the new target rate.
+// Called by selectArchiveNode and setFocus instead of relying on activeFocus
+// branching alone.
+function setRotRate(target) {
+  if (Math.abs(target - _targetRotRate) < 1e-6) return; // already targeting this
+  _rotRateFrom   = _currentRotRate;
+  _targetRotRate = target;
+  _rotRateBlendT = 0;  // start transition
+}
 
 const elActiveName = document.getElementById('active-name');
 const elActiveRole = document.getElementById('active-role');
@@ -1393,22 +2397,108 @@ camera.lookAt(currentLook);
 
 function setFocus(target){
   if (!TARGETS[target]) target = 'rest';
+  /* REVISE-WAVE-2 · cross-scope race guard (2026-05-16):
+     selectArchiveNode() (netraNavigator IIFE) and setFocus() both write to
+     elNetra / #netra-target. If a focus button is mashed mid-jump, setFocus
+     overwrites the jump's just-written target with the framing's stale
+     "axis" / "orbit" / "surface" string — the NETRA target text flips
+     between node-label and framing-label until the slerp finishes.
+     Guard: if a jump animation is currently slerping, abort the focus
+     write. The user can re-press the focus button after the jump lands.
+     Cite: REVISE-WAVE-2 §cross-scope race fix · R3-AMEND §risks. */
+  if (window.__jumpAnimating) return;
   activeFocus = target;
   const t = TARGETS[target];
+
+  // AMEND-4 Fix A: set the target rotation rate for this focus mode.
+  // REST is 0.08, SURFACE is 0.02, AXIS/ORBIT keep their own per-group rates.
+  // setRotRate() blends smoothly over 500ms — no snap on framing-button press.
+  // AXIS and ORBIT apply their rates per-group in the RAF block (unchanged);
+  // we only control the surfaceGroup scalar here via _currentRotRate.
+  const _focusRotRates = { rest: 0.08, surface: 0.02, axis: 0.18, orbit: 0.04 };
+  if (_focusRotRates[target] !== undefined) setRotRate(_focusRotRates[target]);
+
+  // TASK-UI-1 Q4 (2026-05-16): if parallax was active, the camera position
+  // includes a non-zero offset. Reset to the nominal so the arc doesn't
+  // inherit a wobble baseline.
+  if (_parallaxActive){
+    camera.position.copy(_camNominal);
+    _parallaxActive = false;
+  }
+
+  // RW-5: deactivate orbital drift on framing change. The user is switching
+  // camera context — drift was relative to the old node and old nominal.
+  // deactivateDrift() sets _driftActive=false; blend fades to 0 in RAF.
+  deactivateDrift();
 
   // animate camera over 1400ms — DO NOT hide any group
   const startPos = camera.position.clone();
   const startLook = currentLook.clone();
-  const endPos = t.camPos.clone();
-  const endLook = t.look.clone();
   const dur = 1400; const t0 = performance.now();
-  cameraAnim = (now)=>{
-    const k = Math.min(1, (now - t0)/dur); const e = easeInOutCubic(k);
-    camera.position.lerpVectors(startPos, endPos, e);
-    currentLook.lerpVectors(startLook, endLook, e);
-    camera.lookAt(currentLook);
-    if (k >= 1) cameraAnim = null;
-  };
+
+  if (target === 'surface') {
+    // AMEND-7 (2026-05-17): Ne0 / SURFACE framing locks onto α locus (Bangkok)
+    // using live world-space slerp — same pattern as AMEND-6 NETRA jump.
+    // getWorldPosition() on archiveNodes[0].mesh accounts for surfaceGroup.rotation.y
+    // so the camera arrives at Bangkok regardless of how far the globe has rotated.
+    // Globe keeps spinning (no freeze) — matches "ปล่อยโลกหมุนเหมือนเดิม".
+    //
+    // AMEND-9b (2026-05-17): On slerp completion — FREEZE camera pose; do NOT
+    // activate drift. The SURFACE framing is an observation posture, not tracking.
+    // Globe rotation continues unconditionally (AMEND-8). Bangkok slides off-center
+    // as surfaceGroup.rotation.y accumulates — that is the intended behavior.
+    // activateDrift() is for NEXT NODE / selectArchiveNode only (preserved there).
+    const alphaNode = archiveNodes[0]; // α node · Bangkok · 13.7563°N · 100.5018°E
+    const destR = 2.05;
+    const startR = startPos.length();
+    const startDir = startPos.clone().normalize();
+    const ref = new THREE.Vector3(0, 0, 1);
+    const _liveDestWorld = new THREE.Vector3();
+    const _liveDestDir = new THREE.Vector3();
+    alphaNode.mesh.getWorldPosition(_liveDestWorld);
+    _liveDestDir.copy(_liveDestWorld).normalize();
+    const qStart = new THREE.Quaternion().setFromUnitVectors(ref, startDir);
+    const qDest  = new THREE.Quaternion().setFromUnitVectors(ref, _liveDestDir);
+    const qTmp = new THREE.Quaternion();
+    const dirTmp = new THREE.Vector3();
+    cameraAnim = (now) => {
+      const k = Math.min(1, (now - t0) / dur);
+      const e = easeInOutCubic(k);
+      // Recompute destination from live world position each frame — globe rotates
+      // during slerp so target must track the rotating α node continuously.
+      alphaNode.mesh.getWorldPosition(_liveDestWorld);
+      _liveDestDir.copy(_liveDestWorld).normalize();
+      qDest.setFromUnitVectors(ref, _liveDestDir);
+      qTmp.copy(qStart).slerp(qDest, e);
+      dirTmp.copy(ref).applyQuaternion(qTmp);
+      const rNow = startR + (destR - startR) * e;
+      camera.position.copy(dirTmp).multiplyScalar(rNow);
+      camera.lookAt(currentLook);
+      if (k >= 1) {
+        cameraAnim = null;
+        // AMEND-9b: freeze camera at final world-frame pose — do NOT call activateDrift.
+        // Snap nominal to the landed position so parallax/drag have a clean baseline.
+        // currentLook is already (0,0,0) — no update needed.
+        _camNominal.copy(camera.position);
+        // Update coord-pin to framing-register label — distinct from node-tracking label.
+        setText(elPinLabel, 'α LOCUS');
+        setText(elPinTxt,   'BANGKOK · TH · 13.76°N · 100.50°E');
+        setText(elPinWhy,   'surface focus · globe continues');
+        elPin.classList.add('show');
+      }
+    };
+  } else {
+    // All other strata: orbital / polar positions — static world-space targets.
+    const endPos = t.camPos.clone();
+    const endLook = t.look.clone();
+    cameraAnim = (now)=>{
+      const k = Math.min(1, (now - t0)/dur); const e = easeInOutCubic(k);
+      camera.position.lerpVectors(startPos, endPos, e);
+      currentLook.lerpVectors(startLook, endLook, e);
+      camera.lookAt(currentLook);
+      if (k >= 1) cameraAnim = null;
+    };
+  }
 
   // CO-PRESENT contract: no .visible toggling on surfaceGroup / axisGroup / orbitalGroup
   // (the v7 model used `nexField.visible = t.showField` — removed in v1)
@@ -1419,22 +2509,37 @@ function setFocus(target){
     b.classList.toggle('is-active', on);
     b.setAttribute('aria-pressed', String(on));
   });
-  elActiveName.textContent = t.name;
-  elActiveRole.textContent = t.role;
-  elNetra.textContent = t.netra;
-  elNetraCoord.textContent = t.netraCoord || '—';
-  elNetraRange.textContent = t.netraRange || '—';
-  elHudStratum.textContent = t.hudStratum;
-  elHudCam.textContent = t.hudCam;
-  elHudRadius.textContent = t.hudRadius;
-  elHudDepth.textContent = t.hudDepth;
+  setText(elActiveName, t.name);
+  setText(elActiveRole, t.role);
+  /* REVISE-WAVE-3 · D2: use setTextSmooth on elNetra (the .tgt place-name slot)
+     for a 180ms fade on camera-focus framing changes, consistent with NEXT NODE
+     behaviour. Coord/range are updated via static TARGETS values here (no rapid
+     tick) so they also get setTextSmooth for a clean transition. */
+  setTextSmooth(elNetra,      t.netra);
+  setTextSmooth(elNetraCoord, t.netraCoord || '—');
+  setTextSmooth(elNetraRange, t.netraRange || '—');
+  setText(elHudStratum, t.hudStratum);
+  setText(elHudCam,     t.hudCam);
+  setText(elHudRadius,  t.hudRadius);
+  setText(elHudDepth,   t.hudDepth);
   stepEls.forEach(s => s.classList.toggle('is-active', s.dataset.step === t.flow));
   /* update § CAMERA · ACTIVE annotation per MAIN-DRIFT-AUDIT §1.2 D4 */
-  if (elCameraCurrentVal  && CAMERA_CURRENT[target]) elCameraCurrentVal.textContent  = CAMERA_CURRENT[target].val;
-  if (elCameraCurrentMeta && CAMERA_CURRENT[target]) elCameraCurrentMeta.textContent = CAMERA_CURRENT[target].meta;
+  if (elCameraCurrentVal  && CAMERA_CURRENT[target]) setText(elCameraCurrentVal,  CAMERA_CURRENT[target].val);
+  if (elCameraCurrentMeta && CAMERA_CURRENT[target]) setText(elCameraCurrentMeta, CAMERA_CURRENT[target].meta);
 
   // voice — if no attractor is active, use focus voice; else, attractor voice wins
-  if (activeAttractor === 'all') elVoice.textContent = t.voice;
+  if (activeAttractor === 'all') setText(elVoice, t.voice);
+
+  /* P0-3 (2026-05-16) · REVISE-WAVE-2: when returning to REST, hide the
+     coord-pin. STANDBY = "no current observation", so leaving the last
+     archive-node pin hovering on the globe is a stale-state lie. The pin
+     reappears the moment a node is selected (selectArchiveNode adds .show
+     back). Preferred over reset-to-α — α-pin would suggest the observer
+     is being "watched", contradicting STANDBY semantics.
+     Cite: REVISE-WAVE-2 §P0-3, preferred option. */
+  if (target === 'rest') {
+    elPin.classList.remove('show');
+  }
 }
 
 // =====================================================================
@@ -1478,16 +2583,494 @@ function setAttractor(attractor){
 }
 
 // =====================================================================
+// TASK-UI-1 Q4 (2026-05-16): tracking-without-freeze · camera parallax
+// -----
+// Desktop (pointer:fine, non-touch): Option B mouse-parallax — input-driven,
+//   no loop. Camera position drifts subtly along its local right/up basis
+//   based on mouse NDC. Look point unchanged → node stays centered, the
+//   background graticule shifts → "live lens" feel.
+// Mobile (else): Option C sin-wave micro-parallax — time-driven Lissajous
+//   on local right/up. HARD constraints from Betelgeuse motion verdict:
+//     amplitude ≤ 0.018, frequency ≤ 0.11 Hz (ω ≤ 0.691 rad/s →
+//     now*0.000691 keeps cycle ~0.11 Hz).
+// Reduced motion: both options clamp to zero (no parallax).
+// Active only while camera is settled at a focused target (cameraAnim===null
+// AND activeFocus!=='rest'). Dormant during setFocus arc, during NEXT NODE
+// jump (the slerp step writes camera.position directly each frame), during
+// drag (dragging guard in pointermove), and at 'rest' (which has its own
+// continuous globe rotation — parallax there would compete).
+// Per Sirius §5.1: vectors pre-allocated; no GC inside RAF.
+// =====================================================================
+const mouseNDC = { x: 0, y: 0 };
+const _prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+let prefersReducedMotion = _prefersReducedMotion.matches;
+_prefersReducedMotion.addEventListener('change', e => { prefersReducedMotion = e.matches; });
+const _pointerFine = window.matchMedia('(pointer: fine)');
+let pointerFine = _pointerFine.matches;
+_pointerFine.addEventListener('change', e => { pointerFine = e.matches; });
+const _hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+// window.__forceMobile is a Playwright-only override for Q4 mobile verification.
+// Production code path is `!pointerFine || _hasTouch` (the natural detection).
+const isMobile = () => window.__forceMobile === true || !pointerFine || _hasTouch;
+
+// Update mouse NDC on parallax-only handler (NOT during drag — drag pointer
+// is consumed by the existing drag-orbit handler below).
+canvas.addEventListener('pointermove', e => {
+  if (dragging) return;
+  if (e.pointerType !== 'mouse') return; // touch/pen → Option C handles it
+  const r = canvas.getBoundingClientRect();
+  mouseNDC.x = ((e.clientX - r.left) / r.width) * 2 - 1;
+  mouseNDC.y = -((e.clientY - r.top) / r.height) * 2 + 1;
+});
+// Reset when cursor leaves the canvas — prevents stale offset.
+canvas.addEventListener('pointerleave', () => { mouseNDC.x = 0; mouseNDC.y = 0; });
+
+// Pre-allocated scratch vectors — reused every frame, no allocations.
+const _camForward = new THREE.Vector3();
+const _camRight   = new THREE.Vector3();
+const _camUp      = new THREE.Vector3();
+const _parallaxOffset = new THREE.Vector3();
+const _camNominal = new THREE.Vector3();   // last "non-parallax" position
+const _worldUp    = new THREE.Vector3(0, 1, 0);
+
+// Tuning constants — Q4 verdict numbers from Betelgeuse.
+const DESKTOP_PARALLAX_STRENGTH = 0.022;   // Option B world-units cap per axis
+const MOBILE_SWAY_AMP  = 0.018;            // Option C — Betelgeuse hard cap
+const MOBILE_SWAY_AMP_Y = 0.011;           // 60% of X — Lissajous depth
+const MOBILE_SWAY_FREQ = 0.000691;         // ω rad/ms → ~0.11 Hz cycle
+const MOBILE_SWAY_PHASE_RATIO = 1.3;       // organic non-sync between axes
+
+// Track whether parallax is currently applied so we can subtract it before
+// the next setFocus arc starts. Without this, the parallax-offset position
+// would become the new `startPos` and the arc would inherit a wobble.
+let _parallaxActive = false;
+
+// =====================================================================
+// RW-5 (2026-05-16) · ORBITAL DRIFT — tracking-without-freezing.
+//
+// DESIGN DECISIONS (Betelgeuse · α-VIS-04):
+//
+// Axis A — Drift pattern: COMPOUND A5 (Lissajous figure-8 + breathing radius).
+//   Lissajous yaw/pitch with incommensurable frequencies (ratio ≈1.627) produces
+//   a non-repeating figure that reads as a telescope tracking mount following
+//   proper motion — observatory aesthetic, not ride motion. The radius pulse
+//   (±distance-unit oscillation at ~0.031 Hz) adds the I2 "body breathes" quality
+//   at extremely low amplitude. Two frequencies combined: primary 0.05 Hz (~20s
+//   full yaw cycle), secondary 0.082 Hz (~12s pitch cycle).
+//
+// Axis B — Layer-aware amplitude (absolute, not relative):
+//   Ne0  (surface · archive): yaw ±0.018 rad, pitch ±0.010 rad, radius ±0.005
+//     → settled, documents, low motion. Camera barely alive. ≈37mm at r=2.05.
+//   Ne0N (axis · pole):        yaw ±0.038 rad, pitch ±0.022 rad, radius ±0.010
+//     → structural, oriented. Observable drift. ≈117mm at r=3.1.
+//   NeX  (orbital · fictional): yaw ±0.090 rad, pitch ±0.055 rad, radius ±0.025
+//     → orbital, motion IS the character. Pronounced. ≈450mm at r=5.0.
+//   Critical: NeX amplitude is 5× Ne0 — cannot be confused with "same drift".
+//
+// Axis C — Locator persistence: C2 (pulsing tracking reticle on node) + C5
+//   (TRACKING · {place} badge in HUD corner). Bonus: C1 (coord-pin follows
+//   screen-space position of node each frame via THREE.js project()).
+//
+// Spherical math: drift is computed as angular displacement in yaw/pitch from
+//   the nominal camera direction unit vector. Camera position is reconstructed
+//   by applying two quaternion rotations to the nominal direction, then scaling
+//   by the (optionally pulsed) nominal radius. Camera NEVER passes through the
+//   sphere interior — drift path stays on a sphere of radius ≥ nominalR.
+//
+// State machine: jumping(slerp) → arrived → tracking(drift) → REST(fade to nominal)
+//   __jumpAnimating guard respected: drift starts AFTER __jumpAnimating === false.
+//   On setFocus or NEXT-NODE press: drift fades out in 600ms (blendT → 0) before
+//   the next jump/focus animation takes over.
+//
+// Single RAF loop: all drift math inside the existing loop() — no second RAF.
+// =====================================================================
+
+// --- Per-stratum amplitude tables ---
+const DRIFT_PARAMS = {
+  // [yawAmp rad, pitchAmp rad, radiusPulseAmp distance-units]
+  surface: { yaw: 0.018, pitch: 0.010, rad: 0.005 },
+  axis:    { yaw: 0.038, pitch: 0.022, rad: 0.010 },
+  orbit:   { yaw: 0.090, pitch: 0.055, rad: 0.025 },
+};
+
+// Lissajous frequency pair — incommensurable (ratio ≈ 1.627 → irrational)
+// Primary: ~0.05 Hz (20s yaw cycle). Secondary: ~0.082 Hz (~12s pitch).
+const DRIFT_FREQ_PRIMARY   = 0.000318;   // ω rad/ms for yaw axis
+const DRIFT_FREQ_SECONDARY = 0.000517;   // ω rad/ms for pitch axis
+const DRIFT_FREQ_RADIUS    = 0.000196;   // ω rad/ms for radius pulse (~0.031 Hz)
+
+// Blend / fade scalars
+let _driftBlend    = 0;      // 0 = no drift, 1 = full amplitude; transitions over time
+let _driftPhaseT   = 0;      // accumulates ms while drift is active (for phase continuity)
+let _driftActive   = false;  // true when a node is targeted and jump is settled
+
+// Fade timing (ms)
+// AMEND-4 (2026-05-16): DRIFT_FADE_OUT_MS tightened from 500→300.
+// At 500ms the fade-out overlapped with the 1100ms slerp but left a
+// ~600ms dead-zone (drift=0, slerp still in flight, nothing texturing
+// camera motion) followed by an abrupt drift fade-in at slerp end.
+// At 300ms the fade-out completes within the first ~270ms of the slerp;
+// the remaining ~830ms of slerp is drift-free but short enough that the
+// eye reads it as "in-flight" not "arrived". Fade-in (800ms) begins the
+// moment slerp settles — the sequence is: fade-out → slerp → fade-in
+// with the dead-zone < 300ms, below the perceptual threshold for stutter.
+const DRIFT_FADE_IN_MS  = 800;   // gentle entry — drift builds up after jump lands
+const DRIFT_FADE_OUT_MS = 300;   // AMEND-4: tighter fade-out eliminates dead-zone with slerp
+
+// The node currently being tracked (null when no node selected / at rest)
+let _currentTrackedNode = null;
+
+// Nominal camera state snapshotted at drift-entry (after slerp complete)
+// _camNominal already allocated above — it carries the baseline position.
+// We additionally need the nominal unit direction and radius:
+const _driftNominalDir = new THREE.Vector3();
+let   _driftNominalRad = 4.2;
+
+// Pre-allocated scratch for drift computation
+const _driftYawAxis   = new THREE.Vector3(0, 1, 0); // world-up used for yaw rotation
+const _driftRight     = new THREE.Vector3();
+const _driftDir       = new THREE.Vector3();
+const _driftQY        = new THREE.Quaternion();
+const _driftQP        = new THREE.Quaternion();
+const _driftQCombined = new THREE.Quaternion();
+// RW-5-AMEND-2 (2026-05-16): live anchor direction — derived each frame from
+// the tracked node's current world position. Replaces the stale _driftNominalDir
+// snapshot as the Lissajous base so camera follows the node as the globe rotates.
+const _liveAnchorDir  = new THREE.Vector3();
+
+// --- C2: Tracking reticle (THREE.js ring on the selected node) ---
+// A thin pulse ring rendered AT the node's world position, always face-camera.
+// Constructed once; repositioned to each new node on selection.
+const _trackingReticleGroup = new THREE.Group();
+_trackingReticleGroup.visible = false;
+scene.add(_trackingReticleGroup);
+
+// Outer thin ring (C2 primary visual)
+const _trackRingMat = new THREE.MeshBasicMaterial({
+  color: COLOR.netra,
+  side: THREE.DoubleSide,
+  transparent: true,
+  opacity: 0,      // driven by blend each frame
+  depthWrite: false,
+});
+const _trackRingMesh = new THREE.Mesh(
+  new THREE.RingGeometry(0.028, 0.036, 32),
+  _trackRingMat
+);
+_trackingReticleGroup.add(_trackRingMesh);
+
+// Inner dot — center of node locator
+const _trackDotMat = new THREE.MeshBasicMaterial({
+  color: COLOR.netra,
+  transparent: true,
+  opacity: 0,
+  depthWrite: false,
+});
+const _trackDotMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(0.006, 8, 8),
+  _trackDotMat
+);
+_trackingReticleGroup.add(_trackDotMesh);
+
+// --- C1: Coord-pin screen projection scratch ---
+const _nodeScreenPos = new THREE.Vector3();
+
+// --- C2/C1 shared scratch: world-space position of the tracked node.
+// node.basePos is local to nodesGroup (child of surfaceGroup), which rotates.
+// _trackingReticleGroup lives in scene (world space), so we must resolve
+// the node's actual world position each frame via getWorldPosition().
+// This vector is written each frame inside _applyOrbitalDrift; allocated
+// once here to avoid per-frame heap churn.
+const _nodeWorldPos = new THREE.Vector3();
+
+// DOM refs for RW-5 locators
+const elHudOverlay       = document.querySelector('.hud-overlay');
+const elHudTrackingBadge = document.getElementById('hud-tracking-badge');
+const elHudTrackingPlace = document.getElementById('hud-tracking-place');
+
+// --------------------------------------------------------------------------
+// activateDrift(node) — call after slerp lands on a node.
+//   Snapshots nominal direction/radius, stores tracked node, begins blend.
+// --------------------------------------------------------------------------
+function activateDrift(node) {
+  if (!node) return;
+  _currentTrackedNode = node;
+  // Snapshot nominal from current camera (slerp just settled)
+  _camNominal.copy(camera.position);
+  _driftNominalDir.copy(camera.position).normalize();
+  _driftNominalRad = camera.position.length();
+  // Reset phase so drift starts at the natural zero (avoids a lurch)
+  _driftPhaseT = 0;
+  _driftActive = true;
+  // Blend will ramp up via fade-in logic in RAF
+
+  // Place tracking reticle at the node's WORLD position.
+  // node.basePos is in local nodesGroup/surfaceGroup space (rotates with globe).
+  // _trackingReticleGroup is in scene (world) space.
+  // getWorldPosition() resolves the full surfaceGroup.matrixWorld transform,
+  // giving the actual rendered position of the node on the globe surface.
+  // We then normalise and scale to radius 1.010 so the ring sits just
+  // above the globe surface — same offset as node.basePos used before,
+  // but now in the correct (world) frame.
+  // RW-5-AMEND (2026-05-16): bug fix — basePos was local-space, caused
+  // reticle to anchor at wrong world position (appeared stuck at α-locus).
+  node.mesh.getWorldPosition(_nodeWorldPos);
+  _nodeWorldPos.normalize().multiplyScalar(1.010);
+  _trackingReticleGroup.position.copy(_nodeWorldPos);
+  _trackingReticleGroup.visible = true;
+
+  // Activate C5 TRACKING badge
+  if (elHudOverlay) elHudOverlay.classList.add('is-tracking');
+  if (elHudTrackingPlace) setText(elHudTrackingPlace, node.place || node.label);
+
+  // Update NETRA voice
+  const stratum = _driftFocusStratum();
+  const ampLabel = stratum === 'orbit' ? 'orbital' : stratum === 'axis' ? 'medium' : 'subtle';
+  setText(elVoice, 'tracking · ' + (node.place || node.label) + ' · ' + ampLabel + ' drift · reticle locked.');
+}
+
+// --------------------------------------------------------------------------
+// deactivateDrift() — call when leaving tracking state.
+// --------------------------------------------------------------------------
+function deactivateDrift() {
+  _driftActive = false;
+  // blend fades to 0 in RAF; when it hits 0 we hide the reticle group
+  if (elHudOverlay) elHudOverlay.classList.remove('is-tracking');
+}
+
+// --------------------------------------------------------------------------
+// _driftFocusStratum() — map activeFocus → DRIFT_PARAMS key.
+// --------------------------------------------------------------------------
+function _driftFocusStratum() {
+  if (activeFocus === 'orbit')   return 'orbit';
+  if (activeFocus === 'axis')    return 'axis';
+  if (activeFocus === 'surface') return 'surface';
+  return 'surface'; // rest → fallback surface (drift won't be active at rest anyway)
+}
+
+// --------------------------------------------------------------------------
+// _applyOrbitalDrift(now, dt) — called inside loop().
+//   Computes camera position = spherical drift offset from nominal.
+//   Returns true if drift is currently contributing a non-zero offset.
+// --------------------------------------------------------------------------
+function _applyOrbitalDrift(now, dt) {
+  const eligible = _currentTrackedNode !== null
+    && !window.__jumpAnimating
+    && cameraAnim === null
+    && activeFocus !== 'rest'
+    && !dragging
+    && !prefersReducedMotion;
+
+  if (!eligible) {
+    // Fade out
+    if (_driftBlend > 0) {
+      _driftBlend = Math.max(0, _driftBlend - dt * 1000 / DRIFT_FADE_OUT_MS);
+      if (_driftBlend <= 0) {
+        _driftBlend = 0;
+        _trackingReticleGroup.visible = false;
+        _currentTrackedNode = null;
+      }
+    }
+    return _driftBlend > 0;
+  }
+
+  // Fade in
+  if (_driftBlend < 1) {
+    _driftBlend = Math.min(1, _driftBlend + dt * 1000 / DRIFT_FADE_IN_MS);
+  }
+
+  // Accumulate phase time
+  _driftPhaseT += dt * 1000; // convert THREE.Clock dt (seconds) → ms
+
+  // RW-5-AMEND-2 (2026-05-16): LIVE ANCHOR FIX — camera-follows-node.
+  //
+  // BUG: _driftNominalDir was snapshotted once at activateDrift() (slerp
+  //   completion). As surfaceGroup.rotation.y increments each frame the
+  //   tracked node rotates in world space but _driftNominalDir stayed frozen
+  //   → camera pointed at the original world-space direction → node drifted
+  //   progressively out of view center over the 3-5 s autorotation window.
+  //
+  // FIX: resolve the node's CURRENT world position each frame (cheap —
+  //   one matrix decompose, no new allocations, reuses _nodeWorldPos scratch).
+  //   Derive the live nominal direction from that position and use it as the
+  //   base for Lissajous angle offsets. The Lissajous oscillation is applied
+  //   ON TOP of the live direction, not on top of the stale snapshot.
+  //   _driftNominalRad (the orbital distance) remains from the snapshot —
+  //   distance doesn't change as the globe rotates, only direction does.
+  //
+  //   Consequence: camera continuously tracks the node's current world-space
+  //   direction. Globe can rotate freely; node stays at view center. Drift
+  //   feel preserved because Lissajous offsets still wobble the camera
+  //   relative to that moving anchor. "Tracking not freezing" maintained.
+  //
+  //   Also moves the getWorldPosition() call BEFORE the Lissajous math so
+  //   both the camera anchor and the C2 reticle reference the same frame-consistent
+  //   world position — no two separate getWorldPosition() calls per frame.
+
+  // --- Live anchor: resolve tracked node's current world position ---
+  _currentTrackedNode.mesh.getWorldPosition(_nodeWorldPos);
+  _nodeWorldPos.normalize().multiplyScalar(1.010);
+
+  // Derive live nominal direction from the node's current world position.
+  // This replaces _driftNominalDir (stale snapshot) as the Lissajous base.
+  // _driftNominalDir retains its snapshotted value for safety but is NOT
+  // used below — _liveAnchorDir carries the per-frame direction.
+  _liveAnchorDir.copy(_nodeWorldPos).normalize();
+
+  const params = DRIFT_PARAMS[_driftFocusStratum()];
+  const yawAngle   = Math.sin(_driftPhaseT * DRIFT_FREQ_PRIMARY)   * params.yaw   * _driftBlend;
+  const pitchAngle = Math.cos(_driftPhaseT * DRIFT_FREQ_SECONDARY)  * params.pitch * _driftBlend;
+  const radiusPulse = Math.sin(_driftPhaseT * DRIFT_FREQ_RADIUS) * params.rad * _driftBlend;
+
+  // Spherical offset: rotate LIVE anchor direction by yaw around world-up,
+  // then rotate by pitch around the camera's local right vector.
+  // Step 1: yaw quaternion around world Y
+  _driftQY.setFromAxisAngle(_driftYawAxis, yawAngle);
+  // Step 2: compute the right vector of the live anchor (cross liveAnchorDir × worldUp, normalise)
+  _driftRight.crossVectors(_liveAnchorDir, _driftYawAxis).normalize();
+  if (_driftRight.lengthSq() < 1e-10) {
+    // Gimbal edge case: camera looking straight up/down — use world X
+    _driftRight.set(1, 0, 0);
+  }
+  // Step 3: pitch quaternion around local right
+  _driftQP.setFromAxisAngle(_driftRight, pitchAngle);
+  // Step 4: combine (pitch after yaw)
+  _driftQCombined.copy(_driftQP).multiply(_driftQY);
+
+  // Step 5: apply to LIVE anchor direction (not stale _driftNominalDir)
+  _driftDir.copy(_liveAnchorDir).applyQuaternion(_driftQCombined);
+
+  // Step 6: reconstruct camera position at (nominal radius + pulse)
+  const r = Math.max(1.05, _driftNominalRad + radiusPulse);
+  camera.position.copy(_driftDir).multiplyScalar(r);
+  camera.lookAt(currentLook);
+
+  // --- C2: keep tracking reticle facing camera each frame ---
+  // _nodeWorldPos already resolved above (live anchor block) — no second
+  // getWorldPosition() call needed. Both anchor and reticle are frame-consistent.
+  _trackingReticleGroup.position.copy(_nodeWorldPos);
+  _trackingReticleGroup.lookAt(camera.position);
+  // Pulse opacity: 0.65 + 0.25*sin(..) at 2.4s NETRA-pulse cadence (matches .netra-reticle)
+  // AMEND-3: multiply by front-hemisphere factor — reticle fades at the limb / back hemisphere.
+  // Compute unit dot product between node direction and camera direction:
+  //   > 0.08  → clearly front-facing (full opacity)
+  //   ≤ 0     → back hemisphere (opacity 0)
+  //   0..0.08 → soft limb transition (linear fade)
+  // Using _nodeWorldPos (magnitude ~1.01) and camera.position (magnitude ~2.6):
+  //   raw dot = |node| * |cam| * cos(θ) ≈ 2.626 * cos(θ).
+  //   limb at cos(θ)=0 → dot=0; "safe zone" at dot > 0.21 (≈ 5° past limb).
+  // Soft band: remap [0, 0.21] → [0, 1]. 0.21 = 1.01 * 2.6 * 0.08.
+  const _limbDot = _nodeWorldPos.dot(camera.position);          // raw (not unit-normalized)
+  const _limbSoftBand = camera.position.length() * 0.08;       // ≈0.21 at r=2.6
+  const _frontFactor = Math.max(0, Math.min(1, _limbDot / Math.max(_limbSoftBand, 1e-6)));
+  const _ringOpacity = (_driftBlend * (0.65 + 0.25 * Math.sin(now * 0.00261)) * _frontFactor);
+  _trackRingMat.opacity = _ringOpacity;
+  _trackDotMat.opacity  = _ringOpacity * 0.7;
+
+  // --- C1: project node position to screen-space and reposition coord-pin ---
+  // Use _nodeWorldPos already resolved above (live anchor block) so C1, C2,
+  // and the camera anchor all reference the same frame-consistent world position.
+  // One getWorldPosition() call per frame — no divergence possible.
+  //
+  // REVISE-WAVE-5 AMEND-3: back-hemisphere occlusion.
+  // When the tracked node is on the back of the globe (facing away from the camera),
+  // THREE.Vector3.project() still maps it to valid screen-space coordinates — it does
+  // NOT cull back-facing geometry. The projected position lands on the front hemisphere
+  // mirrored around the camera's look-axis, which is why Bangkok (100°E) appeared on
+  // the North American landmass when camera was looking at the Americas.
+  //
+  // Fix: dot product between the unit node direction and the unit camera direction.
+  // If the node is on the SAME hemisphere as the camera, dot(nodeDir, camDir) > 0.
+  // If dot ≤ 0 the node is at or behind the horizon — hide pin and dim reticle.
+  // This is equivalent to checking whether the angle between camera→origin and
+  // node→origin vectors is < 90° (front-facing), computed without trig.
+  if (elPin && elPin.classList.contains('show') && _currentTrackedNode) {
+    // Compute hemisphere visibility: nodeDir · camDir.
+    // Both _nodeWorldPos and camera.position point outward from globe center (origin).
+    // dot > 0  → node on front hemisphere (camera-facing side)
+    // dot ≤ 0  → node at or beyond the limb (back hemisphere → occlude)
+    const _nodeDotCam = _nodeWorldPos.dot(camera.position);
+    const _nodeVisible = _nodeDotCam > 0;
+
+    if (!_nodeVisible) {
+      // Node is behind the globe — hide coord-pin temporarily.
+      // Use .is-occluded rather than removing .show so the pin can reappear
+      // when the globe rotates and the node returns to the front hemisphere.
+      // The .show class stays, preserving the "node is selected" state.
+      elPin.classList.add('is-occluded');
+    } else {
+      elPin.classList.remove('is-occluded');
+      _nodeScreenPos.copy(_nodeWorldPos);
+      // Project world → NDC
+      _nodeScreenPos.project(camera);
+      const rect = wrap.getBoundingClientRect();
+      // Convert NDC [-1,1] → canvas pixels
+      const sx = (_nodeScreenPos.x + 1) * 0.5 * rect.width;
+      const sy = (-_nodeScreenPos.y + 1) * 0.5 * rect.height;
+      // Position pin with a 14px right-offset so it doesn't sit on the dot
+      if (sx > 10 && sx < rect.width - 10 && sy > 10 && sy < rect.height - 10) {
+        elPin.style.left = (sx + 14) + 'px';
+        elPin.style.top  = sy + 'px';
+      }
+    }
+  }
+
+  return true;
+}
+
+// =====================================================================
 // RAF loop
 // =====================================================================
 const clock = new THREE.Clock();
 function loop(){
+  // P1-8 (2026-05-16): mobile WebGL retire — short-circuit RAF body when
+  // narrow viewport. We still schedule the next frame so a grow-resize
+  // resumes seamlessly (rather than requiring a page reload), but the
+  // GPU pipeline + animation math sleep. Effective cost per frame in
+  // retired state is one scheduler wakeup + one comparison — orders of
+  // magnitude cheaper than the full render path.
+  if (webglRetired){
+    requestAnimationFrame(loop);
+    return;
+  }
   const now = performance.now();
   const dt = clock.getDelta();
 
-  // continuous gentle rotation when at rest
+  // AMEND-4: advance rotation rate blend each frame.
+  // _rotRateBlendT moves 0→1 over ROT_RATE_TRANSITION_MS.
+  // _currentRotRate is interpolated using easeInOutCubic — same curve as
+  // slerp — so the rate change and camera arc share one easing rhythm
+  // (Fix D: unified ease curve across all transition dimensions).
+  if (_rotRateBlendT < 1) {
+    _rotRateBlendT = Math.min(1, _rotRateBlendT + (dt * 1000) / ROT_RATE_TRANSITION_MS);
+    const _re = easeInOutCubic(_rotRateBlendT);
+    _currentRotRate = _rotRateFrom + (_targetRotRate - _rotRateFrom) * _re;
+  }
+
+  // Globe rotation — uses _currentRotRate for surfaceGroup so rate never snaps.
+  // Orbital/axis groups retain fixed ratios relative to surface (unchanged from prior).
+  //
+  // RW-5-AMEND-6 (2026-05-16 · Sirius FIX A+B · Betelgeuse):
+  //   REVERTED AMEND-5's __jumpAnimating freeze. Sirius's FIX A handles the
+  //   coordinate-frame mismatch differently — by recomputing the slerp destination
+  //   from the LIVE rotated node world position each frame, rather than pinning
+  //   the globe. This allows globe motion during slerp (kinetic feel preserved)
+  //   while still landing the camera at the node's CURRENT world position when
+  //   drift takes over. See selectArchiveNode step() function for the FIX A
+  //   implementation (live destDir recompute each slerp frame).
+  //
+  //   FIX B: surfaceGroup rotation is FROZEN while _driftActive (tracking dwell).
+  //   Rationale: with FIX A's live tracking, the camera would otherwise revolve
+  //   indefinitely around the globe at the surface rate. Freezing during dwell
+  //   matches the "telescope-mount on proper motion" metaphor — drift Lissajous
+  //   IS the tracking motion; no extra autorotation needed. The pin and reticle
+  //   stay locked to a stable world position → no walk-off across the 5-15s dwell.
+  //   "Tracking ไม่ freezing" preserved: the CAMERA still wobbles (Axis A/B/C
+  //   Lissajous + breathing). Globe rotation resumes when REST is pressed (drift
+  //   deactivates) or when NEXT NODE is clicked (slerp begins, globe continues
+  //   rotating during slerp under FIX A's live tracking).
   if (activeFocus === 'rest'){
-    baseRotY += dt * 0.08;
+    baseRotY += dt * _currentRotRate;
     surfaceGroup.rotation.y = baseRotY;
     orbitalGroup.rotation.y = -baseRotY * 0.4;
     raysGroup.rotation.y = baseRotY * 0.6;
@@ -1495,13 +3078,22 @@ function loop(){
   } else if (activeFocus === 'orbit'){
     orbitalGroup.rotation.y += dt * 0.08;
     raysGroup.rotation.y -= dt * 0.06;
-    surfaceGroup.rotation.y += dt * 0.04;
-    edgesGroup.rotation.y = surfaceGroup.rotation.y;
+    // FIX B: freeze surface during tracking dwell (drift active + not in slerp)
+    if (!(_driftActive && !window.__jumpAnimating)) {
+      surfaceGroup.rotation.y += dt * _currentRotRate;
+      edgesGroup.rotation.y = surfaceGroup.rotation.y;
+    }
   } else if (activeFocus === 'axis'){
-    surfaceGroup.rotation.y += dt * 0.18;
-    edgesGroup.rotation.y = surfaceGroup.rotation.y;
+    if (!(_driftActive && !window.__jumpAnimating)) {
+      surfaceGroup.rotation.y += dt * 0.18;
+      edgesGroup.rotation.y = surfaceGroup.rotation.y;
+    }
   } else if (activeFocus === 'surface'){
-    surfaceGroup.rotation.y += dt * 0.02;
+    // AMEND-8 (2026-05-17 · Betelgeuse): REVERT FIX B freeze.
+    // Peat verdict: globe MUST rotate always — during slerp, REST, and tracking dwell.
+    // Camera follows Bangkok via _liveAnchorDir recomputed from getWorldPosition() per frame
+    // (AMEND-6 FIX A preserved). Landmasses slide; Bangkok stays centered. No freeze.
+    surfaceGroup.rotation.y += dt * _currentRotRate;
     edgesGroup.rotation.y = surfaceGroup.rotation.y;
   }
 
@@ -1516,15 +3108,113 @@ function loop(){
   // pulse α ring
   const alphaNode = archiveNodes[0];
   if (alphaNode.ring) alphaNode.ring.material.opacity = 0.5 + 0.45 * Math.sin(now*0.005);
-  // arc march
-  arcLine.material.dashSize = 0.04 + Math.sin(now*0.002)*0.005;
+  // arc march · A6 cameraFocus modulates worldline beat-speed.
+  //   surface (Ne0 at rest, body still)  → 0.70× slower
+  //   orbit   (NeX active field, energetic) → 1.20× faster
+  //   axis    (Ne0N pole bearer, measured)  → 0.90× slightly slower
+  //   rest    (all strata co-present)       → 1.00× baseline
+  // Encodes binding §1.3a item 4 (cameraFocus modulates atmosphere) at the
+  // level of dash-pattern velocity. Same dashSize/gapSize; only freq changes.
+  const _arcFreq = (activeFocus === 'surface') ? 0.0014
+                 : (activeFocus === 'orbit')   ? 0.0024
+                 : (activeFocus === 'axis')    ? 0.0018
+                 :                                0.002;
+  arcLine.material.dashSize = 0.04 + Math.sin(now*_arcFreq)*0.005;
 
   if (cameraAnim) cameraAnim(now);
   if (opacityAnim) opacityAnim(now);
 
+  // -----------------------------------------------------------------------
+  // RW-5 (2026-05-16): camera motion priority stack — single RAF.
+  //
+  // Priority (highest first):
+  //   1. cameraAnim — setFocus arc (handled above, writes camera.position)
+  //   2. __jumpAnimating — slerp from selectArchiveNode (writes camera.position
+  //      in its own rAF step(), outside this loop body)
+  //   3. _applyOrbitalDrift() — orbital drift when a node is tracked.
+  //      Takes camera.position from the slerp-settled state and applies
+  //      spherical angular offset. Supersedes parallax when active.
+  //   4. Parallax (Option B mouse / Option C sin-wave) — active ONLY when
+  //      no orbital drift is currently contributing (no tracked node or
+  //      blend has faded to zero).
+  //
+  // When orbital drift is active, _parallaxActive is forced false so the
+  // parallax logic does NOT compound on top of the drift position.
+  // -----------------------------------------------------------------------
+
+  // RW-5: step 3 — attempt orbital drift (returns true if camera was moved)
+  const _driftContributing = _applyOrbitalDrift(now, dt);
+
+  // TASK-UI-1 Q4 (2026-05-16): camera parallax — tracking-without-freeze.
+  // Pre-conditions for active parallax:
+  //   - not animating setFocus arc (cameraAnim === null)
+  //   - not animating NEXT NODE jump (__jumpAnimating === false)
+  //   - not at rest (rest has its own continuous rotation; parallax there
+  //     would compete with the gentle drift)
+  //   - not dragging (drag owns the pointer + spins the globe)
+  //   - not under prefers-reduced-motion (clamp to zero per WCAG)
+  //   - RW-5 NEW: orbital drift is NOT contributing (drift supersedes parallax)
+  const _parallaxEligible = (cameraAnim == null)
+    && !window.__jumpAnimating
+    && (activeFocus !== 'rest')
+    && !dragging
+    && !prefersReducedMotion
+    && !_driftContributing; // RW-5: yield to orbital drift when active
+
+  if (_parallaxEligible){
+    // First time entering parallax this settle: snapshot the nominal pos so
+    // future frames apply offset relative to it (not relative to last
+    // frame's parallaxed position — that would integrate over time).
+    if (!_parallaxActive){
+      _camNominal.copy(camera.position);
+      _parallaxActive = true;
+    }
+    // Build camera local basis: forward = (target → cam)⁻¹ = (cam → target).
+    _camForward.copy(currentLook).sub(_camNominal).normalize();
+    _camRight.crossVectors(_camForward, _worldUp).normalize();
+    _camUp.crossVectors(_camRight, _camForward).normalize();
+
+    if (isMobile()){
+      // Option C — sin-wave Lissajous · amp ≤ 0.018 · freq ≤ 0.11 Hz.
+      const swayT = now * MOBILE_SWAY_FREQ;
+      _parallaxOffset.copy(_camRight).multiplyScalar(Math.sin(swayT) * MOBILE_SWAY_AMP);
+      _parallaxOffset.addScaledVector(_camUp, Math.cos(swayT * MOBILE_SWAY_PHASE_RATIO) * MOBILE_SWAY_AMP_Y);
+    } else {
+      // Option B — mouse-parallax · input-driven · no loop.
+      _parallaxOffset.copy(_camRight).multiplyScalar(mouseNDC.x * DESKTOP_PARALLAX_STRENGTH);
+      _parallaxOffset.addScaledVector(_camUp, mouseNDC.y * DESKTOP_PARALLAX_STRENGTH);
+    }
+    // Apply: nominal + offset. Look point unchanged → node stays centered.
+    camera.position.copy(_camNominal).add(_parallaxOffset);
+    camera.lookAt(currentLook);
+  } else if (_parallaxActive && !_driftContributing){
+    // Leaving parallax (drag started · jump began · setFocus arc began
+    // via cameraAnim · or reduced-motion toggled mid-session). Restore
+    // nominal so we hand a clean position to whichever system takes over.
+    // RW-5: only restore nominal if drift is also NOT active; if drift is
+    // taking over, it already set camera.position correctly.
+    camera.position.copy(_camNominal);
+    camera.lookAt(currentLook);
+    _parallaxActive = false;
+  } else if (_parallaxActive && _driftContributing) {
+    // RW-5: drift is taking over from parallax — reset parallax state cleanly.
+    _parallaxActive = false;
+  }
+
   renderer.render(scene, camera);
   // NETRA live readout
   if (window.__netraUpdate) window.__netraUpdate();
+  // TASK-UI-1 Q4 (2026-05-16): debug-only camera readout for Playwright
+  // verification (parallax magnitude can be inspected as a number, not
+  // just visually). Pure read; no behavior. Cheap (one toArray per frame).
+  if (window.__debugCamera) window.__cameraSnapshot = {
+    pos: camera.position.toArray(),
+    nominal: _camNominal.toArray(),
+    parallaxActive: _parallaxActive,
+    driftActive: _driftContributing,
+    driftBlend: _driftBlend,
+    activeFocus,
+  };
   requestAnimationFrame(loop);
 }
 loop();
@@ -1539,7 +3229,35 @@ loop();
   const elJump  = document.getElementById('netra-jump');
   if (!elCoord || !elRange) return;
 
-  const _v = new THREE.Vector3();
+  // -------------------------------------------------------------------
+  // REVISE-2 · 2026-05-15 · Peat verdict:
+  //   "เลข coordinates ยังขยับเรื่อยๆตามการหมุนของโลก ซึ่งตรงกับ
+  //    ประวัติที่เคยแก้ใน MAIN BRANCH ไปทั้งนั้น"
+  //
+  // Production fix replicated from main-branch commit 9344368 "Fix NETRA
+  // atlas tracking" — see components/WorldlineGlobe.tsx lines 1019-1029
+  // and lib/globe-coordinates.ts netraCoordFromCameraPosition().
+  //
+  // TWO root causes, both fixed below:
+  //
+  //   1) PREVIOUS code inverted surfaceGroup.matrixWorld and applied it
+  //      to the camera direction vector. As surfaceGroup.rotation.y
+  //      drifts each frame in the render loop, the inverse changes too,
+  //      so the resulting lat/lon "swims" along with globe rotation —
+  //      exactly the behaviour main-branch's comment forbids:
+  //        "NETRA coordinates are earth-fixed; visual globe rotation
+  //         must not mutate longitude."
+  //      FIX: derive lat/lon from the raw camera direction only. The
+  //      camera does not move during free rotation, so the readout
+  //      stays put.
+  //
+  //   2) PREVIOUS code wrote textContent unconditionally each frame
+  //      (60×/sec), forcing layout/paint on the text node even when
+  //      the rounded value was unchanged. Reads as flicker / jitter.
+  //      FIX: gated write — only mutate textContent when the formatted
+  //      string actually differs (mirrors main-branch lines 1015-1017
+  //      and 1023-1029).
+  // -------------------------------------------------------------------
   function vecToLatLon(v){
     const lat = 90 - Math.acos(Math.max(-1, Math.min(1, v.y))) * 180/Math.PI;
     let lon = Math.atan2(v.z, -v.x) * 180/Math.PI - 180;
@@ -1551,37 +3269,302 @@ loop();
     const ns = lat >= 0 ? 'N' : 'S', ew = lon >= 0 ? 'E' : 'W';
     return Math.abs(lat).toFixed(2) + '°' + ns + ' · ' + Math.abs(lon).toFixed(2) + '°' + ew;
   }
+  const _cameraDir = new THREE.Vector3();
+  let _lastCoordText = '';
+  let _lastRangeText = '';
   window.__netraUpdate = function(){
-    _v.copy(camera.position).normalize();
-    _v.applyMatrix4(new THREE.Matrix4().copy(surfaceGroup.matrixWorld).invert()).normalize();
-    const { lat, lon } = vecToLatLon(_v);
-    elCoord.textContent = fmtCoord(lat, lon);
-    elRange.textContent = camera.position.length().toFixed(2);
+    // EARTH-FIXED: derive lat/lon from camera position only.
+    // No surfaceGroup matrix inversion — globe rotation must not
+    // mutate the reticle longitude.
+    _cameraDir.copy(camera.position).normalize();
+    const { lat, lon } = vecToLatLon(_cameraDir);
+    const coordText = fmtCoord(lat, lon);
+    if (coordText !== _lastCoordText){
+      // REVISE-6: in-place text mutation (no Text-node re-mount, no flicker)
+      setText(elCoord, coordText);
+      _lastCoordText = coordText;
+    }
+    const rangeText = camera.position.length().toFixed(2);
+    if (rangeText !== _lastRangeText){
+      setText(elRange, rangeText);
+      _lastRangeText = rangeText;
+    }
   };
 
-  let jumpIdx = 0;
-  elJump.addEventListener('click', () => {
-    jumpIdx = (jumpIdx + 1) % archiveNodes.length;
-    const n = archiveNodes[jumpIdx];
-    const dest = latLonToVec(n.lat, n.lon, 2.6);
-    const startPos = camera.position.clone(); const t0 = performance.now(); const dur = 1100;
+  /*
+   * REVISE-3 AMEND (2026-05-16): delegate pattern — single source of truth.
+   *
+   * Prior click handler wrote every DOM readout (elTgt, elPinLabel,
+   * elPinTxt, elPinWhy, elPin class+style) inline in the click callback,
+   * then kicked the camera tween. Any path that also modifies these nodes
+   * (e.g. setFocus writing to elNetra which aliases the same #netra-target
+   * element) produces a double-write in the same tick — guaranteed 1-frame
+   * flicker on every cycle.
+   *
+   * Fix mirrors components/WorldlineGlobe.tsx lines 932-952 (commit 9344368
+   * "Fix NETRA atlas tracking"): introduce selectArchiveNode(n) as the
+   * single owner of all DOM mutation. The click handler is now a thin shell
+   * that only advances the index and delegates — no direct DOM writes.
+   * One write per field per tick. No flicker.
+   *
+   * Cite: components/WorldlineGlobe.tsx lines 932-952 · commit 9344368
+   */
+  function selectArchiveNode(n) {
+    /*
+     * REVISE-4 (2026-05-16): frame-level flicker fix · slerp camera tween.
+     *
+     * Peat's video evidence (peat-ref/frame-006.png, frame-010.png,
+     * frame-011.png) shows the globe canvas going washed-out / olive-gray
+     * for ~1–2 frames every time the NODE changes. Root cause: prior
+     * `lerpVectors` does a STRAIGHT-LINE interpolation between two camera
+     * positions on a sphere of r=2.6. For widely-separated nodes (e.g.
+     * α-Bangkok lat 13.7,lon 100.5 → 000-SF lat 37.7,lon -122.4 — nearly
+     * antipodal) the straight line passes through r ≈ 0.45 at the
+     * midpoint — i.e. INSIDE the sphere (sphere radius = 1.0). The camera
+     * crosses the sphere interior mid-tween, briefly rendering the
+     * back-side `innerShade` material (opacity 0.30, color 0xb4bbc0) which
+     * reads as the olive-gray full-frame "flicker" Peat reported.
+     *
+     * Fix: spherical interpolation. Decompose start + dest into
+     * (unit-direction, radius), slerp the unit direction via Quaternion,
+     * lerp the radius scalar. Camera stays on a continuous arc at
+     * radius ≥ min(startR, destR) — never enters the sphere interior.
+     *
+     * Cite: peat-ref/frame-006 (mid-jump interior render) confirms.
+     */
+
+    /*
+     * REVISE-WAVE-5 AMEND-3 (2026-05-16): DECOUPLED STATE MACHINE FIX.
+     *
+     * ROOT CAUSE (why AMEND-2 failed):
+     *   _applyOrbitalDrift() has a hard gate: eligible = ... && activeFocus !== 'rest'.
+     *   selectArchiveNode() NEVER changed activeFocus — it stayed 'rest' (initial value)
+     *   unless the user explicitly clicked a framing button (REST / SURFACE / AXIS / ORBIT).
+     *   Result: activateDrift(n) was called at slerp completion, but the very next RAF
+     *   tick found eligible = false (activeFocus === 'rest'), immediately faded _driftBlend
+     *   back to 0, cleared _currentTrackedNode, and returned. Camera never followed the node.
+     *   Meanwhile the RAF loop's 'rest' branch continued spinning surfaceGroup.rotation.y
+     *   at 0.08 rad/s — globe rotated freely under the stationary camera. Node disappeared.
+     *
+     *   AMEND-2 fixed _liveAnchorDir to re-derive per-frame, which was correct but
+     *   irrelevant: _applyOrbitalDrift's early-return made the live anchor code dead code.
+     *
+     * FIX: selectArchiveNode() now sets activeFocus = 'surface' before the slerp.
+     *   This:
+     *   (a) opens the eligible gate for _applyOrbitalDrift — drift runs
+     *   (b) stops the REST auto-rotation (surfaceGroup no longer spins at 0.08 rad/s)
+     *   (c) switches globe to 'surface' slow-drift (0.02 rad/s) — keeps the organic
+     *       feel without overpowering the node-tracking behavior
+     *   (d) updates the UI framing buttons to show SURFACE as active (UI consistency)
+     *   (e) cancels any in-progress setFocus arc via cameraAnim=null (the slerp step()
+     *       owns camera.position from here; the setFocus arc would fight it)
+     *
+     * currentLook is reset to (0,0,0) — the globe center — because all archive nodes
+     * are on the sphere surface. Camera looks at center; node stays at view center as
+     * camera orbits on a sphere of radius 2.6 around the globe.
+     *
+     * deactivateDrift() call remains before the slerp so any PREVIOUS node's drift
+     * fades cleanly. activateDrift(n) at slerp completion starts fresh tracking.
+     *
+     * REST behavior is PRESERVED: clicking the REST framing button calls setFocus('rest'),
+     * which calls deactivateDrift() and restores the REST camera position. The setFocus
+     * guard `if (window.__jumpAnimating) return` means REST cannot fire mid-slerp — but
+     * once the slerp settles (window.__jumpAnimating = false), pressing REST works.
+     */
+    // Switch to surface framing (opens drift eligible gate, stops REST spin)
+    activeFocus = 'surface';
+    // AMEND-4 Fix A: begin smooth rate transition to SURFACE rate (0.02).
+    // Prior code let the RAF loop read activeFocus==='surface' and instantly
+    // apply dt*0.02 — a single-frame rate snap from whatever REST/prior rate
+    // was in effect. setRotRate() starts an easeInOutCubic blend over 500ms.
+    setRotRate(0.02);
+    cameraAnim  = null;          // abort any in-progress setFocus camera arc
+    currentLook.set(0, 0, 0);   // all nodes are on the sphere; camera looks at center
+
+    // Sync framing button UI: mark SURFACE active, others inactive
+    document.querySelectorAll('.focus-btn').forEach(b => {
+      const on = b.dataset.focus === 'surface';
+      b.classList.toggle('is-active', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    // Sync § CAMERA annotation
+    if (elCameraCurrentVal  && CAMERA_CURRENT['surface']) setText(elCameraCurrentVal,  CAMERA_CURRENT['surface'].val);
+    if (elCameraCurrentMeta && CAMERA_CURRENT['surface']) setText(elCameraCurrentMeta, CAMERA_CURRENT['surface'].meta);
+
+    // RW-5-AMEND-6 (2026-05-16 · Sirius FIX A · Betelgeuse):
+    //   Replace static lat/lon dest with the node's CURRENT world position.
+    //   `latLonToVec` returns a world-space vector that ignores
+    //   `surfaceGroup.rotation.y` — but drift's `_liveAnchorDir` IS
+    //   rotation-aware (uses `n.mesh.getWorldPosition()`). The two frames
+    //   differed by accumulated surfaceGroup rotation, producing the 50-180°
+    //   single-frame teleport at slerp-end. FIX A: seed dest from the same
+    //   world-space frame drift uses, and recompute it each slerp frame so
+    //   the slerp tracks the moving node through the 1100ms (i.e. globe can
+    //   rotate during slerp — camera arrives at the node's *current* position).
+    const _slerpDestWorld = new THREE.Vector3();
+    n.mesh.getWorldPosition(_slerpDestWorld);
+    const destR = 2.6;
+    _slerpDestWorld.normalize().multiplyScalar(destR);
+    const startPos = camera.position.clone();
+    const startR = startPos.length();
+    const startDir = startPos.clone().normalize();
+    // initial destDir from live world position (will be recomputed each frame)
+    const destDir  = _slerpDestWorld.clone().normalize();
+    // Build quaternions representing rotation from +Z to each direction;
+    // slerp between them and apply to +Z to get the interpolated unit
+    // direction. Keeps the path on the unit sphere — no interior crossing.
+    const ref = new THREE.Vector3(0, 0, 1);
+    const qStart = new THREE.Quaternion().setFromUnitVectors(ref, startDir);
+    // qDest is initialised from current node position; recomputed every frame
+    // inside step() so the slerp continuously tracks the rotating node.
+    const qDest  = new THREE.Quaternion().setFromUnitVectors(ref, destDir);
+    const qTmp = new THREE.Quaternion();
+    const dirTmp = new THREE.Vector3();
+    // FIX A scratch — re-used each slerp frame to avoid allocation
+    const _liveDestWorld = new THREE.Vector3();
+    const _liveDestDir = new THREE.Vector3();
+    const t0 = performance.now(); const dur = 1100;
+    // TASK-UI-1 Q4 (2026-05-16): flag the jump so the RAF parallax stays
+    // dormant (Sirius §5.2 jump conflict — parallax must not fight slerp).
+    window.__jumpAnimating = true;
+    // RW-5: deactivate any previous drift immediately when a new jump starts.
+    // This prevents stale drift nominal from the previous node fighting the slerp.
+    deactivateDrift();
     function step(now){
       const k = Math.min(1, (now - t0)/dur);
       const e = k<0.5 ? 4*k*k*k : 1 - Math.pow(-2*k+2,3)/2;
-      camera.position.lerpVectors(startPos, dest, e);
-      camera.lookAt(0,0,0);
-      if (k < 1) requestAnimationFrame(step);
+      // FIX A — recompute destination from LIVE node world position each frame.
+      // The globe is rotating during the slerp (surface rate ~0.02 rad/s × 1100ms
+      // ≈ 1.3°). By recomputing qDest from `n.mesh.getWorldPosition()` each frame,
+      // the slerp targets the node's CURRENT position — so at k=1 the camera
+      // lands on the same world position drift's `_liveAnchorDir` will read
+      // on the very next frame. Result: zero frame-to-frame teleport at handoff.
+      n.mesh.getWorldPosition(_liveDestWorld);
+      _liveDestDir.copy(_liveDestWorld).normalize();
+      qDest.setFromUnitVectors(ref, _liveDestDir);
+      qTmp.copy(qStart).slerp(qDest, e);
+      dirTmp.copy(ref).applyQuaternion(qTmp);
+      const rNow = startR + (destR - startR) * e;
+      camera.position.copy(dirTmp).multiplyScalar(rNow);
+      camera.lookAt(currentLook);  // use currentLook (0,0,0) — consistent with drift loop
+      if (k < 1) {
+        requestAnimationFrame(step);
+      } else {
+        // RW-5: slerp settled — snap nominal, then begin orbital drift.
+        window.__jumpAnimating = false;
+        _camNominal.copy(camera.position);
+        activateDrift(n);
+      }
     }
     requestAnimationFrame(step);
-    elTgt.textContent = n.label + ' · ' + (n.place || '');
-    // anchor coord pin to this node (narrative reason)
-    elPinLabel.textContent = n.label;
-    elPinTxt.textContent = n.place + ' · ' + n.lat.toFixed(2) + '°' + (n.lat>=0?'N':'S') + ' · ' + Math.abs(n.lon).toFixed(2) + '°' + (n.lon>=0?'E':'W');
-    elPinWhy.textContent = n.why;
+    /*
+     * REVISE-6 (2026-05-16): in-place text mutation — no node re-mount.
+     *
+     * Peat verdict: "state transition ไม่ smooth, น่าจะ re-mount แทนที่จะ update."
+     *
+     * Diagnosis: MutationObserver on .frame during 3 rapid NEXT NODE clicks:
+     *   Prototype prior:  3× childList add/remove on SPAN.tgt, SPAN.acc,
+     *                     SPAN., SPAN.why (12 add/remove records total)
+     *   PoC (canonical):  3× characterData on equivalent readouts
+     *
+     * Root cause: `el.textContent = "x"` always replaces the element's
+     * Text-node child (per DOM spec textContent setter: "Replace All on
+     * this with a new Text node"). Even though the visible text is the
+     * only thing changing, the engine removes the old Text node and
+     * inserts a new one — a true re-mount of the text leaf. That triggers
+     * paint invalidation on the SPAN as a fresh node, producing the
+     * sub-frame flicker Peat sees through the orange accent color (which
+     * has the highest contrast in the readout block).
+     *
+     * Fix: mutate the existing Text node's data in place via
+     * `firstChild.nodeValue =`. The Text node identity stays stable;
+     * MutationObserver emits characterData (not childList); paint is an
+     * in-place repaint of the same node — no remount, no flicker. This
+     * is exactly what React reconciliation does under the hood for a
+     * simple {state} expression and is why the PoC's labels never flicker.
+     *
+     * Helper: setText(el, s) — gate-write (skip if unchanged, matches the
+     * netra REVISE-2 pattern at line ~1901) AND in-place mutation. If
+     * the element is somehow empty, fall back to textContent once to
+     * seed a Text node, future writes go in-place.
+     *
+     * Cite: PoC MutationObserver report (3 characterData) vs prototype prior
+     *       (12 childList add/remove for the same 3 clicks).
+     *
+     * REVISE-WAVE-3 · D2 (2026-05-16): smooth opacity fade on place-name change.
+     * elTgt (the .tgt span showing the node name) uses setTextSmooth() — the
+     * 180ms CSS opacity transition provides the "not instant snap" feel Peat
+     * requested. The coord/range readouts (#netra-coord, #netra-range) update
+     * live via __netraUpdate at RAF speed and should NOT fade (would strobe) —
+     * those are stabilized by D1 tabular-nums + min-width alone.
+     * Pin label, pin text, and pin why are out-of-NETRA-console elements and
+     * do not need the fade treatment.
+     * DOM identity constraint: setTextSmooth() calls setText() internally,
+     * which uses firstChild.nodeValue — REVISE-6 pattern fully preserved.
+     */
+    setTextSmooth(elTgt,  n.label + ' · ' + (n.place || ''));
+    setText(elPinLabel, n.label);
+    setText(elPinTxt,   n.place + ' · ' + n.lat.toFixed(2) + '°' + (n.lat>=0?'N':'S') + ' · ' + Math.abs(n.lon).toFixed(2) + '°' + (n.lon>=0?'E':'W'));
+    setText(elPinWhy,   n.why);
     elPin.classList.add('show');
+    // RW-5-AMEND-5 (2026-05-16 · Betelgeuse) · PRESERVED in AMEND-6:
+    //   Seed the pin at the projected node world position rather than a fixed
+    //   placeholder (0.62w, 0.42h). Prior placeholder caused a visible pin
+    //   snap at slerp end. Under AMEND-6 the globe still rotates during slerp,
+    //   but the per-frame projection update in the RAF re-projects every frame,
+    //   so a one-time world-space seed at click-time is the correct starting
+    //   point — the projection slides smoothly thereafter (no snap).
     const r = wrap.getBoundingClientRect();
-    elPin.style.left = (r.width * 0.62) + 'px';
-    elPin.style.top  = (r.height * 0.42) + 'px';
+    n.mesh.getWorldPosition(_nodeWorldPos);
+    _nodeScreenPos.copy(_nodeWorldPos);
+    _nodeScreenPos.project(camera);
+    const _seedSx = (_nodeScreenPos.x + 1) * 0.5 * r.width;
+    const _seedSy = (-_nodeScreenPos.y + 1) * 0.5 * r.height;
+    if (_seedSx > 10 && _seedSx < r.width - 10 && _seedSy > 10 && _seedSy < r.height - 10) {
+      elPin.style.left = (_seedSx + 14) + 'px';
+      elPin.style.top  = _seedSy + 'px';
+    } else {
+      // Off-screen seed (node behind globe or out-of-frustum at click-time).
+      // Fall back to placeholder; drift loop will reposition once camera arrives.
+      elPin.style.left = (r.width * 0.62) + 'px';
+      elPin.style.top  = (r.height * 0.42) + 'px';
+    }
+  }
+
+  let jumpIdx = 0;
+  elJump.addEventListener('click', () => {
+    /* P0-2 (2026-05-16) · REVISE-WAVE-2 · CHOICE: option (a) — respect field selection.
+       Codex-Betelgeuse: "เลือก `coffee` แล้ว voice บอก `1 traces clustered`
+       แต่ NEXT NODE ยังกระโดดไป Kyoto / Chiang Mai".
+       Reasoning for (a) over (b): the attractor pill is an explicit narrowing
+       intent. NEXT NODE clearing it would violate that intent and create a
+       state-management surprise. Filtering instead keeps the field as the
+       authority — the voice line ("1 trace clustered, 0 edges") now matches
+       the cycle (NEXT NODE will loop through that one node).
+       Edge case: if filtered set is empty (shouldn't happen with current
+       attractors, but defensive), fall back to full archive.
+       Cite: REVISE-WAVE-2 §P0-2, option (a). */
+    const pool = (activeAttractor === 'all')
+      ? archiveNodes
+      : archiveNodes.filter(n => n.attractors.includes(activeAttractor));
+    if (pool.length === 0) {
+      // safety net — no members in this field; degrade to full archive.
+      jumpIdx = (jumpIdx + 1) % archiveNodes.length;
+      selectArchiveNode(archiveNodes[jumpIdx]);
+      return;
+    }
+    // re-index against the filtered pool so the cycle stays inside the field
+    jumpIdx = (jumpIdx + 1) % pool.length;
+    selectArchiveNode(pool[jumpIdx]);
+  });
+
+  /* P0-2 follow-up: when the attractor changes, reset jumpIdx so the next
+     NEXT NODE press starts at the first member of the new field (not a
+     stale index from the previous pool). */
+  document.querySelectorAll('.attractor-pill').forEach(p => {
+    p.addEventListener('click', () => { jumpIdx = -1; });
+    // -1 ensures the first NEXT NODE press lands on pool[0] after the
+    // (jumpIdx + 1) % pool.length advance.
   });
 })();
 
@@ -1608,8 +3591,23 @@ document.addEventListener('keydown', e=>{
 
 // drag-orbit
 let dragging = false, lastX = 0;
-canvas.addEventListener('pointerdown', e=>{ dragging = true; lastX = e.clientX; canvas.setPointerCapture(e.pointerId); });
-canvas.addEventListener('pointerup',   e=>{ dragging = false; });
+// REVISE-6 (2026-05-16): toggle .is-dragging on globe-wrap during drag.
+// Lets CSS swap cursor:grab → cursor:grabbing on pointerdown without
+// relying on :active alone (which can de-bind if the pointer exits the
+// canvas during drag). Pairs with the #globe-canvas cursor rules above.
+canvas.addEventListener('pointerdown', e=>{
+  dragging = true; lastX = e.clientX;
+  canvas.setPointerCapture(e.pointerId);
+  wrap.classList.add('is-dragging');
+});
+canvas.addEventListener('pointerup',   e=>{
+  dragging = false;
+  wrap.classList.remove('is-dragging');
+});
+canvas.addEventListener('pointercancel', e=>{
+  dragging = false;
+  wrap.classList.remove('is-dragging');
+});
 canvas.addEventListener('pointermove', e=>{
   if (!dragging) return;
   const dx = e.clientX - lastX; lastX = e.clientX;
@@ -1620,29 +3618,263 @@ canvas.addEventListener('pointermove', e=>{
   }
 });
 
-// stage scale-fit (preserve 1180×760 design canvas at viewport widths >880)
-// Page-level shell: scale stage to fit available space below Nav + Hero, while
-// reserving outer footprint via a wrapper height so page layout stays stable.
-function fitStage(){
-  const stage = document.getElementById('stage');
-  const fit   = document.getElementById('stage-fit');
-  if (!stage || !fit) return;
-  if (window.innerWidth <= 880){
-    stage.style.transform = 'none';
-    fit.style.height = '';
-    return;
-  }
-  const pagePadX = 28 * 2;
-  const navHeroH = 240;
-  const availW = Math.min(1240, window.innerWidth) - pagePadX;
-  const availH = window.innerHeight - navHeroH - 60;
-  const s = Math.min(availW/1180, availH/760, 1);
-  stage.style.transform = `scale(${s})`;
-  fit.style.height = `${760 * s}px`;
-  fit.style.width  = `${1180 * s}px`;
-}
+// REVISE-6 (2026-05-16): fitStage() retired.
+// Prior implementation scaled .stage via transform:scale() then patched the
+// wrapper height imperatively. That model produced the "ATLAS not full
+// viewport" defect Peat reported: at 1280×720 the scale resolved to 0.55
+// and the frame rendered at 420px tall (<<vh 720). PoC does not transform-
+// scale its instrument — .atlas-frame is grid-laid and content-sized, with
+// min-height seeded by globe-wrap (540px desktop, 380px ≤880px). The CSS
+// rule for .stage now declares min-height:calc(100dvh - 280px), reclaiming
+// viewport height naturally. No JS sizing needed.
+// Cite: PoC localhost:3000 .atlas-frame audit + REVISE-6 issue 2 trace.
+function fitStage(){ /* retired — see .stage CSS */ }
 fitStage();
 window.addEventListener('resize', fitStage);
+
+// =====================================================================
+// REVISE-6 (2026-05-16): scroll-meter bind — fill tracks scroll position.
+// Peat verdict: "ควร animate ตาม scroll position แต่ตอนนี้ static."
+// PoC ground truth (localhost:3000 — verified via getComputedStyle):
+//   - --scroll-pct is written to :root on every scroll event
+//   - format "XX.XX%" (two decimals, percent suffix)
+//   - .scroll-meter background-image consumes the variable in a linear-
+//     gradient, fill colour stops at exactly --scroll-pct
+// Behaviour: at scrollY=0 → "0.00%"; at scrollY=maxScroll → "100.00%".
+// Listener is { passive:true } so it never blocks scroll rAF.
+// Cite: PoC scroll listener output (0.00% → 15.23% → 100.00%) at audit.
+// =====================================================================
+(function scrollMeterBind(){
+  const root = document.documentElement;
+  function update(){
+    const max = root.scrollHeight - window.innerHeight;
+    const pct = max > 0 ? (window.scrollY / max) * 100 : 0;
+    root.style.setProperty('--scroll-pct', pct.toFixed(2) + '%');
+  }
+  update();
+  window.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update);
+})();
+
+// =====================================================================
+// REVISE-7 (2026-05-16): SurveyCursor — custom cursor variants.
+// Source: components/SurveyCursor.tsx (ported verbatim to plain JS).
+// Fine-pointer only. Hides native cursor on activation.
+// Modes:
+//   survey      = open surface / ATLAS / globe area (crosshair + coords)
+//   triangulate = over a, button, [role=button], [data-cursor=triangulate]
+// Coord readout: lon from x-position (0→360 mapped -180→180),
+//                lat from y-position (0→180 mapped 90→-90).
+// Mirrors SurveyCursor.tsx logic lines 27-46 exactly.
+//
+// REVISE-7b (2026-05-16 · Q2 design-consult refinement): coord readout
+// only renders when cursor is over the globe canvas (#globe-canvas hit
+// rect). Off-globe surfaces (paper backdrop, ATLAS frame chrome) keep
+// the crosshair without the coord pill — viewport-relative lon/lat is
+// only meaningful when the cursor sits on globe geometry. Buttons stay
+// triangulate (unchanged).
+// Peat verdict: "Cursor แบบเป้า อิงพิกัดบน globe อย่างเดียวจะมี
+// ความหมายสูงกว่า ส่วนถ้าไม่อยู่บน globe อาจจะไม่ต้องขึ้นพิกัด"
+// =====================================================================
+(function surveyCursorInit(){
+  const fine = window.matchMedia('(pointer: fine)').matches;
+  if (!fine) return;   // touch / coarse devices keep native cursor
+
+  const el    = document.getElementById('survey-cursor');
+  const coord = el.querySelector('.sc-coord');
+  if (!el || !coord) return;
+
+  document.documentElement.classList.add('hide-native-cursor');
+
+  // REVISE-7b: cache globe canvas reference for hit-test (Q2 refinement).
+  // Re-resolved on each move to survive any future canvas remount.
+  const getGlobeRect = () => {
+    const c = document.getElementById('globe-canvas');
+    return c ? c.getBoundingClientRect() : null;
+  };
+
+  let mx = -200, my = -200, visible = false, raf = 0;
+
+  function tick(){
+    el.style.transform = 'translate3d(' + mx + 'px,' + my + 'px,0)';
+    raf = requestAnimationFrame(tick);
+  }
+  raf = requestAnimationFrame(tick);
+
+  window.addEventListener('mousemove', function(e){
+    mx = e.clientX;
+    my = e.clientY;
+
+    if (!visible){
+      el.style.opacity = '1';
+      visible = true;
+    }
+
+    // mode switch: triangulate over interactive elements
+    const t = e.target;
+    const isInteractive = !!(t && t.closest(
+      'a, button, [role=button], [data-cursor=triangulate]'
+    ));
+    el.dataset.mode = isInteractive ? 'triangulate' : 'survey';
+
+    // REVISE-7b (Q2): coord pill only on globe canvas. Hit-test the
+    // current cursor against #globe-canvas rect; if outside, hide coord.
+    // Buttons (triangulate) never show coord regardless — sc-triangulate
+    // group hides .sc-coord via CSS data-mode rule below.
+    const gr = getGlobeRect();
+    const onGlobe = !!(gr && mx >= gr.left && mx <= gr.right && my >= gr.top && my <= gr.bottom);
+    coord.style.display = (onGlobe && !isInteractive) ? '' : 'none';
+
+    if (onGlobe) {
+      // live coordinate readout (viewport-relative, mirrors SurveyCursor.tsx lines 42-44)
+      const lon = ((mx / window.innerWidth)  * 360 - 180).toFixed(2);
+      const lat = (90 - (my / window.innerHeight) * 180).toFixed(2);
+      coord.textContent = lon + '° / ' + lat + '°';
+    }
+  });
+
+  document.addEventListener('mouseleave', function(){
+    el.style.opacity = '0';
+    visible = false;
+  });
+})();
+
+// =====================================================================
+// P0-4 (2026-05-16) · REVISE-WAVE-2: button contracts
+// -----
+// Codex-Betelgeuse flagged three button surfaces that looked actionable
+// but had no defined behaviour. Approach per button:
+//
+//   (1) STANDBY .cta[data-action="open-atlas"] → smooth-scroll to .stage
+//       (the ATLAS artifact). Mobile users see STANDBY then tap to land
+//       directly on the instrument frame.
+//   (2) STANDBY .cta[data-action="as-list"] → smooth-scroll to #index
+//       (ChapterIndex). Alternate "browse by entry" path bypassing the
+//       instrument.
+//   (3) .n-badge → smooth-scroll to .netra-console (NETRA bay inside
+//       ATLAS frame). The badge has been a teaser for NETRA all along;
+//       its production contract will be "open NETRA L2 expansion" — for
+//       the prototype, scrolling to NETRA proves the link.
+//   (4) .attractor-field-pill (lower row, below ATLAS) → see P2-9 block
+//       below.
+//
+// Reduced-motion: behaviour respects prefers-reduced-motion via the
+// `behavior: smooth` default — browsers auto-disable smooth scroll under
+// reduce-motion. No additional guard needed.
+// Cite: REVISE-WAVE-2 §P0-4, define-behaviour approach per button.
+// =====================================================================
+(function buttonContracts(){
+  const scrollTo = (sel) => {
+    const t = document.querySelector(sel);
+    if (!t) return;
+    t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+  document.querySelectorAll('.standby .cta').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const a = btn.dataset.action;
+      if (a === 'open-atlas') scrollTo('.stage');
+      else if (a === 'as-list') scrollTo('#index');
+    });
+  });
+  const nBadge = document.querySelector('.n-badge');
+  if (nBadge) {
+    nBadge.addEventListener('click', () => scrollTo('.netra-console'));
+    nBadge.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        scrollTo('.netra-console');
+      }
+    });
+  }
+})();
+
+// =====================================================================
+// P2-9 (2026-05-16) · REVISE-WAVE-2: AttractorFields lower-row sync.
+// -----
+// Per P0-4 decision: clicking a pill in the lower §02 row (below ATLAS)
+// mirrors clicking the matching pill inside ATLAS:
+//   - setAttractor() runs (globe dims non-members, edges light, voice
+//     updates, .attractor-pill row above syncs is-active).
+//   - ChapterIndex entries dim/highlight by tag membership (visual sync
+//     above the field).
+// The mapping is by label text since the lower row uses `data-attractor-field`
+// (e.g. "ai-ml") while the upper row uses `data-attractor` (e.g. "ai · ml").
+// We translate via a label-canonicalize step.
+// Active state stays linked both directions — clicking either row updates
+// both rows' .is-active state.
+// Cite: REVISE-WAVE-2 §P2-9 (P0-4 (a) chosen approach).
+// =====================================================================
+(function attractorFieldsSync(){
+  // map lower-row data-attractor-field → upper-row data-attractor
+  const FIELD_TO_ATTRACTOR = {
+    'all':       'all',
+    'coffee':    'coffee',
+    'ai-ml':     'ai · ml',
+    'narrative': 'narrative',
+    'japan':     'japan / 日本',
+    'meta':      'meta',
+    // fields with no upper-row counterpart fall through — they act as
+    // "no-op for globe but still highlight entries" (degrade gracefully).
+  };
+  const lowerPills = document.querySelectorAll('.attractor-field-pill');
+  const entries    = document.querySelectorAll('.chapter-index-grid .entry-card');
+
+  function highlightEntries(attractor){
+    entries.forEach(card => {
+      if (attractor === 'all'){
+        card.style.opacity = '';
+        return;
+      }
+      const tags = Array.from(card.querySelectorAll('.entry-card-tags span'))
+        .map(s => s.textContent.trim().toLowerCase());
+      // canonical-form check (data-attractor uses spaces · prose)
+      const a = attractor.toLowerCase().split(' · ').join(' ');
+      const hit = tags.some(t => a.includes(t) || t.includes(attractor.toLowerCase()));
+      card.style.opacity = hit ? '' : '0.42';
+    });
+  }
+
+  function syncRowsActive(field){
+    lowerPills.forEach(p =>
+      p.classList.toggle('is-active', p.dataset.attractorField === field)
+    );
+    const mapped = FIELD_TO_ATTRACTOR[field];
+    if (mapped){
+      document.querySelectorAll('.attractor-pill').forEach(p =>
+        p.classList.toggle('is-active', p.dataset.attractor === mapped)
+      );
+    }
+  }
+
+  lowerPills.forEach(p => {
+    p.addEventListener('click', () => {
+      const field = p.dataset.attractorField;
+      const mapped = FIELD_TO_ATTRACTOR[field];
+      syncRowsActive(field);
+      highlightEntries(mapped || field);
+      // Drive ATLAS globe when a mapping exists (otherwise globe stays "all")
+      if (mapped && typeof setAttractor === 'function') {
+        setAttractor(mapped);
+      }
+    });
+  });
+
+  // Reverse: clicking an upper-row pill should also dim entries above.
+  document.querySelectorAll('.attractor-pill').forEach(p => {
+    p.addEventListener('click', () => {
+      const upper = p.dataset.attractor;
+      highlightEntries(upper);
+      // sync lower row .is-active by reverse-mapping
+      const matchedField = Object.keys(FIELD_TO_ATTRACTOR)
+        .find(k => FIELD_TO_ATTRACTOR[k] === upper);
+      if (matchedField){
+        lowerPills.forEach(lp =>
+          lp.classList.toggle('is-active', lp.dataset.attractorField === matchedField)
+        );
+      }
+    });
+  });
+})();
 
 // init
 setFocus('rest');
@@ -1674,6 +3906,39 @@ setAttractor('all');
     }, 55);
   }
   setInterval(flickerOne, 3000 + Math.random() * 4000);
+})();
+
+// =====================================================================
+// A5 — marginalia digit flicker · quieter clone of divergenceFlicker.
+// Only the trailing two digits (positions 5 & 6 of `1.130426` — i.e. `2`, `6`).
+// Cadence 8–12s (≈3× slower than the card meter) and a single 1-in-3 reroll
+// per attempt — communicates "the marginalia reads the same observer the
+// panel does" without visually competing with the primary Nixie. I3 + I1.
+// =====================================================================
+(function marginaliaFlicker(){
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const root = document.getElementById('ma-divergence');
+  if (!root) return;
+  const all = Array.from(root.querySelectorAll('span[data-final]'));
+  // trailing two digits only — index 5 and 6 of the seven captured glyphs
+  const tail = all.slice(-2);
+  if (!tail.length) return;
+  function tick(){
+    // 1-in-3 attempts actually fire — keeps the marginalia mostly still
+    if (Math.random() < 0.33){
+      const node = tail[Math.floor(Math.random() * tail.length)];
+      const final = node.dataset.final ?? node.textContent ?? '0';
+      let f = 0;
+      const total = 2 + Math.floor(Math.random() * 2);
+      const id = setInterval(()=>{
+        if (f >= total){ node.textContent = final; clearInterval(id); return; }
+        node.textContent = String(Math.floor(Math.random() * 10));
+        f += 1;
+      }, 80);
+    }
+    setTimeout(tick, 8000 + Math.random() * 4000);
+  }
+  setTimeout(tick, 9000 + Math.random() * 3000);
 })();
 </script>
 
