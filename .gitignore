@@ -98,3 +98,6 @@ docs/team/.status-drafts/
 
 # session transcripts dropped in the tree
 *-this-session-is-being-continued-from-a-previous-c.txt
+
+# pilot prototype — kept on disk as a backup reference, out of git
+/pilot-frontend-ui-design/
