@@ -577,7 +577,7 @@ export function RollLightbox({ photos, openIndex, onClose }: Props) {
 
 The existing `globals.css` toggle uses `[data-palette="ink"]` as the only alternative. Extend to a multi-palette system.
 
-### 8.1 CSS — five palette blocks
+### 8.1 CSS — sixteen palette blocks
 
 Append to `globals.css`:
 
@@ -627,9 +627,296 @@ Append to `globals.css`:
   --accent-orange: #D24820;        /* saturated red-orange */
   --accent-orange-soft: rgba(210, 72, 32, 0.20);
 }
+
+/* ── Wave 3 additions (2026-05-18) — 11 remaining Fuji simulations ── */
+
+/*
+ * ASTIA (Soft)
+ * Character: softer contrast than Provia, pastel-lifted shadows, gentle
+ *   saturation. Skin-tone-forward simulation designed for portraits.
+ *   Warm-neutral paper, low-contrast ink, dusty-rose accent.
+ * Core hues: warm mid-tones, lifted shadows, soft highlights
+ * Shadow tendency: lifted / milky — shadows never block up to true black
+ * Highlight tendency: slightly warm rolloff
+ * Accent: dusty rose — the simulation's skin-flattering quality made visible
+ * Use case: portrait rolls, soft-light street, hazy afternoon
+ * Token conflict: none — all values expressible in current token set
+ */
+[data-palette="astia"] {
+  --paper-base:    #EDE5D8;
+  --paper-warm:    #F2EAE0;
+  --paper-deep:    #E0D4C4;
+  --paper-bright:  #F5EFEA;
+  --ink-rgb:       72 58 52;       /* warm charcoal — soft, never cold */
+  --netra-rgb:     118 100 90;
+  --accent-orange: #B8614A;        /* dusty rose-terracotta */
+  --accent-orange-soft: rgba(184, 97, 74, 0.16);
+}
+
+/*
+ * PRO NEG HI
+ * Character: elevated contrast, strong separation. Designed for commercial
+ *   work — the "high contrast negative" simulation. Punchier than Provia,
+ *   less saturated than Velvia. Cool-neutral foundation.
+ * Core hues: neutral paper with elevated contrast; shadows push dark
+ * Shadow tendency: dense — holds detail but with weight
+ * Highlight tendency: clean rolloff, no warmth added
+ * Accent: deep amber — punchiness made visible without going orange
+ * Use case: architecture, product, high-key street
+ * Token conflict: none
+ */
+[data-palette="pro-neg-hi"] {
+  --paper-base:    #E6E0D3;
+  --paper-warm:    #EBE5D8;
+  --paper-deep:    #D4CCBB;
+  --paper-bright:  #EEEAD0;         /* slightly cooler bright — elevated contrast feel */
+  --ink-rgb:       22 30 35;        /* near-black with slight blue cast */
+  --netra-rgb:     58 74 82;
+  --accent-orange: #B05A18;         /* deep amber, punchy */
+  --accent-orange-soft: rgba(176, 90, 24, 0.18);
+}
+
+/*
+ * PRO NEG STD
+ * Character: low contrast, flat, understated. The "standard negative" film
+ *   reference — intended for even, natural rendering across a wide scene range.
+ *   Less push than Pro Neg Hi; slightly warmer base.
+ * Core hues: neutral warm paper, mid-gray ink with no aggressive contrast
+ * Shadow tendency: open — shadows are readable without boost
+ * Highlight tendency: flat — highlights hold without burning
+ * Accent: muted sienna — warmth of the emulsion without drama
+ * Use case: reportage, documentary, even indoor light
+ * Token conflict: none
+ */
+[data-palette="pro-neg-std"] {
+  --paper-base:    #EAE4D8;
+  --paper-warm:    #EFE9DE;
+  --paper-deep:    #DDD5C6;
+  --paper-bright:  #F2EEE4;
+  --ink-rgb:       54 48 40;        /* warm mid-gray — low contrast */
+  --netra-rgb:     100 92 82;
+  --accent-orange: #A3622E;         /* muted sienna */
+  --accent-orange-soft: rgba(163, 98, 46, 0.16);
+}
+
+/*
+ * CLASSIC NEG
+ * Character: the "expired film" simulation. Lifted shadows, faded highlights,
+ *   shifted color balance that pushes greens and blues slightly cool.
+ *   A contemporary Fuji simulation (X-Pro3 era) modeled after 100-speed negative.
+ * Core hues: slightly faded, cool-green shift in neutrals; lifted shadows
+ * Shadow tendency: crushed slightly but with a lift — "overexposed negative" look
+ * Highlight tendency: milky — highlights don't stay pure white
+ * Accent: uses --accent-cool (iron-slate) — cool-axis semantic token for
+ *   palettes outside the warm amber family. The olive quality of Classic Neg
+ *   is expressed through paper + ink values; the accent carries the cool cast.
+ * Use case: nostalgic street, analog-feeling portraits, anything where
+ *   "found photo" aesthetics are intentional
+ * Token conflict: resolved — wired to --accent-cool / --accent-cool-soft.
+ */
+[data-palette="classic-neg"] {
+  --paper-base:    #E2DDD5;
+  --paper-warm:    #E6E2D8;
+  --paper-deep:    #D0C9BC;
+  --paper-bright:  #EDEAE2;
+  --ink-rgb:       42 48 44;        /* cool charcoal with green cast */
+  --netra-rgb:     80 90 84;
+  --accent-orange: var(--accent-cool);
+  --accent-orange-soft: var(--accent-cool-soft);
+}
+
+/*
+ * ETERNA (Cinema)
+ * Character: Fuji's cinema emulsion reference — cinematic color science.
+ *   Low saturation, shadow lift, slight desaturation in highlights. Colors
+ *   roll toward teal in shadows and warm orange in highlights (the "teal-orange"
+ *   of cinema). Long tonal range.
+ * Core hues: desaturated warm-teal shadows, muted warm highlights
+ * Shadow tendency: lifted, slightly teal-shifted (cinema shadow grade)
+ * Highlight tendency: warm but rolled — not clipping orange, staying rolled
+ * Accent: muted amber-gold — warm cinema highlight without saturation
+ * Use case: evening shoots, artificial-light interiors, narrative-mode street
+ * Token conflict: none — current teal accent family aligns with Eterna's shadow cast
+ */
+[data-palette="eterna"] {
+  --paper-base:    #E4DDD3;
+  --paper-warm:    #EAE4DA;
+  --paper-deep:    #D5CBBD;
+  --paper-bright:  #EDE8E0;
+  --ink-rgb:       28 44 50;        /* teal-shadowed near-black — cinema base */
+  --netra-rgb:     68 90 100;
+  --accent-orange: #C08040;         /* muted amber-gold — warm cinema highlight */
+  --accent-orange-soft: rgba(192, 128, 64, 0.18);
+}
+
+/*
+ * ETERNA BLEACH BYPASS
+ * Character: Eterna Cinema with a silver-retention bleach bypass process applied.
+ *   Very low saturation, high contrast, silver-metallic paper. The most stark
+ *   of all Fuji color simulations — borderline monochrome but retains residual
+ *   color bias. Silver halide visual quality.
+ * Core hues: near-neutral, very low chroma, silvery paper
+ * Shadow tendency: hard — dense, near-black
+ * Highlight tendency: metallic, slightly cool — near-white with silver cast
+ * Accent: uses --accent-cool (iron-slate) — cool-axis semantic token.
+ *   The metallic shimmer character is expressed through the near-black ink + silver
+ *   paper; the accent carries the blue-cool direction.
+ * Use case: harsh urban environments, industrial subjects, intentional brutalism
+ * Token conflict: resolved — wired to --accent-cool / --accent-cool-soft.
+ */
+[data-palette="eterna-bleach-bypass"] {
+  --paper-base:    #D8D6D2;         /* silvery cool — metallic */
+  --paper-warm:    #DEDAD6;
+  --paper-deep:    #C6C4BF;
+  --paper-bright:  #E4E2DE;
+  --ink-rgb:       18 20 22;        /* near-black, very cool */
+  --netra-rgb:     52 58 62;
+  --accent-orange: var(--accent-cool);
+  --accent-orange-soft: var(--accent-cool-soft);
+}
+
+/*
+ * ACROS R (Red filter)
+ * Character: Acros B&W simulation with a red channel filter applied.
+ *   Dramatically darkens blue sky, lightens warm tones (skin, foliage in
+ *   autumn warmth). Strong contrast between sky and clouds.
+ *   Paper feels slightly warmer than base Acros due to the filter's lift of warm tones.
+ * Core hues: near-monochrome; reds and oranges rendered lighter than base Acros
+ * Shadow tendency: deep — the red filter pushes blues and cool tones very dark
+ * Highlight tendency: warm-leaning — red-lit surfaces glow
+ * Accent: muted warm gray (slight warmth vs. base Acros cold gray)
+ * Use case: landscape with sky drama, architectural B&W
+ * Token conflict: none — shares Acros token range with slight warm push
+ */
+[data-palette="acros-r"] {
+  --paper-base:    #DEDAD4;         /* slightly warmer than base Acros */
+  --paper-warm:    #E3DED8;
+  --paper-deep:    #CCC7C0;
+  --paper-bright:  #ECEAE4;
+  --ink-rgb:       22 20 18;        /* near-black, warmer cast than base Acros */
+  --netra-rgb:     58 54 50;
+  --accent-orange: #6A6360;         /* warm-tinted deep gray */
+  --accent-orange-soft: rgba(106, 99, 96, 0.20);
+}
+
+/*
+ * ACROS G (Green filter)
+ * Character: Acros B&W simulation with a green channel filter applied.
+ *   Classic landscape and portrait B&W filter — lightens foliage, evens skin tones,
+ *   darkens red and blue subjects. More neutral than R filter, less contrasty than Ye.
+ * Core hues: near-monochrome; greens rendered lighter than base Acros
+ * Shadow tendency: moderate — red tones go darker but not as extreme as R filter
+ * Highlight tendency: clean — green channel lift adds subtlety to highlights
+ * Accent: neutral medium gray — the balanced character of the G filter
+ * Use case: landscapes, portraits, general B&W documentary
+ * Token conflict: none
+ */
+[data-palette="acros-g"] {
+  --paper-base:    #DDDAD3;         /* same as base Acros — green filter is most neutral */
+  --paper-warm:    #E2DFD7;
+  --paper-deep:    #C8C5BC;
+  --paper-bright:  #EDEAD0;
+  --ink-rgb:       24 23 20;        /* near-black, neutral cast */
+  --netra-rgb:     60 58 54;
+  --accent-orange: #626260;         /* neutral mid-gray — green filter's balance */
+  --accent-orange-soft: rgba(98, 98, 96, 0.20);
+}
+
+/*
+ * ACROS Ye (Yellow filter)
+ * Character: Acros B&W simulation with a yellow channel filter applied.
+ *   Slight contrast boost to skies vs. clouds; classic portrait filter that gives
+ *   a mild brightening to warm tones and moderate darkening of blue.
+ *   The most subtle of the three Acros filter variants.
+ * Core hues: near-monochrome; yellow filter lifts warm tones slightly
+ * Shadow tendency: mild darkening of blues vs. base Acros; less extreme than R
+ * Highlight tendency: slightly warm like R but more restrained
+ * Accent: gray with very faint warmth — the most restrained Acros variant
+ * Use case: casual portraits, overcast street, low-drama B&W
+ * Token conflict: none
+ */
+[data-palette="acros-ye"] {
+  --paper-base:    #DDDAD4;
+  --paper-warm:    #E2DFD9;
+  --paper-deep:    #C9C6BE;
+  --paper-bright:  #EDEAD2;
+  --ink-rgb:       25 23 20;        /* near-black, barely warmer than base Acros */
+  --netra-rgb:     62 58 52;
+  --accent-orange: #686460;         /* faintly warm gray */
+  --accent-orange-soft: rgba(104, 100, 96, 0.20);
+}
+
+/*
+ * NOSTALGIC NEG
+ * Character: X-T4/X-T5 era simulation modeled after American-style color negative
+ *   film from the 1970s. Warm shadow lift, faded colors, slight cyan-green cast
+ *   in highlights. Very distinctive amber-tinted shadows with mid-tone glow.
+ * Core hues: warm amber paper, amber-tinted shadows, slightly faded mid-tones
+ * Shadow tendency: warm lifted — the defining signature; shadows glow amber
+ * Highlight tendency: slightly cool/cyan — the opposite of the warm shadows
+ *   creates the Nostalgic Neg's characteristic tension
+ * Accent: faded amber-gold — the "nostalgic" warmth distilled
+ * Use case: nostalgic street, period-feeling material, golden hour, interior warmth
+ * Token conflict: none — warm amber maps cleanly to existing accent family
+ */
+[data-palette="nostalgic-neg"] {
+  --paper-base:    #EDE2C8;         /* amber-tinted paper — warm lift throughout */
+  --paper-warm:    #F2E8D0;
+  --paper-deep:    #DECCAA;
+  --paper-bright:  #F5EDDA;
+  --ink-rgb:       64 48 28;        /* warm dark amber */
+  --netra-rgb:     108 88 60;
+  --accent-orange: #C87830;         /* faded amber-gold — nostalgic warmth */
+  --accent-orange-soft: rgba(200, 120, 48, 0.18);
+}
+
+/*
+ * SEAL
+ * Character: Introduced in X-T5 firmware. Fuji's most recent simulation at time of
+ *   writing. Described by Fuji as inspired by marine seal skin — muted, low-chroma,
+ *   slightly cool mid-tones with a slight blue-gray cast throughout. Very subtle
+ *   saturation, not quite monochrome. Softer and cooler than Classic Chrome.
+ * Core hues: cool gray paper with slight blue cast; desaturated but not B&W
+ * Shadow tendency: flat, open — no blocking
+ * Highlight tendency: very soft rolloff, slightly cool
+ * Accent: uses --accent-cool (iron-slate) — cool-axis semantic token.
+ *   The steel-blue quality of Seal is the defining character of this token;
+ *   --accent-cool was partially shaped by Seal's accent direction.
+ * Use case: overcast, winter, subdued environments, architectural minimalism
+ * Token conflict: resolved — wired to --accent-cool / --accent-cool-soft.
+ */
+[data-palette="seal"] {
+  --paper-base:    #DDDDE0;         /* slight blue-gray cast — cooler than any other sim */
+  --paper-warm:    #E3E3E6;
+  --paper-deep:    #C8C8CC;
+  --paper-bright:  #EBEBEE;
+  --ink-rgb:       30 36 44;        /* cool near-black — not warm charcoal */
+  --netra-rgb:     68 80 94;
+  --accent-orange: var(--accent-cool);
+  --accent-orange-soft: var(--accent-cool-soft);
+}
 ```
 
 The `ink` palette stays as-is for the Konami easter egg.
+
+#### Token conflict summary (resolved — TASK-2026-05-18-BETELGEUSE-WAVE7-COOL-TOKENS)
+
+Three simulations — Classic Neg, Eterna Bleach Bypass, and Seal — previously used `--accent-orange` to represent cool-gray or olive-green accents semantically outside the warm-orange family.
+
+Resolution shipped: `--accent-cool` (`#3E5A6A`, iron-slate) and `--accent-cool-soft` (`rgba(62, 90, 106, 0.18)`) added to `:root` in `app/globals.css`. The three palette blocks now reference `var(--accent-cool)` and `var(--accent-cool-soft)` via the CSS cascade, overriding `--accent-orange` only in those palette states.
+
+Contrast verification (WCAG AA, 4.5:1 at small text):
+- `--accent-cool` vs `--paper-warm`: 5.93:1 — PASS
+- `--accent-cool` vs `--paper-base`: 5.09:1 — PASS
+- `--accent-cool` vs `--paper-deep`: 4.71:1 — PASS
+- `--accent-cool` vs `--paper-bright`: 5.51:1 — PASS
+
+Usage rule: warm/spectrum palettes → `--accent-orange` / `--accent-orange-soft`. Cool/silver/B&W-variant palettes → `--accent-cool` / `--accent-cool-soft`.
+
+Sims that can ship immediately once palette blocks are wired to FilmSimSwitcher (all tokens resolved):
+- Astia, Pro Neg Hi, Pro Neg Std, Eterna, Nostalgic Neg — warm axis, use --accent-orange
+- Classic Neg, Eterna Bleach Bypass, Seal — cool axis, now use --accent-cool
+- Acros R, Acros G, Acros Ye — gray-scale family; no conflict; --accent-orange in gray territory is tolerable. Review at implementation time.
 
 ### 8.2 Switcher component
 

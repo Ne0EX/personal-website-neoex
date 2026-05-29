@@ -52,6 +52,10 @@ export async function getAllGlobePins(): Promise<GlobePin[]> {
     domain: f.domain,
     isoDate: f.isoDate,
     tags: f.tags,
+    // Branching fields — 30-worldline-branching.md §13.1
+    // variants defaults to [] per schema; divergence_cluster may be undefined.
+    variants: f.variants,
+    divergence_cluster: f.divergence_cluster,
   }))
 
   return [

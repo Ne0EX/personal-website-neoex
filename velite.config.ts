@@ -114,14 +114,72 @@ const articles = defineCollection({
 // Placement is by meaning-coordinates (domain + date), not GPS.
 //
 // Consumer fields:
-//   slug        → route param when entry surface is built
-//   title       → Globe node label, side panel
-//   date        → orbital latitude (ontology §2.2), sort key
-//   domain      → orbital longitude (ontology §2.2)
-//   tags        → AttractorFields filter
-//   summary     → Globe side panel
-//   kind        → Globe pinObjects discriminator (TASK-33)
+//   slug               → route param when entry surface is built
+//   title              → Globe node label, side panel
+//   date               → orbital latitude (ontology §2.2), sort key
+//   domain             → orbital longitude (ontology §2.2)
+//   tags               → AttractorFields filter
+//   summary            → Globe side panel
+//   kind               → Globe pinObjects discriminator (TASK-33)
+//   variants           → worldline branching: alternate-α tendrils (30-worldline-branching §13.1)
+//   divergence_cluster → worldline branching: sibling-set grouping (30-worldline-branching §3.1)
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Fiction branching sub-schemas — 30-worldline-branching.md §3.1 + §13.1
+// ---------------------------------------------------------------------------
+
+/**
+ * A single alternate-α variant for a fiction transmission.
+ *
+ * Per 30-worldline-branching.md §13.1:
+ *   - alpha: string (preserving precision · same convention as site α "1.130426")
+ *   - delta_summary: prose string, max 120 chars — NETRA reads this aloud at branch activation
+ *   - drift: optional explicit divergence magnitude (|variant.alpha − site.alpha|).
+ *     The renderer (§4.3) can derive drift from alpha at render time; this field
+ *     is provided when the author wants to override the computed value or signal
+ *     narrative significance of a specific magnitude.
+ *   - slug: optional pointer to a related fiction file if the variant has materialized
+ *     into a separate transmission (v1 schema is forward-compatible; v1 renderer ignores slug)
+ *
+ * Validation: alpha values must be unique within a fiction entry's variants array.
+ * Enforced by the .superRefine() on the variants array below.
+ */
+const fictionVariantSchema = s.object({
+  /**
+   * Divergence value of the alternate worldline, e.g. "1.129801".
+   * String to preserve decimal precision. Must be unique within variants[].
+   * Used by §4.3 coordinate model: distance_i = R × (0.06 + min(delta_alpha_i × 60, 0.10))
+   */
+  alpha: s.string().regex(
+    /^\d+\.\d+$/,
+    'variants[].alpha must be a decimal string, e.g. "1.129801"'
+  ),
+
+  /**
+   * One-line prose description of what diverges in this variant.
+   * Max 120 chars — NETRA truncates to first clause if longer (§13.1).
+   * Example: "the four-pours line never settles · extraction never converges"
+   */
+  delta_summary: s.string().min(1).max(120),
+
+  /**
+   * Optional explicit drift magnitude = |variant.alpha − site.alpha|.
+   * If absent, the renderer derives it at runtime from alpha.
+   * Provide when authoring significance attaches to a specific numeric distance.
+   */
+  drift: s.number().nonnegative().optional(),
+
+  /**
+   * Optional slug pointing to a materialized fiction file for this variant.
+   * E.g. "transmission-001-α-1129801". V1 renderer ignores this (v1 is read-only
+   * per §6.1); included for forward-compatibility toward v1.1 hybrid interaction.
+   */
+  slug: s
+    .string()
+    .regex(/^[a-z0-9-]+$/, 'variants[].slug must be lowercase alphanumeric with hyphens')
+    .optional(),
+})
 
 const fiction = defineCollection({
   name: 'Fiction',
@@ -148,6 +206,60 @@ const fiction = defineCollection({
       /** Optional real-world origin point. Does NOT drive Globe placement for fiction
        *  (orbital placement is by meaning-coords, not GPS). */
       originLocus: coordsSchema.optional(),
+
+      // ---------------------------------------------------------------------------
+      // Worldline branching fields — 30-worldline-branching.md §3.1 + §13.1
+      // Both fields are optional. Existing fiction without them validates normally.
+      // Empty-state contract (§3.3): missing variants + missing divergence_cluster →
+      //   no branching available; NETRA acknowledges with the §3.3 empty-state line.
+      // ---------------------------------------------------------------------------
+
+      /**
+       * Alternate-α variant tendrils for this fiction transmission.
+       * Channel A of the branching mechanic (§3.1). 0–4 variants per node.
+       * Each variant becomes one dashed tendril arc in the NeX orbital shell
+       * when the visitor attends this node under RW-5 drift (§5.1).
+       *
+       * Validation: alpha must be unique within this array (enforced by superRefine).
+       * Cardinality: 0–4 (§3.3). Renderer caps tendril count; schema enforces max.
+       */
+      variants: s
+        .array(fictionVariantSchema)
+        .max(4, 'variants may not exceed 4 entries per node (§3.3 cardinality cap)')
+        .superRefine((arr, ctx) => {
+          const alphas = arr.map((v) => v.alpha)
+          const seen = new Set<string>()
+          for (const [i, a] of alphas.entries()) {
+            if (seen.has(a)) {
+              ctx.addIssue({
+                code: 'custom',
+                path: [i, 'alpha'],
+                message: `Duplicate alpha value "${a}" in variants[]. Each variant must have a unique alpha.`,
+              })
+            }
+            seen.add(a)
+          }
+        })
+        .default([]),
+
+      /**
+       * Divergence cluster identifier. Channel B of the branching mechanic (§3.1).
+       * A kebab-case string label shared with other fiction entries in the same cluster.
+       * At build time (or render time), entries sharing a cluster become candidate
+       * sibling branches (up to 2, selected by shortest |alpha_self − alpha_sibling|
+       * per §3.1 sibling-set computation).
+       *
+       * Format: lowercase · hyphens · no spaces · max 40 chars.
+       * Example: "unresolved-method", "kyoto-roastery"
+       */
+      divergence_cluster: s
+        .string()
+        .regex(
+          /^[a-z0-9-]+$/,
+          'divergence_cluster must be lowercase alphanumeric with hyphens (kebab-case)'
+        )
+        .max(40, 'divergence_cluster must be 40 chars or fewer')
+        .optional(),
     })
     .transform((data) => ({
       ...data,

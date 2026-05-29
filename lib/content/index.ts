@@ -14,7 +14,7 @@
  */
 
 // Re-export inferred types so consumers have them without importing velite directly.
-export type { Article, Fiction, Photo, PhotoSidecar, PhotoExif, PhotoVariants, PhotoVariantEntry } from './types'
+export type { Article, Fiction, Photo, PhotoSidecar, PhotoExif, PhotoVariants, PhotoVariantEntry, FictionVariant } from './types'
 
 // ---------------------------------------------------------------------------
 // Articles
@@ -34,6 +34,7 @@ export {
 export {
   getFiction,
   getFictionBySlug,
+  getFictionSiblings,
 } from './fiction'
 
 // ---------------------------------------------------------------------------

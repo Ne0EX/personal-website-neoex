@@ -19,6 +19,8 @@ const eslintConfig = defineConfig([
     // Visual-diff capture directories contain vendored minified JS from
     // design tool exports; these are not project source and must not be linted:
     ".claude/visual-diffs/**",
+    // Beta workspace prototypes — agent scratch space, not production source:
+    ".claude/beta/**",
   ]),
 ]);
 

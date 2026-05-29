@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "design": "echo 'Serving from repo root — open: http://localhost:8765/.claude/visual-diffs/soul-atlas/gallery.html' && python3 -m http.server 8765"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",

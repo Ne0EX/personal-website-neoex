@@ -4,7 +4,8 @@
  * Re-exports TypeScript types inferred from velite schemas.
  * These are the canonical entry-record types for the entire site.
  *
- * Owner: Procyon (α-IDX-03) · TASK-2026-05-15-22 / TASK-2026-05-15-30
+ * Owner: Procyon (α-IDX-03)
+ * Tasks: TASK-2026-05-15-22 / TASK-2026-05-15-30 / TASK-2026-05-17-PROCYON-WAVE1-BUNDLE
  *
  * Note: After velite build runs, types are also available from '.velite'.
  * This module re-exports them under stable names so consumers are insulated
@@ -76,6 +77,36 @@ export type PhotoVariants = {
 }
 
 // ---------------------------------------------------------------------------
+// Fiction branching types — TASK-2026-05-17-PROCYON-BRANCHING-SCHEMA
+// Consumed by Sirius (§13.2 renderer) and Altair (NETRA branch-activation tools).
+// Mirrors fictionVariantSchema in velite.config.ts — kept in sync manually.
+// ---------------------------------------------------------------------------
+
+/**
+ * A single alternate-α variant for a fiction transmission.
+ * Corresponds to one tendril in the NeX orbital branching cloud.
+ * See 30-worldline-branching.md §3.1 (Channel A) + §4.3 (coordinate model).
+ */
+export type FictionVariant = {
+  /** Divergence value of the alternate worldline. String to preserve decimal precision. */
+  alpha: string
+  /** One-line description of what diverges in this variant. Max 120 chars. NETRA reads this. */
+  delta_summary: string
+  /**
+   * Optional explicit drift magnitude = |variant.alpha − site.alpha|.
+   * If absent, the renderer derives it from alpha at render time.
+   * §4.3: distance_i = R × (0.06 + min(delta_alpha_i × 60, 0.10))
+   */
+  drift?: number
+  /**
+   * Optional slug pointing to a materialized fiction file for this variant.
+   * V1 renderer ignores this (v1 is read-only per §6.1).
+   * Forward-compatible toward v1.1 hybrid interaction.
+   */
+  slug?: string
+}
+
+// ---------------------------------------------------------------------------
 // Globe pin union — used by WorldlineGlobe.tsx via TASK-33
 // ---------------------------------------------------------------------------
 
@@ -127,4 +158,48 @@ export type FictionPin = {
   domain: string
   isoDate: string
   tags: string[]
+  /**
+   * Alternate-α variant tendrils for this fiction node.
+   * Empty array when no variants declared (the node branches only via siblings,
+   * or not at all). Sirius reads this at RW-5 drift activation (§13.2 step 2).
+   * 30-worldline-branching.md §3.1 (Channel A) + §4.3.
+   */
+  variants: FictionVariant[]
+  /**
+   * Divergence cluster label. Undefined when not declared.
+   * Build-time sibling computation uses this to group fiction entries.
+   * Sirius receives the pre-computed sibling list (getFictionSiblings) rather
+   * than computing it in the renderer. 30-worldline-branching.md §3.1 (Channel B).
+   */
+  divergence_cluster?: string
 }
+
+// ---------------------------------------------------------------------------
+// MDX component prop types — TASK-2026-05-17-PROCYON-WAVE1-BUNDLE Task A
+// Canonical prop interfaces for MDX components used in article body.
+// Sirius (α-SUR-01) implements the rendering JSX; Procyon owns this interface.
+// ---------------------------------------------------------------------------
+
+/**
+ * Props for the <Pullquote> MDX component.
+ *
+ * Re-exported from components/Pullquote.tsx for consumers who need the type
+ * without importing from the component tree (e.g. mdx-components.ts, Storybook).
+ *
+ * Rendering spec (for Sirius):
+ *   Quote body:
+ *     · Cormorant Garamond italic · 24px · line-height 1.3
+ *     · padding-left: 32px
+ *     · left hairline: 1px solid var(--accent-orange)
+ *     · color: var(--ink-primary)
+ *
+ *   source attribution (when present):
+ *     · em-dash prefix: "— {source}"
+ *     · JetBrains Mono · 11px desktop / 10px mobile
+ *     · color: var(--ink-soft)
+ *     · margin-top: var(--space-2)
+ *
+ * @see components/Pullquote.tsx
+ * @see docs/design/09-article-entry.md §typography/pullquote
+ */
+export type { PullquoteProps } from '../../components/Pullquote'

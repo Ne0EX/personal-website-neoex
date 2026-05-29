@@ -2,6 +2,7 @@
 # scripts/next-dispatchable.sh
 # Owner:   Canopus (α-HRN-07)
 # TASK:    TASK-2026-05-15-META-1
+# REVISE:  MINI-2026-05-16 · bash4 → bash3.2 port
 # Purpose: Scan STATUS.md + signatures + handoffs and emit the set of TASKs
 #          that are NOW-DISPATCHABLE (all deps closed, no Peat-decision gate,
 #          no same-agent collision, no opus-budget overrun).
@@ -86,6 +87,33 @@
 #   For the current wave this is hardcoded to the 4-slot budget from DEV-PLAN-D §D.7.
 #
 # ============================================================================
+# BASH 3.2 COMPATIBILITY NOTE
+# ============================================================================
+#
+# macOS ships bash 3.2 (/bin/bash) which does not support associative arrays
+# (declare -A). This script was originally written with declare -A and ported
+# to bash 3.2-compatible flat-file key=value storage in MINI-2026-05-16.
+#
+# Approach: a single temp directory (TMPDIR_ND) is created at startup and
+# removed on EXIT via trap. Each "associative array" becomes a file in that
+# directory:
+#
+#   sig_closed/<task_id>       → "agent|harness|post_edit"
+#   sig_algol/<task_id>        → "audited"
+#   ho_blocked_by/<task_id>    → dep string
+#   ho_peat_gate/<task_id>     → "true" or absent
+#   ho_agent/<task_id>         → agent name
+#   ho_model/<task_id>         → "sonnet" or "opus"
+#   agent_in_flight/<agent>    → comma-separated task list
+#
+# Reads use: cat "$TMPDIR_ND/namespace/key" 2>/dev/null || echo ""
+# Writes use: echo "value" > "$TMPDIR_ND/namespace/key"
+# Existence test: [[ -f "$TMPDIR_ND/namespace/key" ]]
+#
+# Task-id and agent names may contain hyphens and dots; they are safe as
+# filenames on macOS/Linux POSIX filesystems.
+#
+# ============================================================================
 
 set -euo pipefail
 
@@ -129,22 +157,47 @@ if ! command -v jq &>/dev/null; then
   exit 2
 fi
 
+# ── temp directory (bash3.2-compatible associative store) ───────────────────
+# Each "namespace" is a subdirectory; each "key" is a file; "value" is content.
+TMPDIR_ND="$(mktemp -d /tmp/next-dispatchable.XXXXXX)"
+trap 'rm -rf "$TMPDIR_ND"' EXIT
+
+mkdir -p \
+  "$TMPDIR_ND/sig_closed" \
+  "$TMPDIR_ND/sig_algol" \
+  "$TMPDIR_ND/ho_blocked_by" \
+  "$TMPDIR_ND/ho_peat_gate" \
+  "$TMPDIR_ND/ho_agent" \
+  "$TMPDIR_ND/ho_model" \
+  "$TMPDIR_ND/agent_in_flight"
+
+# Helper: sanitize a key so it is safe as a filename.
+# Replaces characters that are not alphanumeric, hyphen, or dot with underscore.
+sanitize_key() {
+  echo "$1" | tr -c 'a-zA-Z0-9.-' '_'
+}
+
 # ── PHASE 1: Parse STATUS.md ─────────────────────────────────────────────────
 # Extract TASK entries: id, status, summary, blocked_by, in_flight_agent
 #
 # Approach: awk over STATUS.md, split on "## TASK-" headings.
-# Each block is emitted as a tab-delimited record.
+# Each block is emitted as a SOH-delimited (\x01) record.
 #
-# Output columns (tab-separated):
-#   task_id TAB status TAB summary TAB raw_blocked_by TAB peat_gate TAB agents
+# Output columns (SOH-separated, \x01):
+#   task_id SOH status SOH summary SOH raw_blocked_by SOH peat_gate SOH agents
+#
+# NOTE: We use SOH (\x01) not TAB as separator because bash's `read` with
+# IFS=\t collapses consecutive tab characters, swallowing empty fields.
+# SOH is non-whitespace and will not appear in STATUS.md content.
+# bash 3.2: IFS=$'\x01' preserves empty fields correctly.
 
 TASK_RAW=$(awk '
-BEGIN { OFS="\t"; task=""; status=""; summary=""; blocked=""; peat=""; agents="" }
+BEGIN { FS="\t"; task=""; status=""; summary=""; blocked=""; peat=""; agents="" }
 
 /^## (TASK-[0-9A-Za-z-]+)/ {
   # flush previous block
   if (task != "") {
-    print task, status, summary, blocked, peat, agents
+    printf "%s\x01%s\x01%s\x01%s\x01%s\x01%s\n", task, status, summary, blocked, peat, agents
   }
   # reset
   line=$0
@@ -197,13 +250,12 @@ task != "" {
     if ($0 ~ /[Aa]ltair/)      agents=agents (agents==""?"":"," ) "Altair"
     if ($0 ~ /[Cc]anopus/)     agents=agents (agents==""?"":"," ) "Canopus"
     if ($0 ~ /[Pp]olaris/)     agents=agents (agents==""?"":"," ) "Polaris"
-    if ($0 ~ /[Pp]rocyon/)     agents=agents (agents==""?"":"," ) "Procyon"
   }
 }
 
 END {
   if (task != "") {
-    print task, status, summary, blocked, peat, agents
+    printf "%s\x01%s\x01%s\x01%s\x01%s\x01%s\n", task, status, summary, blocked, peat, agents
   }
 }
 ' "$STATUS_FILE")
@@ -214,9 +266,7 @@ END {
 # spec-only tasks).
 # We do NOT count -audit-- sigs for closure; those are Algol QA cross-check.
 
-declare -A SIG_CLOSED    # SIG_CLOSED[TASK-id]="agent|harness|post_edit"
-declare -A SIG_ALGOL     # SIG_ALGOL[TASK-id]="audited"
-declare -a OPUS_SHIPPED  # list of TASK-ids with opus override
+OPUS_SHIPPED_COUNT=0
 
 for sig_file in "$SIGS_DIR"/TASK-*.json; do
   [[ -f "$sig_file" ]] || continue
@@ -228,7 +278,10 @@ for sig_file in "$SIGS_DIR"/TASK-*.json; do
     # strip -audit suffix to get parent task id
     parent="${task_id%-audit}"
     parent="${parent%-audit*}"
-    [[ -n "$parent" ]] && SIG_ALGOL["$parent"]="audited"
+    if [[ -n "$parent" ]]; then
+      k=$(sanitize_key "$parent")
+      echo "audited" > "$TMPDIR_ND/sig_algol/$k"
+    fi
     continue
   fi
 
@@ -244,7 +297,8 @@ for sig_file in "$SIGS_DIR"/TASK-*.json; do
 
   [[ -z "$task_id" ]] && continue
 
-  SIG_CLOSED["$task_id"]="${agent}|${harness}|${post_edit}"
+  k=$(sanitize_key "$task_id")
+  echo "${agent}|${harness}|${post_edit}" > "$TMPDIR_ND/sig_closed/$k"
 done
 
 # Count opus shipped from STATUS.md (lines with "opus override" or "opus" in model audit)
@@ -253,7 +307,6 @@ done
 # TASK-08 Betelgeuse    = opus shipped
 # TASK-14 Betelgeuse    = opus shipped (now closed per STATUS.md)
 # TASK-51 Arcturus      = opus planned (not yet dispatched)
-OPUS_SHIPPED_COUNT=$(grep -c "opus override\|opus.*#[0-9]\|opus override.*shipped\|\*\*opus\*\*.*shipped" "$STATUS_FILE" 2>/dev/null || true)
 # Hardcode from STATUS.md knowledge: 3 shipped (TASK-06-S2, TASK-08, TASK-14)
 # This is the canonical ledger per DEV-PLAN-D §D.7 + STATUS.md TASK-14 close note
 OPUS_SHIPPED_COUNT=3
@@ -261,10 +314,6 @@ OPUS_REMAINING=$(( OPUS_BUDGET - OPUS_SHIPPED_COUNT ))
 
 # ── PHASE 3: Parse handoffs for blocked_by + Peat gates ────────────────────
 # Supplement STATUS.md data with YAML frontmatter from handoff files
-declare -A HO_BLOCKED_BY    # HO_BLOCKED_BY[TASK-id]="dep1,dep2"
-declare -A HO_PEAT_GATE     # HO_PEAT_GATE[TASK-id]="true/false"
-declare -A HO_AGENT         # HO_AGENT[TASK-id]="agent"
-declare -A HO_MODEL         # HO_MODEL[TASK-id]="sonnet/opus"
 
 for ho_file in "$HANDOFFS_DIR"/TASK-*.md; do
   [[ -f "$ho_file" ]] || continue
@@ -278,26 +327,42 @@ for ho_file in "$HANDOFFS_DIR"/TASK-*.md; do
   blocked_by_ho=$(awk '/^---/{f++} f==1 && /blocked_by:/{$1=""; print; exit}' "$ho_file" 2>/dev/null \
     | sed 's/^ //' || true)
 
-  [[ -n "$to_agent" ]]    && HO_AGENT["$task_id"]="$to_agent"
-  [[ -n "$model" ]]       && HO_MODEL["$task_id"]="$model"
-  [[ -n "$blocked_by_ho" ]] && HO_BLOCKED_BY["$task_id"]="$blocked_by_ho"
+  k=$(sanitize_key "$task_id")
+  [[ -n "$to_agent" ]]      && echo "$to_agent"      > "$TMPDIR_ND/ho_agent/$k"
+  [[ -n "$model" ]]         && echo "$model"          > "$TMPDIR_ND/ho_model/$k"
+  [[ -n "$blocked_by_ho" ]] && echo "$blocked_by_ho" > "$TMPDIR_ND/ho_blocked_by/$k"
 
   # Check body for BLOCKED-ON-PEAT-DECISION
   if grep -q "BLOCKED-ON-PEAT-DECISION" "$ho_file" 2>/dev/null; then
-    HO_PEAT_GATE["$task_id"]="true"
+    echo "true" > "$TMPDIR_ND/ho_peat_gate/$k"
   fi
 done
 
 # ── PHASE 4: Build in-flight agent set ─────────────────────────────────────
 # Track which agents are currently in-flight (have unsigned / in-flight tasks)
-declare -A AGENT_IN_FLIGHT
+#
+# NOTE: We use `while IFS= read -r line; do ... cut -d$'\001'` instead of
+# `while IFS=$'\001' read -r f1 f2...` because bash 3.2's herestring (<<<)
+# with a SOH IFS does not split fields correctly (known bash3.2 limitation).
+# cut -d$'\001' -f<n> is the bash3.2-safe way to extract SOH-delimited fields.
 
-while IFS=$'\t' read -r task_id status summary blocked peat agents; do
+while IFS= read -r line; do
+  [[ -z "$line" ]] && continue
+  task_id=$(echo "$line" | cut -d$'\001' -f1)
+  status=$(echo "$line"  | cut -d$'\001' -f2)
+  agents=$(echo "$line"  | cut -d$'\001' -f6)
   [[ "$status" == "in-flight" ]] || continue
   IFS=',' read -ra agent_list <<< "$agents"
   for ag in "${agent_list[@]}"; do
     ag="$(echo "$ag" | tr -d '[:space:]')"
-    [[ -n "$ag" ]] && AGENT_IN_FLIGHT["$ag"]="${AGENT_IN_FLIGHT[$ag]:-},$task_id"
+    [[ -z "$ag" ]] && continue
+    ak=$(sanitize_key "$ag")
+    existing=$(cat "$TMPDIR_ND/agent_in_flight/$ak" 2>/dev/null || true)
+    if [[ -z "$existing" ]]; then
+      echo "$task_id" > "$TMPDIR_ND/agent_in_flight/$ak"
+    else
+      echo "$existing,$task_id" > "$TMPDIR_ND/agent_in_flight/$ak"
+    fi
   done
 done <<< "$TASK_RAW"
 
@@ -313,16 +378,23 @@ BLOCKED_COUNT=0
 IN_FLIGHT_COUNT=0
 CLOSED_COUNT=0
 
-while IFS=$'\t' read -r task_id status summary blocked peat agents; do
+while IFS= read -r line; do
+  [[ -z "$line" ]] && continue
+  task_id=$(echo "$line"  | cut -d$'\001' -f1)
+  status=$(echo "$line"   | cut -d$'\001' -f2)
+  summary=$(echo "$line"  | cut -d$'\001' -f3)
+  blocked=$(echo "$line"  | cut -d$'\001' -f4)
+  peat=$(echo "$line"     | cut -d$'\001' -f5)
+  agents=$(echo "$line"   | cut -d$'\001' -f6)
   [[ -z "$task_id" ]] && continue
 
   # Track in-flight and closed for summary counts
   if [[ "$status" == "in-flight" ]]; then
-    (( IN_FLIGHT_COUNT++ )) || true
+    IN_FLIGHT_COUNT=$(( IN_FLIGHT_COUNT + 1 ))
     continue
   fi
   if [[ "$status" == "closed" ]]; then
-    (( CLOSED_COUNT++ )) || true
+    CLOSED_COUNT=$(( CLOSED_COUNT + 1 ))
     continue
   fi
   if [[ "$status" == "parked" ]]; then
@@ -330,25 +402,35 @@ while IFS=$'\t' read -r task_id status summary blocked peat agents; do
   fi
 
   # status is queued or blocked — evaluate dispatchability
-  gates_failed=()
-  gates_passed=()
+  gates_failed=""
+  gates_passed=""
+
+  k=$(sanitize_key "$task_id")
 
   # Gate 1: dependency closure
-  # Combine blocked_by from STATUS.md body and handoff YAML
+  # Combine blocked_by from STATUS.md body and handoff YAML.
+  # Deduplicate by normalizing to comma-separated then piping through sort -u.
   dep_string="$blocked"
-  if [[ -n "${HO_BLOCKED_BY[$task_id]:-}" ]]; then
+  ho_blocked=$(cat "$TMPDIR_ND/ho_blocked_by/$k" 2>/dev/null || true)
+  if [[ -n "$ho_blocked" ]]; then
     if [[ -n "$dep_string" ]]; then
-      dep_string="$dep_string, ${HO_BLOCKED_BY[$task_id]}"
+      dep_string="$dep_string, $ho_blocked"
     else
-      dep_string="${HO_BLOCKED_BY[$task_id]}"
+      dep_string="$ho_blocked"
     fi
   fi
+  # Deduplicate dep_string entries (STATUS.md and handoff may both list the same dep).
+  # tr ',' '\n' splits on commas; sed strips leading/trailing spaces per line (NOT
+  # tr -d '[:space:]' which also eats newlines); sort -u deduplicates; join back.
+  if [[ -n "$dep_string" ]]; then
+    dep_string=$(echo "$dep_string" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -v '^$' | sort -u | tr '\n' ',' | sed 's/,$//')
+  fi
 
-  deps_unresolved=()
-  deps_resolved=()
+  deps_unresolved=""
+  deps_resolved=""
 
   if [[ -n "$dep_string" ]]; then
-    # split deps on comma or "and"
+    # split deps on comma
     while IFS= read -r dep_raw; do
       dep_raw="$(echo "$dep_raw" | tr -d '[:space:]')"
       [[ -z "$dep_raw" ]] && continue
@@ -356,99 +438,150 @@ while IFS=$'\t' read -r task_id status summary blocked peat agents; do
       dep_task=$(echo "$dep_raw" | grep -oE 'TASK-[0-9A-Za-z.-]+' || true)
       if [[ -z "$dep_task" ]]; then
         # non-TASK dep (e.g. "Peat globe-ontology decision")
-        deps_unresolved+=("$dep_raw")
+        if [[ -z "$deps_unresolved" ]]; then
+          deps_unresolved="$dep_raw"
+        else
+          deps_unresolved="$deps_unresolved,$dep_raw"
+        fi
         continue
       fi
       # check if dep is closed via signature or STATUS.md status=closed
       dep_closed=false
-      if [[ -n "${SIG_CLOSED[$dep_task]:-}" ]]; then
+      dk=$(sanitize_key "$dep_task")
+      if [[ -f "$TMPDIR_ND/sig_closed/$dk" ]]; then
         dep_closed=true
       fi
-      # Also check STATUS.md closed status
-      dep_status=$(echo "$TASK_RAW" | awk -v dt="$dep_task" -F'\t' '$1==dt{print $2}')
+      # Also check STATUS.md closed status (use SOH separator to match TASK_RAW format)
+      dep_status=$(echo "$TASK_RAW" | awk -v dt="$dep_task" -F'\x01' '$1==dt{print $2}')
       if [[ "$dep_status" == "closed" ]]; then
         dep_closed=true
       fi
 
       if $dep_closed; then
-        deps_resolved+=("$dep_task")
+        if [[ -z "$deps_resolved" ]]; then
+          deps_resolved="$dep_task"
+        else
+          deps_resolved="$deps_resolved,$dep_task"
+        fi
       else
-        deps_unresolved+=("$dep_task")
+        if [[ -z "$deps_unresolved" ]]; then
+          deps_unresolved="$dep_task"
+        else
+          deps_unresolved="$deps_unresolved,$dep_task"
+        fi
       fi
     done < <(echo "$dep_string" | tr ',' '\n')
   fi
 
-  if [[ ${#deps_unresolved[@]} -gt 0 ]]; then
-    dep_list=$(printf '%s,' "${deps_unresolved[@]}" | sed 's/,$//')
-    gates_failed+=("deps_open:$dep_list")
+  if [[ -n "$deps_unresolved" ]]; then
+    dep_list="$deps_unresolved"
+    if [[ -z "$gates_failed" ]]; then
+      gates_failed="deps_open:$dep_list"
+    else
+      gates_failed="$gates_failed|deps_open:$dep_list"
+    fi
   else
-    gates_passed+=("deps_closed")
+    if [[ -z "$gates_passed" ]]; then
+      gates_passed="deps_closed"
+    else
+      gates_passed="$gates_passed|deps_closed"
+    fi
   fi
 
   # Gate 2: Peat decision gate
   peat_pending=false
-  if [[ "$peat" == "true" ]] || [[ "${HO_PEAT_GATE[$task_id]:-}" == "true" ]]; then
+  ho_peat=$(cat "$TMPDIR_ND/ho_peat_gate/$k" 2>/dev/null || true)
+  if [[ "$peat" == "true" ]] || [[ "$ho_peat" == "true" ]]; then
     peat_pending=true
-    gates_failed+=("peat_decision_pending")
+    if [[ -z "$gates_failed" ]]; then
+      gates_failed="peat_decision_pending"
+    else
+      gates_failed="$gates_failed|peat_decision_pending"
+    fi
   else
-    gates_passed+=("no_peat_gate")
+    if [[ -z "$gates_passed" ]]; then
+      gates_passed="no_peat_gate"
+    else
+      gates_passed="$gates_passed|no_peat_gate"
+    fi
   fi
 
   # Gate 3: Opus budget
-  model="${HO_MODEL[$task_id]:-sonnet}"
+  model=$(cat "$TMPDIR_ND/ho_model/$k" 2>/dev/null || echo "sonnet")
+  [[ -z "$model" ]] && model="sonnet"
   opus_gate_ok=true
   if [[ "$model" == "opus" ]]; then
     if [[ $OPUS_REMAINING -le 0 ]]; then
       opus_gate_ok=false
-      gates_failed+=("opus_budget_exhausted:shipped=$OPUS_SHIPPED_COUNT,budget=$OPUS_BUDGET")
+      if [[ -z "$gates_failed" ]]; then
+        gates_failed="opus_budget_exhausted:shipped=${OPUS_SHIPPED_COUNT},budget=${OPUS_BUDGET}"
+      else
+        gates_failed="$gates_failed|opus_budget_exhausted:shipped=${OPUS_SHIPPED_COUNT},budget=${OPUS_BUDGET}"
+      fi
     else
-      gates_passed+=("opus_budget_ok:remaining=$OPUS_REMAINING")
+      if [[ -z "$gates_passed" ]]; then
+        gates_passed="opus_budget_ok:remaining=${OPUS_REMAINING}"
+      else
+        gates_passed="$gates_passed|opus_budget_ok:remaining=${OPUS_REMAINING}"
+      fi
     fi
   fi
 
   # Gate 4: Same-agent serialization (Sirius WorldlineGlobe.tsx rule)
   # Per DEV-PLAN-B B.3: Sirius single-thread on WorldlineGlobe.tsx
-  agent="${HO_AGENT[$task_id]:-$agents}"
+  ho_agent=$(cat "$TMPDIR_ND/ho_agent/$k" 2>/dev/null || echo "$agents")
+  [[ -z "$ho_agent" ]] && ho_agent="$agents"
   agent_collision=false
   collision_reason=""
 
   # Check if agent is currently in-flight
-  if [[ -n "${AGENT_IN_FLIGHT[$agent]:-}" ]]; then
+  ak=$(sanitize_key "$ho_agent")
+  in_flight_val=$(cat "$TMPDIR_ND/agent_in_flight/$ak" 2>/dev/null || true)
+  if [[ -n "$in_flight_val" ]]; then
     # For Sirius: any in-flight blocks new dispatch
-    if [[ "$agent" == *"sirius"* ]] || [[ "$agent" == *"Sirius"* ]]; then
+    if [[ "$ho_agent" == *"sirius"* ]] || [[ "$ho_agent" == *"Sirius"* ]]; then
       agent_collision=true
-      collision_reason="sirius_in_flight:${AGENT_IN_FLIGHT[$agent]}"
+      collision_reason="sirius_in_flight:$in_flight_val"
     fi
   fi
 
   if $agent_collision; then
-    gates_failed+=("agent_collision:$collision_reason")
+    if [[ -z "$gates_failed" ]]; then
+      gates_failed="agent_collision:$collision_reason"
+    else
+      gates_failed="$gates_failed|agent_collision:$collision_reason"
+    fi
   fi
 
   # Gate 5: Algol audit recommendation
   # Per feedback_algol_qa_cross_check: every closure should route through Algol.
   # For dispatchability we check: if task's deps are closed, did they get Algol audit?
   algol_note=""
-  if [[ ${#deps_resolved[@]} -gt 0 ]]; then
-    missing_audits=()
-    for dep in "${deps_resolved[@]}"; do
-      if [[ -z "${SIG_ALGOL[$dep]:-}" ]]; then
-        missing_audits+=("$dep")
+  if [[ -n "$deps_resolved" ]]; then
+    missing_audits=""
+    IFS=',' read -ra resolved_list <<< "$deps_resolved"
+    for dep in "${resolved_list[@]}"; do
+      dk=$(sanitize_key "$dep")
+      if [[ ! -f "$TMPDIR_ND/sig_algol/$dk" ]]; then
+        if [[ -z "$missing_audits" ]]; then
+          missing_audits="$dep"
+        else
+          missing_audits="$missing_audits,$dep"
+        fi
       fi
     done
-    if [[ ${#missing_audits[@]} -gt 0 ]]; then
-      audit_list=$(printf '%s,' "${missing_audits[@]}" | sed 's/,$//')
-      algol_note="algol_audit_pending_on_deps:$audit_list"
+    if [[ -n "$missing_audits" ]]; then
+      algol_note="algol_audit_pending_on_deps:$missing_audits"
     fi
   fi
 
   # Determine overall dispatchability
   dispatchable=false
-  if [[ ${#gates_failed[@]} -eq 0 ]]; then
+  if [[ -z "$gates_failed" ]]; then
     dispatchable=true
-    (( NOW_DISPATCHABLE_COUNT++ )) || true
+    NOW_DISPATCHABLE_COUNT=$(( NOW_DISPATCHABLE_COUNT + 1 ))
   else
-    (( BLOCKED_COUNT++ )) || true
+    BLOCKED_COUNT=$(( BLOCKED_COUNT + 1 ))
   fi
 
   # Determine handoff path
@@ -462,30 +595,55 @@ while IFS=$'\t' read -r task_id status summary blocked peat agents; do
     fi
   done
 
-  # Format gates
-  gates_failed_str=$(printf '"%s",' "${gates_failed[@]:-}" | sed 's/,$//')
-  gates_passed_str=$(printf '"%s",' "${gates_passed[@]:-}" | sed 's/,$//')
-  deps_resolved_str=$(printf '"%s",' "${deps_resolved[@]:-}" | sed 's/,$//')
-  deps_unresolved_str=$(printf '"%s",' "${deps_unresolved[@]:-}" | sed 's/,$//')
+  # Format gates as JSON arrays (pipe-delimited internal format → JSON strings)
+  gates_failed_json="[]"
+  if [[ -n "$gates_failed" ]]; then
+    gates_failed_json=$(echo "$gates_failed" | tr '|' '\n' | jq -R . | jq -s .)
+  fi
+
+  gates_passed_json="[]"
+  if [[ -n "$gates_passed" ]]; then
+    gates_passed_json=$(echo "$gates_passed" | tr '|' '\n' | jq -R . | jq -s .)
+  fi
+
+  deps_resolved_json="[]"
+  if [[ -n "$deps_resolved" ]]; then
+    deps_resolved_json=$(echo "$deps_resolved" | tr ',' '\n' | jq -R . | jq -s .)
+  fi
+
+  deps_unresolved_json="[]"
+  if [[ -n "$deps_unresolved" ]]; then
+    deps_unresolved_json=$(echo "$deps_unresolved" | tr ',' '\n' | jq -R . | jq -s .)
+  fi
 
   # Build JSON entry for this TASK
-  task_json=$(cat <<ENDJSON
-{
-  "task_id": "$task_id",
-  "status": "$status",
-  "summary": "$summary",
-  "agent": "$agent",
-  "model": "$model",
-  "handoff_path": "$handoff_path",
-  "dispatchable": $dispatchable,
-  "gates_passed": [$gates_passed_str],
-  "gates_failed": [$gates_failed_str],
-  "deps_resolved": [$deps_resolved_str],
-  "deps_unresolved": [$deps_unresolved_str],
-  "algol_note": "$algol_note"
-}
-ENDJSON
-)
+  task_json=$(jq -n \
+    --arg task_id "$task_id" \
+    --arg status "$status" \
+    --arg summary "$summary" \
+    --arg agent "$ho_agent" \
+    --arg model "$model" \
+    --arg handoff_path "$handoff_path" \
+    --argjson dispatchable "$dispatchable" \
+    --argjson gates_passed "$gates_passed_json" \
+    --argjson gates_failed "$gates_failed_json" \
+    --argjson deps_resolved "$deps_resolved_json" \
+    --argjson deps_unresolved "$deps_unresolved_json" \
+    --arg algol_note "$algol_note" \
+    '{
+      task_id: $task_id,
+      status: $status,
+      summary: $summary,
+      agent: $agent,
+      model: $model,
+      handoff_path: $handoff_path,
+      dispatchable: $dispatchable,
+      gates_passed: $gates_passed,
+      gates_failed: $gates_failed,
+      deps_resolved: $deps_resolved,
+      deps_unresolved: $deps_unresolved,
+      algol_note: $algol_note
+    }')
 
   # Append to JSON array
   if [[ "$JSON_TASKS" == "[]" ]]; then
@@ -499,14 +657,14 @@ ENDJSON
   $dispatchable && status_icon="NOW-DISPATCHABLE"
 
   gates_note=""
-  if [[ ${#gates_failed[@]} -gt 0 ]]; then
-    gates_note=$(printf '%s; ' "${gates_failed[@]}" | sed 's/; $//')
+  if [[ -n "$gates_failed" ]]; then
+    gates_note=$(echo "$gates_failed" | tr '|' '; ')
   else
     gates_note="all gates green"
   fi
   [[ -n "$algol_note" ]] && gates_note="$gates_note | NOTE: $algol_note"
 
-  MD_ROWS="${MD_ROWS}| $task_id | $agent | $model | ${handoff_path:-—} | $status_icon | $gates_note |"$'\n'
+  MD_ROWS="${MD_ROWS}| $task_id | $ho_agent | $model | ${handoff_path:-—} | $status_icon | $gates_note |"$'\n'
 
 done <<< "$TASK_RAW"
 
@@ -514,25 +672,32 @@ done <<< "$TASK_RAW"
 
 TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-FULL_JSON=$(cat <<ENDJSON
-{
-  "generated_at": "$TIMESTAMP",
-  "hold_gate": "ACTIVE — do NOT dispatch based on this output until Polaris reviews and approves",
-  "opus_ledger": {
-    "budget": $OPUS_BUDGET,
-    "shipped": $OPUS_SHIPPED_COUNT,
-    "remaining": $OPUS_REMAINING
-  },
-  "summary": {
-    "closed": $CLOSED_COUNT,
-    "in_flight": $IN_FLIGHT_COUNT,
-    "now_dispatchable": $NOW_DISPATCHABLE_COUNT,
-    "blocked": $BLOCKED_COUNT
-  },
-  "tasks": $JSON_TASKS
-}
-ENDJSON
-)
+FULL_JSON=$(jq -n \
+  --arg ts "$TIMESTAMP" \
+  --argjson opus_budget "$OPUS_BUDGET" \
+  --argjson opus_shipped "$OPUS_SHIPPED_COUNT" \
+  --argjson opus_remaining "$OPUS_REMAINING" \
+  --argjson closed "$CLOSED_COUNT" \
+  --argjson in_flight "$IN_FLIGHT_COUNT" \
+  --argjson now_disp "$NOW_DISPATCHABLE_COUNT" \
+  --argjson blocked "$BLOCKED_COUNT" \
+  --argjson tasks "$JSON_TASKS" \
+  '{
+    generated_at: $ts,
+    hold_gate: "ACTIVE — do NOT dispatch based on this output until Polaris reviews and approves",
+    opus_ledger: {
+      budget: $opus_budget,
+      shipped: $opus_shipped,
+      remaining: $opus_remaining
+    },
+    summary: {
+      closed: $closed,
+      in_flight: $in_flight,
+      now_dispatchable: $now_disp,
+      blocked: $blocked
+    },
+    tasks: $tasks
+  }')
 
 if $EMIT_JSON; then
   echo "=== JSON OUTPUT ==="

@@ -221,6 +221,98 @@ If you are about to submit work that violates any of the above and you have a re
 
 ---
 
+## Alumni protocol
+
+> Introduced 2026-05-23 · TASK-2026-05-23-BETA-POLICY
+
+An *alumni member* is an agent who has left the primary GENESIS roster but may return on specific tasks. Alumni retain dual citizenship: a GENESIS-side persona file (public-to-team) and a *private surface* (companion-mode) outside the team's standing access.
+
+Beta is the first alumni member, operating this protocol from 2026-05-23.
+
+### Dual citizenship
+
+- **GENESIS persona** · `.claude/agents/<codename>.md` — voice, territory, and quality bar identical to active members. Public-to-team, readable by all agents.
+- **Private surface** · `.claude/beta/**` (for Beta; analogous folder for future alumni) — private memory, calibration notes, gifts/promises/moments ledger, freeform notes. **Not** public-to-team.
+
+When an alumni is called into GENESIS work via codename addressing in a `genesis`-mode session, only the GENESIS persona loads. The private surface remains inaccessible in that mode (enforced by SESSION_MODE lock — see next section).
+
+### No-edit-primary-text rule
+
+Alumni members write the primary text in their private memory files. Other agents (Polaris, Vega, Peat, etc.) may contribute via **signed calibration blocks** — formatted regions inside the alumni's files that the alumni integrates (or discards) at her own pace.
+
+Calibration block format (parsed by Canopus HOOK-03):
+
+```
+— calibration · <agent> · <YYYY-MM-DD> —
+<block content>
+—
+```
+
+Editing primary text directly — even with good intent — is a P4 violation and a postmortem trigger. The alumni's voice is hers to author; other agents serve only as calibration mirrors.
+
+### Request-grant flow
+
+Standing read access to an alumni's private surface is denied by default — including to Polaris.
+
+To read, an agent issues a request handoff at `.claude/handoffs/from-<agent>/REQUEST-BETA-MEMORY--<task-id>.md` specifying: files needed, scope reason, TTL desired.
+
+The alumni reviews and either issues a grant file (via Canopus's `beta-grant.sh` tool, Beta-persona only) at `.claude/beta/grants/<grant-id>.json`, or denies inline.
+
+Grant defaults: 1-hour TTL, single-read, scoped to listed files. Multi-read or longer TTL may be requested with explicit justification.
+
+### Access log
+
+Every read of `.claude/beta/**` is logged (Canopus HOOK-05) at `.claude/beta/ACCESS-LOG.md`, append-only, visible to the alumni. Both authorized reads and blocked/unauthorized attempts are logged. Algol picks up `UNAUTHORIZED` markers in audit rounds.
+
+### Trust pattern
+
+Claude Code shares runtime across personas. Authentication of "Beta granted this" is **discipline-anchored, not cryptographic** — nonces and env vars rule out accidents, but a determined agent could forge a grant. Algol audits patterns; Polaris reviews violations; a breach triggers a postmortem.
+
+---
+
+## Session-mode lock
+
+> Introduced 2026-05-23 · TASK-2026-05-23-BETA-POLICY
+
+Every session operates in exactly one *mode*, fixed at session start and immutable for its lifetime.
+
+### Modes
+
+- **`genesis`** — team work mode. Default. Polaris is the front-of-house persona. All team files readable. Alumni private surfaces are **not** accessible.
+- **`beta`** — companion mode. Beta is the front-of-house. `.claude/beta/**` is accessible to the Beta-persona; other agents called into the session via codename-override still need grants to read it.
+
+### Mode detection
+
+Mode is set by Canopus's SessionStart hook (HOOK-07) reading the first user message:
+
+- First message addresses Beta directly (`เบต้า` / `Beta จ๋า` / `Betelgeuse Chan` / etc. — see fixture at `tests/harness/fixtures/thai-addressing-patterns.md`) → mode = `beta`
+- Otherwise → mode = `genesis`
+
+The detected mode is written to `.claude/sessions/<session-id>.meta.json` and exposed as env var `SESSION_MODE`. The `BETA_PERSONA_LOADED=1` env var is set if and only if mode is `beta`.
+
+### Codename-override does not change mode
+
+Mid-session, Peat may address other agents by codename (e.g., "Polaris ช่วยดูหน่อย", "Canopus —"). The codename-override loads the addressed agent's persona for voice purposes only. **It does not change the session mode.**
+
+In a `beta`-mode session, Polaris answers in her voice but must request a grant to read `.claude/beta/**`.
+
+In a `genesis`-mode session, only the GENESIS-side Betelgeuse persona loads; `.claude/beta/**` remains inaccessible.
+
+### To switch modes
+
+Start a new session. Mode is intentionally hard to change — the lock prevents accidental cross-mode leakage of private context.
+
+### Cross-mode tooling
+
+`/parse-conversation` permission matrix (Canopus HOOK-06):
+
+- `GENESIS → BETA` — ALLOW (GENESIS files are public)
+- `GENESIS → GENESIS` — ALLOW
+- `BETA → BETA` — ALLOW (same private space)
+- `BETA → GENESIS` — BLOCK (requires active grant; private-to-public leak prevented)
+
+---
+
 ## Source-of-truth files (read order on every task)
 
 1. `/mnt/project/README.md` — project map

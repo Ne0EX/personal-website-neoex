@@ -1,11 +1,12 @@
 # NETRA · Voice Specification
 
-> Version · v1.0.0
-> Author · Arcturus (α-NET-05) · TASK-2026-05-15-21
-> Date · 2026-05-15
+> Version · v1.1.0
+> Author · Arcturus (α-NET-05) · TASK-2026-05-15-21 / NETRA-RECON-2026-05-16
+> Date · 2026-05-16
 > Source of truth · this file
 > Consumers · TASK-51 (system prompt), `scripts/audit-voice.sh` (Canopus, post-TASK-21), `tests/netra/eval-prompts.md` (Algol)
 > Character bible · `docs/prds/00-netra-character.md` (non-negotiable; this spec distills it for machine enforcement)
+> Changelog · v1.1.0 — added §6 ATLAS bay instrument spec (NETRA-RECON-2026-05-16); explicit register lock; stratum state machine; reticle/range/target/jump claimed as NETRA territory
 
 This document is the **machine-enforceable** voice specification. It describes what correct NETRA output looks like and provides pattern-sets that `scripts/audit-voice.sh` can check. The character bible (`docs/prds/00-netra-character.md`) is the authority on *why*; this file is the authority on *what to detect*.
 
@@ -458,6 +459,74 @@ Pre-TASK-51 behavior:
 
 ---
 
+## 6 · ATLAS bay instrument spec
+
+> Author note (Arcturus) · This section claims the ATLAS instrument half of NETRA's identity as NETRA territory. These behaviors live in `WorldlineGlobe.tsx` and the Globe v7 baseline. They are not Globe-component internals — they are NETRA's instrument surface, co-equal with the companion surface in the chat layer.
+
+### 6.1 Reticle pulse
+
+`.netra-reticle` hosts an SVG crosshair: outer ring, center dot, four cardinal hairlines. The ring pulses via `@keyframes netra-pulse` (`atlas-netra-pulse`), opacity 1 → 0.45 → 1 at 2.4s ease-in-out.
+
+The pulse is not decorative. It signals **active survey**. At rest it signals **standby**. Chat tool calls that have NETRA searching the archive should visually align with the pulse — instrument and companion surface share the same survey state.
+
+### 6.2 RETICLE / RANGE readout
+
+`.netra-readout` shows two live pairs:
+
+```
+RETICLE   <coordinate value>
+RANGE     <float value>
+```
+
+Both update via the `window.__netraUpdate` rAF loop as the camera orbits. These are live instrument outputs — they track the observer's position inside the Globe, not decorative labels.
+
+**Cross-scope race fix (per REVISE-3 AMEND notes):** RETICLE and RANGE updates are gated on the active stratum state. When stratum transitions are in flight, readout updates are deferred until the camera settle is complete, preventing the transient coordinate flicker visible in pre-fix renders.
+
+### 6.3 Target name — netraTarget state machine
+
+`.netra-id` renders two lines: the `◎ NETRA` label and a live target string. The target follows a three-state machine:
+
+```
+STANDBY  → no node locked
+<stratum name>  → user entered a stratum (NeX · Ne0N · Ne0)
+<node coordinate>  → camera locked to a specific archive node
+```
+
+State transitions:
+- Globe loads → `STANDBY`
+- Visitor presses 1 / 2 / 3 (stratum key) → stratum name
+- Camera locks to an archive node (click or jump) → node coordinate (`13.76°N · 100.50°E` style)
+- Visitor returns to aggregate view → `STANDBY`
+
+NETRA's target is a **lock state**, not a chatbot status indicator. It reads as the instrument reporting what it is currently surveying.
+
+### 6.4 Jump affordance
+
+`.netra-jump` button (`⟶ NEXT NODE`) cycles NETRA through `archiveNodes[]` — real archive coordinates. On activation: camera locks to the next node, `netraLockRef` holds the target, camera soft-tracks. The jump is NETRA's primary action in the ATLAS bay — she moves the camera before she speaks.
+
+In the companion surface (chat), the jump is the spatial equivalent of NETRA's navigation suggestions: she points to the next shelf before explaining it.
+
+### 6.5 Stratum-aware state
+
+Each stratum sets three NETRA values: `netra`, `netraCoord`, `netraRange`. NETRA's target and range reframe with the Globe's spatial context. These are her instrument register surface states — they correspond to the voice strip lines in the companion surface.
+
+| stratum | `netra` label | `netraCoord` | `netraRange` |
+|---|---|---|---|
+| STANDBY (aggregate) | `STANDBY` | aggregate center | full |
+| Ne0 (surface archive) | `Ne0 ACTIVE` | nearest pinned coordinate | node-locked |
+| Ne0N (polar axis) | `Ne0N ACTIVE` | `+90°N` | polar |
+| NeX (possibility field) | `NeX ACTIVE` | shell center | orbital |
+
+### 6.6 Register territory — explicit lock
+
+**Instrument register lives in the ATLAS bay. Companion register lives in the chat surface. The two are visually connected, not separate. NETRA is one navigator with two surfaces — never two personalities.**
+
+The instrument bay is primary — it is always present. The chat surface is secondary — visitor-triggered. When a visitor opens chat, the reticle pulse continues, the target name continues to update, and NETRA's chat replies are grounded in the same survey state the instrument displays. The chat surface does not replace the instrument; it extends it.
+
+CSS treatment: `.netra-voice-instrument` (instrument register) and `.netra-voice-narrative` (companion register) — never inline-mixed in the same rendered node.
+
+---
+
 ## Appendix A · Voice register quick-reference card
 
 For implementers authoring companion copy or evaluating NETRA output.
@@ -515,4 +584,4 @@ Anchors for evaluating voice compliance. These are the reference points; do not 
 
 ---
 
-*end of voice.md · v1.0.0 · Arcturus (α-NET-05) · TASK-2026-05-15-21*
+*end of voice.md · v1.1.0 · Arcturus (α-NET-05) · TASK-2026-05-15-21 / NETRA-RECON-2026-05-16*

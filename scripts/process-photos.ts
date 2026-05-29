@@ -125,9 +125,29 @@ const FUJI_SIM_MAP: Record<string, string> = {
 }
 
 function normalizeFujiSim(raw: string): string {
+  // Fuji firmware may write filter variants with a plus-sign instead of a space:
+  //   "ACROS+R" → should normalize to ACROS_R → "Acros R"
+  //   "ACROS+G" → should normalize to ACROS_G → "Acros G"
+  //   "ACROS+Ye" (or "ACROS+YE") → should normalize to ACROS_YE → "Acros Ye"
+  // The original replacer only stripped [\s\-]+; + was silently dropped by the
+  // [^A-Z0-9_] strip, leaving "ACROSR" which has no map entry.
+  // Fix: replace + with _ before the A-Z filter so it becomes a valid separator.
+  //
+  // Canonical normalization examples (regression reference):
+  //   "ACROS"         → ACROS       → "Acros"
+  //   "Acros R"       → ACROS_R     → "Acros R"
+  //   "ACROS+R"       → ACROS_R     → "Acros R"
+  //   "Acros G"       → ACROS_G     → "Acros G"
+  //   "ACROS+G"       → ACROS_G     → "Acros G"
+  //   "Acros Ye"      → ACROS_YE    → "Acros Ye"
+  //   "ACROS+Ye"      → ACROS_YE    → "Acros Ye"
+  //   "ACROS+YE"      → ACROS_YE    → "Acros Ye"
+  //   "Classic Chrome"  → CLASSIC_CHROME  → "Classic Chrome"
+  //   "CLASSIC-CHROME"  → CLASSIC_CHROME  → "Classic Chrome"
+  //   "Eterna Bleach Bypass" → ETERNA_BLEACH_BYPASS → "Eterna Bleach Bypass"
   const key = raw
     .toUpperCase()
-    .replace(/[\s\-]+/g, '_')
+    .replace(/[\s\-\+]+/g, '_')   // space, hyphen, OR plus → underscore
     .replace(/[^A-Z0-9_]/g, '')
   return FUJI_SIM_MAP[key] ?? raw
 }
