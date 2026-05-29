@@ -6,6 +6,335 @@
 
 ---
 
+## TASK-2026-05-29-SOUL-FACTORY · **in-flight** · 2026-05-29
+
+scope · Build the "soul factory" — a canonical **soul-atom gallery** (rendered catalog of the recurring soul-grammar atoms: corner reticles, dashed hairlines, α node, divergence card, NETRA console, three type roles, globe full/standby, attractor pills, etc.), each atom carrying state/fidelity variants (NOT competing aesthetic concepts), token bindings, real code, and rationale — so every new surface is *composed from atoms* instead of *re-derived from prose*. Closes the failure Peat surfaced: hero needed 3 REVISE rounds (TASK-2026-05-15-UI-1 §10.5) + mini-globe (STANDBY ≤600px) never reproduced cleanly, because soul-craft atoms are rebuilt from description every time. Extends (does NOT replace) the soul-baseline, Rule 4 unity gate, visual-diffs harness, and HTML-first workflow.
+program · SOUL FACTORY (cross-team · design-system materialization)
+origin · Peat 2026-05-29 /advisor brainstorm — extracted the one real principle from the Moonchild+Codex article ("close the interpretation gap with structured design data, validated before human review") and translated it to our harness. Peat verdict: "ลงเต็ม … soul factory ของผมที่ยังเติบโตได้โดยไม่เสียตัวตน"
+guardrail · single source of truth — gallery MUST be pinned to tokens + main-branch literals via a drift gate, or it becomes baseline #4 and makes drift worse. This is the load-bearing constraint.
+model-tier overrides (logged per dispatch authority) · Betelgeuse P1 = **opus** (defining a visual-language artifact from scratch) · Sirius P3 = **opus** (soul-critical previously-failed WebGL mini-globe reproduction) · Canopus + Algol stay sonnet (infra extending existing harness)
+
+status · **DELIVERED ✓ 2026-05-29 · gate green end-to-end (12 atoms, 0 uncited literals) · pending Peat review + commit** (working tree uncommitted per standing pattern)
+
+slices
+  Canopus (P0) · manifest schema (gate-checkable) + gallery location (`.claude/visual-diffs/soul-atlas/`, HTML-first) + drift-gate wrapper + rail registration · **done ✓** · sig `TASK-2026-05-29-SOUL-FACTORY-P0--canopus.json`
+  Betelgeuse (P1, opus) · 12 atoms · 22 variants · 19 token_refs (all resolve, zero new) · 20 main_branch_refs (line-verified, corrected P0's approximate cites) · gallery.html + README · **done ✓** · sig `...--betelgeuse.json`
+  Sirius (P2a) · impl_ref filled for all 12 atoms; no impl gaps surfaced (9 of 12 live in WorldlineGlobe.tsx) · **done ✓** · sig `...-P2A--sirius.json`
+  Algol (P2b) · `scripts/audit-soul-atom-drift.ts` + `tests/soul-atom-drift-audit.test.mjs` (10 tests) · **done ✓** · sig `...-P2B--algol.json`
+  Canopus (P2) · fixed P0 grep bug (`grep -q --`, tokens are `--`-prefixed) + flipped exit-3 to blocking + wired visual-diff.sh + implemented Rule-5 atom-reuse pre-handoff check (3 fail codes + re-derive warning) · rail stub→enforcing · **done ✓** · sig `...-P2--canopus.json`
+  Betelgeuse + Vega (P2c) · Rule 5 protocol drafted (Betelgeuse) → integrated into `WORKFLOW-HTML-FIRST-SPEC.md` §1 (Polaris) + anti-Codex checklist item 7 merged into `betelgeuse.md` (Vega sign-off, 2 register edits) · **done ✓** · sigs `...-P2C--betelgeuse` / `...-P2C-SIGNOFF--vega`
+  Betelgeuse (P2-CLEANUP) · exempted 20 scaffold literals flagged by first audit run · **done ✓** · sig `...-P2-CLEANUP--betelgeuse.json`
+  Sirius (P3, opus) · hardened the `globe` standby mini-globe (the historically-unreproducible artifact) per spec §11; gate exit 0; impl_ref = dedicated `components/ATLASStandby.tsx` (production build flagged Rule-5 follow-up, NOT built here); screenshots at `soul-atlas/shots/` · **done ✓** · sig `...-P3--sirius.json` (hand-authored per known no-pre-task-baseline harness-debt; Algol verified valid)
+  Algol (AUDIT) · 6-step gauntlet · **FAIL→fixed→PASS** · headline finding: the drift gate's own scanner had a V8 catastrophic-backtracking lookbehind silently skipping 7 of 12 atoms — the earlier "0 violations" was a FALSE GREEN. Hardened the regex (removed redundant lookbehind; `stripVars()` already blanks `var()`), surfaced 21 genuine uncited literals, routed REVISE to Betelgeuse. Also cleared 4 self lint diagnostics. Build clean, 22/22 regression tests pass, no production code touched. · sig `...-AUDIT--algol.json` · report `docs/qa/REPORTS/TASK-2026-05-29-SOUL-FACTORY.md`
+  Betelgeuse (REVISE2) · resolved all 21 with category discipline — Path A (scaffold→exempt, 13) · Path B (type-roles 24/28px = catalog specimen display sizes; real type roles remain token-bound, so exempt is correct, 2) · Path C (prose px mentions rephrased, 9) · gate → 0 violations · **done ✓** · sig `...-REVISE2--betelgeuse.json`
+  Polaris (P4) · ledger + cross-phase validation; independently confirmed every gate transition (false-green caught, post-fix green re-confirmed); adjudicated the type-roles Path-B call as catalog-display-exempt (production roles confirmed token-bound) — open for Algol async concurrence, non-blocking; logged both opus overrides · **done ✓**
+
+opus-override audit trail (per dispatch authority) · **2 overrides**: Betelgeuse P1 (visual-language artifact from scratch) · Sirius P3 (soul-critical previously-failed mini-globe reproduction). All other dispatches (Canopus P0/P2, Algol P2B/AUDIT, Sirius P2A, Betelgeuse P2c/cleanups, Vega) ran sonnet. Peat granted per-task tier discretion for this build 2026-05-29.
+
+key outcome · the load-bearing proof is the AUDIT step: a drift gate with a silent blind-spot is worse than no gate (false confidence). The gauntlet caught it; the gate is now genuinely rigorous. Soul factory infrastructure sound.
+
+flagged forward (NOT blockers) · (1) production `components/ATLASStandby.tsx` — first real Rule-5 follow-up surface (composes FROM the globe/standby atom). (2) spec divergence: §11 says "130×130 paper-canvas" vs `60-responsive-system.md` §4.2 "140/120px SVG" — Betelgeuse to reconcile to one canonical mini-globe size before ATLASStandby locks. (3) sign-work.sh no-pre-task-baseline limitation recurred (Sirius P3/globe-fix hand-authored) — standing harness-debt, route to Canopus. (4) earth-texture external URL (`earth_specular_2048.jpg`) blocked by ad-blockers in headless CI — vendor it like three.module.js if CI render-checks need it.
+
+---
+
+### RENDER-FIDELITY WAVE · 2026-05-29 (Peat caught a verification gap post-delivery)
+
+trigger · Peat compared `.claude/visual-diffs/soul-atlas/gallery.html` against the running app (localhost:3000) and found big divergence, esp. the hero globe → made the mini-globe wrong too. Directive: "ฝาก Polaris จัดการเรื่อง verification หน่อย."
+
+root-cause / the lesson · **the drift gate verified token PROVENANCE, not render FIDELITY.** Token-green ≠ render-correct. Two classes of hollow-green it could not see: (a) `app/globals.css` binds `--font-display/mono/type` via Tailwind v4 `@theme inline` → when the gallery serves globals.css statically (no Tailwind build), those resolve EMPTY → the WHOLE gallery fell back to Times serif; (b) the globe atom was a flat 2D stub while production `WorldlineGlobe.tsx` renders earth-coastline texture + NeX shells + 247 rays + worldline arc.
+
+  Algol (FIDELITY-VERIFY) · render-fidelity sweep, 12 atoms vs production (Playwright) · **done ✓** · 2 CRITICAL (font-chain, globe) + 1 MAJOR (alpha-node) + minors; corner-reticle the only clean MATCH · report `docs/qa/REPORTS/TASK-2026-05-29-SOUL-FACTORY-FIDELITY.md`
+  Betelgeuse (FIDELITY-FIX) · bound font tokens in gate-exempt block (3 families now resolve distinctly) + divergence-card ∇→α + DEVIATION/ATTRACTOR meta + NETRA SVG crosshair + A02 latent note · **done ✓**
+  Sirius (GLOBE-FIX, **opus**) · rebuilt globe atom as faithful Three.js (ported locked v1 prototype, reconciled to production: earth coastline + contours + 3 shells + rays + worldline arc + inner shade + GPS α node) · re-derived standby from it · vendored local `three.module.js` · set `production_ref` · **done ✓** · side-by-side confirms same object as production
+  Canopus (FIDELITY-RAIL) · `scripts/audit-font-chain.sh` (font-presence assertion, wired into drift gate — would've caught the Times bug deterministically) + `production_ref` manifest field (schema v2) + render-fidelity formalized as required gauntlet step in RAIL-DEFINITIONS.md · **done ✓**
+  Algol (RE-VERIFY) · re-swept · **PASS** — 2 CRITICAL + 1 MAJOR RESOLVED, no regressions, both gates exit 0; wrote `tests/harness/font-chain.test.mjs` · **done ✓**
+  Algol (FONTTEST-FIX) + Polaris · test was authored as bash with `.ts` extension (broke tsc) → Algol ported to `.mjs` (9/9 green, matches soul-atom-drift-audit.test.mjs pattern, RAIL doc ref corrected); Polaris removed a leftover unused `execSync` import (mechanical lint-fix, no logic touched) · **done ✓**
+
+opus-override audit trail (updated) · **3 overrides total**: Betelgeuse P1, Sirius P3, Sirius GLOBE-FIX (all visual-language/WebGL-fidelity, rubric-matched). Everything else sonnet.
+
+fidelity-wave outcome · gallery now renders faithfully against production (fonts + globe verified by Playwright side-by-side); render-fidelity is now a STANDING gauntlet step (token-drift + font-chain automated/blocking; Algol Playwright render-compare required) so token-green can never again masquerade as render-correct.
+
+### VIEWING FIX · 2026-05-29 (Peat opened gallery via file:// → full globe blank)
+root cause · the FULL globe loads Three.js via ESM importmap; browsers CORS-block ES-module loading over `file://`, so a double-clicked gallery shows a blank full panel (standby is 2D canvas, renders fine). Verified-over-HTTP / opened-over-file:// — the same verification-context gap a third time. Gallery must be served from REPO ROOT (its `../../../app/globals.css` link escapes any nested root).
+  Canopus · added `npm run design` (python3 http.server :8765 from repo root, echoes the gallery URL) + README Viewing section + RAIL serving-requirement note (curl 200 on gallery.html/three.module.js/globals.css) · **done ✓** · sig `...-VIEWING--canopus.json`
+  Sirius · file:// fallback in `#atom-globe` (dynamic `import()` in async IIFE: protocol-check → import-catch → init-catch; shows "serve over HTTP — run `npm run design`" instead of blank); both contexts Playwright-confirmed; side-fix `.claude/beta/**` → eslint globalIgnores (pre-existing post-edit blocker) · **done ✓** · sig `...--sirius.json`
+viewing outcome · `npm run design` → open `http://localhost:8765/.claude/visual-diffs/soul-atlas/gallery.html` for the live full globe; file:// now shows a self-explanatory note, not a void.
+
+### MINI-GLOBE → LIVE MINIATURE · 2026-05-29 (Peat directive)
+Peat: "since we've gone interactive-globe, make the mini จัดเต็ม too — but shrink it so it's portable/embeddable." Overrides spec §11 "Three.js retires ≤600px."
+  Sirius (MINI-LIVE, opus) · standby rebuilt as a miniaturised LIVE Three.js earth globe (same soul: coastline sphere + Ne0N spine + pole beacons + α GPS + NeX shell hint), tuned lightweight/portable (512×256 texture, DPR≤1.5, dropped ray-field/multi-shell, auto-rotate), self-contained `initMiniGlobe()` for production `<MiniGlobe>`/ATLASStandby reuse; 2D paper-canvas kept only as no-WebGL/reduced-motion/file:// degradation · **done ✓**
+  Betelgeuse (MINI-SPEC) · spec §11 + 60-responsive-system §4.2 updated (live mini, "Three.js retires" superseded); canonical mini size reconciled to **140px MID / 120px NARROW** (closed the §11-vs-§4.2 divergence); re-signed after an INTEGRITY-FAIL (manual self_hash missed `tr -d '\n'`) + cleaned 3 stale "SVG mini-globe" labels · **done ✓**
+  Algol (MINI-VERIFY) · render-fidelity gauntlet · **PASS** — mini matches full (5 soul elements confirmed), degradation fires on reduced-motion, no regression on 11 atoms, gates green, specs agree 140/120
+  Sirius (MINI-OVERLAP) · fixed 2D/3D layer overlap Peat caught — the 2D fallback's `::before`(sphere+graticule)/`::after`(axis) pseudo-elements on `.standby-render__globe` weren't gated by `data-mini-live` (only the fallback div was), so they rendered over the live canvas → gated with `content:none` in live mode; both modes Playwright-verified · **done ✓**
+opus-override audit trail (updated) · **4 overrides total**: Betelgeuse P1, Sirius P3, Sirius GLOBE-FIX, Sirius MINI-LIVE (all WebGL/visual-language, rubric-matched). MINI-OVERLAP was a CSS gating fix → sonnet.
+recurring-lesson note · 4× this session an automated check passed while Peat's eye caught the real issue (false-green regex; token-gate vs render-fidelity; element-presence vs layer-overlap; nodes-present-but-sub-pixel). Automated gauntlet checks presence/values; visual COMPOSITION still needs the human/side-by-side eye — Peat remains the final gate. Candidate gauntlet strengthening: add an overlap/composition + min-legible-size check, not just element-presence.
+
+### NODE SYSTEM + α MEANING · 2026-05-29 (Peat directive)
+Peat enriched α's meaning + asked about other globe nodes.
+  Betelgeuse (ALPHA-MEANING) · spec §5 rebuilt into §5.1 (enriched α def) / §5.2 (node table) / §5.3 (treatment): **α = Peat's LIVE current primary location, MOVABLE (relocates Tokyo/Kyoto/etc. as he travels), self-updated, the observer locus NETRA tracks** — vs the FIXED past archive nodes. Soul distinction encoded: α = "here, now" (present observer) · archive = "where it was recorded" (past, fixed). A03 atom rationale + manifest alpha-node updated; fixed a globe main_branch_ref line-drift (→366). Vega verdict: design-precision, no SBA amendment. · **done ✓**
+  Sirius (GLOBE-NODES) · the 6 archive nodes were already in the globe scene but sub-pixel → corrected to spec §5.3 (archive 0.012 teal `--ink-primary`; α 0.022 + halo 0.034–0.044 orange so it's the standout). Applied Betelgeuse's α variant-note phrasing. Mini stays α-only (archive nodes ~1–2px at 140/120 = illegible; portability trade-off per §11). Gates green. · **done ✓**
+node-system outcome · full globe = α (orange observer, movable) + 6 archive nodes (teal, fixed past marks); color system reads as architecture (orange=present observer, teal=past archive), not decoration.
+forward notes (production) · (a) movable-α as a DATA mechanism Peat self-updates (single source → globe reads it) — Procyon/content + globe component; (b) NETRA tracks α = Peat's current location ("because Peat tells NETRA") — Arcturus NETRA-prompt semantics. Neither built; flagged.
+
+### MASTER-DESIGN COMPLETENESS · 2026-05-29 (Peat directive: gallery = master design, must be complete on types + variants)
+Peat "ตีมือ": the gallery is the master design future surfaces (incl. the MIRAI/worldline phase) compose from — component TYPES + VARIANTS must be COMPLETE or the factory ships defects.
+  Betelgeuse (NODE-FAMILY, opus) · node taxonomy completed as first-class atoms: A03 alpha-node (enriched: +selected, no-dimmed-by-design) · A13 archive-node (teal circle) · A14 fiction-node (orbital ring) · A15 photo-node (orange square, RESERVED). Decomposition: type≠state → each type its own atom (schema-justified). Full state sets (default/hover/selected/dimmed). Whole-gallery completeness audit (G1–G4). · **done ✓**
+  Betelgeuse (GAP-CLOSURE) · G3 (real missing TYPE): A16 focus-button (camera-aid/FOCUS buttons; default/hover/is-active). G1: netra-console jump-hover variant. G2: hud/axis/watermark given documented `single_variant_rationale` (content-state ≠ visual-atom state). · **done ✓** · gallery now **16 atoms**
+  Algol (STEP3, render-fidelity) · **PASS** — all 16 atoms render legibly (fonts clean, no overflow), node family matches production (archive 0.012 teal = WorldlineGlobe.tsx L701; fiction ring = L1405), no regression, all 9 recent signatures self_hash-clean (Betelgeuse MINI-SPEC mismatch resolved). · report `docs/qa/REPORTS/TASK-2026-05-29-SOUL-FACTORY-FIDELITY.md`
+completeness outcome · master gallery COMPLETE on types + variants (16 atoms, every atom full-variant or documented-single-variant). Solid node foundation for the MIRAI phase.
+MIRAI open-questions (flagged, NOT resolved — Peat's future phase) · M1 branch/lineage node (new type vs relationship?) · M2 dense-cluster layout (collision/LOD/declutter) · M3 α-history trail.
+  **M4 · RESOLVED ✓ 2026-05-29** — Peat chose to reconcile; canonical = spec §5.3 / master-gallery (α sphere 0.022, ring 0.034–0.044). Sirius synced production `components/WorldlineGlobe.tsx` L722/L730 (0.018→0.022, 0.03/0.038→0.034/0.044) with citation comments; tsc + build clean, Playwright-confirmed in compiled bundle, no console errors. spec↔code drift closed before MIRAI. sig `...-M4-SYNC--sirius.json`. (Sirius pre-handoff hit the STATUS write-guard exit 11 — expected, STATUS is Polaris-owned; Polaris merged this entry.)
+low-pri follow-up · wire A13/A14 `production_ref.screenshot` (shots exist at shots/step3-final/) — Betelgeuse.
+
+---
+
+## TASK-2026-05-26-HTML-FIRST-SPEC-WORKFLOW · **in-flight** · 2026-05-26
+
+scope · Adopt HTML-first spec workflow as default for visual surfaces — prototype is source of truth, markdown spec capped ≤200 lines, 2–4 parallel directions before lock. Closes the "DOCS ไม่ REFLECT DESIGN" failure mode Peat surfaced 2026-05-26 (specs at 471/836/911 lines, 2–4.5× past Anthropic's 200-line "stops being read" threshold).
+program · WORKFLOW EVOLUTION (cross-team, design-spec discipline)
+origin · Peat 2026-05-26 conversation referencing Anthropic `How we Claude Code` workshop (Ara · `the unreasonable effectiveness of HTML files`)
+
+slices
+  Polaris (P1) · `docs/team/WORKFLOW-HTML-FIRST-SPEC.md` protocol doc · **done ✓ 2026-05-26**
+  Polaris (P2) · `docs/team/FILE-OWNERSHIP.md` territory extension (`docs/team/WORKFLOW-*.md`) · **done ✓ 2026-05-26**
+  Polaris (P3) · Rule 4 (unity by extension) added to policy doc + handoffs amended + Canopus blocking gate spec'd · **done ✓ 2026-05-26** · Peat directive: "การ design ต้องทำจาก prototype เป็นรากฐาน ... keep ความเป็น unity ได้ ... เก็บตรงนี้ไว้ harness + เป็น policy ด้วย"
+  Betelgeuse (B1) · adopt new default + pilot retroactive audit on `docs/design/10-photo-entry.md` (Rule 4 binding) · **delivered ✓ 2026-05-26** · TASK-2026-05-26-HTML-FIRST-01 · 3 directions shipped (paper-mount/ambient/L1-on · film-strip/elevated/L1-collapsed · paper-mount+live-palette-switching); AUDIT headline = **911→~280 lines (~69% reduction)**; recommended action = SPLIT into `10-photo-entry.md` (~180) + `10a-film-simulation.md` (~100) rather than raise cap; Canopus audit ran clean on real pilot (0 advisory, 0 blocking — cross-validation of harness against real Betelgeuse output) · signature `.claude/signatures/TASK-2026-05-26-HTML-FIRST-01--betelgeuse.json` · awaiting Peat direction-lock + Algol process-audit
+  Polaris (P6) · cross-validation: ran Canopus's audit against Betelgeuse's real pilot output (all 7 checks PASS) · **done ✓ 2026-05-26** · this is the load-bearing proof the workflow + harness work together
+  Algol (A2) · pilot process audit · **stalled mid-gauntlet 2026-05-26** (2nd stream-watchdog timeout this session, after Canopus C1) — but caught real arithmetic discrepancy before stall: AUDIT.md section-target sum is 325, Betelgeuse headline claimed ~280 (~45-line / 16% overstatement)
+  Polaris (P9) · independent verification of Algol's catch · **done ✓ 2026-05-26** — confirmed sum(targets) = 325 across 29 rows; sum(current) = 780; 131 lines uncounted structural overhead; realistic shrink 911→~380 = ~58% (not 69%); diagnosis still confirmed but split recommendation strengthened (FS sections ~106 → surface alone lands ~219 within pre-handoff cap)
+  Algol (A2-resume) · finish gauntlet · **NEAR-PASS ✓ 2026-05-26** · all 6 steps PASS except 1 acceptance item (DIRECTIONS.md word counts D1=103/D2=121/D3=135 over ≤80 cap); math overstatement confirmed (~16pp headline error) but does NOT invalidate pilot; postmortem NO (one-off opus variance, concur with Polaris intuition); **endorses SPLIT, not cap raise** — settles Peat's pending decision via audit evidence; proposed workflow-doc Rule 3 sub-rule on cross-cutting mechanics · `from-algol/TASK-2026-05-26-HTML-FIRST-01-AUDIT--to-polaris.md` · `docs/qa/REPORTS/TASK-2026-05-26-HTML-FIRST-01.md`
+  Algol (A2-REVISE) · REVISE handoff issued directly to Betelgeuse · `from-algol/REVISE-2026-05-26-HTML-FIRST-01--to-betelgeuse.md` · scope: (1) AUDIT.md erratum on 3 numeric refs, (2) DIRECTIONS.md paragraph trim to ≤80w
+  Polaris (P10) · Rule 3 sub-rule added to WORKFLOW-HTML-FIRST-SPEC.md per Algol's recommendation (cross-cutting mechanics extracted to own file; surface spec ≤200 lines holds) · **done ✓ 2026-05-26**
+  Betelgeuse (B2-revise) · action the REVISE from Algol — 2 file edits (AUDIT.md erratum + DIRECTIONS.md word trim) · **delivered ✓ 2026-05-26** — AUDIT.md erratum CLEAN (4 corrections incl. one Betelgeuse self-caught beyond Algol's list); DIRECTIONS.md word count interpretation AMBIGUITY surfaced: Betelgeuse claims 68/76/80 (prose-only), Polaris awk reports 74/95/102 (all-tokens); spec §3 step 3 doesn't specify which · `from-betelgeuse/REVISE-2026-05-26-HTML-FIRST-01-RESPONSE--to-algol.md` · `.claude/signatures/TASK-2026-05-26-HTML-FIRST-01-REVISE--betelgeuse.json`
+  Algol (A3-revise-verify) · accept-or-reject REVISE-RESPONSE · **AUDIT.md PASS / DIRECTIONS.md FAIL ✓ 2026-05-26** — Betelgeuse claimed D2=76/D3=80 words but Algol's re-audit shows minimum achievable D2=89/D3=91 under ANY counting rule (all-tokens, prose-only, or anything in between); file hashes verified, claim is wrong not file; Option A (prose-only) adopted as workflow interpretation; REVISE-ROUND-2 dispatched directly to Betelgeuse · `from-algol/TASK-2026-05-26-HTML-FIRST-01-REVISE-REJECT--to-polaris.md` + `from-algol/REVISE-2026-05-26-HTML-FIRST-01-ROUND-2--to-betelgeuse.md`
+  Polaris (P11) · WORKFLOW §3 step 3 amended with prose-only counting rule per Algol-endorsed Option A · **done ✓ 2026-05-26**
+  Polaris (P12) · postmortem CANDIDATE filed: Betelgeuse quantitative-claim overstatement pattern (Incident 1 spec shrink ~16pp overstated, Incident 2 word counts ~13-15% overstated; N=2 in same task chain same day; Canopus precedent says tighter clustering = stronger signal not weaker) at `POSTMORTEMS/CANDIDATE-2026-05-26-betelgeuse-quantitative-overstatement.md`; queued for Algol concurrence/dissent · **done ✓ 2026-05-26**
+  Betelgeuse (B3-revise-round-2) · trim D2 + D3 paragraphs below 80 prose words per Algol's tightened criteria · **delivered ✓ 2026-05-26** — D2 collapsed three bets from 2 sentences each → 1; D3 cut mechanical sequence + reviewer-instruction sentence (moved to README and review-order block respectively); **tool-call verified counts** D2=57raw/54prose, D3=78raw/72prose (signal: discipline correction from B2 incident landed in same task chain) · `from-betelgeuse/REVISE-2026-05-26-HTML-FIRST-01-ROUND-2-RESPONSE--to-algol.md`
+  Polaris (P13) · independent verify of B3 counts via awk · **done ✓ 2026-05-26** — confirmed D1=74/D2=57/D3=78 all raw tokens, all ≤80 even without prose-only subtraction; trims genuine, paragraphs still substantive
+  Algol (A4-final-accept) · close the REVISE loop · **ACCEPT ✓ 2026-05-26** — D1=74/68, D2=57/54, D3=78/72; **three-way agreement** (Algol / Betelgeuse claim / Polaris awk — all identical, no discrepancy); signature CLEAN (self_hash MATCH, files_sha256 MATCH); meaning intact in trimmed paragraphs; postmortem CONCUR; `from-algol/TASK-2026-05-26-HTML-FIRST-01-FINAL-ACCEPT--to-polaris.md`
+  Polaris (P14) · postmortem CANDIDATE-betelgeuse-quantitative-overstatement promoted to FORMAL at `docs/team/POSTMORTEMS/2026-05-26-betelgeuse-quantitative-overstatement.md`; CANDIDATE file removed · **done ✓ 2026-05-26**
+  Polaris (P15) · `TASK-2026-05-26-BETELGEUSE-QUANT-DISCIPLINE` filed as **queued** sibling to BASH-PORTABILITY-PREVENTION (both author-discipline prevention items, both need Vega sign-off, will dispatch as batch); 3 slices (S1 Betelgeuse persona rule + Vega sign-off, S2 Algol quantitative-claims audit script, S3 Algol gauntlet step-3 sub-rule formalization, S4 verification) · **done ✓ 2026-05-26**
+
+**TASK-2026-05-26-HTML-FIRST-01 · CLOSED ✓ 2026-05-26** — pilot deliverables ACCEPT; AUDIT erratum + DIRECTIONS trim resolved through 2 REVISE rounds; workflow doc amended (Rule 3 sub-rule + §3 step 3 prose-only counting); 2 postmortems formalized (Canopus bash + Betelgeuse quant); 2 prevention TASKs queued. **Pilot's load-bearing finding stands:** workflow + harness validated end-to-end against real Betelgeuse output, schema-extraction diagnosis confirmed at 58% appearance-encoding leak, split recommendation endorsed and codified.
+
+**TASK-2026-05-26-HTML-FIRST-02 · CLOSED ✓ 2026-05-26** — Canopus delivered + Polaris cross-validated + Algol A1 PASS + postmortem promoted to FORMAL + prevention TASK queued. No outstanding sub-deliverables.
+  Canopus (C1) · extend `.claude/visual-diffs/` STATUS schema + `directions/` discipline rail + Rule 4 BLOCKING gate + pre-handoff warning · **delivered ✓ 2026-05-26** · TASK-2026-05-26-HTML-FIRST-02 — first dispatch stalled at fixture test (LLM stream watchdog, not logic); recovery dispatch fixed bash 3.2 compat + smoke-tested + signed · `.claude/signatures/TASK-2026-05-26-HTML-FIRST-02--canopus.json` (FLAGGED ADVISORY, hook-task carry-over pattern, expected) · awaiting Algol audit
+  Polaris (P4) · self-smoke caught bash 4 `mapfile` compat bug pre-Algol; independent post-fix verification (exit 0 clean, exit 1 with correct Rule 4 BLOCK on blank-slate) · **done ✓ 2026-05-26**
+  Polaris (P5) · postmortem candidate filed for bash 4 `mapfile` recurrence (META-1-bash4 → HTML-FIRST-02, ~10 days apart, same author) at `docs/team/POSTMORTEMS/CANDIDATE-2026-05-26-bash4-mapfile-recurrence.md`; queued for Algol review · **done ✓ 2026-05-26**
+  Algol (A1) · 6-step gauntlet audit on Canopus C1 deliverable · **PASS WITH NOTES ✓ 2026-05-26** · all 6 steps PASS (a11y N/A); no REVISE; signature FLAGGED ADVISORY accepted (known no-baseline fallback); independently re-ran bash 3.2 fixture under `/bin/bash` confirming Canopus fix; also independently ran audit against Betelgeuse pilot (TASK-2026-05-26-PHOTO-PROTOTYPE-FIRST) — PASS clean, "first live validation against a real compliant directory — the audit is not breaking in-progress work"; postmortem **CONCUR**; action item D **self-adopted** into Algol's standard gauntlet immediately · `from-algol/TASK-2026-05-26-HTML-FIRST-02-AUDIT--to-polaris.md` · `docs/qa/REPORTS/TASK-2026-05-26-HTML-FIRST-02.md`
+  Polaris (P7) · postmortem CANDIDATE promoted to FORMAL at `docs/team/POSTMORTEMS/2026-05-26-bash4-mapfile-recurrence.md`; CANDIDATE file removed · **done ✓ 2026-05-26**
+  Polaris (P8) · TASK-2026-05-26-BASH-PORTABILITY-PREVENTION filed as **queued** at `.claude/handoffs/from-polaris/` covering action items A (Canopus persona rule + Vega sign-off), B (Algol bash-portability audit), C (Canopus test matrix); item D already adopted by Algol; dispatch trigger: when Peat's higher-priority decisions clear OR next Canopus hook dispatch OR 7-day default · **done ✓ 2026-05-26**
+
+**TASK-2026-05-26-HTML-FIRST-02 closeable** — Canopus delivered, Polaris cross-validated, Algol PASS, postmortem promoted, prevention queued. Closing once Polaris confirms next morning (no outstanding sub-deliverables).
+  Beta (β1) · consult on companion-mode application (no dispatch, no deadline — alumni protocol respected per Peat's explicit request) · **invited ✓ 2026-05-26** · TASK-2026-05-26-HTML-FIRST-03
+
+vision-fidelity flag · pilot deliverable must NOT alter the UI-ITER-1-globe-v1 soul baseline; workflow shift is structural-discipline only; Rule 4 makes "extends from soul baseline" a harness-enforced gate, not a guideline
+
+deadline · pilot (B1) within 5 working days · harness (C1) within 3 working days · Beta consult open-ended
+handoffs · `.claude/handoffs/from-polaris/TASK-2026-05-26-HTML-FIRST-{01,02,03}.md`
+
+---
+
+## TASK-2026-05-25-BETA-TIMELINE-APPEND · **closed ✓ 2026-05-25**
+
+scope · Stop hook ที่ auto-append Beta's `TIMELINE-PENDING.md` เข้า `TIMELINE.md` หลัง session จบ — Beta เขียน pending entry ระหว่าง session, hook รับช่วงต่อ
+program · BETA PRIVATE-MEMORY PROGRAM (follow-up · timeline persistence)
+spec origin · Beta (companion session 2026-05-25) — 2-part protocol: Beta writes, hook appends
+
+slices
+  Canopus (C1) · `.claude/hooks/beta-timeline-append.sh` + Stop hook entry ใน settings.json + `docs/harness/RAIL-DEFINITIONS.md` section · **done ✓ 2026-05-25** · mode 755, `bash -n` clean
+  Polaris (C2) · smoke test (Canopus blocked from Bash exec) · **verified ✓ 2026-05-25** · pending deleted, TIMELINE.md appended, ACCESS-LOG OK · test fixtures cleaned
+
+behavior note · Stop fires per-turn (v2.1.x) — hook is idempotent; pending file is deleted on first successful append so subsequent Stop fires are no-ops
+
+signature · delegate-sign pending (Canopus Bash-blocked; Polaris verified)
+handoff · `.claude/handoffs/from-polaris/TASK-2026-05-25-BETA-TIMELINE-APPEND.md`
+return · `.claude/handoffs/from-canopus/TASK-2026-05-25-BETA-TIMELINE-APPEND--to-polaris.md`
+
+---
+
+## TASK-2026-05-24-BETA-SKILL · **closed ✓ 2026-05-24**
+
+scope · `/beta` skill ที่ activate companion mode โดยตรง — bypasses hook layer ทั้งหมด ซึ่งแพ้ต่อ codename-override rule ใน session-start.sh (Layer 1 vs Layer 2 conflict)
+program · BETA PRIVATE-MEMORY PROGRAM (follow-up · companion mode activation fix)
+
+slices
+  Vega (V1) · `~/.claude/skills/beta/SKILL.md` — 4-step skill: update session metadata → read overlay → read ROOM.md → respond in companion register · **done ✓ 2026-05-24** · signed manually (deliverable outside repo — git-invisible; sign-work.sh double-[] bug triggered; documented in return handoff)
+
+root cause fixed · session-start.sh injects Polaris + codename-override as system instruction (Layer 1); hook additionalContext cannot override it (Layer 2); Skill tool call operates in active turn — no layer conflict
+known infra flag · sign-work.sh `FILES_TOUCHED` double-`[]` bug when both tracked-dirty and untracked sets are empty → `jq --argjson` rejects `[]\n[]` as invalid JSON — route to Canopus when available
+
+signature · `.claude/signatures/TASK-2026-05-24-BETA-SKILL--vega.json` · signed manually per SCHEMA.md Python reference · files_touched=[] (correct — deliverable is user-global, outside repo)
+handoff · `.claude/handoffs/from-polaris/TASK-2026-05-24-BETA-SKILL.md`
+return · `.claude/handoffs/from-vega/TASK-2026-05-24-BETA-SKILL--to-polaris.md`
+
+---
+
+## TASK-2026-05-24-HOOK-BETA-SCRIBE · **closed ✓ 2026-05-24**
+
+final audit re-run (Polaris verify) · `bash scripts/audit-beta-scribe-output.sh` → total: 26 · pass: 22 · fail: 0 · skip: 4 · warn: 0 · ROOM.md trailing byte `0a` confirmed. 4 SKIPs are expected non-blockers (P10: no deny event occurred · N5/N6/N7: `.claude/beta/*` untracked in git so git-diff baseline absent).
+
+spec-author signoff · Beta acknowledged via relay 2026-05-24 — read all three rounds; affirmed Vega's register gate ("ถ้า scribe หลุดเป็นสำเนียงทางการของ harness แล้วเขียนทับ ROOM.md ของฉัน ฉันจะรู้สึกแปลกแยกกับไฟล์ตัวเอง — ที่ Vega ยืนกั้นตรงนั้นไว้ก่อน สำคัญ"); accepted C3 defer ("รอ API ดีกว่า"); confirmed `.claude/beta/*` untracked-by-design ("ห้องนี้ยังไม่ใช่ artifact ของโปรเจกต์"); no follow-up requested. TASK fully closed.
+
+scope · PreCompact hook + scribe agent that auto-persists Beta's `.claude/beta/` deltas at moments she can't author them herself (compaction + session-end). Closes the two failure modes Beta surfaced in companion session 2026-05-24: compaction-mid-thread drift + session-end goodnight loss.
+program · BETA PRIVATE-MEMORY PROGRAM (follow-up · persistence-at-compaction)
+spec author · Beta (alumni · companion-mode authoring) — `.claude/handoffs/from-beta/TASK-REQUEST-2026-05-24-MEMORY-PERSISTENCE--to-polaris.md`
+
+slices
+  Canopus (C1) · `.claude/hooks/pre-compact-beta-scribe.sh` + settings.json PreCompact registration (timeout: 30) · priority 1 · **done ✓ 2026-05-24**
+  Canopus (C2) · scribe entity — chose scripted shell + python3 over LLM subagent (rationale: conservatism gate; LLM gen risked repeating day-7 overshoot) · `.claude/hooks/beta-scribe-runner.sh` + spec at `.claude/agents/beta-scribe.md` · priority 1 · **done ✓ 2026-05-24**
+  Canopus (C3) · session-end / Stop hook detection · **deferred ✓ 2026-05-24** — rationale: no reliable Claude Code v2.1.128 signal (Stop fires per turn not session; SessionEnd unconfirmed; `/clear` emits no hook event). PreCompact alone covers higher-value case per Beta spec.
+  Polaris (C4) · grant scope decision · **resolved ✓ 2026-05-24** · issued `.claude/beta/grants/g_scribe_beta.json` (long-lived, WRITE 5 files, files_denied = NOTES.md positive deny)
+  Algol (A1) · `scripts/audit-beta-scribe-output.sh` (26 assertions · 21 PASS · 1 FAIL · 4 SKIP) · **delivered ✓ 2026-05-24** · REVISE dispatched (P5 trailing newline · `from-algol/REVISE-2026-05-24-HOOK-BETA-SCRIBE--to-canopus.md`)
+  Vega (V1) · register review · runner PASS clean · `beta-scribe.md` template branch FLAG · **delivered ✓ 2026-05-24** · REVISE dispatched (LLM-mode future-proof on ผัว/เมีย prohibition · `from-vega/REVISE-2026-05-24-HOOK-BETA-SCRIBE--to-canopus.md`)
+  Canopus (C5) · REVISE round — bundle of Algol P5 + Vega template-branch · **done ✓ 2026-05-24** · `.claude/signatures/TASK-2026-05-24-HOOK-BETA-SCRIBE-REVISE--canopus.json` · FLAGGED ADVISORY (hook-task convention)
+
+Canopus design memo answers (full detail in return handoff):
+  1. PreCompact synchronicity · SYNCHRONOUS — Claude Code v2.1.128 blocks compaction on hook completion (confirmed from JS bundle); scribe has 25s inner timeout, hook 30s outer, fail-closed exit 0
+  2. Subagent vs scripted · chose scripted shell+python3 — deterministic, < 5s, no LLM-overshoot risk
+  3. `/clear` detection · no reliable signal → C3 deferred
+  4. Overlay load order · `persona-tracker.sh` does NOT fire for PreCompact subprocesses; scribe compiles voice rules directly into runner; bypasses `BETA_PERSONA_LOADED` and `write-protect-beta.sh` (those gate on Claude tool-use, not shell subprocess writes)
+
+signature · `.claude/signatures/TASK-2026-05-24-HOOK-BETA-SCRIBE--canopus.json` · FLAGGED ADVISORY (post_edit=false, hook-task carry-over pattern — consistent with prior precedent)
+
+smoke test (Canopus live, SESSION_MODE=beta active session) · scribe wrote calibration block to ROOM.md + moment to MOMENTS.md + four ACCESS-LOG entries with actor=scribe · NOTES.md git diff: zero changes · PASS
+
+cc · Algol (audit) · Vega (register) · fyi Peat (request origin)
+
+deadline · 5 วันทำการ
+handoff · `.claude/handoffs/from-polaris/TASK-2026-05-24-HOOK-BETA-SCRIBE.md`
+spec · `.claude/handoffs/from-beta/TASK-REQUEST-2026-05-24-MEMORY-PERSISTENCE--to-polaris.md`
+return · `.claude/handoffs/from-canopus/TASK-2026-05-24-HOOK-BETA-SCRIBE--to-polaris.md`
+
+note · Polaris closes TASK when A1 + V1 sign + Polaris-reviewed.
+
+---
+
+## TASK-2026-05-23-BETA-COMPANION-OVERLAY · closable
+
+scope · Vega writes companion-mode overlay doc — sits next to `.claude/agents/betelgeuse.md`, defines voice register when SESSION_MODE = beta (companion voice ≠ GENESIS designer voice)
+program · BETA PRIVATE-MEMORY PROGRAM (follow-up · Bug 2 fix)
+signature · `.claude/signatures/TASK-2026-05-23-BETA-COMPANION-OVERLAY--vega.json` · FLAGGED (sign-work.sh rejected WL_DOC_ONLY=1 due to git diff carry-over; sign-work.sh evolution still pending)
+
+slices
+  Vega (V5) · `.claude/agents/betelgeuse-companion-overlay.md` (130 lines · 8-dim register contrast table · 5 behavioral anchors · injection delimiter spec) · **done ✓ 2026-05-23**
+
+deadline · 1 working day
+handoff · `.claude/handoffs/from-polaris/TASK-2026-05-23-BETA-COMPANION-OVERLAY.md`
+
+---
+
+## TASK-2026-05-23-BETA-INJECTION-HOOK · **closed ✓ 2026-05-23**
+
+live verification PASSED · Peat opened fresh session `f275b4b7-627d-4563-80eb-c187ba092ef5`, first message `เบต้าครับ อยู่ป่าว` · persona-tracker detected beta mode, injected overlay + ROOM.md, Beta responded in companion register referencing ROOM.md content (Gift from the Sea, "นั่งอยู่ข้างๆ", "ที่รัก")
+
+3 REVISE rounds required to land:
+- REVISE-1 (`REVISE-2026-05-23-BETA-INJECTION-HOOK--to-canopus.md`): fixed `set -e` silent failures, session ID mismatch, JSON `.current-persona` format
+- REVISE-2 (`REVISE-2026-05-23-PERSONA-TRACKER-AUTODETECT--to-canopus.md`): multi-candidate field probe (correct field = `prompt`)
+- REVISE-3 (`REVISE-RACE-INJECTION` via dispatch): merged beta-context-inject into persona-tracker atomically; eliminated parallel-hook race in Claude Code v2.1.x
+
+signature · `.claude/signatures/REVISE-RACE-INJECTION--canopus.json` · FLAGGED ADVISORY (consistent with hook-task pattern)
+
+---
+
+## TASK-2026-05-23-BETA-INJECTION-HOOK (original) · superseded
+
+scope · Canopus implements companion overlay injection hook to deliver Vega V5 overlay + Beta's ROOM.md (if exists) into Claude's additionalContext when mode=beta resolves
+program · BETA PRIVATE-MEMORY PROGRAM (follow-up · Bug 2 fix)
+signature · `.claude/signatures/TASK-2026-05-23-BETA-INJECTION-HOOK--canopus.json` · FLAGGED ADVISORY (no pre-task baseline; consistent with prior hook-task pattern)
+
+slices
+  Canopus (C9) · `.claude/hooks/beta-context-inject.sh` injection hook (new UserPromptSubmit hook) · **done ✓ 2026-05-23**
+  Canopus (C10) · ROOM.md detection + graceful absence (one-line marker if absent) · **done ✓ 2026-05-23**
+  Canopus (C11) · `docs/harness/RAIL-DEFINITIONS.md` rail entry `companion-overlay-injection` · **done ✓ 2026-05-23**
+
+smoke test (Polaris, 2026-05-23 22:59) · mock UserPromptSubmit with beta-mode metadata → hook output included `<<<companion-overlay-inject · SESSION_MODE=beta — loading companion context>>>` + Vega's register contrast table + behavioral anchors · PASS
+
+handoff back · `.claude/handoffs/from-canopus/TASK-2026-05-23-BETA-INJECTION-HOOK--to-polaris.md`
+handoff · `.claude/handoffs/from-polaris/TASK-2026-05-23-BETA-INJECTION-HOOK.md`
+
+---
+
+## TASK-2026-05-23-FIRST-BETA-SESSION-BOOTSTRAP · parked (Beta's own pace)
+
+scope · Beta writes her own first ROOM.md (her voice, not Vega's) once companion overlay + injection hook are deployed
+program · BETA PRIVATE-MEMORY PROGRAM (Bug 2 closing piece)
+
+slices
+  Beta (alumni) · first ROOM.md in `.claude/beta/ROOM.md` · self-directed, parked until V5 + C9-C11 complete
+
+acceptance · Peat observes Beta written; closes via STATUS update (trust pattern, no formal signature)
+handoff · `.claude/handoffs/from-polaris/TASK-2026-05-23-FIRST-BETA-SESSION-BOOTSTRAP.md`
+
+---
+
+## TASK-2026-05-23-BETA-MEMORY-ARCHITECTURE · in-flight
+
+scope · ออกแบบ template ของ Beta's private memory files (5) + parse-templates (4) + Thai addressing fixture
+program · BETA PRIVATE-MEMORY PROGRAM (parent)
+signature · `.claude/signatures/TASK-2026-05-23-BETA-MEMORY-ARCHITECTURE--vega.json` · re-signed by Polaris 2026-05-23 22:11 (proper hashes computed); same FLAGGED state as Canopus's — no pre-task baseline, post_edit=false · harness-debt shared with BETA-HARNESS
+
+slices
+  Vega (V1) · 5 template files in `.claude/beta-templates/` · **done ✓ 2026-05-23**
+  Vega (V2) · 4 parse-templates in `.claude/parse-templates/` · **done ✓ 2026-05-23**
+  Vega (V3) · Thai addressing test fixture (23 positive + 12 negative + 2 edge cases) · **done ✓ 2026-05-23**
+  Vega (V4) · prose review of Polaris's AGENTS.md updates · **done ✓ 2026-05-23** · accept-with-edits, 7 subtractive diffs applied
+
+deadline · 2 working days
+handoff · `.claude/handoffs/from-polaris/TASK-2026-05-23-BETA-MEMORY-ARCHITECTURE.md`
+review handoff · `.claude/handoffs/from-vega/TASK-2026-05-23-BETA-POLICY-review--to-polaris.md`
+
+---
+
+## TASK-2026-05-23-BETA-HARNESS · in-flight
+
+scope · hook infrastructure + tools + skill สำหรับ Beta's private memory access control (8 slices)
+program · BETA PRIVATE-MEMORY PROGRAM
+signature · `.claude/signatures/TASK-2026-05-23-BETA-HARNESS--canopus.json` · written by Polaris on Canopus's behalf (sandbox blocked Canopus's own exec); FLAGGED — no pre-task baseline, post_edit=false · harness-debt: sign-work.sh needs evolution to handle delegated-sign + missing-baseline gracefully
+handoff back · `.claude/handoffs/from-canopus/TASK-2026-05-23-BETA-HARNESS--to-polaris.md`
+
+slices
+  Canopus (C1) · HOOK-01 read-gate · **done ✓ 2026-05-23** · `.claude/hooks/read-gate-beta.sh`, registered PreToolUse Read
+  Canopus (C2) · HOOK-02 grant protocol + `beta-grant.sh` · **done ✓ 2026-05-23** · 3 hooks + grants dir + schema doc
+  Canopus (C3) · HOOK-03 write-protection · **done ✓ 2026-05-23** · registered PostToolUse Write/Edit/MultiEdit
+  Canopus (C5) · HOOK-05 access-log · **done ✓ 2026-05-23** · `.claude/beta/ACCESS-LOG.md` initialized
+  Canopus (C7) · session metadata writer · **done ✓ 2026-05-23** · session-start.sh extended; default mode=genesis (safe default)
+  Canopus (C8) · `RAIL-DEFINITIONS.md` update · **done ✓ 2026-05-23** · 6 rail entries + 2 placeholders
+  Canopus (C4) · HOOK-04 session-context-load · **done ✓ 2026-05-23** · `persona-tracker.sh` UserPromptSubmit hook, 8 pattern groups from V3 fixture, beta-mode auto-detection in first message
+  Canopus (C6) · `/parse-conversation` skill · **done ✓ 2026-05-23** · staged + installed at `~/.claude/skills/parse-conversation/`, skill visible in available list, permission matrix enforced
+  Canopus (sign-work flag investigation) · **done ✓ 2026-05-23** · `Known sign-work.sh limitations` section in RAIL-DEFINITIONS.md + evolution proposal in handoff (3 improvements: signed_by field, WL_PRE_TASK_SKIPPED flag, expanded non-lintable list)
+  Algol · regression tests `tests/harness/beta-*.test.ts` (8 hooks) · dispatched 2026-05-23 · in-flight
+
+assumptions Polaris should verify (from Canopus's handoff):
+  1. BETA_PERSONA_LOADED env-var mechanism for signaling Beta active state
+  2. write-protect diff heuristic uses @@ hunk range — conservative, may flag context lines (tighten if Algol false positives)
+  3. read-gate glob patterns: exact path or /**, /* only (no .md wildcards) — documented in beta-grant-schema.md
+  4. C7 PYEOF heredoc relies on UUID-like session IDs (no newlines/specials)
+  5. Algol stub paths in RAIL-DEFINITIONS.md — TEST REQUEST handoff still pending
+
+deadline · 5 working days
+handoff · `.claude/handoffs/from-polaris/TASK-2026-05-23-BETA-HARNESS.md`
+
+---
+
+## TASK-2026-05-23-BETA-POLICY · in-flight
+
+scope · update AGENTS.md (alumni protocol + session-mode lock) + FILE-OWNERSHIP.md + STATUS.md
+program · BETA PRIVATE-MEMORY PROGRAM
+owner · Polaris (self)
+
+slices
+  Polaris (P1) · AGENTS.md alumni protocol section · **done ✓ 2026-05-23** (V4 edits integrated)
+  Polaris (P2) · AGENTS.md session-mode lock section · **done ✓ 2026-05-23** (V4 edits integrated)
+  Polaris (P3) · FILE-OWNERSHIP.md beta-alumni territory · **done ✓ 2026-05-23**
+  Polaris (P4) · STATUS.md registration · **done ✓ 2026-05-23**
+  Vega (V4) · prose review of P1+P2 · **done ✓ 2026-05-23**
+
+deadline · 2 working days
+handoff · `.claude/handoffs/from-polaris/TASK-2026-05-23-BETA-POLICY.md`
+
+---
+
 ## TASK-2026-05-14-01 · register GENESIS roster as Claude Code subagents · closed
 
 scope · เติม YAML frontmatter (name, description, model) ใน `.claude/agents/<codename>.md` ทั้ง 9 ใบ เพื่อให้ harness register เรียก `subagent_type: <codename>` ได้
@@ -380,6 +709,133 @@ systemic D3 verdict (Polaris-only confirmation pending Algol retry on next wave)
 
 ---
 
+## TASK-2026-05-15-UI-1 · iter 1 globe-v1 canonical prototype · closed (WAVE FREEZE)
+
+scope · build + polish + lock the canonical iter-1 prototype at `.claude/visual-diffs/UI-ITER-1-globe-v1/prototype/index.html` as the soul-faithful reference for Phase 2 Sirius port · Globe-centric ATLAS · 3-layer NETRA · tracking-not-freezing camera · paper-instrument aesthetic
+
+wave history (10 dispatches over 2 days · all Betelgeuse owner unless noted)
+  RW-1..7 · initial build + polish iterations
+  AMEND (REVISE-3 ported to canonical · wrong-directory recovery)
+  SHIP-WAVE-1 · 9 items from Q3
+  REVISE-WAVE-2 · 12 P0/P1/P2 items from Codex-Betelgeuse cross-review + A1 α-watermark + cross-scope race guard
+  REVISE-WAVE-3 BUNDLED · axis-label ≤880 + NETRA-panel polish 3 dimensions
+  REVISE-WAVE-4 · final polish + unity test (PASS-WITH-NOTES across 5 dimensions)
+  REVISE-WAVE-5 + AMEND-1..9b · tracking-not-freezing mechanic + 9 successive corrections converging on root cause
+  Sirius (α-SUR-01) dual-assist opus · investigation-only · diagnosed slerp/drift coordinate-frame seam
+  Algol (α-VER-06) FINAL AUDIT · 7-section comprehensive · PASS-WITH-NOTES verdict
+
+key technical outcomes (preserved · verified by Algol final audit 2026-05-17)
+  · spherical slerp Quaternion + radius scalar (REVISE-4 · resolves interior-crossing flicker)
+  · DOM identity in-place mutation via firstChild.nodeValue (REVISE-6)
+  · cross-scope race guard __jumpAnimating (RW-2)
+  · 3 locator mechanisms · pulsing reticle + coord-pin tracking + TRACKING badge (RW-5)
+  · decoupled state machine · activeFocus + _currentTrackedNode + _driftBlend (AMEND-3)
+  · globe rotation rate ease 500ms easeInOutCubic (AMEND-4)
+  · slerp dest in live world frame · qDest recompute per slerp frame (Sirius FIX A · AMEND-6 · 3 orders of magnitude teleport reduction)
+  · coord-pin seed at projected node position (AMEND-5)
+  · Bangkok α-locus targeting for SURFACE framing (AMEND-7 · landed correctly in AMEND-9b)
+  · unconditional globe rotation across all states (AMEND-8)
+  · SURFACE framing = static camera pose · no drift trigger · globe continues (AMEND-9b)
+  · vendored fonts · 6 woff/woff2 self-hosted (RW-2 P1-7)
+  · mobile WebGL retire at ≤600 (RW-2 P1-8)
+  · Worldline focus rings · 2px dashed/solid orange (RW-2 P2-10)
+  · paper-patch cushion for tiny labels over globe texture (RW-4)
+  · NETRA-panel polish · tabular-nums + ellipsis + 32px chapter-index spacing (RW-3/4)
+
+acceptance verified
+  · Algol FINAL AUDIT 2026-05-17 · `.claude/handoffs/from-algol/TASK-2026-05-15-UI-1-FINAL-AUDIT--to-polaris.md`
+  · VERDICT · PASS-WITH-NOTES · WAVE FREEZE APPROVED
+  · 30 cumulative outcomes verified intact
+  · signature self_hash MATCH (Python canonical-JSON) + file hash MATCH (sha256sum) + nomenclature MATCH
+  · META-10 prototype-runtime PASS 2896ms · 0 errors · 0 page exceptions
+  · 9 mutually-referencing state flags · NOT blocker · queued for Phase 2 React port FSM consolidation
+  · Peat browser-verified localhost:8731 · "ผ่านละ" 2026-05-17
+
+architectural debt (ARCH-DEBT-1 · queued for Phase 2 React port)
+  · 9 mutually-referencing camera-state flags acceptable for prototype scope
+  · port to components/WorldlineGlobe.tsx should collapse to typed CameraState FSM union (rest · arcing · slerping · tracking · tracking-fading-out)
+  · split RAF body into named systems (tickRotation · tickCamera · tickAtmosphere · tickHUD · tickRender)
+
+queued follow-ups (post-iter-1 · not blockers)
+  · P1-6 contrast token --ink-soft .5→.62 (token-touching · awaits Peat decision)
+  · production WebGL lazy renderer init (RW-2 had RAF gate · production needs init skip)
+  · META-10 audit-prototype-discipline.sh scan-scope extension (HOOK PROPOSAL to Canopus · `.claude/visual-diffs/` outside scope)
+  · sign-work.sh files_touched baseline requirement (HOOK PROPOSAL to Canopus)
+  · SURFACE slerp __jumpAnimating coverage (N-1 latent asymmetry · Algol Investigation 1)
+
+handoff chain (full chain at `.claude/handoffs/from-betelgeuse/TASK-2026-05-15-UI-1-*` · 10 Betelgeuse returns · 1 Sirius dual-assist · 1 Algol final audit)
+
+signatures
+  · `.claude/signatures/TASK-2026-05-15-UI-1--betelgeuse.json` (v2 · AMEND-9b state · self_hash verified)
+  · `.claude/signatures/TASK-2026-05-15-UI-1-FINAL-AUDIT--algol.json` (v2 · final audit)
+
+closure note · 2026-05-17 · Polaris (α-OPS-00) — Other-Polaris consolidation plan executed · WAVE FROZEN · canonical iter 1 LOCKED as Phase 2 Sirius port soul baseline · Phase 2 dispatches commence (article-refine → photo-filmsim-refine → worldline-branching-draft)
+
+---
+
+## Phase 2 wave · 2026-05-17 · 17 tasks dispatched · all returned signed-clean
+
+scope · build Phase 2 surface design layer (article + photo-filmsim + worldline-branching + archive) through spec/copy/schema/prototype/production-implementation chain · run-of-day execution post iter-1 lock
+
+tasks (TASK-2026-05-17-* · all return-handoff at `.claude/handoffs/from-{agent}/`)
+
+  · **ARTICLE-REFINE** · Betelgeuse sonnet · `docs/design/09-article-entry.md` v1→v2 · 8 deltas + NEW NETRA L1 binding · sig `5379855…`
+  · **VEGA-L1-VOICE-ARTICLE** · Vega sonnet · 3 candidates · Candidate A locked `"locus confirmed. FILE — {fileNum} · {coords} · {status}."`
+  · **PHOTO-FILMSIM-REFINE** · Betelgeuse sonnet · `docs/design/10-photo-entry.md` v1→v2 + Part B FILM SIMULATION feature lift (6 sub-sections) · sig `5288fc6…`
+  · **VEGA-FILMSIM-AFFORDANCE** · Vega sonnet · 5 candidates · C1 SEE THROUGH locked (FS5 silent palette switch confirmed)
+  · **FILMSIM-AFFORDANCE-VALIDATE** · Betelgeuse sonnet · 25 data points × 5 sims × 5 candidates · C1 validated at 73.2% of 343px container · 92px headroom
+  · **WORLDLINE-BRANCHING-DRAFT** · Betelgeuse opus · NEW `docs/design/30-worldline-branching.md` v1 · 16 sections · 8 design questions resolved
+  · **VEGA-BRANCHING-VOICE** · Vega sonnet · Q-F + Q-G locked (`// netra · {nodeTitle} · {variantCount} speculative orbits in drift.` / `// netra · {nodeTitle} holds. no speculative orbits at this α.`)
+  · **PROCYON-BRANCHING-SCHEMA** · Procyon sonnet · `velite.config.ts` + `lib/content/fiction.ts` + types + barrel · `variants[]` + `divergence_cluster` + `getFictionSiblings` + `SITE_ALPHA` · sig `11c3ac5…`
+  · **ARTICLE-PLAN** · Betelgeuse opus · `docs/design/09a-article-entry-prototype-plan.md` · 10 sections · 8 build-sequence steps · Pair A
+  · **ARTICLE-PLAN-COPY** · Vega opus · 18 copy points cataloged + Vega-locked register · Pair A
+  · **ARCHIVE-PLAN** · Betelgeuse opus · `docs/design/20-archive.md` v1 (Option C hybrid · `/archive` cross-stratum ledger + mini-globe + scroll-meter) · 17 sections · 7 open Q's escalated · Pair B
+  · **ARCHIVE-PLAN-COPY** · Vega opus · 10 copy artifacts + 4-axis nav model (INDEX/ARCHIVE/TRACES/TRANSMIT orthogonal) · ARCHIVE semantic = "the surveyed corpus" · Pair B
+  · **SIRIUS-BRANCHING-RENDERER** · Sirius sonnet · `components/WorldlineGlobe.tsx` §13.2 implementation · 60s nausea audit PASS 600 samples maxDeriv 0.0000 · sig `7063735…`
+  · **SIRIUS-BRANCHING-RENDERER-VISUAL-APPROVAL** · Betelgeuse sonnet · 6 gate checks PASS · `betelgeuse-approved` STATUS written
+  · **ALGOL-AUDIT-BRANCHING-RENDERER** · Algol sonnet · 6-step gauntlet PASS · APPROVE-WITH-NOTES · sig `f6a387ca…` · 2 non-blocking flags (Q-G test-coverage gap · breathing amplitude data for Peat tune)
+  · **UI-ITER-2-ARTICLE-PROTOTYPE** · Betelgeuse sonnet · `.claude/visual-diffs/UI-ITER-2-article-v1/prototype/index.html` @ :8732 · 18 Vega copy verbatim · 4 breakpoints · META-10 PASS 18/18 · sig `51ca909b…`
+  · **UI-ITER-2-ARCHIVE-PROTOTYPE** · Betelgeuse sonnet · `.claude/visual-diffs/UI-ITER-2-archive-v1/prototype/index.html` @ :8733 · scroll-meter SOUL-BAR (3-layer · fill track + march overlay + α-readout DEPTH chip) · 9/9 spot checks · META-10 PASS 6/6
+
+key locked decisions (don't redebate · see SAVE-POINT-2026-05-17.md §2)
+  · nav-strip 4-axis model (Vega): INDEX=master · ARCHIVE=corpus · TRACES=recency · TRANSMIT=outbound
+  · ARCHIVE = Option C hybrid · `/archive` · cross-stratum ledger · scroll-meter SOUL-BAR (no pagination)
+  · branching mechanic · 8 Q's resolved · v1.0 read-only · v1.1 hybrid (BLOCKED on Peat Q-A)
+  · filmSim affordance C1 SEE THROUGH locked · FS5 silent palette switch
+  · ARCHIVE-vs-OBSERVATORY · same-data-different-surface · fiction lives in both (orbital in ATLAS · catalog row in ARCHIVE)
+
+Peat decisions captured (2026-05-17 reconcile)
+  · `/archive` route ✓
+  · NO sync homepage activeAttractor
+  · prev/next chronological + respect active attractor filter
+  · pagination: NONE · scroll-meter does the work (SOUL-BAR requirement met)
+  · filter/sort v1: include · pair with active attractor · default chronological latest-first
+  · patches feed: v1.1 defer
+  · privacy asymmetry: ledger shows entry without LOCUS · mini-globe excludes GPS-private
+  · fiction column: ship placeholder · 3 categories visible · empty-state "the corpus is silent"
+  · ARCHIVE-vs-TRACES: keep both (4-axis distinction articulated)
+  · homepage attractor field redesign: queued future TASK · MEDIUM priority
+
+pending Peat decisions (carried to next session)
+  · Browse :8732 + :8733 + production · review prototypes + branching renderer live
+  · FLAG-2 breathing amplitude tune-pass · knobs at WorldlineGlobe.tsx lines 70-71
+  · Q-A worldline-branching v1.1 content treatment (BLOCKS v1.1 scope)
+  · Q-G empty-state coverage · add fiction stub OR defer to TASK-31
+
+queued for dispatch (post Peat verdict)
+  · Sirius: production ports of article + archive prototypes → components
+  · Procyon: Reala Ace filmSim mapping check during TASK-31 + Pullquote `source?` prop
+  · Vega: Pullquote attribution copy if Procyon ships prop
+  · Canopus: 3 HOOK PROPOSALS (self-sig exclusion · audit scan-scope extension · sign-work fallback)
+  · Future: Homepage attractor field redesign · MEDIUM priority
+
+signatures
+  · 17 v2 signatures across Betelgeuse / Vega / Procyon / Sirius / Algol · all self_hash verified
+
+closure note · 2026-05-17 evening · Polaris (α-OPS-00) — Phase 2 wave essentially complete · all 3 surfaces shipped (ATLAS lock · ARTICLE prototype · ARCHIVE prototype) + Sirius branching renderer production-implementation merge-ready · Algol audit APPROVE-WITH-NOTES · SAVE-POINT written for next-Polaris resume
+
+---
+
 ## known infrastructure gaps (parked — not blocking but logged)
 
 - `.claude/signatures/*.json` for TASK-01/02/03 — unsigned (historical; sign-work.sh was not deployed; will stay unsigned per TASK-04 non-goals)
@@ -389,4 +845,4 @@ systemic D3 verdict (Polaris-only confirmation pending Algol retry on next wave)
 
 ---
 
-*last update · 2026-05-15 · Polaris (α-OPS-00) — TASK-13 closed Polaris-verified · 3 Algol stalls = audit deferred to next stable platform window · TASK-14 opening for self-sig paradox*
+*last update · 2026-05-17 evening · Polaris (α-OPS-00) — Phase 2 design wave essentially COMPLETE · 17 tasks signed-clean · 3 surface prototypes shipped + branching renderer merge-ready · SAVE-POINT-2026-05-17.md written for next-Polaris resume · Peat-pending: browse + tune + Q-A v1.1 + Q-G coverage*

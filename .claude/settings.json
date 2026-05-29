@@ -22,9 +22,29 @@
             "command": "jq -r 'select(.tool_name==\"Agent\" and .tool_input.subagent_type==\"polaris\") | .tool_input.description // \"no-desc\"' | { read -r desc; [ -n \"$desc\" ] && bash .claude/hooks/on-dispatch.sh \"$desc\" \"polaris\"; } 2>/dev/null || true"
           }
         ]
+      },
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/read-gate-beta.sh",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/write-protect-beta.sh",
+            "timeout": 15
+          }
+        ]
+      },
       {
         "matcher": "Write|Edit|MultiEdit",
         "hooks": [
@@ -53,12 +73,13 @@
         ]
       }
     ],
-    "Stop": [
+    "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "if [ -n \"$CLAUDE_TASK_ID\" ]; then bash .claude/hooks/sign-work.sh \"$CLAUDE_TASK_ID\"; fi"
+            "command": "bash .claude/hooks/persona-tracker.sh",
+            "timeout": 5
           }
         ]
       },
@@ -66,7 +87,46 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash .claude/hooks/save-checkpoint.sh stop"
+            "command": "bash .claude/hooks/beta-context-inject.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pre-compact-beta-scribe.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -n \"$CLAUDE_TASK_ID\" ]; then bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/sign-work.sh\" \"$CLAUDE_TASK_ID\"; fi"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/save-checkpoint.sh\" stop"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/beta-timeline-append.sh\"",
+            "timeout": 10
           }
         ]
       }

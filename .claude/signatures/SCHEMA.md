@@ -97,10 +97,10 @@ self_hash = hashlib.sha256(canonical).hexdigest()
 Reference (bash via `jq`):
 
 ```bash
-self_hash=$(jq -cS 'del(.hashes.self_hash)' "$payload_file" | sha256sum | awk '{print $1}')
+self_hash=$(jq -cS 'del(.hashes.self_hash)' "$payload_file" | tr -d '\n' | sha256sum | awk '{print $1}')
 ```
 
-`jq -cS` produces compact output with sorted keys, equivalent to the Python canonical form for ASCII keys.
+`jq -cS` produces compact output with sorted keys, matching the Python canonical form for key ordering and separators. `tr -d '\n'` is required because `jq` appends a trailing newline (0x0a) to its output; `sha256sum` includes that byte in the digest. The Python `json.dumps` reference produces no trailing newline. Without the `tr` strip, the bash and Python paths hash a different number of bytes and produce different digests for the same payload.
 
 ---
 

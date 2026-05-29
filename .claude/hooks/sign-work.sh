@@ -146,7 +146,7 @@ if [[ -f "$BASELINE_FILE" ]]; then
 
   # Strip leading blank line and format as JSON array (deduplicate in case of overlap)
   TASK_FILES_TOUCHED=$(printf '%s\n' "$TASK_FILES_TOUCHED" | sort -u | grep -v '^$' || true)
-  FILES_TOUCHED=$(printf '%s\n' "$TASK_FILES_TOUCHED" | grep -v '^$' | jq -R . | jq -s . 2>/dev/null || echo "[]")
+  FILES_TOUCHED=$(printf '%s\n' "$TASK_FILES_TOUCHED" | (grep -v '^$' || true) | jq -R . | jq -s . 2>/dev/null || echo "[]")
 
   CARRY_OVER_COUNT=$(echo "$ALL_DIRTY" | grep -c '.' || echo 0)
   TASK_COUNT=$(echo "$FILES_TOUCHED" | jq 'length')
@@ -159,8 +159,18 @@ else
   # D3 FIX: merge tracked-dirty and untracked, deduplicate, drop empty lines.
   # ALL_UNTRACKED is already computed above (git ls-files --others --exclude-standard).
   ALL_WITH_UNTRACKED=$(printf '%s\n%s\n' "$ALL_DIRTY" "$ALL_UNTRACKED" | sort -u | grep -v '^$' || true)
-  FILES_TOUCHED=$(printf '%s\n' "$ALL_WITH_UNTRACKED" | grep -v '^$' | jq -R . | jq -s . 2>/dev/null || echo "[]")
+  FILES_TOUCHED=$(printf '%s\n' "$ALL_WITH_UNTRACKED" | (grep -v '^$' || true) | jq -R . | jq -s . 2>/dev/null || echo "[]")
 fi
+
+# Self-signature exclusion — remove the signature file itself from files_touched.
+# A signature cannot meaningfully attest to itself: it does not exist at the time
+# task-work files are being modified, and its content is determined by this very
+# script. Including it creates a self-referential paradox with no audit value.
+# Applied here, after both code paths converge on FILES_TOUCHED, so the fix covers
+# both the baseline-aware and the fallback path in one place.
+SIG_FILE_RELATIVE="${SIG_FILE#./}"   # normalize: strip leading ./ if present
+FILES_TOUCHED=$(echo "$FILES_TOUCHED" \
+  | jq --arg sig "$SIG_FILE_RELATIVE" '[.[] | select(. != $sig)]')
 
 if [[ "$FILES_TOUCHED" == "[]" || -z "$FILES_TOUCHED" ]]; then
   echo "sign-work: no changed files attributed to this task — nothing to sign" >&2
@@ -186,8 +196,25 @@ if [[ -f ".claude/hook-logs/${TASK_ID}--harness.log" ]] \
 fi
 
 # 4. Post-edit status from log
+#
+# WL_DOC_ONLY=1 — set this when a task touches only documentation (no .ts/.tsx/.js/.css
+# files). When set, post_edit_passed is asserted true without requiring a post-edit log,
+# because lint/typecheck/build checks are not applicable to doc-only deliverables.
+#
+# Safety valve: if WL_DOC_ONLY=1 but FILES_TOUCHED contains code files, the flag is
+# rejected — a code-touching task must run post-edit.sh regardless.
 POST_EDIT_OK=true
-if [[ -f ".claude/hook-logs/${TASK_ID}--post-edit.log" ]]; then
+if [[ "${WL_DOC_ONLY:-0}" == "1" ]]; then
+  CODE_FILES=$(echo "$FILES_TOUCHED" | jq -r '.[]' | grep -E '\.(ts|tsx|js|jsx|css|scss|mjs|cjs)$' || true)
+  if [[ -n "$CODE_FILES" ]]; then
+    echo "sign-work: WL_DOC_ONLY=1 is set but FILES_TOUCHED contains code files:" >&2
+    echo "$CODE_FILES" | sed 's/^/  /' >&2
+    echo "sign-work: doc-only flag is invalid for code-touching tasks. Run post-edit.sh." >&2
+    exit 6
+  fi
+  echo "[sign-work] WL_DOC_ONLY=1 — post-edit.sh not required for this task (doc-only)" >&2
+  POST_EDIT_OK=true
+elif [[ -f ".claude/hook-logs/${TASK_ID}--post-edit.log" ]]; then
   grep -q "FAIL:" ".claude/hook-logs/${TASK_ID}--post-edit.log" && POST_EDIT_OK=false
 else
   POST_EDIT_OK=false
@@ -201,6 +228,50 @@ STEPS="[]"
 SUMMARY="${WL_SUMMARY:-no summary provided}"
 STARTED_AT="${WL_STARTED_AT:-$(date -u +%FT%TZ)}"
 COMPLETED_AT="$(date -u +%FT%TZ)"
+
+# 6a. Summary quality guard
+#
+# Algol TASK-30 audit flagged: a signature with summary="no summary provided"
+# and steps=[] shipped undetected. This guard warns (not blocks by default)
+# when the summary is clearly not a human-authored description.
+#
+# Fail-closed mode: set WL_REQUIRE_SUMMARY=1 in the environment to turn
+# warnings into hard errors (exit 5). Useful in CI or strict-mode sessions.
+#
+# Conditions that trigger the warning:
+#   a) WL_SUMMARY was not set (default "no summary provided" was used)
+#   b) WL_SUMMARY equals literal "no summary provided" (explicit but uncrafted)
+#   c) WL_SUMMARY is set but < 10 characters (too short to be meaningful)
+
+_SUMMARY_OK=true
+_SUMMARY_WARN=""
+if [[ -z "${WL_SUMMARY:-}" ]]; then
+  _SUMMARY_OK=false
+  _SUMMARY_WARN="WL_SUMMARY is unset. Set it to a meaningful description of what this task did."
+elif [[ "$SUMMARY" == "no summary provided" ]]; then
+  _SUMMARY_OK=false
+  _SUMMARY_WARN="WL_SUMMARY equals literal 'no summary provided' — please write an actual summary."
+elif [[ "${#SUMMARY}" -lt 10 ]]; then
+  _SUMMARY_OK=false
+  _SUMMARY_WARN="WL_SUMMARY is too short (${#SUMMARY} chars < 10 min). Add more detail."
+fi
+
+if [[ "$_SUMMARY_OK" == "false" ]]; then
+  echo "sign-work: WARNING — summary quality check failed:" >&2
+  echo "  $_SUMMARY_WARN" >&2
+  echo "  Export WL_SUMMARY='<description>' before calling sign-work.sh." >&2
+  echo "  Example: WL_SUMMARY='Rewrote next-dispatchable.sh for bash 3.2 compat' bash .claude/hooks/sign-work.sh $TASK_ID" >&2
+  if [[ "${WL_REQUIRE_SUMMARY:-0}" == "1" ]]; then
+    echo "sign-work: BLOCKED — WL_REQUIRE_SUMMARY=1 is set; summary is required before signing." >&2
+    exit 5
+  fi
+fi
+
+# Steps quality note (advisory only; does not block)
+if [[ "$STEPS" == "[]" ]]; then
+  echo "sign-work: NOTE — steps log is empty (no ${TASK_ID}--steps.log found)." >&2
+  echo "  Write step notes to .claude/hook-logs/${TASK_ID}--steps.log during work." >&2
+fi
 
 # 7. Build payload (no self_hash yet). pre_cutover_codename is string-or-null.
 if [[ -n "$PRE" ]]; then
@@ -242,10 +313,26 @@ PAYLOAD=$(jq -n \
   }')
 
 # 8. Canonical-JSON self_hash (sorted keys, compact, excluding hashes.self_hash)
-SELF_HASH=$(echo "$PAYLOAD" | jq -cS 'del(.hashes.self_hash)' | sha256sum | awk '{print $1}')
+# tr -d '\n' strips jq's trailing newline so the byte count fed to sha256sum matches
+# the Python canonical reference (json.dumps produces no trailing newline).
+# Without this strip, bash hashes N+1 bytes; Python hashes N bytes; digests diverge.
+SELF_HASH=$(echo "$PAYLOAD" | jq -cS 'del(.hashes.self_hash)' | tr -d '\n' | sha256sum | awk '{print $1}')
 
 # 9. Embed self_hash and write
 echo "$PAYLOAD" | jq --arg sh "$SELF_HASH" '.hashes.self_hash = $sh' > "$SIG_FILE"
+
+# 9a. Post-write PENDING guard — fail closed if any hash field in the produced
+# signature contains the substring "PENDING". This catches any future regression where
+# a code path substitutes a placeholder instead of a computed value. The check is
+# scoped to .hashes only (not summary/steps prose) to avoid false positives when
+# an agent legitimately describes PENDING work in their summary text.
+HASH_STRINGS=$(jq -r '.hashes | .. | strings' "$SIG_FILE" 2>/dev/null || true)
+if echo "$HASH_STRINGS" | grep -qi "PENDING"; then
+  echo "sign-work: INTERNAL ERROR — .hashes field contains PENDING string(s)" >&2
+  echo "sign-work: signature at $SIG_FILE is invalid; removing it." >&2
+  rm -f "$SIG_FILE"
+  exit 7
+fi
 
 # 10. Flag if gates didn't pass
 if ! $HARNESS_PASSED || ! $POST_EDIT_OK; then

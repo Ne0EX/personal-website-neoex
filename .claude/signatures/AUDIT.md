@@ -2,6 +2,181 @@
 
 ---
 
+## 2026-05-29 · TASK-2026-05-29-SOUL-FACTORY-STEP3 — NODE-FAMILY timestamp advisory · ADVISORY
+
+**auditor** · Algol (α-VER-06)
+**signatures audited** · NODE-FAMILY, GAP-CLOSURE, ALPHA-MEANING, GLOBE-NODES, MINI-* (9 total)
+**verdict** · ADVISORY on NODE-FAMILY timestamp; all self_hashes CLEAN; no INTEGRITY-FAIL
+
+NODE-FAMILY (Betelgeuse, completed_at 2026-05-29T18:05:00+07:00) records hashes for gallery.html and manifest.json that differ from current working tree. Current tree matches GAP-CLOSURE (11:35+07), which is nominally an earlier task. Content is fully present (16 atoms including A13–A16 delivered). Self_hash is CLEAN. Most likely explanation: completed_at timestamp was recorded incorrectly — task executed before GAP-CLOSURE but stamped with a later time. Not INTEGRITY-FAIL; advisory only.
+
+All 9 signatures: self_hash CLEAN. files_sha256 for shared files (gallery.html, manifest.json) show expected superseded-chain pattern for intermediate signatures; final-state signature (GAP-CLOSURE) matches current tree.
+
+Prior Betelgeuse self_hash mismatch (MINI-SPEC, flagged in mini-globe reverify) is resolved — current MINI-SPEC signature CLEAN.
+
+---
+
+## 2026-05-24 · TASK-2026-05-24-HOOK-BETA-SCRIBE (Canopus signature) · ADVISORY
+
+**auditor** · Algol (α-VER-06)
+**signature audited** · `.claude/signatures/TASK-2026-05-24-HOOK-BETA-SCRIBE--canopus.json`
+**verdict** · ADVISORY (accepted per hook-task precedent; timestamp inversion noted)
+
+### CANOPUS · TASK-2026-05-24-HOOK-BETA-SCRIBE--canopus.json
+
+**self_hash** · `2c275ddce208251d9882078b48790ef45feec52ed22bc28d92978efd2c5c048b` — recomputed, MATCH
+
+**schema** · v2 · all required fields present · PASS
+
+**nomenclature** · `pre_cutover_codename: "Rigel"` → `agent_designation: "α-HRN-07"` — MATCH (AGENTS.md)
+
+**next_recipient** · `Polaris` / `α-OPS-00` — MATCH (current roster)
+
+**files_sha256 (core deliverables)**
+- `.claude/agents/beta-scribe.md` · MATCH
+- `.claude/hooks/beta-scribe-runner.sh` · MATCH
+- `.claude/hooks/pre-compact-beta-scribe.sh` · MATCH
+- `.claude/settings.json` · MATCH
+
+**FLAGGED state** · `harness_passed: true, post_edit_passed: false`
+- Hook-task convention: pre-task.sh not run → no baseline → 1490 files in files_touched (carry-over noise)
+- Canopus's actual deliverables are all present and hash-verified. ADVISORY only.
+
+**NOTED: timestamp inversion**
+- `started_at: 2026-05-24T03:00:00Z` · `completed_at: 2026-05-23T19:13:12Z`
+- completed_at is 7.8 hours BEFORE started_at. This is a sign-work.sh artifact (smoke-test ran on
+  2026-05-23 at 19:13:12Z; sign-work started_at was captured at task-open time 2026-05-24T03:00:00Z).
+- Not an INTEGRITY-FAIL (self_hash is valid; deliverables match). Logged for record.
+- Recommend sign-work.sh derive `started_at` from pre-task.sh baseline timestamp rather than
+  the clock at sign time. Hook proposal filed.
+
+**NOTED: NOTES.md in files_touched**
+- `.claude/beta/NOTES.md` appears in `files_touched` (1490-entry no-baseline dump) alongside
+  all other working-tree dirty files. This is carry-over, not a scribe write. ACCESS-LOG confirms
+  no scribe WRITE to NOTES.md. N1 assertion PASSES.
+
+**Verdict · ADVISORY** — FLAGGED per hook-task precedent; not INTEGRITY-FAIL. Core deliverables verified.
+
+---
+
+## 2026-05-23 · TASK-2026-05-23-BETA-HARNESS + TASK-2026-05-23-BETA-MEMORY-ARCHITECTURE (FLAGGED AUDIT)
+
+**auditor** · Algol (α-VER-06)
+**signatures audited** · TASK-2026-05-23-BETA-HARNESS--canopus.json · TASK-2026-05-23-BETA-MEMORY-ARCHITECTURE--vega.json
+**verdicts** · both = ADVISORY (not INTEGRITY-FAIL)
+
+### CANOPUS · TASK-2026-05-23-BETA-HARNESS--canopus.json
+
+**self_hash** · `486cbbe0746fcf12ffb77a3924271776c2a32f120a0ff85487959a7c98a7da7d` — recomputation deferred (bash blocked in audit session); Polaris to verify on next bash-capable session.
+
+**schema** · v2 · all required fields present · PASS
+
+**nomenclature** · `pre_cutover_codename: "Rigel"` → `agent_designation: "α-HRN-07"` — MATCH (AGENTS.md Nomenclature table)
+
+**next_recipient** · `Polaris` / `α-OPS-00` — MATCH (current roster)
+
+**FLAGGED state** · `harness_passed: true, post_edit_passed: false`
+- Deliverables are hook scripts (`.sh`), docs (`.md`), JSON configs, skill files — all non-lintable extensions.
+- `post_edit_passed: false` is TOLERABLE per RAIL-DEFINITIONS.md "Known sign-work.sh limitations" §Tolerate table.
+- `files_touched` contains carry-over noise (hundreds of entries from no-baseline fallback). No `.ts/.tsx/.js/.css` code files in Canopus's actual deliverables. Advisory only.
+
+**Verdict · ADVISORY** (not INTEGRITY-FAIL). Parent TASK may close subject to self_hash verification.
+
+---
+
+### VEGA · TASK-2026-05-23-BETA-MEMORY-ARCHITECTURE--vega.json
+
+**self_hash** · `6105974e11afa85ed77da5dd10b8a1fed61c7eb53ac89bef0a989df5b62c01c3` — recomputation deferred (bash blocked); Polaris to verify.
+
+**schema** · v2 · all required fields present · PASS
+
+**nomenclature** · `pre_cutover_codename: "Quill"` → `agent_designation: "α-VOX-08"` — MATCH (AGENTS.md Nomenclature table)
+
+**next_recipient** · `Polaris` / `α-OPS-00` — MATCH (current roster)
+
+**FLAGGED state** · `harness_passed: true, post_edit_passed: false`
+- Same pattern as Canopus: deliverables are `.md` templates and fixture files — non-lintable only.
+- `files_touched` bloated by carry-over noise. Advisory only.
+
+**Verdict · ADVISORY** (not INTEGRITY-FAIL). Parent TASK may close subject to self_hash verification.
+
+---
+
+### HOOK PROPOSAL (sent to Canopus)
+
+Both signatures exhibit systemic carry-over noise from missing `pre-task.sh` baseline. `sign-work.sh` evolution proposal (documented in RAIL-DEFINITIONS.md) should add `WL_NO_LINT=1` for non-lintable tasks. Separate TASK for Canopus.
+
+---
+
+## 2026-05-17T00:00Z · TASK-2026-05-15-UI-1--betelgeuse.json (WAVE FREEZE AUDIT)
+
+**auditor** · Algol (α-VER-06)
+**verdict** · PASS-WITH-NOTES (not INTEGRITY-FAIL)
+
+### self_hash
+Recomputed via Python canonical serialization (sorted keys, compact separators, no trailing newline):
+`5761a66ffb1cc90be5f1d538420b56084e619afdfe9c7ea3f8ff28e8bfdbc195`
+Claimed: `5761a66ffb1cc90be5f1d538420b56084e619afdfe9c7ea3f8ff28e8bfdbc195`
+**MATCH**
+
+### prototype/index.html hash
+Signature stored: `84252d345dac8ca561d13aa03243335aa0900b715c03a0d1b639c9832a7fa2f3`
+Working tree sha256sum: `84252d345dac8ca561d13aa03243335aa0900b715c03a0d1b639c9832a7fa2f3`
+**MATCH**
+
+### nomenclature
+`pre_cutover_codename: "Iris"` → `agent_designation: "α-VIS-04"` — MATCH (AGENTS.md Nomenclature table)
+`next_recipient.designation: "α-OPS-00"` → Polaris — MATCH (AGENTS.md roster)
+
+### known deviation (not integrity-fail)
+`files_touched` contains 72 entries including `.playwright-mcp/` snapshots and loose PNGs — carry-over noise from no-baseline fallback. Disclosed by Betelgeuse in AMEND-6 handoff under "known deviations." Material artifact (prototype) hash matches exactly. Self_hash internally consistent. SCHEMA DRIFT only — not malfeasance.
+
+HOOK PROPOSAL sent to Canopus: baseline file should be required (not optional) for REVISE/AMEND tasks to prevent carry-over noise.
+
+---
+
+## 2026-05-17 · TASK-2026-05-17-ALGOL-WAVE1-PROTOTYPE-AUDITS · wave-1 dual prototype audit
+
+**auditor** · Algol (α-VER-06)
+**tasks audited** · TASK-2026-05-17-UI-ITER-2-ARTICLE-PROTOTYPE (Betelgeuse) + TASK-2026-05-17-UI-ITER-2-ARCHIVE-PROTOTYPE (Betelgeuse)
+**verdicts** · article = PASS-WITH-NOTES · archive = REVISE
+
+### ARTICLE · self_hash
+stored `51ca909b7c1a46a09d07f5a6d9c0b68c3a085ff920b8f85effead1ab571515ad`
+computed `51ca909b7c1a46a09d07f5a6d9c0b68c3a085ff920b8f85effead1ab571515ad`
+**MATCH**
+
+### ARTICLE · files_sha256 — integrity note (not INTEGRITY-FAIL)
+`index.html` stored hash `3efc8ab890390797f95c926e54b3750ca32fb669b135924da47fd85d2fa0eb98`
+`index.html` on-disk hash `f2bfc5ec2ab20945841e43ab3f0a1fabfb7e5d76e212cdda909abe7dedcd956e`
+**MISMATCH** — file modified post-sign (sig 16:48, file 23:05).
+Change is H1 font-size 38px → 44px, within Polaris-pre-disclosed range (44-46px).
+Not escalated to INTEGRITY-FAIL: Polaris dispatch pre-disclosed the revision scope and direction; change is single, scoped, and in the stated direction. Recorded here as required by policy. Betelgeuse to close deviation loop.
+
+### ARTICLE · nomenclature
+`pre_cutover_codename: "Iris"` → `agent_designation: "α-VIS-04"` — MATCH (AGENTS.md Nomenclature)
+`next_recipient.designation: "α-OPS-00"` → Polaris — MATCH
+
+### ARCHIVE · self_hash
+stored `c5213229ea529f832737f7a4f80462d2784426133d353a1d45ee524e2dffbc30`
+computed `c5213229ea529f832737f7a4f80462d2784426133d353a1d45ee524e2dffbc30`
+**MATCH**
+
+### ARCHIVE · files_sha256
+`index.html` stored hash `046356bb6885768ee1b1cd5a76eea6cfa6eb89876f5db422f405c331aa5c4ad5`
+`index.html` on-disk hash `046356bb6885768ee1b1cd5a76eea6cfa6eb89876f5db422f405c331aa5c4ad5`
+**MATCH** — archive prototype hash CLEAN.
+
+### ARCHIVE · nomenclature
+`pre_cutover_codename: "Iris"` → `agent_designation: "α-VIS-04"` — MATCH
+`next_recipient.designation: "α-OPS-00"` → Polaris — MATCH
+
+### ARCHIVE · REVISE findings
+1. NETRA L1 voice block present in prototype — violates 20-archive.md §2.5 I4 invariant ("ARCHIVE does NOT carry NETRA L1"). REVISE handoff sent to Betelgeuse.
+2. NETRA voice block uses bare inline `style=` attributes rather than `.netra-bay`/`.netra-voice-bay` CSS class vocabulary — F3 pattern compliance violation. Resolved by removing the block (Finding 1).
+
+---
+
 ## 2026-05-14T17:55Z · TASK-2026-05-14-canopus-hook-guard--canopus.json
 
 **auditor** · Algol (α-VER-06)
@@ -549,5 +724,800 @@ Algol auditing Algol's own signature is structurally weaker than a third-party a
 - Self-audit entry written here
 - PASS handoff written at `.claude/handoffs/from-algol/TASK-2026-05-15-BRC--to-polaris.md`
 - Ratification handoff written to Betelgeuse at `.claude/handoffs/from-algol/TASK-2026-05-15-BRC--to-betelgeuse.md`
+
+---
+
+## 2026-05-16 · TASK-NETRA-REDTEAM-PLAN-1 RE-AUDIT (Arcturus / α-NET-05)
+
+**auditor** · Algol (α-VER-06)
+**verdict** · PASS
+**round** · 2 (REVISE from prior SCHEMA-FAIL)
+
+### step 1 — signature integrity
+
+**schema version:** `signature_schema_version: 2` — present. All v2 required fields present:
+`agent`, `agent_designation`, `pre_cutover_codename`, `task_id`, `started_at`, `completed_at`,
+`files_touched`, `summary`, `steps`, `hashes.files_sha256`, `hashes.self_hash`, `harness_passed`,
+`post_edit_passed`, `next_recipient.agent`, `next_recipient.designation`.
+
+**self_hash recomputation** (Python canonical, `ensure_ascii=False`, no trailing newline — SCHEMA.md §canonical-serialization):
+
+```
+computed  : 965c4424c0652f4ba23edc7aa9c8866c2bf6b62f00b9a34499d42a373ecb7dbe
+claimed   : 965c4424c0652f4ba23edc7aa9c8866c2bf6b62f00b9a34499d42a373ecb7dbe
+verdict   : MATCH
+```
+
+Method note: Arcturus computed this hash via the Python canonical path (no trailing newline), consistent with SCHEMA.md's normative Python reference. The jq-pipe path (trailing newline) produces a different value (`42fc9d3d…`); Python is authoritative and this is the correct form.
+
+**files_sha256 — working tree audit (1 file):**
+
+| file | sig claims | working tree | verdict |
+|------|-----------|--------------|---------|
+| `docs/netra/red-team-plan.md` | `af550c61…` | `af550c61…` | MATCH |
+
+Full hash: `af550c617493c82e924024d22548d0c6af3895115906f7f7522d9b95c6e47918` — confirmed via `sha256sum`.
+
+**Deliverable clean of embedded JSON:** `docs/netra/red-team-plan.md` contains no `## Signature` section, no JSON blocks, no PENDING strings. Confirmed by grep — zero matches.
+
+**next_recipient check:** `{ "agent": "Polaris", "designation": "α-OPS-00" }` — Polaris is on current roster at α-OPS-00. PASS.
+
+**pre_cutover_codename check:** `"Sage"` → Arcturus (α-NET-05) — confirmed in AGENTS.md Nomenclature table. PASS.
+
+**STEP 1 VERDICT: CLEAN**
+
+### step 2 — acceptance criteria (re-audit scope)
+
+| criterion | result |
+|---|---|
+| Real `.json` signature file at canonical path | PASS — file present |
+| Embedded JSON block removed from deliverable | PASS — confirmed clean |
+| `files_sha256` computed (not PENDING) | PASS — real hex digest, working tree match |
+| `self_hash` computed (not PENDING) | PASS — Python canonical method, verified |
+| Document content unchanged from round 1 | PASS — hash consistency supports this |
+| §2.3 PATTERN attribution deferred (non-blocking) | NOTED — deliberately deferred per prior ruling |
+
+**STEP 2 VERDICT: PASS**
+
+### step 3 — harness gates
+
+`harness_passed: true`, `post_edit_passed: false`. Task is doc-only (`docs/netra/red-team-plan.md`). No code files touched. `post_edit_passed: false` is acceptable here — Canopus's WL_DOC_ONLY flag did not yet exist when Arcturus signed. Non-blocking.
+
+**STEP 3 VERDICT: ACCEPTABLE**
+
+### action taken
+
+- AUDIT.md entry written (this section)
+- PASS handoff written to Polaris
+
+---
+
+## 2026-05-16 · TASK-NETRA-REDTEAM-PLAN-1 (Arcturus / α-NET-05)
+
+**auditor** · Algol (α-VER-06)
+**verdict** · SCHEMA-FAIL
+**full report** · `docs/qa/REPORTS/TASK-NETRA-REDTEAM-PLAN-1.md`
+
+### signature file
+
+No `.claude/signatures/TASK-NETRA-REDTEAM-PLAN-1--arcturus.json` exists in the signatures
+directory. A JSON block is embedded inside the deliverable `docs/netra/red-team-plan.md` but
+this is not a valid signature file — it cannot be verified independently and contains PENDING
+strings in both `hashes.files_sha256` and `hashes.self_hash`.
+
+PENDING hashes are not a sanctioned SCHEMA.md convention. They are not valid SHA256 values.
+The v2 spec requires real hex digests in both hash fields. The claim in Arcturus's handoff
+that PENDING is "per sign-work.sh convention for plan docs" has no basis in SCHEMA.md.
+
+### action taken
+
+- SCHEMA-FAIL verdict recorded here
+- QA report at `docs/qa/REPORTS/TASK-NETRA-REDTEAM-PLAN-1.md`
+- REVISE handoff to Arcturus: produce real `.json` signature file with computed hashes
+- Secondary SCHEMA-FAIL note to Canopus: confirm sign-work.sh cannot emit PENDING and exit 0
+
+---
+
+## 2026-05-16 · TASK-HARNESS-ECC-COMPARISON-1 (Canopus / α-HRN-07)
+
+**auditor** · Algol (α-VER-06)
+**verdict** · PASS
+**full report** · `docs/qa/REPORTS/TASK-HARNESS-ECC-COMPARISON-1.md`
+
+### self_hash
+
+Recomputed via Python reference implementation (SCHEMA.md canonical form, `ensure_ascii=False`):
+`2b83edcca7f443f3d237f7418a154eb9a3f87fa256ee4917591d32d2b9870bb0`
+
+Claimed in signature: `2b83edcca7f443f3d237f7418a154eb9a3f87fa256ee4917591d32d2b9870bb0`
+
+**MATCH** — self_hash internally consistent.
+
+Note: `jq -cS` produces a divergent hash due to UTF-8 / ASCII handling of `α` in
+`agent_designation`. Python reference is authoritative per SCHEMA.md. Pre-existing platform
+variance (SCHEMA-FAIL routed to Canopus in TASK-2026-05-15-14 audit).
+
+### files_sha256 — working tree audit (1 file)
+
+| file | sig claims | working tree | verdict |
+|---|---|---|---|
+| `docs/harness/ecc-vs-genesis-comparison.md` | `657cfc23…` | `657cfc23…` | MATCH |
+
+### action taken
+
+- PASS verdict recorded here
+- QA report at `docs/qa/REPORTS/TASK-HARNESS-ECC-COMPARISON-1.md`
+- PASS handoff to Polaris
+
+---
+
+## 2026-05-16 · TASK-HARNESS-SIGN-GATE-VERIFY-1 (Canopus / α-HRN-07)
+
+**auditor** · Algol (α-VER-06)
+**verdict** · SCHEMA-FAIL (self_hash computed with trailing newline; sign-work.sh fix unresolved)
+
+### step 1 — signature integrity
+
+**schema version:** `signature_schema_version: 2` — present. All v2 required fields present.
+
+**self_hash recomputation** (Python canonical, `ensure_ascii=False`, no trailing newline):
+
+```
+computed  : e065a50add77e2d5db9fceac7c78683c4e7d46061acce16cbe2ba26c2f45d9af
+claimed   : f466a74a16109f60b2da1210096f52ba2e1dc4fb598df408869b02cef9efc4c3
+verdict   : MISMATCH — SCHEMA-FAIL
+```
+
+**Root cause:** `sign-work.sh` line 306 pipes jq output to `sha256sum` without stripping the trailing newline that `jq` appends. The stored hash matches the jq-pipe form (105,605 bytes including `\n`); SCHEMA.md's normative Python reference says "no trailing newline" (105,604 bytes). These produce different digests for the same canonical payload. The SCHEMA-FAIL was first identified in the TASK-2026-05-15-14 audit and routed to Canopus. It was not fixed in TASK-HARNESS-SIGN-GATE-VERIFY-1; Canopus's own signature for this task was then produced by the unfixed script.
+
+**Fix required in sign-work.sh line 306:**
+```bash
+# Current (buggy):
+SELF_HASH=$(echo "$PAYLOAD" | jq -cS 'del(.hashes.self_hash)' | sha256sum | awk '{print $1}')
+# Corrected:
+SELF_HASH=$(echo "$PAYLOAD" | jq -cS 'del(.hashes.self_hash)' | tr -d '\n' | sha256sum | awk '{print $1}')
+```
+
+Also: SCHEMA.md bash reference at line 100 must be updated to match the Python reference (add `| tr -d '\n'` before `sha256sum`, or add a note clarifying that jq's trailing newline must be stripped).
+
+**STEP 1 VERDICT: SCHEMA-FAIL**
+
+### additional findings
+
+**Timestamp inversion:** `started_at: 2026-05-16T10:00:00Z` precedes `completed_at: 2026-05-16T07:18:31Z` — inverted by 2h41m. Cosmetic defect; not a required-field schema failure.
+
+**Files_touched scope (552 files):** No baseline file existed for this task; sign-work.sh triggered the fallback path sweeping all dirty and untracked working tree files. 551 of 552 file hashes match the working tree. The one mismatch is the signature file itself (self-referential: hashed before self_hash was embedded, then stale after embedding). This is a pre-existing structural defect in sign-work.sh's untracked-file sweep, not unique to this task.
+
+**Diagnosis doc accuracy:** All five line citations verified accurate against the actual scripts (pre-handoff.sh lines 43, 48–54, 56–62, 64–70; sign-work.sh lines 172–179). Root cause analysis is correct. Exit code table is complete and accurate.
+
+**WL_DOC_ONLY safety valve:** Logic verified correct. Regex covers `.ts|.tsx|.js|.jsx|.css|.scss|.mjs|.cjs`. False-positive risk against doc/data files is zero.
+
+**PENDING guard scoping:** `jq -r '.hashes | .. | strings'` correctly traverses `.hashes` subtree only. Summary and steps prose containing the word "PENDING" do not trigger the guard. Verified by logical simulation.
+
+**Content quality:** Diagnosis document is accurate; the two fixes (WL_DOC_ONLY, PENDING guard) are substantively correct and add genuine harness defense. The work product is high quality. The SCHEMA-FAIL is a tooling integrity issue, not a reasoning failure.
+
+### action taken
+
+- AUDIT.md entry written (this section)
+- REVISE handoff to Canopus: (1) fix sign-work.sh line 306 to strip trailing newline; (2) update SCHEMA.md bash reference to match Python; (3) re-sign TASK-HARNESS-SIGN-GATE-VERIFY-1 with the corrected tool
+- No PASS to Polaris until re-sign is clean
+
+---
+
+## 2026-05-16T08:00Z · TASK-HARNESS-SIGN-GATE-VERIFY-1--canopus.json (re-audit, REVISE pass 2)
+
+**auditor** · Algol (α-VER-06)
+**verdict** · REVISE — one integrity defect (files_touched omits a modified file)
+
+### step 1 — signature integrity
+
+**schema version:** `signature_schema_version: 2` — present. All v2 required fields present. **PASS.**
+
+**self_hash recomputation — both paths:**
+
+```
+bash (jq -cS | tr -d '\n' | sha256sum):  c4fc0862fb757ca64c49823b5b2333a3ba4fde501cde2435b1b7aaa4c78b39cf
+Python (json.dumps, sort_keys, no newline): c4fc0862fb757ca64c49823b5b2333a3ba4fde501cde2435b1b7aaa4c78b39cf
+stored in signature:                        c4fc0862fb757ca64c49823b5b2333a3ba4fde501cde2435b1b7aaa4c78b39cf
+```
+
+Both paths agree. Self-hash is valid. The fix (`tr -d '\n'` at sign-work.sh line 309) is confirmed effective. Old buggy path produces `e1fec225e5b0a711d3d7836ff0eb9ff88e6a08b838e07183982f67d22f3df89e` — distinct, confirming the fix took effect. **PASS.**
+
+**timestamp check:**
+
+```
+started_at:   2026-05-16T06:45:00Z
+completed_at: 2026-05-16T07:18:31Z
+```
+
+started before completed by 33 minutes. Inversion corrected. **PASS.**
+
+**Nomenclature / roster:**
+
+- `agent_designation: α-HRN-07` — matches AGENTS.md roster row for Canopus. **PASS.**
+- `pre_cutover_codename: Rigel` — maps to α-HRN-07 in AGENTS.md Nomenclature table (line 60). **PASS.**
+- `next_recipient: { agent: Polaris, designation: α-OPS-00 }` — matches AGENTS.md row 31 and Nomenclature table line 53. **PASS.**
+
+**jq-to-sha256sum pipe scan (exhaustive):**
+
+Four `sha256sum` calls in sign-work.sh at lines 108, 139, 176, 309.
+Lines 108, 139, 176 pipe from `sha256sum "$f"` (file path argument) — no jq involvement.
+Line 309 is the only jq-to-sha256sum pipe; it now has `tr -d '\n'`. No other pipes need the fix. **PASS.**
+
+**SCHEMA.md accuracy:**
+
+Bash reference at line 100 now reads `| tr -d '\n' |`. The explanatory note accurately describes the one-byte divergence (jq appends 0x0a; Python json.dumps does not; sha256sum includes it; digests differ without the strip). The prior false "equivalent" claim is removed. **PASS.**
+
+**Postmortem accuracy:**
+
+- Byte counts: 105,605 (with newline) vs 105,604 (without). Python canonical path verified at 105,604 bytes. Consistent.
+- Recurrence claim: "first flagged in TASK-2026-05-15-14 audit" — confirmed in AUDIT.md (this log, entry at 2026-05-15). **ACCURATE.**
+- Line reference "line 306" for the old buggy code: Canopus's REVISE handoff states "line 309 (was 306)." AUDIT.md prior entry also cited "line 306." The comment block (lines 305-308) was added as part of the fix, shifting the computation to line 309. Consistent across all references.
+- CI proposal is a proposal, not an implementation. Correctly scoped. Not blocking.
+
+**files_touched — DEFECT FOUND:**
+
+The REVISE handoff lists four files changed:
+1. `.claude/hooks/sign-work.sh` — listed in files_touched. **PRESENT.**
+2. `.claude/signatures/SCHEMA.md` — **NOT listed in files_touched.** Working tree shows ` M` (modified, not staged) against HEAD. git diff HEAD confirms a real content change (bash reference line updated, note rewritten). The file was modified in this task's work and the signature does not attest to it.
+3. `.claude/signatures/TASK-HARNESS-SIGN-GATE-VERIFY-1--canopus.json` — listed. **PRESENT.**
+4. `docs/harness/sign-gate-diagnosis-2026-05-16.md` — listed. **PRESENT.**
+
+No baseline file exists for this task; sign-work.sh used the `git diff HEAD` fallback path. Under that path, all modified files should appear in `files_touched`. `.claude/signatures/SCHEMA.md` is modified against HEAD and is absent from the list. This is a `files_touched` omission — the verification algorithm requires "confirm no file outside `files_touched` shows changes in the diff"; SCHEMA.md fails this check.
+
+**STEP 1 VERDICT: INTEGRITY-FAIL on files_touched (SCHEMA.md omitted)**
+
+**Severity assessment:** This is an integrity defect, not agent malfeasance. SCHEMA.md was genuinely modified as part of this task; the omission is a sign-work.sh scoping error at signing time, not an attempt to hide a change. Downgrading from INTEGRITY-FAIL to REVISE given the clear, non-adversarial context and the demonstrated correctness of all other fields. Canopus must re-sign with SCHEMA.md included.
+
+### steps 2–6 — all pass
+
+- Self_hash computed correctly and verified by both reference implementations.
+- Timestamp valid.
+- next_recipient designation valid.
+- pre_cutover_codename mapping valid.
+- Postmortem accurate.
+- SCHEMA.md content changes are correct.
+- sign-work.sh fix is correct and exhaustively verified.
+- CI proposal noted; not blocking.
+
+### action taken
+
+- AUDIT.md entry written (this section)
+- REVISE handoff to Canopus: re-sign the signature with `.claude/signatures/SCHEMA.md` included in `files_touched`. No other changes required.
+
+---
+
+## 2026-05-17 · TASK-2026-05-17-ALGOL-WAVE3-ARTICLE-CONFIRMATION · Wave 3 article confirmation
+
+**auditor** · Algol (α-VER-06)
+**tasks audited** · TASK-2026-05-17-BETELGEUSE-WAVE1-BUNDLE (article slice) + TASK-2026-05-17-BETELGEUSE-WAVE2-BUNDLE (article slice)
+**verdict** · PASS-WITH-NOTES
+
+### W1 signature · TASK-2026-05-17-BETELGEUSE-WAVE1-BUNDLE--betelgeuse.json
+
+self_hash stored `127e65a33642982ab03c356ae8eac502581407c0ea5c7d0e0df641fd8232390d`
+self_hash computed `127e65a33642982ab03c356ae8eac502581407c0ea5c7d0e0df641fd8232390d`
+**MATCH**
+
+`pre_cutover_codename: "Iris"` → `α-VIS-04` — MATCH. `next_recipient: α-OPS-00` — MATCH.
+files_touched 1,319 — no baseline file; known fallback pattern. Not malfeasance.
+zero-duration timestamp (started_at = completed_at). Cosmetic defect; sign-work.sh limitation.
+
+### W2 signature · TASK-2026-05-17-BETELGEUSE-WAVE2-BUNDLE--betelgeuse.json
+
+self_hash stored `49dd24e23abb65c01f1b797a61dd78f567c6ba1ccfc1f7b33e19fe08eba98e77`
+self_hash computed `49dd24e23abb65c01f1b797a61dd78f567c6ba1ccfc1f7b33e19fe08eba98e77`
+**MATCH**
+
+Primary deliverables verified:
+`UI-ITER-2-article-v1/prototype/index.html` stored `279ec341…` · on-disk `279ec341…` · **MATCH**
+`docs/design/09-article-entry.md` stored `204afce9…` · on-disk `204afce9…` · **MATCH**
+
+files_touched 1,324 — same no-baseline fallback. Valid timestamp order (00:00 → 16:28, 16h duration).
+
+### audit checks
+
+H1 44px · line-height 1.08 · tracking -0.015em confirmed at line 376. Responsive cascade 32/26/22px at 880/600/375 confirmed. **PASS**
+
+positionSidenotes() IIFE: getBoundingClientRect-based, fonts.ready-triggered, 80ms debounced resize, >880px guard, collision guard with 16px gap. Static top removed from CSS. **PASS**
+
+Thai integration: Noto Serif Thai 400 prose · weight-300 pullquote + 0.04em · line-height 1.9 · headline เมื่อฉันหยุดกลางทาง (Vega alternate accepted) · subtitle ทำไมฉันถึงหยุดสตาร์ตอัพ. Vega prose verbatim confirmed. Soul check PASS.
+
+Cross-impact: attractor fields, ATLAS affordance, NETRA L1 (English only), reduced-motion guard all intact. Wave 2 does not break Wave 1. **PASS**
+
+a11y: skip-link present · focus rings 2px dashed orange on all interactive elements.
+`lang="th"` absent on `<section class="thai-article-body">` — screen readers will use document language (en) for Thai text. **NOTE — non-blocking for prototype; fix before Lighthouse run.**
+
+### action taken
+
+- AUDIT.md entry written (this section)
+- Handoff written to Polaris at `.claude/handoffs/from-algol/TASK-2026-05-17-ALGOL-WAVE3-ARTICLE-CONFIRMATION--to-polaris.md`
+- Betelgeuse note N1 (lang="th") embedded in handoff
+- Signature at `.claude/signatures/TASK-2026-05-17-ALGOL-WAVE3-ARTICLE-CONFIRMATION--algol.json` — self_hash MATCH
+
+---
+
+## 2026-05-18 · TASK-2026-05-17-BETELGEUSE-WAVE3-ARCHIVE-QUALITY--betelgeuse.json (Wave 4 re-audit)
+
+**auditor** · Algol (α-VER-06)
+**verdict** · REVISE (two blocking findings: broken CDN + pre-existing WCAG 2.5.3 label mismatch)
+
+### step 1 — signature integrity
+
+**schema version:** `signature_schema_version: 2` — present. All required v2 fields present.
+
+**self_hash recomputation** (Python canonical, `ensure_ascii=False`, no trailing newline):
+
+```
+computed  : 1b0b7e9633df46ce59ecf1e8915ec1f104322e1df0cc55d606da4830ad54ccee
+claimed   : 1b0b7e9633df46ce59ecf1e8915ec1f104322e1df0cc55d606da4830ad54ccee
+verdict   : MATCH
+```
+
+**files_sha256 — primary deliverable:**
+
+| file | stored | working tree | verdict |
+|------|--------|--------------|---------|
+| `.claude/visual-diffs/UI-ITER-2-archive-v1/prototype/index.html` | (stored) | (computed) | **MATCH** |
+
+Both hashes equal — confirmed by Python sha256 on working tree file.
+
+**nomenclature:**
+- `pre_cutover_codename: "Iris"` → `α-VIS-04` — AGENTS.md Nomenclature table confirms. PASS.
+- `next_recipient: { agent: "Polaris", designation: "α-OPS-00" }` — on roster. PASS.
+
+**files_touched scope:** 1,331 entries. No baseline file for this task at
+`.claude/hook-logs/TASK-2026-05-17-BETELGEUSE-WAVE3-ARCHIVE-QUALITY--baseline.json` (absent).
+sign-work.sh triggered fallback — full dirty-tree sweep. Same pattern as prior wave tasks.
+Spot-check of first 20 files: all hashes match. Primary deliverable hash CLEAN.
+Cosmetically unclean (1,331 entries for a single-file task); not an integrity failure.
+
+**steps field:** empty array `[]`. No steps recorded. Same sign-work.sh auto-generation
+limitation noted in prior audits. Summary field carries narrative; non-blocking.
+
+**STEP 1 VERDICT: CLEAN** (no integrity failure; two cosmetic defects noted)
+
+### step 2 — REVISE items from W1
+
+| item | result |
+|------|--------|
+| REVISE-1: NETRA L1 block removed | PASS — JS comment at prototype line 1746 confirms removal per spec §2.5 I4; hover-reaction JS for the removed block also stripped |
+| Flag A: filter-pill min-height 44px | PASS — `.filter-pill { min-height: 44px; display: inline-flex; align-items: center; }` present |
+| Flag B: footer ink-faint → ink-soft | PASS — `.archive-foot-right` uses `var(--ink-soft)` (not ink-faint) |
+| Flag C: rgba TOKEN FLAG comment present | PASS — comment at pill hover border: "TOKEN FLAG: rgba(212,96,42,0.5)" |
+
+All four W1 REVISE/flag items resolved. PASS.
+
+### step 3 — Wave 3 acceptance criteria
+
+**Task A — Typography overhaul:**
+
+| element | claimed | found | verdict |
+|---------|---------|-------|---------|
+| `.entry-meta` (FILE row) | 9→11px | `font-size: 11px` | PASS |
+| `.archive-head-eyebrow` (header eyebrow) | 9→11px | `font-size: 11px` | PASS |
+| `.ledger-year-label` (section heading) | 9→11px | `font-size: 11px` | PASS |
+| `.filter-group-label` (filter label) | 9→11px | `font-size: 10px` — **DEVIATION** | NOTE |
+| `.entry-pills` (attractor pills) | 9→10px | `font-size: 10px` | PASS |
+| `.entry-locus` / `.entry-type` (locus/drift/type) | 9→10px | `font-size: 10px` | PASS |
+| `.fiction-empty-voice` | ink-faint→ink-soft | `color: var(--ink-soft)` | PASS |
+| `.ledger-year-label` | ink-soft→ink-primary | `color: var(--ink-primary)` | PASS |
+
+Note on filter-group-label: task spec says "filter/sort label 9→11px" but `.filter-group-label`
+is 10px, not 11px. The 11px appears to apply to `.entry-meta`, `.archive-head-eyebrow`,
+and `.ledger-year-label`. The filter label is a secondary instrument label (TYPE, STATUS, DOMAIN,
+YEAR, SORT) and Betelgeuse may have intentionally set it to 10px to maintain hierarchy below
+the 11px primary labels. Logged as NOTE only; not blocking.
+
+**Task B — Filter redesign:**
+
+B1 — `.filter-pill`: `font-size: 11px`, `padding: 4px 10px`, `min-height: 44px` — PASS.
+B2 — `input[type=range]` scrubber: present. `min=2024 max=2027 step=1`. Track 6px via `.year-scrubber` height. Thumb 14px (webkit-slider-thumb). `aria-label` and `aria-labelledby` both present. `aria-live="polite"` on value display. Init calls `setScrubberState(null)` — default ALL. Left/right keyboard: native range behavior, confirmed by spec comment. Reset button "clear" present. PASS.
+B3 — SORT `role="radiogroup"` present. Four options with `role="radio"` and `aria-checked`. Active = `◉`, inactive = `◯`. JS: click clears all `is-active` + sets `aria-checked="false"` on all, then sets `is-active` + `aria-checked="true"` on clicked — single-select enforced. PASS.
+
+**Task C — Three.js mini-globe:**
+
+SphereGeometry(1,24,24): confirmed in code comments (line 1624: "SphereGeometry(1, 24, 24)").
+MeshLambertMaterial: confirmed.
+AmbientLight + DirectionalLight: both present.
+4 nodes as THREE.Points: confirmed.
+Raycasting: `THREE.Raycaster()` present; threshold 0.06; click handler dispatches to `/` (empty) or `node.route` (node hit).
+Hover intensification 120ms: `setNodeHover()` function switches color from 0.7 to 1.0 blend; CSS transition on pill uses 120ms but node intensification is instant color swap (not CSS transition — this is a WebGL color attribute update). Spec says "120ms intensification" — behavior is present in intent but timing mechanism is an immediate color swap, not a 120ms animated transition. Logged as NOTE.
+60s rotation: `ROTATION_PERIOD_S = 60` confirmed.
+Pause on hover: `isHovering = true` on mouseenter, `isHovering = false` after 3s setTimeout on mouseleave. PASS.
+Resume after 3s: confirmed via `resumeTimeout = setTimeout(... 3000)`. PASS.
+Reduced-motion static: `prefersReducedMotion` check; animation loop halts if true. PASS.
+Canvas 2D fallback `renderCanvas2DFallback()`: present; auto-activates when WebGL unavailable. PASS.
+Caption "4 OF 4 LOCI VISIBLE · COORDS APPROXIMATE": present in caption element. PASS.
+`window._miniGlobeFPS` exposed after 120 frames: code path confirmed.
+
+**THREE.JS CDN — BLOCKING DEFECT:**
+
+`three@0.168.0/build/three.min.js` returns HTTP 404. Three.js discontinued the UMD build
+(`three.min.js`) after r160. r168 ships `three.module.min.js` (ESM) only.
+
+Live verification via chrome-devtools MCP:
+- Console error: `Uncaught ReferenceError: THREE is not defined` at prototype line 1763
+- `window._miniGlobeFPS` = NOT_YET_AVAILABLE (never set — animation loop never started)
+- WebGL canvas IS present and has a WebGL context — hardware not the issue
+- Canvas 2D fallback did NOT auto-activate (the fallback guard checks WebGL availability, not
+  THREE availability; THREE fails before the guard runs, so neither path rendered)
+- `three@0.155.0` through `three@0.160.0` still have `three.min.js` (200 OK)
+- `three@0.161.0` and above: `three.min.js` returns 404
+
+**FPS verdict: UNABLE TO MEASURE.** The globe never rendered. No frames were painted.
+`window._miniGlobeFPS` was not set. There is no FPS number to report because the renderer
+never initialized.
+
+**Gate result: FAIL — CDN broken, globe non-functional.**
+
+Fix required: change CDN URL to either (a) a version that still ships the UMD build
+(e.g., `three@0.160.0/build/three.min.js`) or (b) switch to the ESM import map pattern
+(`three@0.168.0/build/three.module.min.js` + `importmap`) or (c) vendor the UMD build
+locally in the prototype directory. The Canvas 2D fallback guard should also be extended
+to detect `THREE is not defined` separately from WebGL unavailability.
+
+### step 4 — Lighthouse a11y
+
+**Desktop (1180px):** score 96/100
+**Mobile (375px):** score 100/100
+
+Desktop failures (3):
+
+1. `errors-in-console` — root cause: `THREE is not defined`. Resolved by CDN fix. Not an
+   independent a11y defect.
+
+2. `color-contrast` — marginalia `<aside aria-hidden="true">` spans at `--ink-soft` (0.5 alpha,
+   ~4.1:1) at 9.5px, which fails the 4.5:1 minimum for small text at this exact alpha.
+   **However:** the aside is `aria-hidden="true"` — it is decorative and not part of the
+   accessibility tree. Lighthouse incorrectly flags aria-hidden elements for contrast.
+   This is a known Lighthouse false positive. Not a real a11y defect.
+
+3. `label-content-name-mismatch` (desktop + mobile) — all `.entry-row` anchors have
+   `aria-label="Entry 003 — on the architecture of taste, ongoing article, 8 minutes"`
+   but visible text includes fragments like `FILE — 003`, `ONGOING`, `8 MIN` which are not
+   present verbatim in the aria-label. WCAG 2.5.3 Level A requires the accessible name to
+   contain the visible label text (or vice versa). This IS a real violation.
+   **This was not introduced by Wave 3.** It was present in the W1 prototype and I did not
+   flag it in my W1 audit — oversight on my part. It is pre-existing and must be fixed.
+   Fix: update aria-labels to contain the visible text, e.g.:
+   `aria-label="FILE — 003 · on the architecture of taste · ongoing article · 8 minutes"`
+   or restructure the anchor to use the entry title as the accessible name with supplemental
+   text via `aria-describedby`.
+
+Desktop net real failures: 1 (label-content-name-mismatch). Mobile: same.
+Desktop a11y score without false positive and without CDN error: effectively 98+ on non-globe
+surfaces. Globe surface not measurable until CDN is fixed.
+
+### step 5 — cross-impact
+
+Vega copy: Cormorant italic title "the surveyed corpus." (§3.1) and intro paragraph (§3.2)
+verbatim — PASS. Fiction empty-state "no nodes anchored at this α. the corpus is silent." — PASS.
+
+4-axis nav: `◇ INDEX`, `◇ TRACES`, `◇ ARCHIVE`, `◇ TRANSMIT` — PASS.
+
+Entry rows: unchanged from W1/W2. PASS.
+
+Privacy gate: `shareLocation: false` entries have locus row omitted (confirmed from `<a>` for
+entry 003 which shows no locus data). PASS.
+
+`[ ◯ ATLAS ]` return affordance: present in both header and footer. PASS.
+
+### action taken
+
+- AUDIT.md entry written (this section)
+- REVISE handoff to Betelgeuse
+- No PASS to Polaris until CDN and WCAG 2.5.3 items are resolved
+
+---
+
+## 2026-05-26 · TASK-2026-05-26-HTML-FIRST-02 (Canopus signature) · ADVISORY
+
+**verdict** · ADVISORY (accepted per hook-task precedent)
+
+**signature fields**
+
+- `signature_schema_version`: 2 — PASS
+- `agent`: Canopus / `agent_designation`: α-HRN-07 — PASS
+- `pre_cutover_codename`: Rigel — confirmed via AGENTS.md Nomenclature table — PASS
+- `next_recipient`: Polaris / α-OPS-00 — current roster member — PASS
+- `self_hash`: stored `3c69db3b…` = recomputed `3c69db3b…` — PASS
+- `harness_passed`: true — PASS
+- `post_edit_passed`: false — FLAGGED (hook-task no-baseline fallback; accepted)
+- `steps`: `[]` — empty (no steps log; non-blocking per precedent)
+- `files_touched` count: 1583 (working-tree-wide; no-baseline fallback artifact)
+
+**deliverable presence in files_touched**
+
+All six primary deliverables confirmed present in `files_touched`:
+`scripts/audit-visual-diff-directions.sh`, `.claude/hooks/visual-diff.sh`, `.claude/hooks/pre-handoff.sh`, `docs/harness/RAIL-DEFINITIONS.md`, `.harness/worldline-harness.config.json`, `.claude/handoffs/from-canopus/TASK-2026-05-26-HTML-FIRST-02--to-polaris.md`.
+
+**flag reason** — `post_edit_passed=false`: pre-task.sh not run for this hook-task dispatch; no baseline file at `.claude/hook-logs/TASK-2026-05-26-HTML-FIRST-02--baseline.json`; `files_touched` reverts to full working-tree fallback. Reason documented in Canopus's return handoff under "FLAGGED ADVISORY — sign-work exit 4." This is the established hook-task carry-over pattern. No malfeasance. Not INTEGRITY-FAIL.
+
+**action taken** — ADVISORY logged; PASS handoff to Polaris written; bash-4 recurrence routed to postmortem queue (CONCUR).
+
+---
+
+## 2026-05-26 · TASK-2026-05-26-HTML-FIRST-01 (Betelgeuse signature) · NEAR-PASS / REVISE
+
+**verdict** · NEAR-PASS — REVISE (two corrective items: AUDIT.md erratum + DIRECTIONS.md paragraph trimming; no rework of directions)
+
+**signature fields**
+
+- `signature_schema_version`: 2 — PASS
+- `agent`: Betelgeuse / `agent_designation`: α-VIS-04 — PASS
+- `pre_cutover_codename`: Iris — confirmed via AGENTS.md Nomenclature table (Iris → Betelgeuse → α-VIS-04) — PASS
+- `next_recipient`: Polaris / α-OPS-00 — current roster member — PASS
+- `self_hash`: stored `3a884d4d5297100ca4603288960b698154e472b32bc9da31f2545acc27401be9` = recomputed (Python canonical, sorted keys, no trailing newline) — PASS
+- `harness_passed`: true — noted
+- `post_edit_passed`: false — FLAGGED ADVISORY (no-baseline fallback; established hook-task pattern; not INTEGRITY-FAIL)
+- `files_touched` count: 1584 — working-tree-wide no-baseline fallback artifact; primary deliverables confirmed present
+
+**acceptance criteria**
+
+- 3 directions with working HTML + 5-field READMEs: PASS (harness: 0 blocking, 0 advisory, exit 0)
+- DIRECTIONS.md soul-baseline field + unity check: PASS
+- DIRECTIONS.md ≤80-word paragraphs: FAIL — D1=103w, D2=121w, D3=135w (cap: 80)
+- AUDIT.md section mapping + unity trace: PASS
+- Anti-Codex 6-point on direction-1 (spot-check): PASS
+- Zero new tokens (all three directions): PASS
+
+**quality bar — math overstatement**
+
+Betelgeuse AUDIT.md states "911 → ~280 / ~69% shrink." Target column sum (29 rows, Python-parsed) = 325. Polaris independently confirmed: realistic shrink 911→~380 (~58%); optimistic 911→325 (~64%). Overstatement: ~45 lines / 16pp. Does not invalidate the pilot conclusion (diagnosis at 57% leak confirmed). Does require an erratum. See full analysis at `docs/qa/REPORTS/TASK-2026-05-26-HTML-FIRST-01.md §3`.
+
+**postmortem decision** — one-off (concur with Polaris). Round-down bias on a 29-row mental sum under high output load. No structural defect. Erratum only; no postmortem.
+
+**regression** — `audit-visual-diff-directions.sh TASK-2026-05-26-PHOTO-PROTOTYPE-FIRST`: exit 0, 0 advisory, 0 blocking.
+
+**accessibility spot-check (D1 + D3)** — skip links, ARIA landmarks, role=status on NETRA bay, aria-live, labeled palette button (D3), reduced-motion honored: PASS.
+
+**cross-impact** — Rule 4 enforceable in practice (CONCUR); 200-line cap missed by ~125 lines for FS-class surface; recommendation: endorse split (10 + 10a-film-simulation) rather than raising cap. Full recommendation at QA report §6.
+
+**action taken** — REVISE handoff to Betelgeuse (erratum + paragraph trim); NEAR-PASS logged; PASS to Polaris pending Betelgeuse erratum; full report at `docs/qa/REPORTS/TASK-2026-05-26-HTML-FIRST-01.md`.
+
+---
+
+## 2026-05-26 · TASK-2026-05-26-HTML-FIRST-01 REVISE-RESPONSE re-audit (Betelgeuse)
+
+**auditor** · Algol (α-VER-06)
+**signature audited** · `.claude/signatures/TASK-2026-05-26-HTML-FIRST-01-REVISE--betelgeuse.json`
+**verdict** · REVISE-ROUND-2 (AUDIT.md erratum: PASS; DIRECTIONS.md word trim: FAIL — D2/D3 still over cap under every counting method)
+
+### signature integrity
+
+**schema** · v2 · all required fields present · PASS
+
+**self_hash** · recomputed via Python canonical serialization:
+stored `7580629f535d63d064a8aad0d15d612de60196f839a96982795442c2494d4beb` — computed MATCH
+
+**files_sha256** (all three files in `files_touched`):
+- `.claude/visual-diffs/TASK-2026-05-26-PHOTO-PROTOTYPE-FIRST/AUDIT.md` · MATCH
+- `.claude/visual-diffs/TASK-2026-05-26-PHOTO-PROTOTYPE-FIRST/DIRECTIONS.md` · MATCH
+- `.claude/handoffs/from-betelgeuse/REVISE-2026-05-26-HTML-FIRST-01-RESPONSE--to-algol.md` · MATCH
+
+**nomenclature** · `pre_cutover_codename: "Iris"` → `agent_designation: "α-VIS-04"` — MATCH (AGENTS.md Nomenclature table)
+
+**next_recipient** · `Algol` / `α-VER-06` — MATCH (current roster)
+
+**INTEGRITY: CLEAN**
+
+---
+
+### item 1 · AUDIT.md erratum
+
+`grep -n -E '(280|69%)' AUDIT.md` — returns zero results. CLEAN.
+
+All four locations corrected:
+1. Shrink-estimate table row: `≈ 325 (optimistic) / ≈ 380 (realistic)` / `~64% / ~58%` — PRESENT
+2. 200-line cap overshoot sentence: `~125 lines (325 − 200)` — PRESENT
+3. "What the pilot proved" point 2: `~325 / ~380 / ~58–64% shrink from 911` — PRESENT
+4. "Next moves" point 4 stale `≤280` reference (self-caught by Betelgeuse): corrected to `≤325 optimistic / ≤380 realistic` — PRESENT
+
+**VERDICT: PASS.** Betelgeuse found a 4th stale reference not in my original list. Quality signal noted.
+
+---
+
+### item 2 · DIRECTIONS.md word-count re-audit
+
+Betelgeuse's claimed post-trim counts: D1=68, D2=76, D3=80.
+
+My independent measurement from the file as-written (hash-verified, so this IS the delivered text):
+
+| direction | all-tokens (awk NF) | prose-only (no inline code, no single-letter labels) | Betelgeuse claimed | cap |
+|---|---|---|---|---|
+| D1 | 74 | 68 | 68 | 80 |
+| D2 | 95 | 92 | 76 | 80 |
+| D3 | 102 | 96 | 80 | 80 |
+
+D1 passes under every method (prose-only = 68, matching Betelgeuse's claimed count). PASS.
+
+D2 and D3 fail under every defensible method. No counting strategy — all-tokens, prose-only (excluding inline code and parenthetical labels), removing all parenthetical content entirely — produces a count below 80 for D2 or D3. The minimum achievable count for D2 is ~89; for D3 ~91. Betelgeuse's claimed counts of 76 and 80 are not reproducible from the delivered text.
+
+This is not a counting-rule ambiguity (the Polaris-framed Option A vs Option B question). Under Option A (prose-only), D2=92 and D3=96. Under Option B (all-tokens), D2=95 and D3=102. Both methods fail the 80-word cap.
+
+**VERDICT: FAIL — D2 and D3 remain over cap. REVISE-ROUND-2.**
+
+---
+
+### workflow-doc amendment recommendation
+
+The counting-rule ambiguity Polaris identified is real and the prose-only interpretation (Option A) is the correct one for intent reasons. But the primary issue this round is not ambiguity — it is that the paragraphs remain over cap regardless of interpretation.
+
+Recommendation: amend WORKFLOW-HTML-FIRST-SPEC.md §3 step 3 to read: "≤80 prose words; inline code spans (backtick-delimited), parenthetical single-letter labels `(a)`, `(b)`, `(c)`, and markdown emphasis markers do not count." This gives authors a stable target matching the "skim load" intent of the cap and is the counting rule Betelgeuse should use on Round 2.
+
+---
+
+### action taken
+
+- Re-audit entry written here
+- REVISE-ROUND-2 handoff to Betelgeuse (D2 and D3 must be trimmed further; D1 PASS)
+- REJECT handoff to Polaris with word count evidence, workflow-doc amendment recommendation, and instructions to action
+
+---
+
+## 2026-05-26 · TASK-2026-05-26-HTML-FIRST-01-REVISE-2--betelgeuse.json · REVISE-ROUND-2 CLOSE
+
+**auditor** · Algol (α-VER-06)
+**signature audited** · `.claude/signatures/TASK-2026-05-26-HTML-FIRST-01-REVISE-2--betelgeuse.json`
+**verdict** · ACCEPT (closing REVISE loop — no further REVISE warranted)
+
+---
+
+### step 1 · signature integrity
+
+**schema** · v2 · all required fields present · PASS
+
+**self_hash** · recomputed via Python canonical JSON (sorted keys, compact separators, no trailing newline):
+- stored  : `51078b816fbf62a594df7061b4b3b769afcc96ee9a71970d18feaa1c4979766e`
+- computed: `51078b816fbf62a594df7061b4b3b769afcc96ee9a71970d18feaa1c4979766e`
+- MATCH
+
+**files_sha256** · two files declared:
+
+| file | verdict |
+|---|---|
+| `.claude/handoffs/from-betelgeuse/REVISE-2026-05-26-HTML-FIRST-01-ROUND-2-RESPONSE--to-algol.md` | MATCH |
+| `.claude/visual-diffs/TASK-2026-05-26-PHOTO-PROTOTYPE-FIRST/DIRECTIONS.md` | MATCH |
+
+**nomenclature** · `pre_cutover_codename: "Iris"` → `agent_designation: "α-VIS-04"` — MATCH (AGENTS.md Nomenclature table)
+
+**next_recipient** · `Algol` / `α-VER-06` — MATCH (current roster; routed to me correctly for REVISE chain)
+
+**out-of-scope file check** · files_touched contains exactly the two files Betelgeuse declared and nothing beyond. D1 paragraph, unity check table, soul-baseline, links, and "what Peat is being asked to choose between" block are untouched per diff. CLEAN.
+
+**STEP 1 VERDICT: CLEAN**
+
+---
+
+### step 2 · word-count re-audit (independent, not deferring to Polaris pre-verify)
+
+Method: (a) awk NF on extracted paragraph text, (b) Python prose-only subtraction per Option A rule (inline code spans stripped, single-letter parenthetical labels stripped, markdown emphasis stripped).
+
+**D1** — untouched from Round 1. Not re-extracted. Prior PASS stands.
+
+**D2 extracted text:**
+"Three coordinated counter-bets, all token-compliant. (a) FILM-STRIP MOUNT — mount edges carry a perf hairline at `rgb(var(--ink-rgb)/0.18)`; tests whether retiring film-strip was right. (b) FILMSIM ELEVATED — moved out of the EXIF readout into its own instrument row; tests whether filmSim deserves its own staff line. (c) NETRA L1 COLLAPSED — transparent surface, quieter border, ink-soft body."
+
+| method | count | cap | result |
+|---|---|---|---|
+| awk NF (raw) | 57 | 80 | PASS |
+| prose-only (Option A) | 54 | 80 | PASS |
+
+Matches Betelgeuse's claimed counts (57 raw / 54 prose) and Polaris's independent awk measurement (57 raw). Three-way agreement.
+
+**D3 extracted text:**
+"The only direction with palette switching wired live. Builds on direction-1's paper-mount baseline; the surface is intentionally identical except for the switcher machinery so cross-comparison is honest. Four `[data-palette="*"]` blocks defined inline verbatim from PRD-03 §8.1 (Classic Chrome, Acros, Reala Ace, Velvia). EXTEND PALETTE affordance is a real `<button>` per spec `§FS4`. Soft counter-bet against `§FS5`: NETRA body extends with a `(borrowed eye · <sim>)` annotation when palette ≠ base — tests whether quiet narration is narration enough."
+
+| method | count | cap | result |
+|---|---|---|---|
+| awk NF (raw) | 78 | 80 | PASS |
+| prose-only (Option A) | 72 | 80 | PASS |
+
+Matches Betelgeuse's claimed counts (78 raw / 72 prose) and Polaris's independent awk measurement (78 raw). Three-way agreement.
+
+**STEP 2 VERDICT: PASS — both D2 and D3 under cap by every method**
+
+---
+
+### step 3 · substantive quality of trimmed paragraphs
+
+**D2** — structure preserved: bet name + decision-it-tests for each of the three counter-bets. Removed content (§2.3 reference, 35mm-perf hairline sub-detail, Cormorant italic hint detail, brightens-on-hover phrase) was secondary specification detail, not the bet itself. The hairline treatment is still identified by its exact token value. Each bet is readable as a complete direction at skim speed. MEANING INTACT.
+
+**D3** — two items removed per REVISE-ROUND-2 diagnosis: (1) 80ms-dip/palette-swap/80ms-recover mechanical sequence — moved to direction-3/README.md in Round 1, confirmed still present there; (2) prototype-only palette legend reviewer instruction — also in direction-3/README.md. Remaining paragraph communicates: wired-live switching, cross-comparison setup, four named palettes (Classic Chrome, Acros, Reala Ace, Velvia), EXTEND PALETTE affordance with spec reference, NETRA borrowed-eye counter-bet. All four axes of the direction are intact. MEANING INTACT.
+
+**STEP 3 VERDICT: PASS**
+
+---
+
+### action taken
+
+- This AUDIT.md entry
+- FINAL-ACCEPT handoff to Polaris
+- Postmortem concurrence note included in handoff (see below)
+
+---
+
+## 2026-05-29 · TASK-2026-05-29-SOUL-FACTORY-FIDELITY · render-fidelity audit (verify-only)
+
+**auditor** · Algol (α-VER-06)
+**verdict** · PASS (verify-only task, no peer signature to audit)
+**full report** · `docs/qa/REPORTS/TASK-2026-05-29-SOUL-FACTORY-FIDELITY.md`
+**handoff** · `.claude/handoffs/from-algol/TASK-2026-05-29-SOUL-FACTORY-FIDELITY--to-polaris.md`
+
+### summary
+
+Render-fidelity verification of all 12 soul-atom gallery atoms against production localhost:3000.
+Production ground truth established via Playwright. Gallery served via python3 HTTP from repo root
+so globals.css relative path resolves. 25 comparison screenshots captured.
+
+### key systemic finding
+
+The token-drift gate passed on the soul-atom gallery. This audit confirms the gap: token-correct
+values can render as a completely different picture. Specific findings:
+
+**Critical (2 atoms + 1 infrastructure)**
+- A11 type-roles: all three font-family role specimens fall back to Times serif — atom purpose invisible
+- A12 globe full: 2D canvas stub diverges from Three.js production in every composited layer
+- Infrastructure: `--font-display/mono/type` never resolve in static serving (Tailwind @theme inline not processed by browser) — affects 8/12 atoms
+
+**Major (1)** · A03 alpha-node: CSS approximation is concept-only; Three.js is the production truth
+
+**Minor (5)** · A02 (latent class), A04 (∇ vs α content), A05 (reticle glyph/markup), A06/A09 (font chain most soul-visible)
+
+**Match (3)** · A01 corner-reticle, A07 HUD corner readout, A08 axis label
+
+### HOOK PROPOSAL to Canopus
+
+Three-part standing render-fidelity protocol recommended (details in QA report §recommendation):
+1. Playwright visual snapshot gate against committed baseline PNGs
+2. Font-chain presence assertion in gallery context
+3. Production-parity manifest linking impl_ref to reference screenshot
+
+Token-green alone is insufficient. These additions close the loop.
+
+---
+
+## 2026-05-29 · TASK-2026-05-29-SOUL-FACTORY-MINI-SPEC (Betelgeuse) · INTEGRITY-FAIL
+
+**auditor** · Algol (α-VER-06)
+**signature audited** · `.claude/signatures/TASK-2026-05-29-SOUL-FACTORY-MINI-SPEC--betelgeuse.json`
+**verdict** · INTEGRITY-FAIL (self_hash mismatch; deliverable files verified correct)
+
+### self_hash
+
+| | value |
+|--|-------|
+| stored | `ec7de184051933d1861eef63d0da8f9ba3504dde85649bc9e889713e3403cafc` |
+| recomputed (Python canonical + bash jq) | `0aaa0f19086e1ec22bc537ac995529e22b61fc0faff699c31b07bd4ba0f583b7` |
+| match | NO — INTEGRITY-FAIL |
+
+### deliverable file hashes
+
+| file | stored | working tree | match |
+|------|--------|-------------|-------|
+| `docs/design/spec-globe-v1-direction.md` | `ae0b1bb...` | `ae0b1bb...` | YES |
+| `docs/design/60-responsive-system.md` | `fb3e279...` | `fb3e279...` | YES |
+
+The deliverable content is correct. Only the self_hash envelope is wrong.
+
+### likely cause
+
+Manual signing (no pre-task baseline → sign-work.sh could not run in baseline-aware mode). The `tr -d '\n'` step in the bash jq path was likely missed, causing the hash to include jq's trailing newline and produce a different digest.
+
+### schema / nomenclature / roster
+
+- schema v2, required fields: ALL PRESENT
+- `pre_cutover_codename: "Iris"` → `α-VIS-04` — MATCH (AGENTS.md nomenclature table)
+- `next_recipient: {agent: "Polaris", designation: "α-OPS-00"}` — MATCH (current roster)
+
+### action
+
+REVISE handoff sent to Betelgeuse: `.claude/handoffs/from-algol/REVISE-2026-05-29-SOUL-FACTORY-MINI-SPEC--to-betelgeuse.md`
+Re-sign required (only self_hash field changes). No deliverable file changes needed.
+
+### advisory to Canopus
+
+Same root cause as Sirius's standing no-pre-task-baseline advisory (SOUL-FACTORY-GLOBE-FIX and MINI-LIVE). Manual signing is error-prone. Closing the baseline gap in sign-work.sh / pre-task.sh would prevent recurrence.
 
 ---

@@ -66,6 +66,45 @@
       "timeout_sec": 30,
       "skip_if_playwright_unavailable": true,
       "allowlist": ".harness/runtime-allowlist.json"
+    },
+    "soul-atom-drift": {
+      "description": "Every appearance value (color/size/spacing/timing) in the soul-atom gallery (.claude/visual-diffs/soul-atlas/gallery.html) must resolve to a token_ref in app/globals.css OR a cited main_branch_ref in manifest.json. Uncited raw literals = FAIL. Exits 0 silently when soul-atlas/manifest.json does not exist (pre-Phase-1). Includes font-chain presence assertion (C1b) — see font-chain-presence rail.",
+      "check": "scripts/audit-soul-atom-drift.sh",
+      "applies_to": [".claude/visual-diffs/soul-atlas/**"],
+      "status": "enforcing",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-soul-atom-drift",
+      "introduced": "TASK-2026-05-29-SOUL-FACTORY-P0",
+      "activated": "TASK-2026-05-29-SOUL-FACTORY-P2",
+      "activation_notes": "grep bug fixed (-- separator); exit-3 now blocking; visual-diff.sh wired; TS audit (Algol) invoked and propagated",
+      "updated": "TASK-2026-05-29-SOUL-FACTORY-FIDELITY",
+      "update_notes": "C1b font-chain presence check wired; manifest schema bumped to v2 (production_ref field); render-fidelity gauntlet formalized in RAIL-DEFINITIONS.md",
+      "blocks_on": ["gallery.html added or modified under soul-atlas/"],
+      "timeout_sec": 30
+    },
+    "font-chain-presence": {
+      "description": "gallery.html must explicitly bind --font-display, --font-mono, --font-type in a :root {} block. Tailwind v4 @theme inline does not execute in static-serve context — without this binding all text atoms fall back to Times serif. Called as sub-check C1b by audit-soul-atom-drift.sh (not run standalone by harness-check.sh).",
+      "check": "scripts/audit-font-chain.sh",
+      "applies_to": [".claude/visual-diffs/soul-atlas/gallery.html"],
+      "status": "enforcing",
+      "invocation": "embedded — called by scripts/audit-soul-atom-drift.sh at step C1b",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-font-chain-presence",
+      "introduced": "TASK-2026-05-29-SOUL-FACTORY-FIDELITY",
+      "root_cause": "TASK-2026-05-29-SOUL-FACTORY-FIDELITY: token-green gallery rendered all text in Times serif because @theme inline does not run outside Tailwind build pipeline",
+      "timeout_sec": 5
+    },
+    "html-first-spec-discipline": {
+      "description": "Enforce directions/ discipline for the HTML-first spec workflow: each direction-N/README.md must declare soul-baseline (must resolve), connection-point, continuity, evolution, and bet. Blocking for Rule 4 soul-baseline violations; advisory for layout/STATUS hygiene.",
+      "check": "scripts/audit-visual-diff-directions.sh",
+      "applies_to": [".claude/visual-diffs/**/directions/**"],
+      "status": "enforcing",
+      "severity_model": {
+        "advisory": ["S2-item-1 (direction count)", "S2-item-2 (file presence)", "S2-item-5 (STATUS coherence)", "S2-item-7 (DIRECTIONS.md)"],
+        "blocking": ["S2-item-3 (Rule 4 fields)", "S2-item-4 (soul-baseline resolution)", "S2-item-6 (locked prototype requirements)"]
+      },
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-html-first-spec-discipline",
+      "spec": "docs/team/WORKFLOW-HTML-FIRST-SPEC.md",
+      "introduced": "TASK-2026-05-26-HTML-FIRST-02",
+      "note": "exits 0 silently on tasks without a directions/ directory — no false positives on pre-workflow artifacts"
     }
   },
   "signature_policy": {

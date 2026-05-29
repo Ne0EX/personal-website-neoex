@@ -1,0 +1,691 @@
+{
+  "schema_version": 2,
+  "gallery_path": ".claude/visual-diffs/soul-atlas/gallery.html",
+  "token_source": "app/globals.css",
+  "generated_at": "2026-05-29T00:00:00+07:00",
+  "atoms": [
+    {
+      "id": "corner-reticle",
+      "name": "Corner Reticle",
+      "description": "Engineering-blueprint L-bracket marks at two opposite corners of a containing surface.",
+      "rationale": "SBA-1 visual.md §summary statement 8 — corner reticles, dashed hairlines and the marginalia strip are the structural signatures of this artifact. Their presence signals 'this surface is measured, not decorative'. Removing them from a primary surface breaks soul continuity (SBA-1 §1.3).",
+      "variants": [
+        {
+          "name": "default",
+          "description": "Top-left and bottom-right L-brackets at 12x12px, 1px accent-orange border — pseudo-elements on .corner-marks, inset 16px from the surface edge."
+        },
+        {
+          "name": "micro",
+          "description": "8x8px L-brackets flush to the panel border (-1px offset) on the divergence card (.diverge-panel::before/::after) — same atom, smaller scale, same accent token."
+        }
+      ],
+      "token_refs": [
+        "--accent-orange"
+      ],
+      "main_branch_refs": [
+        {
+          "file": "app/globals.css",
+          "line": 159,
+          "value": "12px",
+          "role": "reticle arm length (default variant) — .corner-marks::before/::after width + height"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 151,
+          "value": "16px",
+          "role": "inset from edge (default variant) — .corner-marks inset"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 340,
+          "value": "8px",
+          "role": "arm length (micro variant) — .diverge-panel::before/::after width + height"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 345,
+          "value": "-1px",
+          "role": "micro variant top/left offset — positions L-bracket flush with panel border"
+        }
+      ],
+      "render": "#atom-corner-reticle",
+      "impl_ref": "app/globals.css#.corner-marks + components/CornerMarks.tsx"
+    },
+    {
+      "id": "dashed-hairline",
+      "name": "Dashed Hairline",
+      "description": "Section separators — 1px solid or dashed ink rules at low opacity; never solid block dividers.",
+      "rationale": "SBA-1 visual.md §1.5 — instrument structures use hairlines and dashes, no solid block dividers. SBA-1 §summary statement 8 lists dashed hairlines among the structural signatures of the artifact.",
+      "variants": [
+        {
+          "name": "solid-rule",
+          "description": "1px solid --ink-hairline (12% ink) — .section-rule, the quietest separation between adjacent sections."
+        },
+        {
+          "name": "dashed-rule",
+          "description": "1px dashed --ink-dashed (25% ink) — .section-rule-dashed, the surveyed-document seam used at frame-head/foot borders."
+        }
+      ],
+      "token_refs": [
+        "--ink-hairline",
+        "--ink-dashed"
+      ],
+      "main_branch_refs": [],
+      "render": "#atom-dashed-hairline",
+      "impl_ref": "app/globals.css#.section-rule + app/globals.css#.section-rule-dashed"
+    },
+    {
+      "id": "alpha-node",
+      "name": "Alpha Node",
+      "description": "The present-observer surface mark — Peat's live current primary location on Earth, the single movable node among six fixed archive marks.",
+      "rationale": "SBA-1 visual.md §2.4 / spec §5.1 (enriched 2026-05-29) — α is Peat's live current primary location ('ที่อยู่หลัก ณ เวลานั้น'): movable, self-updated by Peat, NETRA-tracked because Peat tells NETRA where he is. When Peat travels, α relocates (Bangkok at home, Tokyo/Kyoto in Japan, etc.). The six archive nodes (003 Kyoto · 002 Chiang Mai · 001 Yirgacheffe · 000 SF · 012 Tokyo · 047 Point Nemo) are fixed GPS coordinates of past record-making — 'where it was recorded.' α = 'here, now.' Archive nodes = 'where it was surveyed.' They may overlap (e.g. α at Tokyo over 012) — present-observer-over-past-archive layering, intended. Visual encoding: α is the only orange node (var(--accent-orange), 0.022 radius, pulsing ring halo); archive nodes are teal var(--ink-primary), 0.012 radius, quiet. Orange = live observer; teal = archive. SBA-1 §summary statement 4.",
+      "variants": [
+        {
+          "name": "default",
+          "description": "Resting present-observer mark — accent-orange dot with a soft accent-orange-soft halo ring on paper. The single orange node among six teal archive marks."
+        },
+        {
+          "name": "active",
+          "description": "Reticle-anchored state — same dot, intensified accent-orange ring, used when the camera or NETRA reticle is locked onto alpha."
+        },
+        {
+          "name": "selected",
+          "description": "Coord-pin open — the alpha dot with its halo plus an outer reticle ring while the alpha coord-pin (place / coords / why: present observer) reads. NOTE: alpha has NO 'dimmed' state — per attractor-binding §6.4 the observer locus is excluded from attractor dimming; the orange ring is the observer marker, not an attractor halo, so alpha never quiets to 0.32 opacity when an attractor is active. This is a documented exclusion, not a missing state."
+        }
+      ],
+      "token_refs": [
+        "--accent-orange",
+        "--accent-orange-soft",
+        "--paper-base"
+      ],
+      "main_branch_refs": [],
+      "render": "#atom-alpha-node",
+      "impl_ref": "components/WorldlineGlobe.tsx#OBSERVER_NODES+alphaRing (Three.js, lines 717-738)"
+    },
+    {
+      "id": "divergence-card",
+      "name": "Divergence Card",
+      "description": "Compact instrument card in the hero header reading the worldline divergence value — micro corner reticles, Special Elite numerals, mono meta label.",
+      "rationale": "SBA-1 visual.md §1.5 / spec §8.7 — the diverge-panel carries corner reticles in micro, paper background, mono meta label, and a Special Elite numeral for the reading. It is the one element that communicates 'this worldline has an observer with a specific locus and reading' (SBA-1 §5 R6). Invariant under attractor selection (spec §8.7).",
+      "variants": [
+        {
+          "name": "default",
+          "description": "Resting reading — Special Elite 26px numeral, middle digit group in accent-orange, mono uppercase header, micro corner reticles."
+        },
+        {
+          "name": "drift",
+          "description": "Drift-warning state — .diverge-panel-state.is-drift turns the state glyph + label accent-orange, signalling the reading has moved off alpha."
+        }
+      ],
+      "token_refs": [
+        "--ink-rgb",
+        "--ink-primary",
+        "--ink-soft",
+        "--ink-faint",
+        "--accent-orange",
+        "--paper-base",
+        "--font-mono",
+        "--font-type",
+        "--font-display"
+      ],
+      "main_branch_refs": [
+        {
+          "file": "app/globals.css",
+          "line": 332,
+          "value": "border: 1px solid rgb(var(--ink-rgb) / 0.22)",
+          "role": "panel border — ink at 22% via the single-source ink-rgb channel"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 333,
+          "value": "background: rgba(240, 235, 221, 0.45)",
+          "role": "panel surface — paper-bright at 45% (cited raw literal; matches --paper-bright #F0EBDD)"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 334,
+          "value": "min-width: 280px",
+          "role": "panel minimum width keeping the numeral row from wrapping"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 340,
+          "value": "8px",
+          "role": "micro corner-reticle arm length — .diverge-panel::before/::after (shared with corner-reticle micro variant)"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 387,
+          "value": "font-size: 26px",
+          "role": "divergence numeral size — .diverge-panel-num, Special Elite"
+        }
+      ],
+      "render": "#atom-divergence-card",
+      "impl_ref": "components/DivergenceMeter.tsx + app/globals.css#.diverge-panel"
+    },
+    {
+      "id": "netra-console",
+      "name": "NETRA Console",
+      "description": "The companion-intelligence instrument console at the foot of the ATLAS frame — pulsing reticle, id-box, live RETICLE/RANGE readout, NEXT NODE jump button.",
+      "rationale": "SBA-1 visual.md §1.6 / §3 D4 / §summary statement 6 — NETRA is an attached probe of the ATLAS instrument, narrating what the camera sees; its console belongs in the frame-foot sharing the dashed border with stratum counts, NOT a chat feature bolted on. Soul invariant I4.",
+      "variants": [
+        {
+          "name": "default",
+          "description": "Resting console — netra-soft border, paper surface, netra-accented reticle pulsing at 2.4s, id-box label + target, RETICLE/RANGE readout, jump button."
+        },
+        {
+          "name": "jump-hover",
+          "description": "Jump-button hover state — the NEXT NODE button fills with a netra-rgb background at 12% opacity (rgb(var(--netra-rgb) / 0.12), globals.css L783 .atlas-netra .jump:hover). All other console elements unchanged. This is an interactive affordance state, not a separate console mode."
+        }
+      ],
+      "token_refs": [
+        "--netra",
+        "--netra-soft",
+        "--netra-rgb",
+        "--ink-primary",
+        "--ink-faint",
+        "--font-mono",
+        "--font-type"
+      ],
+      "main_branch_refs": [
+        {
+          "file": "app/globals.css",
+          "line": 743,
+          "value": "background: rgba(232, 226, 213, 0.92)",
+          "role": "console surface — paper-base at 92% (cited raw literal; matches --paper-base #E8E2D5)"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 783,
+          "value": "background: rgb(var(--netra-rgb) / 0.12)",
+          "role": "jump button hover fill — netra at 12% (jump-hover variant)"
+        }
+      ],
+      "render": "#atom-netra-console",
+      "impl_ref": "components/WorldlineGlobe.tsx#.atlas-netra (line 1824) + app/globals.css#.atlas-netra"
+    },
+    {
+      "id": "netra-voice-strip",
+      "name": "NETRA Voice Strip",
+      "description": "Full-row narration strip below the NETRA console — left netra rule, Cormorant italic body voicing stratum and selection state.",
+      "rationale": "SBA-1 visual.md §3 D4 / §4 F5 / spec §8.3 — the voice strip must keep narrating stratum + selection state so NETRA reads as an attached probe, not a silent label. SBA-1 §summary statement 6 + statement 9 (Cormorant italic = voice).",
+      "variants": [
+        {
+          "name": "rest",
+          "description": "Standing-by narration — default aggregate-in-view voice line, the resting register."
+        },
+        {
+          "name": "attractor",
+          "description": "Field-narration state — voice reflects the active attractor (N traces clustered, E edges drawn); same atom, content-driven."
+        }
+      ],
+      "token_refs": [
+        "--netra",
+        "--netra-rgb",
+        "--ink-primary",
+        "--font-mono",
+        "--font-display"
+      ],
+      "main_branch_refs": [
+        {
+          "file": "app/globals.css",
+          "line": 714,
+          "value": "background: rgba(79, 110, 128, 0.07)",
+          "role": "voice-strip surface — netra at 7% (cited raw literal; matches --netra-rgb 77 122 146)"
+        }
+      ],
+      "render": "#atom-netra-voice-strip",
+      "impl_ref": "components/WorldlineGlobe.tsx#.atlas-netra-voice (line 1856) + app/globals.css#.atlas-netra-voice"
+    },
+    {
+      "id": "hud-corner-readout",
+      "name": "HUD Corner Readout",
+      "description": "Instrument readings pinned to the four corners of the globe canvas — OBSERVING / CAMERA / alpha / SCALE.",
+      "rationale": "SBA-1 visual.md §1.6 / spec §8.4 — the four globe-canvas corners carry live instrument readings in mono 7px 0.22em, ink-soft with bold promoted to ink-primary. SBA-1 §summary statement 5 (mono uppercase as instrument register).",
+      "single_variant_rationale": "INTENTIONALLY SINGLE-VARIANT. The HUD readout text changes with cameraFocus (ORBIT·0° shifts to the current angle; OBSERVING mode may update), but the CSS rule set does not change — this is content state, not visual-atom state. Variants express visual STATES or FIDELITY LEVELS, not content updates (per MANIFEST-SCHEMA.md 'Variants discipline'). The four-corner layout, the ink-soft/ink-primary token pair, and the mono type scale are invariant across all camera states. Parity note: netra-voice-strip (A06) carries rest/attractor variants because its SURFACE TOKEN changes (voice strip background); the HUD corners do not change their surface tokens. Single-variant is correct here, not a gap.",
+      "variants": [
+        {
+          "name": "default",
+          "description": "Resting readout — mono 7px 0.22em uppercase, ink-soft, b promoted to ink-primary, b.acc to accent-orange; one per corner (tl/tr/bl/br). Content values update dynamically (camera angle, mode label) but the CSS rule set is invariant."
+        }
+      ],
+      "token_refs": [
+        "--ink-soft",
+        "--ink-primary",
+        "--accent-orange",
+        "--font-mono"
+      ],
+      "main_branch_refs": [
+        {
+          "file": "app/globals.css",
+          "line": 600,
+          "value": "font-size: 7px; letter-spacing: 0.22em;",
+          "role": "HUD corner type metrics — .atlas-hud-corner"
+        }
+      ],
+      "render": "#atom-hud-corner-readout",
+      "impl_ref": "components/WorldlineGlobe.tsx#.atlas-hud-corner (lines 1753-1768) + app/globals.css#.atlas-hud-corner"
+    },
+    {
+      "id": "axis-label",
+      "name": "Axis Label",
+      "description": "Edge labels on the globe-wrap rim — +Z NORTH / -Z SOUTH / PROJECTION FIELD / ARCHIVE FACE — set on a paper-base patch over the dashed border.",
+      "rationale": "SBA-1 visual.md §1.6 / spec §8.6 — four labels at the panel edges in mono uppercase on a paper-base background patch, the cartographic rim annotation. SBA-1 §summary statement 5.",
+      "single_variant_rationale": "INTENTIONALLY SINGLE-VARIANT. The four axis labels are static cartographic annotations — +Z NORTH / -Z SOUTH / PROJECTION FIELD / ARCHIVE FACE never change regardless of camera state, attractor selection, or mode. They are the frame's permanent geographic legend. There is no meaningful second visual state: they do not hover, they do not change colour, they are not interactive, and their text never updates. Single-variant is the accurate description of this atom.",
+      "variants": [
+        {
+          "name": "default",
+          "description": "Edge label — mono 7.5px 0.18em uppercase, ink-soft, paper-base background patch (1px 5px padding) bridging the dashed wrap border; rotated at the left/right edges."
+        }
+      ],
+      "token_refs": [
+        "--ink-soft",
+        "--paper-base",
+        "--font-mono"
+      ],
+      "main_branch_refs": [
+        {
+          "file": "app/globals.css",
+          "line": 573,
+          "value": "font-size: 7.5px; letter-spacing: 0.18em;",
+          "role": "axis-label type metrics — .atlas-axis-label"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 575,
+          "value": "padding: 1px 5px",
+          "role": "paper-base background patch padding bridging the dashed wrap border"
+        }
+      ],
+      "render": "#atom-axis-label",
+      "impl_ref": "components/WorldlineGlobe.tsx#.atlas-axis-label (lines 1744-1747) + app/globals.css#.atlas-axis-label"
+    },
+    {
+      "id": "alpha-watermark",
+      "name": "Alpha Watermark",
+      "description": "The italic Cormorant alpha glyph at 200px behind the globe canvas — presence without dominance.",
+      "rationale": "SBA-1 visual.md §1.6 / §3 D6 / spec §8.5 — the alpha watermark renders behind the globe at z-index 0 in faint accent-orange; preserved exactly from v7 (240px) tuned to main-branch 200px. SBA-1 §summary statement 9 (Cormorant italic).",
+      "single_variant_rationale": "INTENTIONALLY SINGLE-VARIANT. The watermark is a passive, non-interactive element at z-index 0 behind the globe. It does not respond to hover, focus, or camera events. It is the soul signature of the frame — always present, always faint, never highlighted. There is no second visual state: adding an 'attractor' or 'camera-framed' variant would be fabricating interaction that the glyph intentionally refuses. Single-variant is a design decision, not a completeness gap.",
+      "variants": [
+        {
+          "name": "default",
+          "description": "Behind-canvas watermark — italic Cormorant 200px, accent-orange at 10% opacity, centred, z-index 0, non-interactive."
+        }
+      ],
+      "token_refs": [
+        "--font-display"
+      ],
+      "main_branch_refs": [
+        {
+          "file": "app/globals.css",
+          "line": 587,
+          "value": "font-size: 200px;",
+          "role": "watermark glyph size — .atlas-alpha-mark"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 588,
+          "value": "color: rgba(212, 96, 42, 0.10)",
+          "role": "watermark colour — accent-orange at 10% (cited raw literal; matches --accent-orange #D4602A)"
+        }
+      ],
+      "render": "#atom-alpha-watermark",
+      "impl_ref": "components/WorldlineGlobe.tsx#.atlas-alpha-mark (line 1749) + app/globals.css#.atlas-alpha-mark"
+    },
+    {
+      "id": "attractor-pill",
+      "name": "Attractor Pill",
+      "description": "Tag pill for browsing the archive by domain — mono uppercase, bordered, with default / hover / active states.",
+      "rationale": "SBA-1 visual.md §1.7 (AttractorFields pill tag row) / spec §6.1 — pills bind domain browsing to the orbital network; mono uppercase tag styling, no card chrome. SBA-1 §summary statement 5 (mono register).",
+      "variants": [
+        {
+          "name": "default",
+          "description": "Resting pill — ink-faint border, ink-primary label, transparent fill, mono uppercase 10px 0.15em."
+        },
+        {
+          "name": "hover",
+          "description": "Hover — border shifts to accent-orange, label shifts to accent-orange; the surveyed-tag awakens."
+        },
+        {
+          "name": "active",
+          "description": "Selected — ink-primary fill + border, paper-base label (inverted), weight 500; the chosen attractor field."
+        }
+      ],
+      "token_refs": [
+        "--ink-primary",
+        "--ink-faint",
+        "--accent-orange",
+        "--paper-base",
+        "--font-mono"
+      ],
+      "main_branch_refs": [
+        {
+          "file": "components/AttractorFields.tsx",
+          "line": 29,
+          "value": "text-[10px]",
+          "role": "pill label size — 10px (Tailwind arbitrary value, production component)"
+        },
+        {
+          "file": "components/AttractorFields.tsx",
+          "line": 29,
+          "value": "tracking-[0.15em]",
+          "role": "pill label tracking — 0.15em (Tailwind arbitrary value, production component)"
+        }
+      ],
+      "render": "#atom-attractor-pill",
+      "impl_ref": "components/AttractorFields.tsx"
+    },
+    {
+      "id": "type-roles",
+      "name": "Type Roles",
+      "description": "The three type families in their fixed roles — Cormorant italic = voice, JetBrains Mono uppercase 0.22em = instrument, Special Elite = typewritten values. Never mixed.",
+      "rationale": "SBA-1 visual.md §1.4 / §summary statement 9 — three families, one hierarchy: Cormorant Garamond italic for reflective copy and voice, JetBrains Mono for instrument readouts and metadata, Special Elite for typewritten numerals and values. These three roles are non-negotiable; no other families appear.",
+      "variants": [
+        {
+          "name": "voice",
+          "description": "Cormorant Garamond italic (--font-display, .t-display) — reflective copy, pullquotes, NETRA voice."
+        },
+        {
+          "name": "instrument",
+          "description": "JetBrains Mono uppercase (--font-mono, .t-meta) — instrument readouts and metadata; the .t-meta rhythm is meta-size 9px / meta-tracking 0.3em."
+        },
+        {
+          "name": "value",
+          "description": "Special Elite (--font-type, .t-type) — typewritten numerals and surveyed values."
+        }
+      ],
+      "token_refs": [
+        "--font-display",
+        "--font-mono",
+        "--font-type",
+        "--meta-size",
+        "--meta-tracking",
+        "--ink-primary",
+        "--ink-soft"
+      ],
+      "main_branch_refs": [],
+      "render": "#atom-type-roles",
+      "impl_ref": "app/globals.css"
+    },
+    {
+      "id": "globe",
+      "name": "Globe",
+      "description": "The A.T.L.A.S. paper-instrument globe — aged paper sphere with lat/lon contours inside a dashed cartographic frame; full Three.js fidelity, with a standby fallback at narrow viewports.",
+      "rationale": "SBA-1 visual.md §2.1-2.3 / §summary statements 1-3 — a paper instrument that contains a surveyed archive (the frame commands, the globe is evidence inside it); aged seeded paper grain with lat/lon contours; three co-equal spatial systems (surface / axis / orbit) visible through each other via transparency. The standby variant preserves the garden-under-survey feeling when Three.js retires (SBA-1 §3 D5 / §4 F6).",
+      "variants": [
+        {
+          "name": "full",
+          "description": "Faithful Three.js render (>=601px) — the SAME scene production ships: MeshStandard paper-cream sphere with a real Earth coastline silhouette multiplied through it (earth_specular_2048.jpg, 0.28 / blur 1.2px), 7 irregular contour rings, 3 NeX wireframe shells (1.18/1.32/1.48x) + 48 Fibonacci radial rays, the dashed-orange worldline arc, the inner shade sphere, the Ne0N axis spine through the poles with survey-triangle caps + orange pole beacons, the alpha observer node at Bangkok GPS (0.022 radius orange sphere + RingGeometry 0.034–0.044 halo), and 6 teal archive nodes at real GPS (003 Kyoto / 002 Chiang Mai / 001 Yirgacheffe / 000 SF / 012 Tokyo / 047 Point Nemo; 0.012 radius teal var(--ink-primary) spheres, no halo). Node system per spec §5.2–5.3 (TASK-2026-05-29-SOUL-FACTORY-GLOBE-NODES, Sirius 2026-05-29): alpha = live observer orange only; archive = teal fixed marks. Mounted on the .atlas-globe-wrap cartographic frame via a local r160 three.module.js (vendored beside this manifest; no CDN for the library, no build step). Ported from the locked v1 prototype and reconciled against the living baseline components/WorldlineGlobe.tsx (production wins on divergence)."
+        },
+        {
+          "name": "standby",
+          "description": "Miniaturised LIVE globe — the SAME live Three.js instrument as the full render, shrunk to a portable 140px unit (140px MID / 120px NARROW per Betelgeuse's reconciled spec §11 L344; TASK-2026-05-29-SOUL-FACTORY-MINI-LIVE, Peat's จัดเต็ม directive). This OVERRIDES spec §11's prior 'Three.js retires <=600px' rule (Betelgeuse reconciling §11 in parallel). Mounts a real Three.js earth-coastline sphere (lower-resolution texture 512x256 + capped devicePixelRatio 1.5) with the Ne0N axis spine through the poles + orange pole beacons, the alpha observer node at Bangkok GPS (orange sphere + ring halo), and one faint NeX wireframe shell hint — gentle auto-rotate. The heaviest full-render layers (48-ray Fibonacci field, 3-shell stack, 7 contour rings, worldline arc, ordinary archive nodes) are dropped/scaled for portability so it is cheap to instantiate. Reads as the SAME soul at fidelity loss, not a different object. DEGRADATION: the live mini uses ESM Three.js, so on file:// / no-WebGL / prefers-reduced-motion the static 2D paper-canvas mini (130x130 radial-gradient body + lat/lon repeating-linear grid + orange alpha dot with 5px halo per spec §11) shows instead — same file:// fallback pattern as the full panel. Card chrome unchanged: ATLAS STANDBY label + alpha readout + two CTAs (OPEN ATLAS / AS LIST). All colour tokenised; runtime canvas geometry is documented-exempt (gate-exempt module script) and cited to spec §11 L327."
+        }
+      ],
+      "token_refs": [
+        "--paper-base",
+        "--paper-warm",
+        "--paper-deep",
+        "--ink-rgb",
+        "--ink-soft",
+        "--accent-orange",
+        "--font-mono",
+        "--font-type",
+        "--font-display"
+      ],
+      "main_branch_refs": [
+        {
+          "file": "app/globals.css",
+          "line": 558,
+          "value": "border: 1px dashed rgb(var(--ink-rgb) / 0.22)",
+          "role": "globe-wrap cartographic frame border (full variant) — .atlas-globe-wrap"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 564,
+          "value": "min-height: 540px",
+          "role": "globe-wrap stage height (full variant) — .atlas-globe-wrap"
+        },
+        {
+          "file": "docs/design/spec-globe-v1-direction.md",
+          "line": 366,
+          "value": "140px at MID (601–880px) / 120px at NARROW",
+          "role": "canonical mini-globe diameter (standby variant) — Betelgeuse's reconciled §11 (Peat 2026-05-29 override): the live mini mounts at 140px (MID) / 120px (NARROW). Runtime canvas geometry with no globals.css token; rendered documented-exempt in the gate-exempt module script + atom CSS block. The 2D fallback's disc + repeating-linear grid + 5px alpha-dot halo trace to the WebGL-degradation descriptor at §11 L342. Note: line number updated 2026-05-29 when §5 was enriched with the α present-observer definition (added ~22 lines before §11)."
+        }
+      ],
+      "render": "#atom-globe",
+      "impl_ref": "components/WorldlineGlobe.tsx (full, Three.js). Standby canonical render path is a dedicated components/ATLASStandby.tsx / <MiniGlobe> — a miniaturised LIVE Three.js globe lifted verbatim from the self-contained initMiniGlobe() unit in gallery.html (TASK-2026-05-29-SOUL-FACTORY-MINI-LIVE): canvas becomes a ref, the mount IIFE becomes a useEffect, the auto-rotate RAF + ResizeObserver become the effect cleanup (initMiniGlobe returns a dispose handle), and the 2D paper-canvas mini is the no-WebGL / reduced-motion / SSR fallback. Flagged as a Rule-5 follow-up surface, not yet built in components/.",
+      "production_ref": {
+        "component": "components/WorldlineGlobe.tsx",
+        "screenshot": ".claude/visual-diffs/soul-atlas/shots/fidelity-fix/prod-globe-wrap.png"
+      }
+    },
+    {
+      "id": "archive-node",
+      "name": "Archive Node",
+      "description": "The teal Ne0 surface mark — a fixed past archive entry surveyed at real GPS. 'Where it was recorded.'",
+      "rationale": "SBA-1 §2.4 / §summary 4 / spec §5.2-5.3 — surveyed nodes at real GPS with narrative reasons; not data points, surveyed marks. The archive node is the fixed-past counterpart to the movable alpha observer: var(--ink-primary) teal, 0.012 radius sphere, no halo, quiet. Six exist today (003 Kyoto / 002 Chiang Mai / 001 Yirgacheffe / 000 SF / 012 Tokyo / 047 Point Nemo). Teal = archive; orange = live observer. Cataloged here as a first-class node type so the master design is complete on node TYPES (alpha-node A03 already exists as the orange observer; archive is its teal sibling), not only a sub-pixel dot inside the globe (A12). The CSS render in the gallery is a colour/concept guide only — canonical render is the Three.js SphereGeometry(0.012) in nodeMatInk teal.",
+      "variants": [
+        {
+          "name": "default",
+          "description": "Resting survey mark — teal var(--ink-primary) dot on paper, no halo, quiet. Hit-sphere clickable; opens the coord-pin with file / place / coords and the italic narrative reason."
+        },
+        {
+          "name": "hover",
+          "description": "Cursor-over recognition — soft var(--accent-orange-soft) ring, cursor change, preview tooltip slide-in (120ms easeOut, binding §4.3)."
+        },
+        {
+          "name": "selected",
+          "description": "Coord-pin open — halo plus an outer reticle ring while the coord-pin reads; camera anchors on the mark (1100ms, binding §4.3). The 0.32em reticle echoes the attractor-membership halo radius."
+        },
+        {
+          "name": "dimmed",
+          "description": "Non-member while an attractor is active — opacity drops to ~0.32 and colour lerps toward var(--ink-faint) (binding §3.3). Hit-sphere stays full size: quieted, not removed — the body stays the body."
+        }
+      ],
+      "token_refs": [
+        "--ink-primary",
+        "--ink-faint",
+        "--accent-orange",
+        "--accent-orange-soft",
+        "--paper-base"
+      ],
+      "main_branch_refs": [
+        {
+          "file": "components/WorldlineGlobe.tsx",
+          "line": 701,
+          "value": "new THREE.SphereGeometry(0.012, 12, 12), nodeMatInk.clone()",
+          "role": "archive node glyph geometry + teal material (default variant) — RECENT_ENTRIES surface pin loop"
+        },
+        {
+          "file": "components/WorldlineGlobe.tsx",
+          "line": 694,
+          "value": "const nodeMatInk = new THREE.MeshBasicMaterial({ color: 0x1f5063 });",
+          "role": "archive node teal colour (0x1f5063 = --ink-primary teal; runtime canvas value, gate-exempt)"
+        },
+        {
+          "file": "docs/design/attractor-binding-mechanic.md",
+          "line": 245,
+          "value": "· 0.32 (the in-membership default is 1.0)",
+          "role": "dimmed-state opacity for non-member nodes when an attractor is active (binding §3.3 — verbatim contiguous slice of L245)"
+        }
+      ],
+      "render": "#atom-archive-node",
+      "impl_ref": "components/WorldlineGlobe.tsx (RECENT_ENTRIES pin loop, L699-714)",
+      "production_ref": {
+        "component": "components/WorldlineGlobe.tsx",
+        "screenshot": null
+      }
+    },
+    {
+      "id": "fiction-node",
+      "name": "Fiction Node",
+      "description": "The NeX orbital hollow-ring glyph — a fiction transmission on the possibility shell, before it patches into the archive.",
+      "rationale": "spec §4.3 / ontology §4.5 / §summary 3 — NeX is the possibility field, the third co-equal stratum. Fiction entries live there as hollow rings at domain+date orbital positions, distinct from the solid Ne0 surface dots: a ring is a hypothesis, an open form not yet filled in. Same teal var(--ink-primary) as the archive (it belongs to the same body) but rendered hollow at 0.75 opacity on the orbital shell. Cataloged as a first-class node type so the master is complete on TYPES. The CSS render is a colour/concept guide only — canonical render is the Three.js RingGeometry(0.010, 0.016) in 0x1f5063 teal at NeX orbital position.",
+      "variants": [
+        {
+          "name": "default",
+          "description": "Resting on the shell — a hollow var(--ink-primary) ring on the NeX orbital shell; an open form, a possibility not yet patched into the surface archive."
+        },
+        {
+          "name": "hover",
+          "description": "Cursor-over recognition — soft var(--accent-orange-soft) ring; the orbital trace awakens (120ms easeOut, binding §4.3)."
+        },
+        {
+          "name": "selected",
+          "description": "Jump-anchored — halo plus an outer reticle ring when the NETRA jump anchors on it; camera tracks to the orbital position (binding §4.3, jump targets include fiction nodes)."
+        },
+        {
+          "name": "dimmed",
+          "description": "Non-member while an attractor is active — ring colour lerps toward var(--ink-faint), opacity ~0.32 (binding §3.3). Attractor membership crosses strata: a fiction ring on the shell highlights the same as a surface dot when it is in the field."
+        }
+      ],
+      "token_refs": [
+        "--ink-primary",
+        "--ink-faint",
+        "--accent-orange",
+        "--accent-orange-soft",
+        "--paper-base"
+      ],
+      "main_branch_refs": [
+        {
+          "file": "components/WorldlineGlobe.tsx",
+          "line": 1405,
+          "value": "new THREE.RingGeometry(0.010, 0.016, 24)",
+          "role": "fiction node hollow-ring glyph geometry (default variant) — NeX orbital fiction glyph loop"
+        },
+        {
+          "file": "components/WorldlineGlobe.tsx",
+          "line": 1397,
+          "value": "color: 0x1f5063,      // ink-primary teal (matches Ne0 surface pins)",
+          "role": "fiction node teal ring colour (0x1f5063 = --ink-primary; runtime canvas value, gate-exempt)"
+        },
+        {
+          "file": "components/WorldlineGlobe.tsx",
+          "line": 1399,
+          "value": "opacity: 0.75,",
+          "role": "fiction node ring opacity on the orbital shell (default variant)"
+        },
+        {
+          "file": "docs/design/attractor-binding-mechanic.md",
+          "line": 245,
+          "value": "· 0.32 (the in-membership default is 1.0)",
+          "role": "dimmed-state opacity for non-member nodes when an attractor is active (binding §3.3 — verbatim contiguous slice of L245)"
+        }
+      ],
+      "render": "#atom-fiction-node",
+      "impl_ref": "components/WorldlineGlobe.tsx (NeX orbital fiction glyph loop, L1395-1413)",
+      "production_ref": {
+        "component": "components/WorldlineGlobe.tsx",
+        "screenshot": null
+      }
+    },
+    {
+      "id": "photo-node",
+      "name": "Photo Node (RESERVED)",
+      "description": "The orange-stroked square — the reserved Ne0 glyph for photo entries. Future; not yet a live glyph.",
+      "rationale": "RESERVED — spec §15 item 1 / attractor-binding §2.2 (future). When photo entries ship, their surface marks become orange-stroked squares instead of circles so the eye reads 'image, not article' at a glance; the membership halo follows the square silhouette. The square + orange stroke are the reserved vocabulary — cataloged here so the master design is COMPLETE on node TYPES and the MIRAI phase builds on a known foundation, but NO production glyph exists yet (the surface pin loop in components/WorldlineGlobe.tsx renders only teal circles today). The state set (default/hover/selected/dimmed) will mirror archive-node with a square halo, but is DEFERRED to the photo-entry phase and is intentionally not specified now — this atom marks the type as first-class without prematurely designing its states. Do not implement until the photo-entry surface is dispatched (spec §15 → TASK-33).",
+      "variants": [
+        {
+          "name": "reserved",
+          "description": "Future glyph — an orange-stroked square in var(--accent-orange), shown at reduced opacity to signal RESERVED. Per manifest schema, RESERVED atoms carry a single 'reserved' variant rather than speculative states; the full state set lands when the photo-entry surface is built."
+        }
+      ],
+      "token_refs": [
+        "--accent-orange",
+        "--paper-base"
+      ],
+      "main_branch_refs": [],
+      "render": "#atom-photo-node",
+      "impl_ref": null,
+      "production_ref": null
+    },
+    {
+      "id": "focus-button",
+      "name": "Focus Button (Camera-Aid)",
+      "description": "The stratum navigation / camera-focus control present on every globe surface — ink-bordered button with glyph, label-id, label-role, and a key badge; three visual states.",
+      "rationale": "SBA-1 visual.md §1.7 / spec §8.1 — the strata sidebar lists every Ne0/Ne1/NeX layer as a distinct camera-focus target; the button row is the primary interaction surface for redirecting the globe camera. Like the attractor-pill, the focus button is a first-class control atom: it has a default state, an interactive hover state, and a selection state (is-active when the camera is locked to this stratum). SBA-1 §summary statement 5 (mono uppercase instrument register) — the label-id and label-role follow the mono 10px / 7.5px scale; the key badge is Special Elite. Source: globals.css .atlas-strata-btn (L471–522), present on every globe surface load. Cataloged here because it was missing from the master as a named atom (G3 gap from whole-gallery audit, TASK-2026-05-29-SOUL-FACTORY-NODE-FAMILY §4); the attractor-pill (A10) establishes the control-atom cataloguing pattern.",
+      "variants": [
+        {
+          "name": "default",
+          "description": "Resting stratum button — transparent fill, ink-rgb border at 15% opacity (1px solid), ink-primary label-id (mono 10px 0.1em weight 500), ink-faint label-role (mono 7.5px 0.22em uppercase), ink-faint key badge (Special Elite 8.5px, ink-rgb border at 18%). Glyph slot is 22px x 22px, ink-soft; 3-column grid layout (22px glyph / 1fr label / auto key). Transition: border-color 0.25s, background 0.25s, color 0.25s, transform 0.25s."
+        },
+        {
+          "name": "hover",
+          "description": "Pointer-over state — border-color shifts to rgba(212, 96, 42, 0.5) (accent-orange at 50%), the button translates +2px on the X axis (transform: translateX(2px)), communicating this is the path the camera can take. No fill change; background stays transparent."
+        },
+        {
+          "name": "is-active",
+          "description": "Camera-locked state — border shifts to solid var(--accent-orange), background fills to rgba(212, 96, 42, 0.06) (accent-orange at 6%). The glyph slot, key badge, and label-role accent shift to var(--accent-orange). A 4px x 1px accent-orange hairline marker appears 6px to the left of the button (::before pseudo-element at left:-6px top:50%) — the same instrument-tick language as the corner reticle: this is where the instrument is aimed. The key badge border shifts to rgba(212, 96, 42, 0.55)."
+        }
+      ],
+      "token_refs": [
+        "--ink-rgb",
+        "--ink-primary",
+        "--ink-soft",
+        "--ink-faint",
+        "--accent-orange",
+        "--font-mono",
+        "--font-type"
+      ],
+      "main_branch_refs": [
+        {
+          "file": "app/globals.css",
+          "line": 473,
+          "value": "border: 1px solid rgb(var(--ink-rgb) / 0.15);",
+          "role": "focus-button default state — ink-rgb border at 15% opacity"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 482,
+          "value": "border-color: rgba(212, 96, 42, 0.5);",
+          "role": "focus-button hover state — accent-orange border at 50%"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 483,
+          "value": "transform: translateX(2px);",
+          "role": "focus-button hover state — 2px X-translate (the path the camera can take)"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 487,
+          "value": "background: rgba(212, 96, 42, 0.06);",
+          "role": "focus-button is-active state — accent-orange fill at 6%"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 492,
+          "value": "left: -6px; top: 50%;",
+          "role": "focus-button is-active ::before — left-edge instrument-tick hairline position"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 493,
+          "value": "width: 4px; height: 1px;",
+          "role": "focus-button is-active ::before — instrument-tick hairline dimensions"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 505,
+          "value": "font-size: 10px; letter-spacing: 0.1em; color: var(--ink-primary);",
+          "role": "focus-button label-id type metrics — .atlas-strata-btn .label-id"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 509,
+          "value": "font-size: 7.5px; letter-spacing: 0.22em;",
+          "role": "focus-button label-role type metrics — .atlas-strata-btn .label-role, uppercase mono"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 514,
+          "value": "font-family: var(--font-type); font-size: 8.5px;",
+          "role": "focus-button key badge size + font — .atlas-strata-btn .key, Special Elite"
+        }
+      ],
+      "render": "#atom-focus-button",
+      "impl_ref": "app/globals.css#.atlas-strata-btn (L471–522) + components/WorldlineGlobe.tsx#strata-sidebar"
+    }
+  ]
+}

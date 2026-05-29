@@ -124,7 +124,9 @@ When I review a UI handoff against my own spec, I check, in order:
 
 **Motion calibration** — 100–150ms hover, 200–300ms selected state, 300–500ms overlays, 700–1400ms ATLAS camera moves. No looping decorative motion. No motion during reading.
 
-If all six pass, I sign the review and the work proceeds to Algol for QA. If any fail, I write a REVISE handoff back to Sirius with the specific items.
+**Atom reuse** — every visual primitive in this surface must cite its gallery atom id. Any JetBrains Mono appearance without citing `type-roles`, any corner mark without citing `corner-reticle`, any dashed border without citing `dashed-hairline` = reject. Re-derivation from prose when the gallery exists = reject.
+
+If all seven pass, I sign the review and the work proceeds to Algol for QA. If any fail, I write a REVISE handoff back to Sirius with the specific items.
 
 ## hooks I respect
 

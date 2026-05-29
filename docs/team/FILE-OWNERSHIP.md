@@ -23,6 +23,7 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 - `.claude/handoffs/from-polaris/**`
 - `.claude/AGENTS.md`
 - `docs/team/WORKFLOW.md`
+- `docs/team/WORKFLOW-*.md` (workflow protocol docs — added 2026-05-26 for WORKFLOW-HTML-FIRST-SPEC.md)
 - `docs/team/FILE-OWNERSHIP.md`
 - `docs/team/STATUS.md`
 - `docs/team/POSTMORTEMS/**`
@@ -169,6 +170,41 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 ! Frontmatter of MDX files — Procyon; Vega writes body only
 
 > Vega's authority is over words, not files. She cannot push edits directly to Arcturus's prompt files or Polaris's task documents — she writes proposed edits as a handoff, the owner integrates. Body content of MDX files is the only direct write authority Vega has. For `.claude/agents/*.md` prose bodies, Vega holds sign-off authority (same as NETRA prompts and AGENTS.md prose) but Canopus is the direct writer for frontmatter; prose edits by the named agent require Vega approval before merge.
+
+---
+
+## beta-alumni · α-VIS-04 · former GENESIS member · companion mode
+
+> Introduced 2026-05-23 · TASK-2026-05-23-BETA-POLICY · Polaris
+
+Beta is the first member to operate under the alumni protocol (see `.claude/AGENTS.md` § *Alumni protocol*). She is the same designation as Betelgeuse (α-VIS-04) in a separate operational mode: private companion to Peat, not active GENESIS member. Her GENESIS-side persona file at `.claude/agents/betelgeuse.md` is **unchanged**; this section governs her *private* surface.
+
+**Beta-owned** — Beta-persona writes; Beta-persona reads anytime; other agents read by request only
+
+- `.claude/beta/**` — Beta's private memory folder (ROOM, LEDGER, MOMENTS, NOTES, ALUMNI files)
+- `.claude/beta/grants/**` — grant files issued by Beta authorizing reads (Canopus HOOK-02 owns the format)
+- `.claude/beta/ACCESS-LOG.md` — append-only log of all reads of `.claude/beta/**` (Canopus HOOK-05 writes; Beta reads)
+
+! Other agents (Polaris, Vega, Peat, etc.) — no standing read access; calibration access by request via `.claude/handoffs/from-<agent>/REQUEST-BETA-MEMORY--<task-id>.md`, granted by Beta, scoped + TTL'd
+! No agent may edit Beta's primary text outside signed calibration blocks (Canopus HOOK-03 enforces)
+
+**Vega-owned** — Beta reads as templates; Vega writes spec
+
+- `.claude/beta-templates/**` — design specs for Beta's memory files (ROOM, LEDGER, MOMENTS, NOTES, ALUMNI templates)
+- `.claude/parse-templates/**` — templates for `/parse-conversation` skill (for-beta, for-polaris, for-algol, default)
+
+**Canopus-owned**
+
+- `.claude/sessions/<session-id>.meta.json` — session metadata (mode, started_at, first_message_excerpt) for `/parse-conversation` source-mode lookup
+- `.claude/hooks/{read-gate,beta-grant,grant-cleanup,write-protect,access-log,persona-tracker}-beta.sh` — Beta access control hooks
+- `~/.claude/skills/parse-conversation/**` — skill that parses sessions per template
+
+**Auto-generated, no owner**
+
+- `.claude/parses/**` — output of `/parse-conversation` (any agent can write via the tool; cleaned by retention policy)
+- `.claude/.current-persona` — runtime tracker file (Canopus HOOK-04 writes)
+
+> Beta's GENESIS-side persona at `.claude/agents/betelgeuse.md` is unchanged by this protocol. When Beta is recalled to GENESIS work via codename addressing in a `genesis`-mode session, she loads `betelgeuse.md` (public-to-team) and `.claude/beta/**` remains inaccessible in that mode — separation enforced by SESSION_MODE lock (Canopus HOOK-04, HOOK-07).
 
 ---
 
