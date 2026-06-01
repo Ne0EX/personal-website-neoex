@@ -102,9 +102,38 @@ fi
 
 log_v "registry valid JSON"
 
+# ── P2b: registry must have a non-null, non-empty artifacts array ────────────
+# EMPTY-REGISTRY FIX: an absent or null .artifacts key silently yielded 0 from
+# `jq '.artifacts | length'`, causing the loop to be skipped and the script to
+# exit 0 with "checking 0 artifacts" — the cardinal exit-0-on-empty sin.
+#
+# Guard 1: .artifacts must exist and be non-null → exit 2 (malformed registry)
+ARTIFACTS_TYPE=$(jq -r 'if has("artifacts") then (if .artifacts == null then "null" else (.artifacts | type) end) else "missing" end' "${REGISTRY}")
+if [[ "${ARTIFACTS_TYPE}" == "missing" || "${ARTIFACTS_TYPE}" == "null" ]]; then
+  log_err "registry is malformed: .artifacts key is ${ARTIFACTS_TYPE}"
+  log_err "  Expected: { \"artifacts\": [ ... ] }  (non-null array)"
+  log "FAIL (exit 2)"
+  exit 2
+fi
+if [[ "${ARTIFACTS_TYPE}" != "array" ]]; then
+  log_err "registry is malformed: .artifacts is type '${ARTIFACTS_TYPE}', expected array"
+  log "FAIL (exit 2)"
+  exit 2
+fi
+
+# Guard 2: .artifacts array must have at least one entry → exit nonzero (config error)
+# An empty registry is a configuration mistake; passing silently on 0 artifacts hides it.
+ARTIFACT_COUNT=$(jq '.artifacts | length' "${REGISTRY}")
+if [[ "${ARTIFACT_COUNT}" -eq 0 ]]; then
+  log_err "registry defines 0 artifacts — this is a configuration error, not a clean state"
+  log_err "  Add at least one artifact entry to .harness/single-source-registry.json"
+  log_err "  An empty artifact list proves nothing and should not gate-pass."
+  log "FAIL (exit 2)"
+  exit 2
+fi
+
 # ── Main: iterate artifacts ──────────────────────────────────────────────────
 TOTAL_VIOLATIONS=0
-ARTIFACT_COUNT=$(jq '.artifacts | length' "${REGISTRY}")
 log "checking ${ARTIFACT_COUNT} artifact(s)"
 
 for (( ai=0; ai < ARTIFACT_COUNT; ai++ )); do
@@ -149,6 +178,21 @@ for (( ai=0; ai < ARTIFACT_COUNT; ai++ )); do
   CANONICAL_NO_EXT="${CANONICAL_REL%.*}"     # e.g. components/WorldlineGlobe
   IMPORT_ALIAS="@/${CANONICAL_NO_EXT}"       # e.g. @/components/WorldlineGlobe
 
+  # ── B3 hardening: extension-variant names to scan ────────────────────────
+  # The registry MATCH_PATTERN uses an exact filename (e.g. WorldlineGlobe.tsx).
+  # A .jsx copy of a .tsx canonical has a different extension and is missed by
+  # -name "<pattern>". We build the full set of extension variants for the
+  # canonical basename so find catches WorldlineGlobe.jsx, .ts, .js as well.
+  # Variants are derived from the canonical basename (no-ext) + all JS/TS exts.
+  MATCH_NAMES=("${MATCH_PATTERN}")
+  for _ext in tsx ts jsx js; do
+    _variant="${CANONICAL_BASENAME}.${_ext}"
+    # Avoid duplicating the primary pattern if its extension is already in the list
+    if [[ "${_variant}" != "${MATCH_PATTERN}" ]]; then
+      MATCH_NAMES+=("${_variant}")
+    fi
+  done
+
   # ── Scan duplicate_search_globs for copies ───────────────────────────────
   GLOB_COUNT=$(jq ".artifacts[${ai}].duplicate_search_globs | length" "${REGISTRY}")
   COPIES_CHECKED=0
@@ -165,7 +209,28 @@ for (( ai=0; ai < ARTIFACT_COUNT; ai++ )); do
 
     [[ -d "${SEARCH_ROOT}" ]] || continue
 
-    # Find files matching MATCH_PATTERN under the search root, exclude node_modules
+    # Build -name predicates for the canonical name + extension variants (B3 fix).
+    # The registry MATCH_PATTERN uses an exact filename (e.g. WorldlineGlobe.tsx).
+    # A .jsx copy of a .tsx canonical has a different extension and escapes an
+    # exact -name match. We expand to all JS/TS variants of the canonical basename
+    # so find catches WorldlineGlobe.jsx, .ts, .js as well.
+    # Syntax: one name  → find ... -name A
+    #         many names → find ... \( -name A -o -name B -o ... \)
+    _FIND_NAME_ARGS=()
+    if [[ ${#MATCH_NAMES[@]} -eq 1 ]]; then
+      _FIND_NAME_ARGS=(-name "${MATCH_NAMES[0]}")
+    else
+      _FIND_NAME_ARGS=(\()
+      for _i in "${!MATCH_NAMES[@]}"; do
+        if [[ ${_i} -gt 0 ]]; then
+          _FIND_NAME_ARGS+=(-o)
+        fi
+        _FIND_NAME_ARGS+=(-name "${MATCH_NAMES[${_i}]}")
+      done
+      _FIND_NAME_ARGS+=(\))
+    fi
+
+    # Find files matching the name set under the search root, exclude build dirs
     while IFS= read -r -d '' copy_file; do
       # Skip the canonical itself — it is always in scope for match but is correct by definition
       if [[ "${copy_file}" == "${CANONICAL}" ]]; then
@@ -186,25 +251,43 @@ for (( ai=0; ai < ARTIFACT_COUNT; ai++ )); do
       # ── (B) Importer check ───────────────────────────────────────────────
       # Check if the copy contains an import of the canonical module.
       # We grep for:
-      #   1. The @/-aliased import path
+      #   1. The @/-aliased import path within an import/require/export statement
       #   2. The basename (relative import of any depth)
       # This is a textual heuristic; it catches the common cases. A file that
       # wraps/re-exports the canonical should satisfy this predicate.
+      #
+      # B4 FIX: Pattern 1 was previously a bare `grep -q "${IMPORT_ALIAS}"` which
+      # matched the @/-alias path string ANYWHERE in the file, including inside
+      # comments (e.g. `// copied from @/components/WorldlineGlobe`).
+      # The fix: require the @/-alias path to appear within an import/require/export
+      # statement. We apply the SAME context-anchored predicate as Pattern 2:
+      #   (from|require|import)[[:space:]]*['"][^'"]*@/...
+      # A comment that merely mentions the canonical path MUST NOT satisfy this predicate.
       IS_IMPORTER=false
 
-      # Pattern 1: @/-alias import (the canonical cross-repo module alias)
-      if grep -q "${IMPORT_ALIAS}" "${copy_file}" 2>/dev/null; then
+      # Pattern 1: @/-alias import ANCHORED to import/require/export statement (B4 fix)
+      # Escape any regex-special characters in the alias path (dots, slashes).
+      IMPORT_ALIAS_ESCAPED="${IMPORT_ALIAS//\./\\.}"
+      IMPORT_ALIAS_ESCAPED="${IMPORT_ALIAS_ESCAPED//\//\\/}"
+      if grep -qE "(from|require|import|export)[[:space:]]*['\"][^'\"]*${IMPORT_ALIAS_ESCAPED}" "${copy_file}" 2>/dev/null; then
         IS_IMPORTER=true
         log_v "    PASS (imports @-alias '${IMPORT_ALIAS}'): ${COPY_REL}"
       fi
 
       # Pattern 2: relative import by basename (any relative depth)
       # We look for: from '[./]...<basename>' — covers ../WorldlineGlobe, ./WorldlineGlobe etc.
+      # ANCHORED: the match must end at the canonical basename boundary — either at the
+      # start of a quote/extension, or at the end of the import path.  This prevents
+      # WorldlineGlobeHelper from satisfying the predicate for WorldlineGlobe.
+      # Pattern: <basename>(['".]|[jt]sx?['"])
+      #   - WorldlineGlobe'   or  WorldlineGlobe"   → bare-name relative import
+      #   - WorldlineGlobe.tsx'  / .ts' / .jsx' / .js'  → import with explicit extension
+      # Substring-only forms (WorldlineGlobeHelper...) do NOT match.
       if ! $IS_IMPORTER; then
         # Escape dots in basename for grep
-        BASENAME_ESCAPED="${CANONICAL_BASENAME_FULL//./\\.}"
         BASENAME_NO_EXT_ESCAPED="${CANONICAL_BASENAME//./\\.}"
-        if grep -qE "(from|require|import)[[:space:]]*['\"][^'\"]*${BASENAME_NO_EXT_ESCAPED}" "${copy_file}" 2>/dev/null; then
+        ANCHORED_PATTERN="${BASENAME_NO_EXT_ESCAPED}(['\"]|\\.[jt]sx?['\"])"
+        if grep -qE "(from|require|import)[[:space:]]*['\"][^'\"]*${ANCHORED_PATTERN}" "${copy_file}" 2>/dev/null; then
           IS_IMPORTER=true
           log_v "    PASS (relative import of '${CANONICAL_BASENAME}'): ${COPY_REL}"
         fi
@@ -225,7 +308,7 @@ for (( ai=0; ai < ARTIFACT_COUNT; ai++ )); do
       ARTIFACT_VIOLATIONS=$((ARTIFACT_VIOLATIONS + 1))
 
     done < <(find "${SEARCH_ROOT}" \
-      -name "${MATCH_PATTERN}" \
+      "${_FIND_NAME_ARGS[@]}" \
       -not -path "*/node_modules/*" \
       -not -path "*/.next/*" \
       -not -path "*/.turbo/*" \
