@@ -4,7 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "velite && next build && npm run index:search",
+    "build:next": "next build",
+    "content:build": "velite",
+    "index:search": "npx tsx scripts/inject-pagefind-sidecar.ts && pagefind --site .next/server/app --output-path public/pagefind",
     "start": "next start",
     "lint": "eslint",
     "design": "echo 'Serving from repo root — open: http://localhost:8765/.claude/visual-diffs/soul-atlas/gallery.html' && python3 -m http.server 8765"
