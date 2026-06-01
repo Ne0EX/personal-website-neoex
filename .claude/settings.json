@@ -1,6 +1,85 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "enabledMcpjsonServers": ["playwright"],
+  "permissions": {
+    "_rationale": "Wave 1 least-privilege posture (TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-1). Deny: network-egress (curl/wget) + the most dangerous destructive bash patterns. The blocking PreToolUse hook (mutating-action-hook) covers the full denylist; these deny entries are defense-in-depth at the settings layer. Allow-list entries are documentation of known-legitimate patterns discovered by surveying .claude/hooks/** and scripts/audit-*.sh. See audit-permissions-nonempty.sh + audit-least-agency-config.sh.",
+    "deny": [
+      "Bash(curl *)",
+      "Bash(curl\t*)",
+      "Bash(wget *)",
+      "Bash(wget\t*)",
+      "Bash(* | curl *)",
+      "Bash(* | wget *)",
+      "Bash(curl)",
+      "Bash(wget)"
+    ],
+    "allow": [
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git fetch*)",
+      "Bash(git branch*)",
+      "Bash(git checkout*)",
+      "Bash(git stash*)",
+      "Bash(git rev-parse*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git ls-files*)",
+      "Bash(npm run*)",
+      "Bash(npm test*)",
+      "Bash(npm exec*)",
+      "Bash(npm ci*)",
+      "Bash(npx tsx*)",
+      "Bash(npx vitest*)",
+      "Bash(npx eslint*)",
+      "Bash(npx tsc*)",
+      "Bash(npx pagefind*)",
+      "Bash(npx velite*)",
+      "Bash(node --*)",
+      "Bash(node scripts/*)",
+      "Bash(bash .claude/hooks/*)",
+      "Bash(bash scripts/audit-*)",
+      "Bash(bash .harness/*)",
+      "Bash(chmod +x *)",
+      "Bash(mkdir -p *)",
+      "Bash(jq *)",
+      "Bash(python3 -m http.server*)",
+      "Bash(python3 -m json.tool*)",
+      "Bash(python3 scripts/*)",
+      "Bash(sha256sum *)",
+      "Bash(find . *)",
+      "Bash(ls *)",
+      "Bash(ls)",
+      "Bash(grep *)",
+      "Bash(sort *)",
+      "Bash(wc *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(awk *)",
+      "Bash(sed *)",
+      "Bash(echo *)",
+      "Bash(printf *)",
+      "Bash(WL_AGENT=* bash *)",
+      "Bash(WL_TASK_ID=* bash *)",
+      "Bash(TODAY_ISO=* bash *)",
+      "Bash(HARNESS_CONFIG=* bash *)",
+      "Bash(WL_HARNESS_FAILMODE=* bash *)",
+      "Bash(WL_SUMMARY=* bash *)",
+      "Bash(WL_DOC_ONLY=* bash *)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_close",
+      "mcp__playwright__browser_wait_for",
+      "mcp__playwright__browser_evaluate",
+      "mcp__playwright__browser_tabs",
+      "mcp__playwright__browser_resize",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_network_requests"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -14,6 +93,16 @@
       }
     ],
     "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/mutating-action-hook.sh",
+            "timeout": 10
+          }
+        ]
+      },
       {
         "matcher": "Agent",
         "hooks": [

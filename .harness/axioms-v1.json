@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "registry_id": "axioms-v1",
+  "signed_by": "Peat",
+  "signed_date": "2026-05-30",
+  "axioms": [
+    {
+      "id": "V1",
+      "tier": "value",
+      "statement": "We care about low-vision accessibility.",
+      "owner": "Algol+Canopus",
+      "signed_by": "Peat",
+      "signed_date": "2026-05-30",
+      "status": "PARTIAL",
+      "must_project_by": "2026-05-31",
+      "projects_to": ["gauntlet-min-legible-size"],
+      "notes": "gauntlet-min-legible-size enforces legibility floor at 4 breakpoints (Wave B wiring). Full WCAG 2.2 AA contrast gate (C1 realization) still UNPROJECTED — accessibility-floor is a STUB."
+    },
+    {
+      "id": "V2",
+      "tier": "value",
+      "statement": "Visual fidelity to the frozen design reference is a release gate, not a nicety.",
+      "owner": "Algol",
+      "signed_by": "Peat",
+      "signed_date": "2026-05-30",
+      "status": "PARTIAL",
+      "must_project_by": "2026-05-31",
+      "projects_to": ["gauntlet-sub-pixel-detection", "gauntlet-overlap-composition"],
+      "notes": "gauntlet-sub-pixel and gauntlet-overlap are Playwright-backed fidelity checks (Wave B wiring). Full pixel-anchor render-fidelity gate (Playwright full-page diff) still UNPROJECTED."
+    },
+    {
+      "id": "V3",
+      "tier": "value",
+      "statement": "One visual language at a time; directions never blend.",
+      "owner": "Canopus",
+      "signed_by": "Peat",
+      "signed_date": "2026-05-30",
+      "status": "PROJECTED",
+      "projects_to": ["html-first-spec-discipline"]
+    },
+    {
+      "id": "C1",
+      "tier": "convention",
+      "statement": "a11y target = WCAG 2.2 AA (4.5:1 normal text).",
+      "realizes": ["V1"],
+      "owner": "Algol+Canopus",
+      "signed_by": "Peat",
+      "signed_date": "2026-05-30",
+      "status": "UNPROJECTED",
+      "must_project_by": "2026-05-31",
+      "projects_to": [],
+      "notes": "Convention-tier realization of V1. No enforcing contrast gate exists; accessibility-floor is a stub."
+    },
+    {
+      "id": "C2",
+      "tier": "convention",
+      "statement": "brand-orange canonical = #D4602A.",
+      "owner": "Canopus",
+      "signed_by": "Peat",
+      "signed_date": "2026-05-30",
+      "status": "PROJECTED",
+      "projects_to": ["design-tokens"]
+    },
+    {
+      "id": "C3",
+      "tier": "convention",
+      "statement": "paper-base = #E8E2D5.",
+      "owner": "Canopus",
+      "signed_by": "Peat",
+      "signed_date": "2026-05-30",
+      "status": "PROJECTED",
+      "projects_to": ["design-tokens"]
+    },
+    {
+      "id": "C4",
+      "tier": "convention",
+      "statement": "font-chain = Cormorant Garamond (display) / JetBrains Mono (mono) / Special Elite (type).",
+      "owner": "Algol",
+      "signed_by": "Peat",
+      "signed_date": "2026-05-30",
+      "status": "PARTIAL",
+      "must_project_by": "2026-05-31",
+      "projects_to": ["font-chain-presence"],
+      "notes": "font-chain-presence is proxy only (checks binding in gallery.html, not rendered output). Full Playwright render-fidelity gate is Wave B planned work."
+    },
+    {
+      "id": "C5",
+      "tier": "convention",
+      "statement": "motion buckets: overlay 300–500ms, camera 700–1400ms.",
+      "owner": "Algol",
+      "signed_by": "Peat",
+      "signed_date": "2026-05-30",
+      "status": "UNPROJECTED",
+      "must_project_by": "2026-05-31",
+      "projects_to": [],
+      "notes": "No motion audit gate exists. Owner responsible for closing gap by must_project_by."
+    },
+    {
+      "id": "H1",
+      "tier": "harness",
+      "statement": "A gate’s green must trace to ground-truth or self-declare as proxy (anchor-label + bound policy).",
+      "owner": "Canopus",
+      "signed_by": "Peat",
+      "signed_date": "2026-05-30",
+      "status": "UNPROJECTED",
+      "must_project_by": "2026-05-31",
+      "projects_to": [],
+      "notes": "Ratified by Peat 2026-05-30. Canopus authors; Peat ratifies. Anchor-label policy gate is Wave B planned work. Moved out of value tier — this is harness-governance, not product-value."
+    }
+  ]
+}

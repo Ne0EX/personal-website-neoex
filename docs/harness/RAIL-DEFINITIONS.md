@@ -1688,4 +1688,298 @@ Run: `bash scripts/audit-visual-diff-directions.sh <test-fixture-task-id>`
 
 ---
 
+---
+
+## Rail: axiom-gate-join-coverage
+
+**Check:** `scripts/audit-axiom-gate-join-coverage.sh` (shell wrapper) → `scripts/audit-axiom-gate-join-coverage.ts` (Algol)
+**Applies to:** `.harness/**`, `scripts/audit-*.ts`, `scripts/audit-*.sh`
+**Status:** enforcing
+**Introduced:** 2026-05-30 · TASK-2026-05-30-HARNESS-IS-OUGHT-SEPARATOR-B3B · Canopus
+**Registry:** `.harness/axioms-v1.json`
+**Schema:** `.harness/axioms-v1.schema.json`
+
+### Purpose
+
+Enforces the axiom↔gate bijection in BOTH directions:
+
+- **Direction 1 (axiom → gate):** every PROJECTED axiom must name ≥1 gate in `projects_to` that exists in harness config AND is enforcing (non-stub). UNPROJECTED/PARTIAL axioms past `must_project_by` = RED.
+- **Direction 2 (gate → axiom):** every gate in harness config must trace to ≥1 axiom via `projects_to`, OR be in the `DERIVED_IS_GATES` list (engineering mechanics — not a product axiom). Orphan gates = RED.
+
+This is the top-seam coverage primitive from the is/ought separator task: it makes the "articulated-but-unprojected ought" class mechanically visible — a signed axiom with no enforcing gate wears a signature but has no teeth. The join-coverage audit surfaces exactly that, on every harness run.
+
+### Coverage assertion
+
+Per A1.1 discipline applied at the top seam:
+- All N axioms in the registry must be visited → `checked_axioms == N`
+- All M gates in config must be visited → `checked_gates == M`
+- If either count mismatches → exit 2 (coverage assertion fail — the audit itself is defective)
+
+### Structured error codes
+
+| Code | Meaning |
+|------|---------|
+| `UNPROJECTED_PAST_DATE` | Axiom is UNPROJECTED/PARTIAL and `must_project_by` is in the past, OR date is missing (permanent amber = fail-closed) |
+| `GATE_MISSING` | PROJECTED axiom has empty `projects_to`, or all named gates are absent/stub |
+| `GATE_ORPHAN` | Gate has no axiom trace and is not in DERIVED_IS list |
+| `COVERAGE_ASSERT_FAIL` | Audit visited fewer axioms or gates than declared (audit defect) |
+
+### How to fix a fail
+
+**UNPROJECTED_PAST_DATE:** The axiom's deadline has passed. Its owner must wire an enforcing gate that actually checks the invariant, then update the axiom status to PROJECTED or PARTIAL as appropriate. A stub gate does not count.
+
+**GATE_MISSING:** A PROJECTED axiom has no enforcing gate in the harness config matching its `projects_to`. Either (a) add the missing rail to worldline-harness.config.json as enforcing, or (b) downgrade the axiom status to UNPROJECTED with a new `must_project_by` date if the gate doesn't exist yet.
+
+**GATE_ORPHAN:** A gate is running checks with no normative grounding. Either (a) add an axiom that projects to this gate, or (b) add the gate to `DERIVED_IS_GATES` in the TS script with a documented rationale (engineering mechanics, not product value).
+
+### Run standalone
+
+```bash
+bash scripts/audit-axiom-gate-join-coverage.sh [TODAY_ISO]
+# Example (simulate post-2026-05-31 deadline):
+bash scripts/audit-axiom-gate-join-coverage.sh 2026-06-01
+```
+
+---
+
+## Rail: gauntlet-overlap-composition
+
+**Check:** `scripts/audit-gauntlet-overlap.sh` → `scripts/audit-gauntlet-overlap.ts`
+**Applies to:** `app/**`, `components/**`, `.claude/visual-diffs/**/prototype/**`
+**Status:** enforcing
+**Introduced:** 2026-05-30 · TASK-2026-05-30-HARNESS-IS-OUGHT-SEPARATOR-B3B · Canopus
+**Error code:** A3a
+**Allowed overlaps manifest:** `.harness/allowed-overlaps.json`
+**Spec:** `docs/qa/gauntlet-strengthening-design.md#check-a`
+
+### Purpose
+
+Assert no element renders over a higher-z sibling unless the pair is listed in `.harness/allowed-overlaps.json` with a documented reason. Converts the visual-composition from human-eye-only to a mechanized denominator.
+
+Real-world specimen that prompted this rail: Sirius's MINI-OVERLAP case — the 2D fallback `::before`/`::after` pseudo-elements on `.standby-render__globe` rendered over the live canvas because they were not gated by `data-mini-live`. This check would have caught it mechanically.
+
+### Predicate
+
+```
+for each element E with non-auto z-index:
+  for each sibling S with lower z-index:
+    if bounding-rect(E) intersects bounding-rect(S):
+      unless (E.selector, S.selector) in allowed-overlaps.json with reason:
+        FAIL
+```
+
+### Denominator
+
+All rendered elements with a non-`auto` computed z-index in the rendered page. Coverage assertion: `elements_checked == N` (where N is the count enumerated from the DOM).
+
+### Allowed overlaps manifest
+
+`.harness/allowed-overlaps.json` is the canonical waiver list. Starts empty — Sirius populates for MINI-OVERLAP entries on first wiring. Additions require a signed commit.
+
+Format:
+```json
+{
+  "allowed_overlaps": [
+    {
+      "element_selector": ".standby-render__globe::before",
+      "sibling_selector": "canvas.mini-globe",
+      "reason": "2D fallback pseudo-element; gated by data-mini-live absent — renders only when WebGL unavailable",
+      "introduced": "TASK-XXXX"
+    }
+  ]
+}
+```
+
+### Structured error format
+
+```
+[A3a] element=<CSS-selector> overlaps sibling=<CSS-selector>
+      element_rect=(x, y, w, h) sibling_rect=(x, y, w, h)
+      computed_z=<z> sibling_z=<z>
+      status=UNLISTED (not in .harness/allowed-overlaps.json)
+      action=add to allowed-overlaps with reason, OR fix z-context
+```
+
+### How to fix a fail
+
+1. The error names the element pair and their computed bounding rects.
+2. If the overlap is intentional (e.g., a UI layer intentionally over a background): add the pair to `.harness/allowed-overlaps.json` with a reason.
+3. If the overlap is unintentional: fix the z-index values or stacking context so the elements do not intersect.
+
+### Implementation note
+
+Requires a running HTTP server (not `file://`). Pass the served URL as the first argument to the wrapper script. Playwright unavailability → exit 3 (WARN, does not block handoff alone).
+
+---
+
+## Rail: gauntlet-min-legible-size
+
+**Check:** `scripts/audit-gauntlet-min-legible.sh` → `scripts/audit-gauntlet-min-legible.ts`
+**Applies to:** `app/**`, `components/**`, `.claude/visual-diffs/**/prototype/**`
+**Status:** enforcing
+**Introduced:** 2026-05-30 · TASK-2026-05-30-HARNESS-IS-OUGHT-SEPARATOR-B3B · Canopus
+**Error code:** A3b
+**Spec:** `docs/qa/gauntlet-strengthening-design.md#check-b`
+
+### Purpose
+
+Assert all text and icon elements render at dimensions ≥ legibility floor at 4 breakpoints per `docs/design/60-responsive-system.md`. Converts the legibility check from "declared CSS value" to "computed render size at real viewport dimensions."
+
+This cross-references the property technique-map TM-04 derivation (V1 + 60-responsive-system.md → 12px floor), but verifies the rendered size, not the CSS declaration.
+
+### Legibility floors (from 60-responsive-system.md)
+
+| viewport | width | min font (text) | min dimension (icon) |
+|---|---|---|---|
+| WIDE | ≥1180px | 12px | 16×16px |
+| DESK | 881–1179px | 12px | 16×16px |
+| MID | 601–880px | 12px | 14×14px |
+| NARROW | ≤600px | 11px | 12×12px |
+
+### Denominator
+
+All text-bearing + icon-only elements in the rendered page at each of 4 breakpoints (tested at: 1200px, 1000px, 720px, 375px). Coverage: 4 viewport-level assertions required; any mismatch = audit RED.
+
+### Structured error format
+
+```
+[A3b] element=<CSS-selector> viewport=<WIDE|DESK|MID|NARROW> at <width>px
+      property=font-size computed=<Npx> floor=<Fpx>
+      OR
+      property=bounding-rect computed=<W>x<H>px floor=<Fw>x<Fh>px
+      action=increase font-size or element dimensions above floor
+```
+
+### How to fix a fail
+
+1. The error names the element, viewport, computed size, and floor.
+2. For font-size: increase the font-size CSS for that element at that breakpoint.
+3. For icon dimensions: increase `min-width`/`min-height` for the icon at that breakpoint.
+4. If the element is intentionally tiny (e.g., a decorative spacer), add `aria-hidden="true"` and ensure it is excluded from the text/icon selector set.
+
+---
+
+## Rail: gauntlet-sub-pixel-detection
+
+**Check:** `scripts/audit-gauntlet-sub-pixel.sh` → `scripts/audit-gauntlet-sub-pixel.ts`
+**Applies to:** `.claude/visual-diffs/soul-atlas/**`
+**Status:** enforcing
+**Introduced:** 2026-05-30 · TASK-2026-05-30-HARNESS-IS-OUGHT-SEPARATOR-B3B · Canopus
+**Error code:** A3c
+**Spec:** `docs/qa/gauntlet-strengthening-design.md#check-c`
+**Manifest:** `.claude/visual-diffs/soul-atlas/manifest.json`
+
+### Purpose
+
+Assert all manifest atom × variant pairs render bounding rect ≥ 1×1px. Sub-pixel or zero-size elements are FAIL when manifest claims the atom is visible.
+
+Real-world specimen that prompted this rail: in the GLOBE-NODES slice, 6 archive nodes were sub-pixel (computed radius ~0.2px at canvas coordinate scale) — Peat's eye caught them as invisible despite the node objects existing in the scene.
+
+### Denominator
+
+`|manifest.atoms| × |variants_per_atom|` — the Cartesian product of all atom × variant pairs. Coverage: `pairs_checked == total`. If count mismatches → audit itself is RED (exit 2).
+
+### Structured error format
+
+```
+[A3c] atom=<atom_id> variant=<variant_name> selector=<render_selector>
+      viewport=default computed_rect=<W>x<H>px
+      status=SUB_PIXEL (W<1 or H<1) | ZERO (W==0 or H==0)
+      manifest_claim=visible
+      action=fix rendering to produce >=1x1px bounding rect, or mark variant as intentionally-hidden in manifest
+```
+
+### How to fix a fail
+
+1. The error names the atom, variant, selector, and computed dimensions.
+2. If the element should be visible: fix the CSS/rendering so the selector matches a ≥1×1px element.
+3. If the variant is intentionally hidden at this viewport: add a `render_trigger` field to the variant in manifest.json, or mark it as `"intentionally_hidden": true` (a future manifest schema addition).
+
+### Behavior when manifest absent
+
+Exits 0 silently when `.claude/visual-diffs/soul-atlas/manifest.json` does not exist (pre-Phase-1). No false positives on tasks that have not yet started soul-atlas work.
+
+### Mutation test
+
+`tests/harness/gauntlet-strengthening.test.sh` — Canopus. Case A3c shrinks the atom's render element to 0.3px via a fixture override. Expected: before.exit=0, after.exit=1, error names `A3c` + atom-id + sub-pixel status.
+
+---
+
+## Rail: permissions-nonempty
+
+**Check:** `scripts/audit-permissions-nonempty.sh`
+**Applies to:** `.claude/settings.json`
+**Barrier class:** HARD-BARRIER
+**Mode:** block
+**Introduced:** TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-1
+**Control:** P3 Least-privilege (deny-by-default posture)
+
+**Purpose:** The P3 least-privilege gap: without a non-empty `permissions.deny` block in `settings.json`, every tool is implicitly allowed to any agent. This rail asserts that at minimum one deny entry exists, establishing a deny-default posture.
+
+**What it checks:**
+1. `.claude/settings.json` exists and is valid JSON
+2. `.permissions` key is present and non-null
+3. `.permissions.deny` is present, is an array, and has >= 1 entry
+
+**How to fix a fail:**
+Add a `permissions.deny` array to `.claude/settings.json` with at least one deny entry:
+```json
+{
+  "permissions": {
+    "deny": ["Bash(curl *)", "Bash(wget *)"],
+    "allow": [...]
+  }
+}
+```
+See the current deny list at `.claude/settings.json` for the full Worldline posture.
+
+---
+
+## Rail: least-agency-config
+
+**Check:** `scripts/audit-least-agency-config.sh`
+**Applies to:** `.claude/settings.json`, `.claude/hooks/**`
+**Barrier class:** HARD-BARRIER
+**Mode:** block
+**Introduced:** TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-1
+**Control:** Least-agency / tool-misuse (OWASP ZT §Least Agency)
+
+**Purpose:** Asserts the full least-agency stack is wired and hasn't regressed. Two hard assertions:
+
+1. **deny-present:** `permissions.deny` in `settings.json` contains entries for both `curl` and `wget` (net-egress block)
+2. **hook-wired:** A blocking PreToolUse Bash hook referencing `mutating-action-hook.sh` is present in `settings.json`
+
+**How to fix a fail:**
+- For deny-present: ensure `permissions.deny` in `.claude/settings.json` has both `Bash(curl *)` and `Bash(wget *)` entries
+- For hook-wired: ensure the PreToolUse hooks in `settings.json` include a `matcher: "Bash"` hook that calls `bash .claude/hooks/mutating-action-hook.sh`
+
+---
+
+## Rail: rail-barrier-class (meta-rail / spine)
+
+**Check:** `scripts/audit-rail-barrier-class.sh`
+**Applies to:** `.harness/worldline-harness.config.json`
+**Barrier class:** HARD-BARRIER (self-enforcing meta-rail)
+**Mode:** block
+**Introduced:** TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-1
+**Control:** Impossible-not-tedious (spine sensor — SECURITY-HARNESS-DESIGN-2026-06-01 §3)
+
+**Purpose:** The spine sensor. Enforces the "impossible-not-tedious" principle by preventing a `FRICTION-ONLY` control from masquerading as a `mode=block` hard barrier. Every rail in the registry must carry a `barrier_class` field, and every `mode=block` rail must be `HARD-BARRIER` or carry a signed friction-waiver.
+
+**Three rules it enforces:**
+
+- **Rule C:** Every rail must have `barrier_class` in `{HARD-BARRIER, FRICTION-ONLY}`. Absent = FAIL.
+- **Rule A:** Every `mode=block` rail must have `barrier_class=HARD-BARRIER`, OR appear in `.harness/scope-waivers.json` with `signed_by` non-null.
+- **Rule B:** No LLM-judge rail may have `mode=block` unless `thresholded=true` and a numeric `threshold` is set (Constitutional-Classifiers exception).
+
+**How to fix a fail:**
+- **Rule C:** Add `barrier_class` field to the rail in `.harness/worldline-harness.config.json`
+- **Rule A:** Either set `barrier_class: HARD-BARRIER` (preferred), or add a signed waiver entry to `.harness/scope-waivers.json` (requires Peat's `signed_by`)
+- **Rule B:** Change the judge rail's mode to `shadow` or `warn`, or add `thresholded: true` + a threshold value
+
+**Exemptions:**
+- `status=stub` rails may have `FRICTION-ONLY + mode=warn` without a waiver (stub = not yet enforcing)
+
+---
+
 *end of RAIL-DEFINITIONS.md*

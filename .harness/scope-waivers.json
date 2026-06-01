@@ -1,0 +1,92 @@
+{
+  "$schema": "https://worldline.local/scope-waivers.schema.json",
+  "schema_version": 1,
+  "status": "UNSIGNED-STUB — Peat signs when reviewed. signed_by: null = not yet ratified.",
+  "created": "2026-06-01",
+  "created_by": "canopus · α-HRN-07 · TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-1",
+  "purpose": "Records Advanced-tier controls that are explicitly N/A for a solo digital garden. Prevents over-building / enterprise theater. audit-rail-barrier-class.sh consults this file for signed friction-waivers. Peat's signature on each entry is the human gate.",
+  "signed_by": null,
+  "signed_date": null,
+  "scope_na_controls": [
+    {
+      "control": "HSM/TPM hardware-backed identity",
+      "zt_tier": "Advanced",
+      "reason": "Solo garden — no hardware security module / TPM; no shared org identity infrastructure. Platform-default process isolation accepted.",
+      "signed_by": null
+    },
+    {
+      "control": "Remote attestation (TPM-backed)",
+      "zt_tier": "Advanced",
+      "reason": "Requires hardware attestation chip. Not available and not justified for a single-operator project.",
+      "signed_by": null
+    },
+    {
+      "control": "Confidential-computing / microVM (immutable infra with attestation)",
+      "zt_tier": "Advanced",
+      "reason": "microVM / Kata-container style execution isolation exceeds the risk profile of a personal website. OS-level process isolation is the appropriate ceiling.",
+      "signed_by": null
+    },
+    {
+      "control": "JIT/JEA with auto-expiry (Just-In-Time / Just-Enough-Access credential issuance)",
+      "zt_tier": "Advanced",
+      "reason": "Single operator with no external IdP. Session-scoped permissions in settings.json is the practical equivalent.",
+      "signed_by": null
+    },
+    {
+      "control": "mTLS with certificate pinning (mutual TLS full lifecycle)",
+      "zt_tier": "Enterprise",
+      "reason": "No inter-service API calls requiring mutual TLS. Claude Code session transport handled by platform. N/A for local agentic tooling.",
+      "signed_by": null
+    },
+    {
+      "control": "OS-level sandboxing (seccomp / AppArmor / network namespace / restricted mounts)",
+      "zt_tier": "Enterprise",
+      "reason": "Platform-default sandboxing accepted. Adding seccomp profiles to a local dev environment adds complexity without meaningful risk reduction for a solo operator.",
+      "signed_by": null
+    },
+    {
+      "control": "Real-time SIEM streaming (OTel → external SIEM)",
+      "zt_tier": "Enterprise",
+      "reason": "Local append-only audit logs (signature files, hook-logs) are the appropriate logging tier. No external SIEM required for a solo garden.",
+      "signed_by": null
+    },
+    {
+      "control": "Formal governance committee / automated compliance checks",
+      "zt_tier": "Enterprise",
+      "reason": "Single operator. Peat IS the governance committee. Policy is encoded in axioms-v1.json (Peat-signed).",
+      "signed_by": null
+    },
+    {
+      "control": "HIPAA compliance",
+      "zt_tier": "Advanced",
+      "reason": "No protected health information. Not applicable.",
+      "signed_by": null
+    },
+    {
+      "control": "FINRA compliance",
+      "zt_tier": "Advanced",
+      "reason": "No financial data or regulated trading activity. Not applicable.",
+      "signed_by": null
+    },
+    {
+      "control": "GDPR compliance",
+      "zt_tier": "Advanced",
+      "reason": "Personal website with no user data collection, no accounts, no analytics storing personal data. GDPR-by-design via no-collection posture.",
+      "signed_by": null
+    },
+    {
+      "control": "FedRAMP compliance",
+      "zt_tier": "Advanced",
+      "reason": "Not a US federal system. Not applicable.",
+      "signed_by": null
+    },
+    {
+      "control": "ML behavioral anomaly detection (contextual, Enterprise+ tier)",
+      "zt_tier": "Advanced",
+      "reason": "Session volume too low for ML baselines to be meaningful. LLM judge (watchdog) in shadow mode is the appropriate residue.",
+      "signed_by": null
+    }
+  ],
+  "friction_waivers": [],
+  "_instructions": "To activate a friction-waiver for a mode=block FRICTION-ONLY rail: add an entry to friction_waivers array with {rail_key, reason, signed_by: <Peat's explicit sign-off>, signed_date}. audit-rail-barrier-class.sh reads friction_waivers[]. Peat must set signed_by — agents may not self-sign."
+}

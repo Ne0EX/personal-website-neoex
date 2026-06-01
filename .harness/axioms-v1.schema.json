@@ -1,0 +1,130 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://worldline.local/axioms-v1.schema.json",
+  "title": "Worldline Axiom Registry Schema v1",
+  "description": "Machine-readable schema for the Worldline axiom registry. Covers product axioms (value tier + convention tier) and harness axioms (H tier). Encodes placeholder discipline and waiver discipline as schema constraints. Canopus B2 populates the data file (.harness/axioms-v1.json) conforming to this schema.",
+  "type": "object",
+  "required": ["schema_version", "registry_id", "signed_by", "signed_date", "axioms"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1,
+      "description": "Schema version. Increment on breaking changes to this schema (new required fields, changed types)."
+    },
+    "registry_id": {
+      "type": "string",
+      "pattern": "^axioms-v[0-9]+$",
+      "description": "Registry identifier, e.g. 'axioms-v1'. Monotonically increasing at major registry re-bless."
+    },
+    "signed_by": {
+      "type": "string",
+      "description": "The human who signed the product axioms. Harness axioms are ratified by the same human but authored by Canopus."
+    },
+    "signed_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+      "description": "ISO date (YYYY-MM-DD) of the signing event."
+    },
+    "axioms": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Ordered list of axioms. Product axioms (V + C tiers) appear before harness axioms (H tier) by convention.",
+      "items": {
+        "$ref": "#/definitions/axiom"
+      }
+    }
+  },
+  "definitions": {
+    "axiom": {
+      "type": "object",
+      "required": ["id", "tier", "statement", "owner", "signed_by", "signed_date", "status", "projects_to"],
+      "additionalProperties": false,
+      "description": "A single axiom entry. Placeholder discipline: must_project_by is REQUIRED when status is UNPROJECTED or PARTIAL. Missing must_project_by on a non-PROJECTED axiom = schema violation (fail-closed). Waiver discipline: block_until is REQUIRED when status is BLOCKED (held beyond a date-bounded queue).",
+      "if": {
+        "properties": {
+          "status": { "enum": ["UNPROJECTED", "PARTIAL"] }
+        }
+      },
+      "then": {
+        "required": ["must_project_by"],
+        "properties": {
+          "must_project_by": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+            "description": "HARD DATE. Must be an ISO date string (YYYY-MM-DD). A placeholder like '<Peat sets>' is NOT a valid date and will fail schema validation. The absence of a real date on an UNPROJECTED or PARTIAL axiom is fail-closed: it ossifies into permanent amber. Join-coverage audit will RED any UNPROJECTED axiom past this date."
+          }
+        }
+      },
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(V[0-9]+|C[0-9]+|H[0-9]+)$",
+          "description": "Axiom identifier. V-prefix = value tier. C-prefix = convention tier. H-prefix = harness tier. Numeric suffix is monotonic within tier."
+        },
+        "tier": {
+          "type": "string",
+          "enum": ["value", "convention", "harness"],
+          "description": "Axiom tier. 'value' = identity-level product commitment (Peat signs; heavy re-bless). 'convention' = arbitrary-but-fixed product commitment (Peat signs; free re-bless). 'harness' = ops-layer commitment (Canopus authors; Peat ratifies, does NOT author)."
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 10,
+          "description": "Human-readable axiom statement. Normative — this is the signed commitment."
+        },
+        "realizes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(V[0-9]+|C[0-9]+|H[0-9]+)$"
+          },
+          "description": "For convention-tier axioms: the value-tier axiom(s) this convention realizes. Empty array for value-tier axioms and harness axioms. Encodes the 'realizes' relationship from the candidate registry (e.g. C1 realizes V1)."
+        },
+        "projects_to": {
+          "type": "array",
+          "description": "The gate IDs in worldline-harness.config.json that enforce this axiom. Join-coverage audit requires every PROJECTED axiom to have at least one entry here that exists as a key in the harness config 'rails' object. UNPROJECTED axioms may have an empty array — but join-coverage will RED them past must_project_by.",
+          "items": {
+            "type": "string",
+            "description": "A rail key from worldline-harness.config.json (e.g. 'accessibility-floor', 'design-tokens'). Must match a key in config.rails exactly."
+          }
+        },
+        "owner": {
+          "type": "string",
+          "description": "The agent designation(s) responsible for projecting this axiom into an enforcing gate. For PROJECTED axioms: the agent who built the gate. For UNPROJECTED/PARTIAL: the agent responsible for closing the gap by must_project_by. Free-form string — 'Algol+Canopus' is valid."
+        },
+        "signed_by": {
+          "type": "string",
+          "description": "Who signed off on this specific axiom. For product axioms (V/C tier): Peat. For harness axioms (H tier): Canopus (authored) + Peat (ratified). Record the signer — not the author for H-tier."
+        },
+        "signed_date": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "ISO date (YYYY-MM-DD) when this axiom was signed."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["PROJECTED", "UNPROJECTED", "PARTIAL", "BLOCKED"],
+          "description": "Projection status. PROJECTED = at least one enforcing gate exists and is non-stub. UNPROJECTED = axiom signed but zero enforcing gates. PARTIAL = gate exists but is a stub (passes without verifying — e.g. accessibility-floor). BLOCKED = legitimately held past block_until (requires block_until + blocked_on fields). Join-coverage REDs UNPROJECTED/PARTIAL past must_project_by."
+        },
+        "must_project_by": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "Required for UNPROJECTED and PARTIAL status. ISO date by which a real enforcing gate must exist. Past this date with status still UNPROJECTED or PARTIAL = join-coverage RED."
+        },
+        "block_until": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "description": "Required for BLOCKED status. ISO date when the block expires. Past block_until with status still BLOCKED = escalation. This is the waiver discipline: a blocked axiom is legitimately held WITHIN the bound; it expires to RED/escalation beyond it."
+        },
+        "blocked_on": {
+          "type": "string",
+          "description": "Required when status is BLOCKED. The party or condition that must resolve before projection proceeds. Example: 'Peat-approval' or 'Wave-B-Canopus-gate-wiring'."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional free-form notes. Does NOT substitute for machine-readable fields. Notes without owner+date are not actionable."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "denylist_regex": [
+    "\\brm\\s+-rf?\\b",
+    "^chmod\\s",
+    "^chown\\s",
+    "^mv\\s",
+    "\\bnpm\\s+(install|i|uninstall|un|update|up)\\b",
+    "\\bpnpm\\s+(install|add|remove|update)\\b",
+    "\\byarn\\s+(install|add|remove|upgrade)\\b",
+    "\\bsupabase\\s+db\\s+(push|reset|migrate)\\b",
+    "\\bsupabase\\s+migration\\s+(new|repair)\\b",
+    "\\bvercel\\s+(deploy|alias|env\\s+(add|rm))\\b",
+    "\\bgit\\s+(push|reset\\s+--hard|rebase|merge|rm|mv|tag)\\b",
+    "\\bdocker\\s+(run|exec|build|push|rm|kill)\\b",
+    ">>?\\s*[A-Za-z0-9_./-]+",
+    ">>?\\s*['\"][^'\"]+['\"]",
+    ">\\|\\s*\\S",
+    "\\btee\\b",
+    "\\\\rm\\b",
+    "\\b(bash|sh)\\s+-[a-z]*c\\s",
+    "\\bpython3?\\s+-c\\b",
+    "\\bnode\\s+-e\\b",
+    "\\bnpx\\s+tsx\\s+--?e(val)?\\b",
+    "\\bnpx\\s+tsx\\s+-e\\b",
+    "\\bsed\\s+-[a-z]*i\\b",
+    "^cp\\s",
+    "\\bfind\\b.*-delete\\b"
+  ],
+  "first_seen_command_mode": "warn"
+}

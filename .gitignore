@@ -69,6 +69,10 @@ docs/team/.checkpoints/*.md
 # ─── lean working tree (2026-05-29) ───
 # stray/legacy scaffold + skills tooling artifacts (not project source)
 /worldline-harness/
+# harness engine — dormant ported substrate kept on disk, NOT tracked (farm-erp heritage:
+# attestations/judges/LSP/RLS sensors Worldline doesn't use). Only the live denylist data the
+# wired hook reads + the resolution doc are force-added (git add -f) and stay tracked.
+/.harness/engine/
 /.agents/
 /skills-lock.json
 .claude/.current-persona
@@ -88,6 +92,8 @@ docs/team/.status-drafts/
 
 # build + tooling caches (not project source)
 /.velite/
+# pagefind search index (regenerates on every build — never committed)
+/public/pagefind/
 /.playwright-mcp/
 /.codex/
 .claude/skills/

@@ -1,14 +1,20 @@
 {
   "$schema": "https://worldline.local/harness-config.schema.json",
-  "config_version": 1,
-  "last_updated": "2026-05-15 (META-10)",
+  "config_version": 2,
+  "last_updated": "2026-06-01 (TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-1)",
   "owner": "canopus · α-HRN-07",
+  "schema_notes": {
+    "barrier_class": "HARD-BARRIER (removes capability; survives; required for mode=block rails) | FRICTION-ONLY (slows but doesn't prevent; requires signed waiver at .harness/scope-waivers.json if mode=block). Enforced by scripts/audit-rail-barrier-class.sh.",
+    "mode": "block (fail-closed, hard gate) | warn (advisory, non-blocking) | shadow (runs silently, no output; judge rails only) | stub (not yet implemented — audit-rail-barrier-class treats stub as advisory only)"
+  },
   "rails": {
     "territory": {
       "description": "An agent only edits files within its own territory (per docs/team/FILE-OWNERSHIP.md). Cross-territory edits require an explicit handoff to the file's owner.",
       "check": "scripts/audit-territory.sh",
       "applies_to": ["**/*"],
       "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-territory"
     },
     "design-tokens": {
@@ -16,6 +22,8 @@
       "check": "scripts/audit-design-tokens.sh",
       "applies_to": ["app/**", "components/**"],
       "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-design-tokens"
     },
     "next-16-api": {
@@ -23,6 +31,8 @@
       "check": "scripts/audit-next-api.sh",
       "applies_to": ["app/**"],
       "status": "stub",
+      "mode": "warn",
+      "barrier_class": "FRICTION-ONLY",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-next-16-api"
     },
     "voice-discipline": {
@@ -30,6 +40,8 @@
       "check": "scripts/audit-voice.sh",
       "applies_to": ["lib/netra/**", "components/*Netra*.tsx"],
       "status": "stub",
+      "mode": "warn",
+      "barrier_class": "FRICTION-ONLY",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-voice-discipline"
     },
     "accessibility-floor": {
@@ -37,6 +49,8 @@
       "check": "scripts/audit-a11y.sh",
       "applies_to": ["app/articles/**", "app/photos/**", "app/fiction/**"],
       "status": "stub",
+      "mode": "warn",
+      "barrier_class": "FRICTION-ONLY",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-accessibility-floor"
     },
     "prototype-layer": {
@@ -44,6 +58,8 @@
       "check": "scripts/audit-prototype-discipline.sh",
       "applies_to": ["prototypes/**", ".claude/visual-diffs/**/prototype/**"],
       "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-prototype-layer",
       "introduced": "TASK-2026-05-15-META-10"
     },
@@ -52,6 +68,8 @@
       "check": "scripts/audit-prototype-production-diff.sh",
       "applies_to": ["prototypes/**", "app/**"],
       "status": "stub",
+      "mode": "warn",
+      "barrier_class": "FRICTION-ONLY",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-prototype-production-diff",
       "introduced": "TASK-2026-05-15-META-10",
       "real_implementation": "META-11"
@@ -61,6 +79,8 @@
       "check": "scripts/audit-prototype-runtime.sh",
       "applies_to": ["prototypes/**", ".claude/visual-diffs/**/prototype/**"],
       "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-prototype-runtime",
       "introduced": "TASK-2026-05-15-META-10",
       "timeout_sec": 30,
@@ -72,6 +92,8 @@
       "check": "scripts/audit-soul-atom-drift.sh",
       "applies_to": [".claude/visual-diffs/soul-atlas/**"],
       "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-soul-atom-drift",
       "introduced": "TASK-2026-05-29-SOUL-FACTORY-P0",
       "activated": "TASK-2026-05-29-SOUL-FACTORY-P2",
@@ -86,6 +108,8 @@
       "check": "scripts/audit-font-chain.sh",
       "applies_to": [".claude/visual-diffs/soul-atlas/gallery.html"],
       "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
       "invocation": "embedded — called by scripts/audit-soul-atom-drift.sh at step C1b",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-font-chain-presence",
       "introduced": "TASK-2026-05-29-SOUL-FACTORY-FIDELITY",
@@ -97,6 +121,8 @@
       "check": "scripts/audit-visual-diff-directions.sh",
       "applies_to": [".claude/visual-diffs/**/directions/**"],
       "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
       "severity_model": {
         "advisory": ["S2-item-1 (direction count)", "S2-item-2 (file presence)", "S2-item-5 (STATUS coherence)", "S2-item-7 (DIRECTIONS.md)"],
         "blocking": ["S2-item-3 (Rule 4 fields)", "S2-item-4 (soul-baseline resolution)", "S2-item-6 (locked prototype requirements)"]
@@ -105,6 +131,84 @@
       "spec": "docs/team/WORKFLOW-HTML-FIRST-SPEC.md",
       "introduced": "TASK-2026-05-26-HTML-FIRST-02",
       "note": "exits 0 silently on tasks without a directions/ directory — no false positives on pre-workflow artifacts"
+    },
+    "axiom-gate-join-coverage": {
+      "description": "Axiom↔gate bijection in both directions. Direction 1: every PROJECTED axiom must name ≥1 enforcing gate that exists in harness config. Direction 2: every gate must trace to ≥1 axiom or be in the DERIVED_IS list. UNPROJECTED/PARTIAL axioms past must_project_by = RED. Coverage assertion: all N axioms and all M gates must be visited.",
+      "check": "scripts/audit-axiom-gate-join-coverage.sh",
+      "applies_to": [".harness/**", "scripts/audit-*.ts", "scripts/audit-*.sh"],
+      "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-axiom-gate-join-coverage",
+      "introduced": "TASK-2026-05-30-HARNESS-IS-OUGHT-SEPARATOR-B3B",
+      "registry": ".harness/axioms-v1.json",
+      "schema": ".harness/axioms-v1.schema.json",
+      "invocation_note": "Pass TODAY override via env: TODAY_ISO=YYYY-MM-DD bash scripts/audit-axiom-gate-join-coverage.sh. Default: current date."
+    },
+    "gauntlet-overlap-composition": {
+      "description": "No element renders over a higher-z sibling unless the pair is listed in .harness/allowed-overlaps.json with a documented reason. Playwright-backed: reads computed z-index and bounding rect from rendered DOM. Denominator: all z-indexed elements in snapshot. Coverage: elements_checked == N.",
+      "check": "scripts/audit-gauntlet-overlap.sh",
+      "applies_to": ["app/**", "components/**", ".claude/visual-diffs/**/prototype/**"],
+      "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-gauntlet-overlap-composition",
+      "introduced": "TASK-2026-05-30-HARNESS-IS-OUGHT-SEPARATOR-B3B",
+      "allowed_overlaps_manifest": ".harness/allowed-overlaps.json",
+      "spec_ref": "docs/qa/gauntlet-strengthening-design.md#check-a--overlapcomposition-check",
+      "error_code": "A3a",
+      "timeout_sec": 30
+    },
+    "gauntlet-min-legible-size": {
+      "description": "All text and icon elements render at dimensions >= legibility floor at 4 breakpoints per docs/design/60-responsive-system.md. WIDE>=1180px: min 12px text / 16x16px icon. DESK 881-1179px: 12px / 16x16. MID 601-880px: 12px / 14x14. NARROW<=600px: 11px / 12x12. Playwright-backed. Denominator: all text+icon elements at each viewport; 4 assertions required.",
+      "check": "scripts/audit-gauntlet-min-legible.sh",
+      "applies_to": ["app/**", "components/**", ".claude/visual-diffs/**/prototype/**"],
+      "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-gauntlet-min-legible-size",
+      "introduced": "TASK-2026-05-30-HARNESS-IS-OUGHT-SEPARATOR-B3B",
+      "spec_ref": "docs/qa/gauntlet-strengthening-design.md#check-b--min-legible-size-check",
+      "responsive_system_ref": "docs/design/60-responsive-system.md",
+      "error_code": "A3b",
+      "viewports": [1200, 1000, 720, 375],
+      "timeout_sec": 30
+    },
+    "gauntlet-sub-pixel-detection": {
+      "description": "All manifest atom x variant pairs render bounding rect >= 1x1px. Sub-pixel (any dimension < 1px) or zero-size elements are FAIL if manifest claims visible. Denominator: |manifest.atoms| x |variants_per_atom| Cartesian product. Coverage: pairs_checked == total. Playwright-backed.",
+      "check": "scripts/audit-gauntlet-sub-pixel.sh",
+      "applies_to": [".claude/visual-diffs/soul-atlas/**"],
+      "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-gauntlet-sub-pixel-detection",
+      "introduced": "TASK-2026-05-30-HARNESS-IS-OUGHT-SEPARATOR-B3B",
+      "spec_ref": "docs/qa/gauntlet-strengthening-design.md#check-c--sub-pixel--zero-size-element-detection",
+      "manifest_path": ".claude/visual-diffs/soul-atlas/manifest.json",
+      "error_code": "A3c",
+      "timeout_sec": 30
+    },
+    "permissions-nonempty": {
+      "description": "HARD gate: .claude/settings.json must have a non-empty permissions field with at least one deny rule. An absent or empty permissions block means every tool is implicitly allowed — the P3 least-privilege gap. Enforced by scripts/audit-permissions-nonempty.sh.",
+      "check": "scripts/audit-permissions-nonempty.sh",
+      "applies_to": [".claude/settings.json"],
+      "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-permissions-nonempty",
+      "introduced": "TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-1",
+      "control": "P3 least-privilege (SECURITY-HARNESS-DESIGN-2026-06-01)"
+    },
+    "least-agency-config": {
+      "description": "Asserts: (1) .claude/settings.json contains at least one deny for curl and wget patterns, (2) a blocking PreToolUse Bash hook is present in settings.json. Fails closed if either condition is missing. Guards against regression after Wave 1 activation.",
+      "check": "scripts/audit-least-agency-config.sh",
+      "applies_to": [".claude/settings.json", ".claude/hooks/**"],
+      "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-least-agency-config",
+      "introduced": "TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-1",
+      "control": "Least-agency / tool-misuse (SECURITY-HARNESS-DESIGN-2026-06-01)"
     }
   },
   "signature_policy": {

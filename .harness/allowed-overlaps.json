@@ -1,0 +1,7 @@
+{
+  "$schema_note": "Canonical waiver list for gauntlet-overlap-composition rail. Additions require a signed commit. Sirius populates MINI-OVERLAP entries on first wiring.",
+  "introduced": "TASK-2026-05-30-HARNESS-IS-OUGHT-SEPARATOR-B3B",
+  "owner": "Canopus (α-HRN-07)",
+  "spec_ref": "docs/qa/gauntlet-strengthening-design.md#check-a",
+  "allowed_overlaps": []
+}

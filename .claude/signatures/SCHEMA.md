@@ -102,6 +102,16 @@ self_hash=$(jq -cS 'del(.hashes.self_hash)' "$payload_file" | tr -d '\n' | sha25
 
 `jq -cS` produces compact output with sorted keys, matching the Python canonical form for key ordering and separators. `tr -d '\n'` is required because `jq` appends a trailing newline (0x0a) to its output; `sha256sum` includes that byte in the digest. The Python `json.dumps` reference produces no trailing newline. Without the `tr` strip, the bash and Python paths hash a different number of bytes and produce different digests for the same payload.
 
+### historical note — trailing-newline cohort (pre-2026-05-17 signatures)
+
+50 v2 signatures produced before 2026-05-17 were signed by an earlier version of `sign-work.sh` that lacked the `tr -d '\n'` strip. Those signatures stored `self_hash` computed **with** the trailing newline — i.e., `jq -cS 'del(.hashes.self_hash)' | sha256sum` without stripping. They will not verify under the current canonical method (Python / bash+tr).
+
+**These signatures are NOT retroactively invalid** — they were correct under the tool version that produced them. The self-referential audit value is: the hash proves the payload was not tampered with after signing; the cohort boundary proves the signing tool was at a known revision. Algol's verifier should classify these as `SELF_HASH_COHORT_MISMATCH` (not `INTEGRITY-FAIL`) when the `completed_at` date is before 2026-05-17 and the stored hash matches the with-newline form.
+
+**Mass re-signing is NOT required.** The files_sha256 hashes remain valid and are the stronger integrity signal. If a specific signature needs to be re-signed for operational reasons, run sign-work.sh again with the task's original env vars — the new signature will store the correct (without-newline) hash.
+
+Affected count: 50 of 167 v2 signatures as of 2026-06-01. Full list available via `scripts/diagnose-self-hash.py`.
+
 ---
 
 ## verification (Algol's algorithm)
