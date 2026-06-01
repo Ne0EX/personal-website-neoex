@@ -10,7 +10,12 @@
     "index:search": "npx tsx scripts/inject-pagefind-sidecar.ts && pagefind --site .next/server/app --output-path public/pagefind",
     "start": "next start",
     "lint": "eslint",
-    "design": "echo 'Serving from repo root — open: http://localhost:8765/.claude/visual-diffs/soul-atlas/gallery.html' && python3 -m http.server 8765"
+    "design": "echo 'Serving from repo root — open: http://localhost:8765/.claude/visual-diffs/soul-atlas/gallery.html' && python3 -m http.server 8765",
+    "harness:check": "bash .claude/hooks/harness-check.sh",
+    "harness:audit": "bash scripts/audit-design-tokens.sh && bash scripts/audit-territory.sh && bash scripts/audit-soul-atom-drift.sh && bash scripts/audit-font-chain.sh",
+    "harness:barrier-class": "bash scripts/audit-rail-barrier-class.sh",
+    "harness:permissions": "bash scripts/audit-permissions-nonempty.sh",
+    "harness:least-agency": "bash scripts/audit-least-agency-config.sh"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.81",
