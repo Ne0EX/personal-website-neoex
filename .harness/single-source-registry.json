@@ -1,0 +1,34 @@
+{
+  "$schema": "https://worldline.local/single-source-registry.schema.json",
+  "registry_version": 1,
+  "owner": "canopus · α-HRN-07",
+  "last_updated": "2026-06-01",
+  "introduced": "TASK-2026-06-01-AUDIT-SINGLE-SOURCE",
+  "description": "Registry of designated single-source artifacts. For each artifact, exactly one file is the canonical definition. Every other copy under prototype/handoff/visual-diffs paths must either byte-match the canonical sha256 OR textually import it (relative or @/-aliased). A divergent copy that neither matches nor imports = FAIL.",
+  "scope_comment": "duplicate_search_globs list paths to scan for copies. Canonical path is excluded from scanning automatically.",
+  "artifacts": [
+    {
+      "id": "globe-component",
+      "description": "WorldlineGlobe React component — the Three.js globe rendered on the home page. Three divergent blobs exist across branches; this gate enforces convergence.",
+      "canonical": "components/WorldlineGlobe.tsx",
+      "duplicate_search_globs": [
+        ".claude/worktrees/**",
+        ".claude/visual-diffs/**",
+        "prototypes/**"
+      ],
+      "match_pattern": "WorldlineGlobe.tsx",
+      "introduced": "TASK-2026-06-01-AUDIT-SINGLE-SOURCE"
+    },
+    {
+      "id": "soul-atom-tokens",
+      "description": "Soul-atom design token source (CSS custom properties). app/globals.css is the single source; any copied subset must be byte-identical where the tokens appear.",
+      "canonical": "app/globals.css",
+      "duplicate_search_globs": [
+        ".claude/visual-diffs/**",
+        "prototypes/**"
+      ],
+      "match_pattern": "globals.css",
+      "introduced": "TASK-2026-06-01-AUDIT-SINGLE-SOURCE"
+    }
+  ]
+}

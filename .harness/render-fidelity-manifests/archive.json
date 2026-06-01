@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "route": "/archive",
+  "description": "Design intent: /archive is a SEPARATE PAGE, not an overlay. It must not overlap the home-page surface, its root element must have an identity transform, and its content must not be clipped. This manifest encodes the violation that shipped (crooked overlay on top of the home-page surface) so the gate would have caught it.",
+  "introduced": "TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-2",
+  "owner": "Algol (α-VER-06)",
+  "bug_ref": "Archive shipped as crooked overlay — no gate compared rendered surface to design intent.",
+  "elements": [
+    {
+      "selector": "body",
+      "label": "page body — must be identity transform, no clip",
+      "expected_transform": "identity",
+      "overflow_clip_forbidden": false
+    },
+    {
+      "selector": "main",
+      "label": "archive main content area",
+      "expected_transform": "identity",
+      "overflow_clip_forbidden": true,
+      "must_not_overlap_with": []
+    },
+    {
+      "selector": "[data-page='archive'], .archive-page, #archive-root",
+      "label": "archive page root container",
+      "expected_transform": "identity",
+      "overflow_clip_forbidden": true
+    }
+  ],
+  "_live_wiring_note": "This manifest targets the /archive route. To run against the live build: npm run build && npm run start, then: bash scripts/audit-render-fidelity-vs-intent.sh http://localhost:3000/archive .harness/render-fidelity-manifests/archive.json. The fixture-based test in tests/harness/ verifies the gate logic deterministically without requiring a live build."
+}

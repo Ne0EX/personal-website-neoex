@@ -1982,4 +1982,168 @@ See the current deny list at `.claude/settings.json` for the full Worldline post
 
 ---
 
+## Rail: audit-ground-truth-observed
+
+**Check:** `scripts/audit-ground-truth-observed.sh`
+**Applies to:** `.claude/visual-diffs/**/observed/**`
+**Barrier class:** HARD-BARRIER
+**Mode:** block
+**Introduced:** TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-SENSOR
+**Control:** Ground-truth observability (proxy-as-anchor elimination)
+
+### Problem this rail seals
+
+"build green + HTTP 200" was accepted as DONE. Nobody actually opened `/archive` to verify
+the page rendered correctly — a proxy signal was mistaken for an anchor. This gate refuses
+DONE unless a cryptographically-linked screenshot exists and has been explicitly acknowledged.
+
+### What it checks
+
+For each route listed in `.claude/visual-diffs/<task_id>/task-manifest.json#shipped_routes`:
+
+| Check | What it asserts |
+|-------|----------------|
+| A | PNG exists at `.claude/visual-diffs/<task_id>/observed/<route>.png` |
+| B | `observed.json` exists and is valid JSON |
+| C | `observed.json` has an entry for this route with `ack: true` |
+| D | `sha256` in `observed.json` matches the actual sha256 of the PNG on disk |
+| E | (when task window present) PNG mtime AND `observed_at` timestamp both fall within `started_at`–`completed_at` |
+
+### Exit codes
+
+| code | meaning |
+|------|---------|
+| 0 | PASS — all shipped routes have verified, non-stale observed artifacts |
+| 1 | FAIL — missing artifact, sha256 mismatch, or stale timestamp |
+| 2 | FAIL — task manifest not found or not valid JSON |
+| 3 | FAIL — task manifest has no `shipped_routes` (gate cannot confirm done) |
+| 4 | FAIL — `observed.json` not found or not valid JSON |
+| 5 | FAIL — script invocation error (usage) |
+
+### Usage
+
+```bash
+bash scripts/audit-ground-truth-observed.sh <task_id>
+bash scripts/audit-ground-truth-observed.sh <task_id> --verbose
+WL_TASK_MANIFEST=/path/to/manifest.json bash scripts/audit-ground-truth-observed.sh <task_id>
+```
+
+### task-manifest.json schema (minimal)
+
+```json
+{
+  "task_id": "TASK-2026-06-01-MY-TASK",
+  "shipped_routes": ["/archive", "/photos"],
+  "started_at": "2026-06-01T10:00:00Z",
+  "completed_at": "2026-06-01T11:00:00Z"
+}
+```
+
+### observed.json schema
+
+```json
+{
+  "routes": [
+    {
+      "route": "/archive",
+      "sha256": "<sha256 of archive.png>",
+      "viewport": { "width": 1280, "height": 800 },
+      "ack": true,
+      "observed_at": "2026-06-01T10:30:00Z"
+    }
+  ]
+}
+```
+
+### How to fix a fail
+
+- **Exit 2 (no manifest):** Create `.claude/visual-diffs/<task_id>/task-manifest.json` with `task_id` and `shipped_routes`.
+- **Exit 3 (empty routes):** Add at least one route to `shipped_routes`. If the task ships no routes, this gate does not apply — remove the task manifest or add a skip marker.
+- **Exit 4 (no observed.json):** Run a screenshot capture (Playwright or Peat manual) and produce `observed.json` with `ack: true`.
+- **Exit 1 (sha256 mismatch):** The PNG was replaced after the hash was recorded. Recapture the screenshot and update `observed.json`.
+- **Exit 1 (stale timestamp):** The screenshot predates task start or was taken after task end. Recapture during task execution.
+
+### CARDINAL RULE
+
+This script must NEVER exit 0 silently when a violation exists. The exit-0-always bug is the failure mode this harness exists to kill. Every code path that reaches exit 0 must have passed all assertions positively.
+
+---
+
+## Rail: audit-search-index-completeness
+
+**Check:** `scripts/audit-search-index-completeness.sh`
+**Applies to:** `.next/server/app/**`, `public/pagefind/**`
+**Barrier class:** HARD-BARRIER
+**Mode:** block
+**Introduced:** TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-SENSOR
+**Control:** Search index completeness (partial-index silent failure elimination)
+**Live-wiring gap:** Requires a completed `npm run build` (velite + next build + pagefind indexing).
+
+### Problem this rail seals
+
+pagefind indexed 2 of 13 pages because `data-pagefind-body` elements were present only
+inside Next.js RSC streaming payloads (`<script>` tags) — not as real HTML attributes in
+static output. Additionally, those RSC payload elements had `style="display:none"` which
+would also cause pagefind to skip them. No gate asserted the index covered the site.
+
+### What it checks (two assertions)
+
+**Assertion 1 — COUNT PARITY:**
+Enumerate crawlable HTML pages in `.next/server/app` (excluding Next.js internal error pages).
+Read `page_count` from `public/pagefind/pagefind-entry.json`. Assert they are equal.
+
+**Assertion 2 — HIDDEN OR RSC-ONLY PAGEFIND BODY:**
+For every HTML file in the site dir, detect `data-pagefind-body` elements that are
+inaccessible to pagefind's static crawler:
+
+| Case | What it catches |
+|------|----------------|
+| case-A-hidden-css | Real HTML element with `data-pagefind-body` but `display:none`, `visibility:hidden`, `width:0`, or `height:0` inline style |
+| case-B-rsc-only | `data-pagefind-body` appears only as a JSON property inside a `<script>` RSC payload (not a real HTML attribute) |
+
+### Exit codes
+
+| code | meaning |
+|------|---------|
+| 0 | PASS — count parity and no inaccessible pagefind-body |
+| 1 | FAIL — page_count != crawlable_count |
+| 2 | FAIL — data-pagefind-body is hidden or RSC-payload-only (root-cause; takes priority over exit 1) |
+| 3 | SKIP — build output absent (SITE_DIR or pagefind-entry.json missing); never false-passes |
+| 4 | FAIL — pagefind-entry.json not valid JSON or missing page_count |
+
+### Usage
+
+```bash
+bash scripts/audit-search-index-completeness.sh
+bash scripts/audit-search-index-completeness.sh --verbose
+```
+
+### Live-wiring (CI integration)
+
+```bash
+# In package.json or CI script, after build:
+npm run build && bash scripts/audit-search-index-completeness.sh
+# Or inline after pagefind indexing:
+npx pagefind --site .next/server/app --output-path public/pagefind && \
+  bash scripts/audit-search-index-completeness.sh
+```
+
+### Environment overrides (for tests)
+
+| var | description |
+|-----|-------------|
+| `WL_SITE_DIR` | Override site directory (default: `.next/server/app`) |
+| `WL_PAGEFIND_ENTRY` | Override path to `pagefind-entry.json` |
+| `WL_CRAWLABLE_COUNT` | Inject crawlable count directly (skips filesystem enumeration) |
+| `WL_HTML_FILES` | Newline-separated list of HTML paths for assertion 2 |
+
+### How to fix a fail
+
+- **Exit 3 (build absent):** Run `npm run build` first. The gate requires a real build output.
+- **Exit 1 (count mismatch):** Ensure every page is rendered as static HTML in the Next.js output. Diagnose with `--verbose` to see which files were counted. Common root cause: pages rendered only via RSC streaming.
+- **Exit 2 case-A (hidden element):** Remove `display:none` or `visibility:hidden` from the element carrying `data-pagefind-body`. If the element must be visually hidden, use a visually-hidden CSS class instead of inline style.
+- **Exit 2 case-B (RSC-only):** Move `data-pagefind-body` to a server-rendered static HTML element, not a client-hydrated RSC payload. Use a server component that renders the attribute as static HTML.
+
+---
+
 *end of RAIL-DEFINITIONS.md*
