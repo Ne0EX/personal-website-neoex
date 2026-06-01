@@ -2146,4 +2146,92 @@ npx pagefind --site .next/server/app --output-path public/pagefind && \
 
 ---
 
+## Rail: single-source
+
+**Check:** `scripts/audit-single-source.sh`
+**Applies to:** `app/**`, `components/**`, `lib/**`, `prototypes/**`, `.claude/visual-diffs/**`
+**Status:** enforcing
+**Mode:** block (HARD-BARRIER)
+**Introduced:** TASK-2026-06-01-SECURITY-HARNESS-WAVE-2-SINGLE-SOURCE
+**Registry:** `.harness/single-source-registry.json`
+
+### What it checks
+
+For each artifact registered in `.harness/single-source-registry.json`, every copy found under the artifact's `duplicate_search_globs` must satisfy one of two predicates:
+
+| Predicate | Requirement |
+|-----------|-------------|
+| (A) Byte-identical | `sha256(copy) == sha256(canonical)` |
+| (B) Legitimate importer | Copy contains a textual `import` / `require` / `export` statement referencing the canonical module path — either via `@/`-alias or relative basename |
+
+A copy that satisfies neither predicate is a **DIVERGENT DUPLICATE** — the gate exits 1 and blocks handoff.
+
+### Why this rail exists
+
+The globe component (`components/WorldlineGlobe.tsx`) existed as three separate divergent blobs across branches and handoff paths. Fixes were applied to prototype/worktree copies and never ported back to the production canonical. Bug fixes became invisible because there was no gate asserting single-source discipline. This rail detects divergence deterministically at every task boundary so it cannot accumulate silently.
+
+### Scope and exclusions
+
+The gate scans only the **main working tree** — production source directories (`app/`, `components/`, `lib/`) and in-tree handoff/prototype paths (`.claude/visual-diffs/`, `prototypes/`).
+
+**Git worktrees are explicitly excluded.** `.claude/worktrees/**` paths are parallel branch checkouts managed by `git worktree`. Divergence between a worktree and the main working tree is expected — it is the entire point of a worktree. Flagging worktree copies would produce false positives on every parallel-branch session.
+
+The exclusion is implemented in the registry: `.claude/worktrees/**` does not appear in any artifact's `duplicate_search_globs`. If the scan needs to exclude additional parallel-checkout paths in future, remove them from the registry globs (not from the shell script).
+
+### Importer predicate detail
+
+A copy satisfies predicate (B) if the file contains an import statement referencing the canonical:
+
+- `from '@/components/WorldlineGlobe'` (or with extension) — `@/`-alias form
+- `from './WorldlineGlobe'` / `from '../WorldlineGlobe'` etc. — relative basename form
+
+**The predicate is anchored:** the basename must be followed by a quote character or an extension (`.tsx`, `.ts`, `.jsx`, `.js`) — not by additional characters. This means:
+- `import ... from './WorldlineGlobeHelper'` does **not** satisfy the predicate for `WorldlineGlobe`
+- `// copied from @/components/WorldlineGlobe` (comment) does **not** satisfy the predicate
+
+### Registry format
+
+Each artifact entry in `.harness/single-source-registry.json`:
+
+```json
+{
+  "id": "globe-component",
+  "description": "...",
+  "canonical": "components/WorldlineGlobe.tsx",
+  "duplicate_search_globs": [".claude/visual-diffs/**", "prototypes/**"],
+  "match_pattern": "WorldlineGlobe.tsx"
+}
+```
+
+`match_pattern` uses an exact filename. The script automatically expands to extension variants (`.tsx`, `.ts`, `.jsx`, `.js`) of the basename so a `.jsx` copy of a `.tsx` canonical is also caught.
+
+### How to fix a fail
+
+The audit emits: `DIVERGENT DUPLICATE: <copy_path>  canonical sha256: <hash>  copy sha256: <hash>`
+
+Fix options:
+
+1. **Delete the divergent copy** — if it was a transient prototype artifact that is no longer needed.
+2. **Overwrite with canonical content** — `cp <canonical_path> <copy_path>` — if the copy must remain and should track the canonical.
+3. **Add an import statement** — if the copy is a legitimate consumer/wrapper, add `import ... from '@/components/<name>'` so it satisfies predicate (B).
+
+Do NOT fix by editing the canonical to match the copy. The canonical is the source of truth; the copy is what must change.
+
+### Exit codes
+
+| code | meaning |
+|------|---------|
+| 0 | PASS — all copies satisfy (A) byte-identical or (B) importer |
+| 1 | FAIL — one or more divergent duplicates found |
+| 2 | FAIL — registry file absent, not valid JSON, or `artifacts` key malformed/empty |
+| 3 | FAIL — canonical file for an artifact does not exist (registry misconfiguration) |
+
+### Regression tests
+
+`tests/harness/audit-single-source.fixture.sh` — 14 scenarios covering: no duplicates, byte-identical copy, importer consumer, divergent copy (primary bug), registry absent/malformed, extension-variant catch (.jsx), comment-alias bypass (B4), Helper-suffix bypass (B1), empty-registry false-green (F12/F13).
+
+Run: `bash tests/harness/audit-single-source.fixture.sh`
+
+---
+
 *end of RAIL-DEFINITIONS.md*

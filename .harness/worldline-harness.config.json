@@ -232,6 +232,19 @@
       "introduced": "TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-SENSOR",
       "live_wiring_gap": "Requires completed npm run build (velite + next build + pagefind indexing). Wire: '... && npm run index:search && bash scripts/audit-search-index-completeness.sh' in CI post-build step.",
       "control": "Search index completeness — eliminates partial-index silent failure (2 of 13 pages indexed)"
+    },
+    "single-source": {
+      "description": "For each artifact in .harness/single-source-registry.json, every copy found under the registered search paths must either (A) byte-match the canonical sha256 or (B) contain a textual import of the canonical module path. A divergent copy that neither matches nor imports the canonical is a FAIL. Scope: app/**, components/**, lib/**, prototypes/**, .claude/visual-diffs/** — production and in-tree handoff paths only. Git worktree checkouts (.claude/worktrees/**) are explicitly excluded from registry search globs.",
+      "check": "scripts/audit-single-source.sh",
+      "applies_to": ["app/**", "components/**", "lib/**", "prototypes/**", ".claude/visual-diffs/**"],
+      "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-single-source",
+      "introduced": "TASK-2026-06-01-SECURITY-HARNESS-WAVE-2-SINGLE-SOURCE",
+      "registry": ".harness/single-source-registry.json",
+      "scope_note": "Git worktrees (.claude/worktrees/**) are parallel branch checkouts — branch divergence there is expected and MUST NOT be flagged. Only the main working tree is in scope.",
+      "control": "Single-source enforcement — eliminates divergent blob accumulation across prototype, handoff, and visual-diff paths"
     }
   },
   "signature_policy": {
