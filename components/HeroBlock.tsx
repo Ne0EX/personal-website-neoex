@@ -85,7 +85,7 @@ export function HeroBlock() {
 
           <p
             ref={subRef}
-            className="t-display mt-2.5 max-w-[560px] text-[12.5px] leading-[1.55] text-[var(--ink-soft)]"
+            className="t-display mt-2.5 max-w-[560px] text-[12.5px] leading-[1.55] text-[var(--ink-body)]"
             style={{ opacity: 0, fontStyle: "italic" }}
           >
             A digital garden — drafts, half-formed theories, contour maps of coffee, code, narrative,

@@ -1,12 +1,28 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  WL_GLOBE_COORD_EVENT,
+  type GlobeCoordDetail,
+} from "@/lib/client-state/globe-store";
 
 /**
  * SurveyCursor — custom cartographer-crosshair cursor with a live coordinate
  * readout. Hides the native cursor on fine-pointer devices, falls back to
  * native on touch. Switches to a filled triangulation mark when over
  * interactive elements.
+ *
+ * Coordinate gate (FIX 2026-06-01):
+ *   The coordinate label is shown ONLY when the cursor is over the globe
+ *   canvas (detected via `closest("[data-globe-canvas]")`). When not over
+ *   the globe, the label is empty/hidden.
+ *
+ * Real coordinate wiring (FIX 2026-06-01):
+ *   WorldlineGlobe dispatches WL_GLOBE_COORD_EVENT with the earth-fixed
+ *   { lat, lon } from its raycaster on every pointermove hit. SurveyCursor
+ *   subscribes and uses that real coordinate when over the globe, or clears
+ *   the label on pointer-leave / sphere-miss. The previous viewport-derived
+ *   fake coordinate (mx/innerWidth * 360 - 180) has been removed.
  */
 export function SurveyCursor() {
   const [enabled, setEnabled] = useState(false);
@@ -38,16 +54,36 @@ export function SurveyCursor() {
       if (rootRef.current) {
         rootRef.current.dataset.mode = isInteractive ? "triangulate" : "survey";
       }
-      if (labelRef.current) {
-        const lon = ((mx / window.innerWidth) * 360 - 180).toFixed(2);
-        const lat = (90 - (my / window.innerHeight) * 180).toFixed(2);
-        labelRef.current.textContent = `${lon}° / ${lat}°`;
+
+      // Gate: show coordinate label ONLY when cursor is over the globe canvas.
+      // When not over the globe, HIDE the entire panel so no empty box renders.
+      // Real coordinate value is provided by WL_GLOBE_COORD_EVENT (see below).
+      const overGlobe = !!t?.closest("[data-globe-canvas]");
+      if (!overGlobe && labelRef.current) {
+        labelRef.current.style.display = "none";
       }
     };
 
     const onLeave = () => {
       if (rootRef.current) rootRef.current.style.opacity = "0";
       visible = false;
+    };
+
+    // Listen for real earth-fixed coordinates broadcast from WorldlineGlobe.
+    // detail = { lat, lon } on sphere hit; detail = null on miss or pointer-leave.
+    const onGlobeCoord = (e: Event) => {
+      const detail = (e as CustomEvent<GlobeCoordDetail>).detail;
+      if (!labelRef.current) return;
+      if (detail === null) {
+        // Sphere miss or pointer-leave — HIDE the panel entirely (no empty box).
+        labelRef.current.style.display = "none";
+      } else {
+        // Real earth-fixed coordinate — show the panel and populate it.
+        const lonStr = detail.lon.toFixed(2);
+        const latStr = detail.lat.toFixed(2);
+        labelRef.current.style.display = "";
+        labelRef.current.textContent = `${lonStr}° / ${latStr}°`;
+      }
     };
 
     const tick = () => {
@@ -60,11 +96,13 @@ export function SurveyCursor() {
 
     window.addEventListener("mousemove", onMove);
     document.addEventListener("mouseleave", onLeave);
+    window.addEventListener(WL_GLOBE_COORD_EVENT, onGlobeCoord);
 
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseleave", onLeave);
+      window.removeEventListener(WL_GLOBE_COORD_EVENT, onGlobeCoord);
       document.documentElement.classList.remove("hide-native-cursor");
     };
   }, []);
@@ -109,6 +147,10 @@ export function SurveyCursor() {
         </g>
       </svg>
 
+      {/* Coordinate label — shown ONLY when cursor is over the globe with a
+          real earth-fixed coordinate. Initial state: hidden (display:none) so
+          no empty bordered box appears before or after globe contact.
+          WL_GLOBE_COORD_EVENT handler sets display="" on hit, "none" on miss. */}
       <span
         ref={labelRef}
         className="t-mono"
@@ -123,10 +165,9 @@ export function SurveyCursor() {
           padding: "2px 5px",
           whiteSpace: "nowrap",
           border: "1px solid var(--ink-faint)",
+          display: "none",
         }}
-      >
-        0.00° / 0.00°
-      </span>
+      />
     </div>
   );
 }

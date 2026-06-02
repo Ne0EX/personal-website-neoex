@@ -12,10 +12,13 @@ import {
   dampVec3,
   formatNetraCoord,
   globeSurfacePointAtRotation,
+  latLonFromGlobeHit,
   latLonToVec3 as geoLatLonToVec3,
-  netraCoordFromCameraPosition,
 } from "@/lib/globe-coordinates";
-import { WL_STRATUM_EVENT, type StratumChangeDetail } from "@/lib/client-state/globe-store";
+import {
+  WL_STRATUM_EVENT, type StratumChangeDetail,
+  WL_GLOBE_COORD_EVENT,
+} from "@/lib/client-state/globe-store";
 // Worldline branching — 30-worldline-branching.md §13.2
 // FictionPin shape from types.ts (not yet in index barrel — use direct import).
 import type { FictionPin } from "@/lib/content/types";
@@ -125,6 +128,43 @@ function easeInOutCubic(x: number) {
 
 function easeOutQuad(x: number) {
   return 1 - (1 - x) * (1 - x);
+}
+
+/**
+ * Spherical interpolation for camera positions about the globe center (0,0,0).
+ *
+ * A straight lerpVectors chord between two distant camera positions cuts THROUGH
+ * the globe ("ทะลุโลก"). This function keeps the camera on the surface of a
+ * conceptual sphere by slerping the DIRECTION with quaternion slerp and lerping
+ * the RADIUS separately — guaranteeing the camera always stays outside the
+ * planet at every interpolation step.
+ *
+ * @param start   Camera world-position at animation start
+ * @param end     Camera world-position at animation end
+ * @param t       Normalized time [0, 1] (already eased by the caller)
+ */
+function slerpCameraPos(
+  start: THREE.Vector3,
+  end: THREE.Vector3,
+  t: number
+): THREE.Vector3 {
+  // Linearly interpolate the radius so zoom eases smoothly.
+  const rStart = start.length();
+  const rEnd   = end.length();
+  const easedRadius = rStart + (rEnd - rStart) * t;
+
+  // Slerp the normalized directions via quaternion rotation.
+  // Quaternion.setFromUnitVectors gives the shortest-arc rotation between two
+  // unit vectors; slerp between the two quaternions sweeps the direction along
+  // the great circle, never cutting through the origin.
+  const dirStart = start.clone().normalize();
+  const dirEnd   = end.clone().normalize();
+  const qA = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), dirStart);
+  const qB = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), dirEnd);
+  const qSlerped = qA.clone().slerp(qB, t);
+  const slerpedDir = new THREE.Vector3(0, 0, 1).applyQuaternion(qSlerped).normalize();
+
+  return slerpedDir.multiplyScalar(easedRadius);
 }
 
 // ─── NeX orbital coordinate model — ontology §4.2 + branching §4.3 ───
@@ -273,7 +313,9 @@ const STRATA: Record<StratumKey, Stratum> = {
     key: "neo",
     name: "Ne0 · ARCHIVE",
     role: "surface archive · α coordinate centered",
-    camPos: latLonToVec3(ALPHA_LAT, ALPHA_LON, 2.05),
+    // Radius raised from 2.05 → 2.7: α is the target, not a wall-fill.
+    // 2.05 buried the camera in the surface; 2.7 frames α with the globe visible.
+    camPos: latLonToVec3(ALPHA_LAT, ALPHA_LON, 2.7),
     look: latLonToVec3(ALPHA_LAT, ALPHA_LON, 1.0),
     showField: false,
     showAxis: false,
@@ -340,6 +382,9 @@ const STRATA_BUTTONS: { key: StratumKey; id: string; role: string; numKey: strin
 
 type SceneRefs = {
   globe: THREE.Group;
+  // The primary sphere mesh — exposed so pointer-move raycasting can hit-test
+  // against it for earth-fixed coordinate readout (hover gate fix).
+  globeSphere: THREE.Mesh;
   contoursGroup: THREE.Group;
   axisGroup: THREE.Group;
   nexField: THREE.Group;
@@ -780,6 +825,9 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
     scene,
     refs: {
       globe,
+      // Expose the primary sphere so the pointer-move handler can raycast
+      // against the actual globe surface (hover gate + hit-point coords fix).
+      globeSphere: sphere,
       contoursGroup,
       axisGroup,
       nexField,
@@ -890,6 +938,12 @@ export function WorldlineGlobe() {
   }[]>([]);
   const netraLockRef = useRef<{ coords: { lat: number; lon: number }; range: number } | null>(null);
 
+  // Hover coordinate gate — set by onPointerMove when the raycaster hits the
+  // globe sphere; cleared on miss or pointer-leave. null = readout hidden.
+  // Written in the THREE event handler, consumed in the tick loop — mutable
+  // ref avoids a React re-render on every pointer-move event.
+  const hoverGlobeCoordRef = useRef<{ lat: number; lon: number } | null>(null);
+
   // Loaded fiction pins — populated by async load in THREE setup useEffect.
   // Stored here so the NETRA jump logic outside that effect can read them.
   const fictionPinsRef = useRef<FictionPin[]>([]);
@@ -984,11 +1038,65 @@ export function WorldlineGlobe() {
         look: look.clone().add(tangent.multiplyScalar(0.08)),
       };
     };
+    // Hard minimum camera distance — camera must never be closer than this to
+    // the globe center regardless of which code path updated it.
+    // Radius floor: globe radius (1.0) + 8% margin.  Applied as a backstop every
+    // frame after cameraAnim AND softTrackCamera so neither path can clip through.
+    const MIN_CAM_R = 1.08;
+    const enforceRadiusFloor = () => {
+      const r = camera.position.length();
+      if (r < MIN_CAM_R) {
+        // Rescale the position vector — preserves direction, lifts to floor.
+        camera.position.setLength(MIN_CAM_R);
+      }
+    };
+
     const softTrackCamera = (coords: { lat: number; lon: number }, range: number, dt: number) => {
       const track = cameraTrack(coords, range);
-      const nextPos = dampVec3(camera.position, track.position, dt, 2.8);
+
+      // Position: orbit-safe approach — slerp the DIRECTION + ease the RADIUS.
+      //
+      // Cartesian dampVec3 on the full position vector can cut through the globe
+      // when the current camera direction and target direction differ significantly
+      // (e.g. after a slerp transition where the slerp endpoint is earth-fixed but
+      // the softTrack target is globe-rotation-adjusted).  We break the motion into:
+      //   1. Slerp the direction via quaternion — always stays on a great-circle arc.
+      //   2. Exponentially ease the radius with a ONE-SIDED clamp: radius never goes
+      //      below max(targetRadius, MIN_CAM_R).  This kills the inward overshoot at
+      //      source — the eased radius approaches target from above, never below.
+      //
+      // Reference: same quaternion slerp as slerpCameraPos, applied per-frame.
+      const currentDir = camera.position.clone().normalize();
+      const targetDir  = track.position.clone().normalize();
+
+      // Guard against zero-length vectors (degenerate state).
+      if (currentDir.lengthSq() < 0.001 || targetDir.lengthSq() < 0.001) {
+        camera.position.copy(track.position);
+      } else {
+        // Quaternion slerp for direction — per-frame, speed 2.8 rad/s.
+        const qCur = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), currentDir);
+        const qTgt = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), targetDir);
+        // Alpha for exponential approach at speed 2.8.
+        const alpha = 1 - Math.exp(-2.8 * Math.max(0, dt));
+        qCur.slerp(qTgt, alpha);
+        const newDir = new THREE.Vector3(0, 0, 1).applyQuaternion(qCur).normalize();
+
+        // Radius: exponential approach from current toward target, clamped below
+        // so it can ONLY approach from above.  Prevents inward overshoot.
+        const targetRadius = track.position.length();
+        const currentRadius = camera.position.length();
+        // Approach the larger of (current radius, target radius) so we never dip
+        // below target.  Then enforce the absolute floor.
+        const clampedTarget = Math.max(targetRadius, MIN_CAM_R);
+        // One-sided: if current is ABOVE target, approach normally (ease downward).
+        //            if current is BELOW target/floor, jump up immediately (floor enforced below).
+        const newRadius = currentRadius + (clampedTarget - currentRadius) * alpha;
+        camera.position.copy(newDir.multiplyScalar(Math.max(newRadius, MIN_CAM_R)));
+      }
+
+      // Look-at target: Cartesian damp is safe here (the look target is near the
+      // globe surface at radius ~1, no clip risk).
       const nextLook = dampVec3(currentLook, track.look, dt, 4.2);
-      camera.position.set(nextPos.x, nextPos.y, nextPos.z);
       currentLook.set(nextLook.x, nextLook.y, nextLook.z);
       camera.lookAt(currentLook);
     };
@@ -1038,11 +1146,46 @@ export function WorldlineGlobe() {
       ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
       ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
       raycaster.setFromCamera(ndc, camera);
-      const hits = raycaster.intersectObjects(refs.pinObjects.map((p) => p.hit), false);
-      renderer.domElement.style.cursor = hits.length > 0 ? "pointer" : "";
+
+      // Cursor style — pin hit proxies take priority.
+      const pinHits = raycaster.intersectObjects(refs.pinObjects.map((p) => p.hit), false);
+      renderer.domElement.style.cursor = pinHits.length > 0 ? "pointer" : "";
+
+      // Globe sphere hit-test — earth-fixed coordinate gate.
+      // Raycaster returns world-space intersection points; un-rotate by the
+      // globe group's current Y-rotation to recover earth-fixed lat/lon.
+      // A pointer over any overlay (TRIANGULATE, article panel) never reaches
+      // the canvas element's pointermove, so the miss path covers that case too.
+      const sphereHits = raycaster.intersectObject(refs.globeSphere, false);
+      if (sphereHits.length > 0) {
+        const wp = sphereHits[0].point;
+        const coord = latLonFromGlobeHit(
+          { x: wp.x, y: wp.y, z: wp.z },
+          refs.globe.rotation.y
+        );
+        hoverGlobeCoordRef.current = coord;
+        // Publish real earth-fixed coord to SurveyCursor via custom DOM event.
+        // Same pattern as WL_STRATUM_EVENT — no React coupling, no zustand needed.
+        window.dispatchEvent(
+          new CustomEvent<{ lat: number; lon: number }>(WL_GLOBE_COORD_EVENT, {
+            detail: coord,
+          })
+        );
+      } else {
+        hoverGlobeCoordRef.current = null;
+        // Emit coord=null to clear the SurveyCursor label on sphere miss.
+        window.dispatchEvent(new CustomEvent(WL_GLOBE_COORD_EVENT, { detail: null }));
+      }
+    };
+    // Clear hover coord when pointer leaves the canvas (e.g. cursor moves to
+    // a UI element rendered outside the Three.js canvas).
+    const onGlobePointerLeave = () => {
+      hoverGlobeCoordRef.current = null;
+      window.dispatchEvent(new CustomEvent(WL_GLOBE_COORD_EVENT, { detail: null }));
     };
     renderer.domElement.addEventListener("click", onClick);
     renderer.domElement.addEventListener("pointermove", onHover);
+    renderer.domElement.addEventListener("pointerleave", onGlobePointerLeave);
 
     // ─── Camera transitions per stratum ───
     let cameraAnim: ((now: number) => void) | null = null;
@@ -1050,7 +1193,16 @@ export function WorldlineGlobe() {
       // Stratum change = deactivate branches (spec §5.1 option iii rejection logic:
       // framing change calls deactivateDrift — same applies here).
       deactivateBranches();
-      clearNetraLock();
+      // neo = α-locked stratum: set lock BEFORE the slerp so softTrackCamera holds
+      // the camera on the α locus after the transition completes. The slerp end
+      // position (latLonToVec3(ALPHA_LAT, ALPHA_LON, 2.7)) targets the same
+      // point as cameraTrack(α, 2.7), so they compose without fighting.
+      // All other strata are wide/aggregate views — clear any existing lock.
+      if (key === "neo") {
+        setNetraLock({ lat: ALPHA_LAT, lon: ALPHA_LON }, 2.7);
+      } else {
+        clearNetraLock();
+      }
       const T = STRATA[key];
       const startPos = camera.position.clone();
       const startLook = currentLook.clone();
@@ -1061,7 +1213,9 @@ export function WorldlineGlobe() {
       cameraAnim = (now: number) => {
         const k = Math.min(1, (now - t0) / dur);
         const e = easeInOutCubic(k);
-        camera.position.lerpVectors(startPos, endPos, e);
+        // Orbit interpolation — slerpCameraPos sweeps the camera along a great-circle
+        // arc rather than a straight chord, so the camera never cuts through the globe.
+        camera.position.copy(slerpCameraPos(startPos, endPos, e));
         currentLook.lerpVectors(startLook, endLook, e);
         camera.lookAt(currentLook);
         if (k >= 1) cameraAnim = null;
@@ -1091,7 +1245,8 @@ export function WorldlineGlobe() {
         const k = Math.min(1, (now - t0) / dur);
         const e = easeInOutCubic(k);
         const { position: camTarget, look: lookTarget } = cameraTrack(entry.coords, 2.4);
-        camera.position.lerpVectors(startPos, camTarget, e);
+        // Orbit arc — no chord through the globe.
+        camera.position.copy(slerpCameraPos(startPos, camTarget, e));
         currentLook.lerpVectors(startLook, lookTarget, e);
         camera.lookAt(currentLook);
         if (k >= 1) cameraAnim = null;
@@ -1333,7 +1488,8 @@ export function WorldlineGlobe() {
           const k = Math.min(1, (now - t0) / dur);
           const e = easeInOutCubic(k);
           const { position: dest, look } = cameraTrackNex(pNode, 2.8);
-          camera.position.lerpVectors(startPos, dest, e);
+          // Orbit arc — sweeps around the globe surface rather than chording through.
+          camera.position.copy(slerpCameraPos(startPos, dest, e));
           currentLook.lerpVectors(startLook, look, e);
           camera.lookAt(currentLook);
           if (k >= 1) {
@@ -1364,7 +1520,8 @@ export function WorldlineGlobe() {
         const k = Math.min(1, (now - t0) / dur);
         const e = easeInOutCubic(k);
         const { position: dest, look } = cameraTrack(n.coords, 2.6);
-        camera.position.lerpVectors(startPos, dest, e);
+        // Orbit arc — no chord through the globe.
+        camera.position.copy(slerpCameraPos(startPos, dest, e));
         currentLook.lerpVectors(startLook, look, e);
         camera.lookAt(currentLook);
         if (k >= 1) cameraAnim = null;
@@ -1622,6 +1779,11 @@ export function WorldlineGlobe() {
       else if (netraLockRef.current) {
         softTrackCamera(netraLockRef.current.coords, netraLockRef.current.range, dt);
       }
+      // Hard radius floor backstop — applied after EVERY camera update path
+      // (cameraAnim slerp AND softTrackCamera).  Guarantees no clip-through
+      // regardless of which path ran this frame.  MIN_CAM_R = 1.08 (globe
+      // radius 1.0 + 8% margin).  See enforceRadiusFloor() definition above.
+      enforceRadiusFloor();
 
       // Update HUD camera readout — DOM ref, no React render.
       const camAngle = Math.atan2(camera.position.x, camera.position.z) * 180 / Math.PI;
@@ -1630,12 +1792,29 @@ export function WorldlineGlobe() {
         hudCamRef.current.textContent = hudCamText;
       }
 
-      // NETRA coordinates are earth-fixed; visual globe rotation must not
-      // mutate longitude.
-      const { lat, lon } = netraLockRef.current?.coords ?? netraCoordFromCameraPosition(camera.position);
-      const coordText = formatNetraCoord(lat, lon);
-      if (netraCoordRef.current && netraCoordRef.current.textContent !== coordText) {
-        netraCoordRef.current.textContent = coordText;
+      // NETRA coordinate readout — priority order:
+      //   1. netraLock (a pinned node) → always show its earth-fixed coords.
+      //   2. live hover over the globe sphere (hoverGlobeCoordRef set by onHover
+      //      raycaster hit) → show the hit-point's earth-fixed lat/lon.
+      //   3. no hit / pointer outside globe / pointer over any overlay → hide.
+      // Previously this read from camera.position unconditionally (wrong source,
+      // no hover gate). The raycaster hit-test in onHover now gates both cases:
+      // a miss is a miss whether the pointer is over an overlay or empty canvas.
+      if (netraCoordRef.current) {
+        const lockCoords = netraLockRef.current?.coords ?? null;
+        const hoverCoords = hoverGlobeCoordRef.current;
+        const activeCoords = lockCoords ?? hoverCoords;
+        if (activeCoords) {
+          const coordText = formatNetraCoord(activeCoords.lat, activeCoords.lon);
+          if (netraCoordRef.current.textContent !== coordText) {
+            netraCoordRef.current.textContent = coordText;
+          }
+        } else {
+          // No lock and no hover hit — blank the readout.
+          if (netraCoordRef.current.textContent !== "") {
+            netraCoordRef.current.textContent = "";
+          }
+        }
       }
       const rangeText = camera.position.length().toFixed(2);
       if (netraRangeRef.current && netraRangeRef.current.textContent !== rangeText) {
@@ -1653,6 +1832,7 @@ export function WorldlineGlobe() {
       renderer.domElement.removeEventListener("pointerdown", onDown);
       renderer.domElement.removeEventListener("pointermove", onMoveDrag);
       renderer.domElement.removeEventListener("pointermove", onHover);
+      renderer.domElement.removeEventListener("pointerleave", onGlobePointerLeave);
       renderer.domElement.removeEventListener("pointerup", onUp);
       renderer.domElement.removeEventListener("pointercancel", onUp);
       renderer.domElement.removeEventListener("click", onClick);
@@ -1721,7 +1901,13 @@ export function WorldlineGlobe() {
                   <span className="glyph">{b.glyph}</span>
                   <span>
                     <span className="label-id">{b.id}</span>
-                    <span className="label-role">{b.role}</span>
+                    {/* Non-breaking space before "·" so "WORD ·" stays on one
+                      line when the role description wraps: "POSSIBILITY ·" /
+                      "FIELD" rather than "POSSIBILITY" / "· FIELD". The nbsp
+                      is applied only at the render site — b.role data is unchanged. */}
+                  <span className="label-role">
+                    {b.role.replace(/ · /g, " · ")}
+                  </span>
                   </span>
                   <span className="key">{b.numKey}</span>
                 </button>
@@ -1740,7 +1926,10 @@ export function WorldlineGlobe() {
         </aside>
 
         {/* CENTER — globe canvas */}
-        <div className="atlas-globe-wrap" ref={containerRef}>
+        {/* data-globe-canvas: selector anchor used by SurveyCursor to gate
+            coordinate readout visibility — present only on the Three.js canvas
+            container so the label hides when the cursor moves off the globe. */}
+        <div className="atlas-globe-wrap" ref={containerRef} data-globe-canvas>
           <span className="atlas-axis-label t">+Z · NORTH</span>
           <span className="atlas-axis-label b">−Z · SOUTH</span>
           <span className="atlas-axis-label l">PROJECTION FIELD</span>
@@ -1768,11 +1957,10 @@ export function WorldlineGlobe() {
             </div>
           </div>
 
-          {t.pinShow && (
-            <div className="atlas-coord-pin is-show">
-              <span className="acc">α</span> WORLDLINE · {ALPHA_LAT.toFixed(2)}°N · {ALPHA_LON.toFixed(2)}°E
-            </div>
-          )}
+          {/* α-SOUL-ALIGN: coordinate-number overlay removed.
+              α reads as its canvas marker + orange pulse alone.
+              Coordinates are already surfaced in the bottom-right NETRA HUD reticle.
+              Rendering lat/lon here misframed α (identity-locus) as a Bangkok GPS pin. */}
         </div>
 
         {/* RIGHT — stratum readout */}

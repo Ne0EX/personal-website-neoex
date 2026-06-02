@@ -27,10 +27,23 @@ export type StratumKey = "all" | "nex" | "neon" | "neo";
 /** Custom event name dispatched by WorldlineGlobe on every stratum change. */
 export const WL_STRATUM_EVENT = "wl:stratum-change";
 
-/** Detail shape carried on the custom event. */
+/** Detail shape carried on the stratum custom event. */
 export interface StratumChangeDetail {
   stratum: StratumKey;
 }
+
+/**
+ * Custom event dispatched by WorldlineGlobe on every pointermove over the
+ * globe sphere. detail = earth-fixed { lat, lon } when the raycaster hits the
+ * sphere; detail = null on sphere-miss or pointer-leave.
+ *
+ * Consumed by SurveyCursor to display the real globe coordinate and to gate
+ * the coordinate label's visibility to globe-only hover.
+ */
+export const WL_GLOBE_COORD_EVENT = "wl:globe-hover-coord";
+
+/** Detail shape for the globe hover coord event. null = no hit (hide label). */
+export type GlobeCoordDetail = { lat: number; lon: number } | null;
 
 // ─── Module-level store ───────────────────────────────────────────────────────
 

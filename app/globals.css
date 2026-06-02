@@ -27,6 +27,12 @@
      only the values in this block. */
   --ink-rgb:       31 80 99;
   --ink-primary:   rgb(var(--ink-rgb));
+  /* --ink-body: read-intentional tier — content meant to be read (manifesto, entry
+     titles, prose body). Alpha 0.82 → contrast 4.54:1 vs paper-base, ~4.03:1 vs
+     effective dot-grid (large-text AAA, body-text AA). Distinct from --ink-soft
+     (0.5 / squint-tier) and --ink-primary (1.0 / instrument accent + chrome).
+     Never use --ink-soft for read-tier content. */
+  --ink-body:      rgb(var(--ink-rgb) / 0.82);
   --ink-soft:      rgb(var(--ink-rgb) / 0.5);
   --ink-faint:     rgb(var(--ink-rgb) / 0.3);
   --ink-hairline:  rgb(var(--ink-rgb) / 0.12);
@@ -284,6 +290,64 @@ body {
 }
 
 /* =============================================================
+   Manifesto — read-intentional tier anchor for the footer transmit section.
+   Composes from Pullquote atom semantics: blockquote left-border + drop cap.
+   The opening/closing guillemet glyphs render at accent-orange, large, aligned
+   to cap-height. Body text uses --ink-body (not --ink-soft) so it clears the
+   dot-grid. See docs/design/legibility-registers-PRD-PASS.md §manifesto.
+   ============================================================= */
+.manifesto-block {
+  position: relative;
+  /* Top padding zeroed so the first text line aligns with col-2/col-3 list
+     item baselines. Left-padding kept at 20px to give the orange border
+     adequate breathing room without the extra ~26px indent that previously
+     pushed the quote text out of column-rhythm. */
+  padding: 0 0 16px 20px;
+  border-left: 2px solid var(--accent-orange);
+}
+.manifesto-glyph {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 36px;
+  line-height: 1;
+  color: var(--accent-orange);
+  display: inline;
+  margin-right: 4px;
+  vertical-align: -0.22em;
+  user-select: none;
+}
+.manifesto-glyph.close {
+  margin-right: 0;
+  margin-left: 4px;
+}
+.manifesto-body {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--ink-body);
+  font-weight: 400;
+  /* Font-ascent compensation: Cormorant italic at 15px sits ~3px higher in its
+     line-box than JetBrains Mono at 9px/leading-2 in the adjacent columns.
+     padding-top nudges the manifesto text down to align with the first channel
+     list item. globals.css-only fix — no markup change required. */
+  padding-top: 3px;
+}
+.manifesto-cite {
+  display: block;
+  margin-top: 10px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* Strata button label-role overflow fix is applied inline in the
+   canonical .atlas-strata-btn .label-role rule below (§ ATLAS section).
+   Do not add a duplicate rule here. */
+
+/* =============================================================
    Entry hover — restrained: title color shifts to ink-deep with a
    marching-dash underline that draws across in 460ms. No ghost text.
    ============================================================= */
@@ -474,7 +538,17 @@ body {
   text-align: left; padding: 9px 11px;
   font-family: var(--font-mono); color: var(--ink-primary);
   cursor: pointer;
-  display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 9px;
+  /* α-VIS-04 2026-06-01: drop the `auto` third column — .key is now
+     position:absolute so the grid becomes 22px 1fr; the label column
+     gets the full remaining width and "POSSIBILITY · FIELD" wraps
+     naturally inside the frame. */
+  display: grid; grid-template-columns: 22px 1fr; align-items: start; gap: 9px;
+  /* right-padding clears the absolutely-positioned .key badge (≈15px wide
+     at right:11px → 26px min; 28px gives 2px breathing room). Titles must
+     fit on one line — the description rows below the badge use the fuller
+     width naturally. α-VIS-04 2026-06-01: reduced from 40px (caused wrapping
+     on "2 · Ne0N" and "1 · Ne0" at 130px card width). */
+  padding-right: 28px;
   transition: border-color 0.25s, background 0.25s, color 0.25s, transform 0.25s;
   position: relative;
 }
@@ -504,17 +578,27 @@ body {
   font-family: var(--font-mono); font-weight: 500;
   font-size: 10px; letter-spacing: 0.1em; color: var(--ink-primary);
   display: block;
+  white-space: nowrap; /* α-VIS-04 2026-06-01: titles must stay single-line;
+                          "·" separator must be mid-line, never at end of line */
 }
 .atlas-strata-btn .label-role {
   font-size: 7.5px; letter-spacing: 0.22em;
   color: var(--ink-faint); text-transform: uppercase;
   display: block; margin-top: 2px;
+  /* α-VIS-04 2026-06-01: full labels, no truncation. The 1fr column now
+     has the full card width minus glyph col and padding-right (which
+     reserves space for the absolutely-positioned .key badge), so
+     "POSSIBILITY · FIELD" wraps cleanly without pushing past the frame. */
 }
 .atlas-strata-btn .key {
   font-family: var(--font-type); font-size: 8.5px;
   color: var(--ink-faint); letter-spacing: 0.05em;
   border: 1px solid rgb(var(--ink-rgb) / 0.18);
   padding: 1px 4px;
+  /* α-VIS-04 2026-06-01: taken out of grid flow; sits in top-right corner
+     inside the card border. top/right values mirror the card's original
+     9px / 11px padding so it optically aligns with the label-id cap-height. */
+  position: absolute; top: 9px; right: 11px;
 }
 .atlas-strata-btn.is-active .key {
   color: var(--accent-orange);

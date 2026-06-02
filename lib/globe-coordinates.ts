@@ -94,6 +94,28 @@ export function netraCoordFromCameraPosition(cameraPosition: Vec3Like): {
   };
 }
 
+/**
+ * Convert a world-space raycaster intersection point on the globe sphere to
+ * earth-fixed lat/lon, accounting for the globe group's current Y-rotation.
+ *
+ * The globe mesh rotates around the world Y-axis via `globeRotationY`
+ * (refs.globe.rotation.y). A hit point returned by THREE.Raycaster is in
+ * world space. To recover the earth-fixed position we must un-rotate it by
+ * the negative of that angle before converting to spherical coordinates.
+ *
+ * Note: the sphere is a child of the globe Group so its local-space position
+ * equals the world-space position minus the globe's rotation — applying the
+ * inverse rotation via rotateVec3AroundY(point, -globeRotationY) achieves this.
+ */
+export function latLonFromGlobeHit(
+  worldPoint: Vec3Like,
+  globeRotationY: number
+): { lat: number; lon: number } {
+  // Un-rotate back to earth-fixed frame.
+  const earthFixed = rotateVec3AroundY(worldPoint, -globeRotationY);
+  return vecToLatLon(earthFixed);
+}
+
 export function formatNetraCoord(lat: number, lon: number) {
   const ns = lat >= 0 ? "N" : "S";
   const ew = lon >= 0 ? "E" : "W";
