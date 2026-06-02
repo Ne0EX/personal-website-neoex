@@ -189,10 +189,50 @@ FILES_SHA256=$(echo "$FILES_TOUCHED" | jq -r '.[]' \
   | jq -s 'add // {}')
 
 # 3. Harness status from log
-HARNESS_PASSED=true
-if [[ -f ".claude/hook-logs/${TASK_ID}--harness.log" ]] \
-   && grep -q "\[FAIL\]" ".claude/hook-logs/${TASK_ID}--harness.log"; then
-  HARNESS_PASSED=false
+#
+# A1.2 FAIL-CLOSED DEFAULT — symmetric with post_edit_passed.
+#
+# Prior behaviour: harness_passed defaulted to `true` when no harness log was
+# present. This was fail-OPEN: an agent that never ran harness-check.sh would
+# silently ship a green harness_passed=true signature.
+#
+# New behaviour (controlled by WL_HARNESS_FAILMODE, default "closed"):
+#   closed (default) · absent/empty harness log = NOT pass (harness_passed=false).
+#     This is the correctness fix. Run harness-check.sh before signing.
+#   open · absent harness log = pass (legacy behaviour; back-out lever).
+#
+# REVERT COMMAND (one-liner, if this causes an unforeseen team-wide freeze):
+#   WL_HARNESS_FAILMODE=open bash .claude/hooks/sign-work.sh <task_id>
+# To make open mode the default for a session:
+#   export WL_HARNESS_FAILMODE=open
+# To restore closed mode (default) after a back-out:
+#   unset WL_HARNESS_FAILMODE   # or: export WL_HARNESS_FAILMODE=closed
+#
+# The flag is a BACK-OUT LEVER, not a staged rollout. Closed mode is correct
+# from the first commit. Do not leave WL_HARNESS_FAILMODE=open in any hook
+# or CI configuration — it re-opens the false-green class this fix closes.
+
+WL_HARNESS_FAILMODE="${WL_HARNESS_FAILMODE:-closed}"
+
+if [[ -f ".claude/hook-logs/${TASK_ID}--harness.log" ]]; then
+  # Log exists: pass unless it contains a [FAIL] line
+  if grep -q "\[FAIL\]" ".claude/hook-logs/${TASK_ID}--harness.log"; then
+    HARNESS_PASSED=false
+  else
+    HARNESS_PASSED=true
+  fi
+else
+  # No harness log — apply failmode policy
+  if [[ "${WL_HARNESS_FAILMODE}" == "open" ]]; then
+    echo "sign-work: WL_HARNESS_FAILMODE=open — absent harness log treated as pass (back-out mode)" >&2
+    HARNESS_PASSED=true
+  else
+    echo "sign-work: harness log absent at .claude/hook-logs/${TASK_ID}--harness.log" >&2
+    echo "sign-work: WL_HARNESS_FAILMODE=closed (default) — absent harness log = NOT pass" >&2
+    echo "sign-work: Run: bash .claude/hooks/harness-check.sh before signing." >&2
+    echo "sign-work: To back out: WL_HARNESS_FAILMODE=open bash .claude/hooks/sign-work.sh ${TASK_ID}" >&2
+    HARNESS_PASSED=false
+  fi
 fi
 
 # 4. Post-edit status from log

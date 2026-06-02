@@ -21,6 +21,12 @@ const eslintConfig = defineConfig([
     ".claude/visual-diffs/**",
     // Beta workspace prototypes — agent scratch space, not production source:
     ".claude/beta/**",
+    // Skills contain vendored/bundled assets (three.module.js etc) and prototype
+    // UI kits that are not project source. Same rationale as visual-diffs.
+    ".claude/skills/**",
+    // Exports and template directories may contain generated output:
+    ".claude/exports/**",
+    ".claude/beta-templates/**",
   ]),
 ]);
 

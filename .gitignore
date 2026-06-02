@@ -107,3 +107,11 @@ docs/team/.status-drafts/
 
 # pilot prototype — kept on disk as a backup reference, out of git
 /pilot-frontend-ui-design/
+
+# ─── inter-agent process scratch (2026-06-02) — audit trail lives in git history, not the tree ───
+.claude/hook-logs/
+.claude/beta/
+.claude/workflows/
+# per-task visual-diff records (REVIEW.md / manifest.json / snapshots) — regenerable; the soul-atlas gallery stays tracked
+.claude/visual-diffs/*
+!.claude/visual-diffs/soul-atlas

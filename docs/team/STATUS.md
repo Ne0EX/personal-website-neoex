@@ -4,6 +4,182 @@
 >
 > `in-flight` means at least one slice not yet accepted. `closed` means all slices accepted and integrated. `parked` means deliberate pause with reason logged.
 
+> **Ledger discipline (2026-05-30 onward — adopted per Peat critique that the ledger was articulating-but-unprojecting its own lessons):** every `flagged` / `recurring-lesson` / `held-item` carries `owner` + `must_close_by` OR `parked-with-reason: <reason>`. **Missing date = RED at next Polaris review.** This is the `must_project_by` discipline of the axiom registry recursed onto the ledger itself. Prose without owner+date is honest-amber-permanent — the exact disease the HARNESS-IS-OUGHT task exists to close. A ledger that records lessons without projecting them becomes a wisdom-storage without teeth.
+
+> **Placeholder discipline (added later 2026-05-30 — Peat caught the recursion: `⟨Peat sets⟩` is itself permanent-amber in new clothes if untreated).** `⟨...⟩` is a CONDITION, not a date. Treating it as a satisfied date relabels the disease. Required form:
+> - **dispatched slice:** `must_close_by: <real date>`. Missing = RED.
+> - **held-pending slice:** `blocked_on: <party>` **+** `block_until: <real date>`. The block_until is when the human-block itself expires to RED/escalation — it bounds the queue, not the work. Missing `block_until` = RED at next commit. Slice is legitimately held WITHIN the bound; expires beyond.
+> - **convention:** every `⟨Peat sets⟩` / `⟨Peat approves dispatch⟩` placeholder below is shorthand for `blocked_on: Peat-approval` + `block_until: ⟨Peat sets at approval; RED at miss⟩`. Without this, `blocked_on: Peat` becomes the new toothless amber and the queue silently ossifies.
+
+---
+
+## TASK-2026-05-31-PLATFORM-S1-S4 · **BUILD GREEN · 2026-05-31** · delivered via Workflow orchestration · dep-blocker cleared · ready to commit (pending Peat ok)
+
+> **UPDATE 2026-05-31 (post-Altair):** Peat approved the dep install. Altair added `ai@6.0.193` + `@ai-sdk/anthropic@3.0.81` (+ `@ai-sdk/react@2.0.99`) — sig `TASK-2026-05-31-ALTAIR-DEPS--altair.json` (flagged harness_passed=false: pre-existing gauntlet-needs-server + no-baseline, NOT regressions). **Polaris self-verified (not report-trust):** `npx tsc --noEmit` exit 0 · `npm run build` exit 0 · 4 new routes in build table (`/photos/[roll]`, `/photos/[roll]/[id]`, `/articles/[fileNum]`, `/fiction/[slug]`) · pagefind indexed · soul-atom-drift + font-chain PASS. **The REVISE blocker is fully cleared — build has never been green on this branch until now.**
+> - **PARKED (Peat 2026-05-31):** NETRA best-fit (model + orchestration + pipeline) undecided → this ai-sdk wiring is an explicit STOPGAP, WILL be reworked. owner: **Altair + Arcturus** · parked-with-reason: "NETRA architecture decision pending; trigger = Peat opens NETRA-rework task." chat route works for build; design is provisional.
+> - **next (Polaris recommends · Peat decides):** commit S1–S4 + deps to genesis now (build green = clean commit boundary, [[feedback-commit-at-boundary]]); web-only filter → main later (team docs/specs stay on genesis). Then S4-finish + S5 console wave.
+> - minor note: pagefind indexed only 2 pages (small static corpus); Thai-ICU multilang still unwired (S4-finish item).
+
+
+scope · First multi-ship run executed through the **Workflow tool** (deterministic orchestration, not message-by-message dispatch). One run = 23 agents / 2.8M subagent-tokens / ~1h55m. Built vision §7 ships **S1 roll-index · S2 article+fiction routes · S3 worldline schema+§ · S4 Triangulate search overlay**; **S5 console = design-only** (gated impl next). Script: `.claude/workflows/platform-build-worldline.js`. Run id `wf_a9803044-1f9` (also superseded the standalone S1 run `wf_46ef3fc3-605`, TaskStop'd mid-flight).
+
+waves · Research (8 ∥ Explore, read-only codebase map) → Design (6 ∥ Betelgeuse specs 11–15 + Procyon schema doc 16) → Foundation (Procyon serial: `worldline_links` zod + reverse-lookup + `lib/content/worldline.ts` + pagefind@1.5.2) → Build (4 surfaces serial, build-safe) → Verify (Algol gauntlet serial + 3 ∥ read-only reviewers + completeness critic).
+
+verdict · **REVISE — and it is HONEST** (Polaris independently reproduced every load-bearing claim, per [[feedback-polaris-self-verify]], after two self-confabulations earlier this session):
+  - **build/tsc EXIT 1 — root cause PRE-EXISTING, NOT this work.** `npx tsc --noEmit` → exactly 2 errors, both `app/api/chat/route.ts` (`ai` + `@ai-sdk/anthropic` absent from node_modules). That file is **unmodified this run** (git clean on it). New code (worldline.ts, velite.config.ts, all new components) is type-clean. Build has never passed on `genesis/orchestration-foundations`. **Owner: Altair (α-BND-02)** — chat-route shipped without runtime deps. **must_close_by: ⟨Peat approves dep install⟩ · blocked_on: Peat-decision · block_until: ⟨Peat sets⟩**
+  - **gates independently GREEN (Polaris-reproduced):** soul-atom-drift exit 0 (17 atoms) · font-chain exit 0 · velite build exit 0 · design-tokens PASS (0 raw hex, 31 files) · homepage regression PASS · D3 photo-entry regression PASS · **D3 back-link AC2 PASS (the headline gap — `/photos/2026-05-bangkok` now resolves HTTP 200, closing what D3 left 404).**
+  - **per-surface:** S1 11/12 AC pass (AC10 keyboard focus-visible = manual-smoke only, automation gap) · S2/S3/S4 deliverables hash-verified present + type-clean, but **unverified end-to-end because build never completed** (no integration tests, no Lighthouse, S4 pagefind index never generated, S4 mini-globe is a 2D stub).
+
+ground-truth footprint (git, Polaris-checked) · 27 tracked files modified (+8219/−3478; package-lock dominates) + **68 untracked new** incl. routes `app/photos/[roll]/` `app/articles/` `app/fiction/`, components RollIndex/EntryShell/Article/Fiction/WorldlineLinks/WorldlineNeighborRow/TriangulateSearch(+Portal), `lib/content/worldline.ts`, design docs 11–16, pagefind.json.
+
+signatures · `TASK-2026-05-31-S1-ROLL-INDEX--sirius` · `-S2-ENTRY-ROUTES--sirius` · `-S3-WORLDLINE-SCHEMA--procyon` · `-S3-WORLDLINE-SECTION-SIRIUS--sirius` · `TASK-S4-TRIANGULATE-SEARCH--sirius` (all self_hash PASS). **Quality-bar gap:** 4 sigs have empty `steps[]` + `post_edit_passed=false` (no baseline written — recurring no-baseline harness debt, [[feedback-commit-at-boundary]] adjacent).
+
+held / routed (owner + condition · ledger discipline) ·
+  - **DEP-INSTALL-CHAT-ROUTE** · owner **Altair** · blocked_on: Peat-decision · block_until: ⟨Peat sets⟩ — install `ai` + `@ai-sdk/anthropic`; verify `npm run build` exit 0. **Unblocks the entire S1–S4 pipeline** (next build → pagefind index). This is the ONE thing standing between REVISE and a clean build.
+  - **PRE-TASK-BASELINE** · owner **Canopus** · the empty-steps/oversized-files_touched recurrence — wire `pre-task.sh` baseline.json per session-mode split. (recurs every task; [[project-harness-session-modes]])
+  - **S4-FINISH** · owner Sirius · `data-triangulate-search` attr + `af-pill`/`atlas-strata-btn` classes + pagefind Thai-ICU multilang config + real mini-globe (currently 2D stub) — after build unblocked.
+  - **S5-CONSOLE-IMPL** · gated on (a) build passing + (b) S3 committed · needs new `kind-node-card` atom catalogued first (Betelgeuse) + react-flow install.
+  - **TESTS** · none written this run (completeness critic flagged) — worldline reverse-index unit · roll-index/entry 404 gates · search hotkey/ESC. Lock before S5.
+
+next step (Polaris recommendation, Peat decides) · **(1)** Peat approves `ai`+`@ai-sdk/anthropic` install → Altair installs → re-run `npm run build` to confirm exit 0. **(2)** Then commit S1–S4 to genesis (web-only surfaces; team docs/specs stay off main per [[feedback-main-branch-web-only]] — reviewer flagged the 7-web-file vs 20-infra split is clean). **(3)** Then S4-finish + S5 wave. Nothing merges to main until build is green.
+
+---
+
+## TASK-2026-05-30-PHOTO-ENTRY-D3-SHIP · **CLOSED ✓ 2026-05-30** · Algol verdict PASS-WITH-NOTES
+
+### approval event · 2026-05-30 · Peat
+- **SHIP-PLAN v4 dispatch-ready (post-4-round review).** Peat: *"let's go Polaris deploy ปั่นยาวๆเลยนะ"* — autonomous chain through Phase 1→5.
+- First production surface to demonstrably compose from the `worldline-design` skill (compose-from-atoms / Rule 5 / [[soul-factory-master-gallery]] thesis).
+- Pin: `/photos/2026-05-bangkok/DSCF0002`.
+
+### Phase log · 2026-05-30
+- **Phase 0 (Polaris precondition)** · ✅ `npx velite build` refreshed `photoSidecars` cache 1→5
+- **Phase 1+2 (Betelgeuse opus)** · ✅ dual-write `paper-mount` atom (gallery manifest atom 17 + gallery.html + skill `worldline-atoms.css` + README + preview/paper-mount.html) + per-ship spec `docs/design/10-photo-entry-d3-ship.md` (178 lines; D4 timing 80ms/80ms/180ms resolved; 375 covered by ≤600); sig `...PHOTO-ENTRY-D3-SHIP--betelgeuse.json`
+- **Phase 3 (Sirius sonnet)** · ✅ route + 2 components + palette CSS + helper (`app/photos/[roll]/[id]/page.tsx`, `components/PhotoEntry.tsx`, `components/FilmSimSwitcher.tsx`, `components/PhotoEntry.palette.css`, `lib/content/photos.ts` +15); compound CSS (no descendant); imperative DOM + transitionend + 180ms fallback + reduced-motion skip; D2 = `data-netra-voice-text` · D3 = `/photos/<roll>` (404 acceptable); build + tsc clean; smoke 200; sig `...PHOTO-ENTRY-D3-SHIP--sirius.json`
+- **Phase 3.5 (Canopus sonnet — CONFIG handoff)** · ✅ `components/PhotoEntry.palette.css` added to WHITELIST in `scripts/audit-design-tokens.sh` (1-line); design-tokens gate PASS scanned 18 files; sig `...PHOTO-ENTRY-D3-PALETTE-WHITELIST--canopus.json`
+- **Phase 4 (Algol sonnet — 6-step gauntlet)** · ✅ **PASS-WITH-NOTES** · sig integrity (3 sigs verified, hashes match) · acceptance §7 (1180/880/600/375 grid + paper-mount + NETRA + EXIF + back-link verified) · filmSim switcher (4 sims + base; `data-palette` mutation + CSS-var activation confirmed; NETRA borrowed-eye extension `(borrowed eye · CLASSIC CHROME)` confirmed) · opacity-dip 80ms + setTimeout fallback + reduced-motion code-path verified · 5 gates green (build / tsc / design-tokens / drift / font-chain) · cross-impact clean (homepage no regression + 2nd photo route 200); 6 screenshots at `.claude/visual-diffs/TASK-2026-05-30-PHOTO-ENTRY-D3-SHIP/shots/`; sig `...PHOTO-ENTRY-D3-VERIFY--algol.json`
+
+### Audit notes (Algol-surfaced, non-blocking; owner + must_close_by per ledger discipline)
+- **(N1) sign-work.sh discipline gap** — Sirius sig had `steps: []` + `harness_passed: false` (honestly disclosed; gap-1 resolved by Canopus, gap-2 = standing no-baseline advisory). Algol recommends `sign-work.sh` reject empty steps at sign-time. **owner: Canopus · must_close_by: 2026-06-02**
+- **(N2) per-ship vs canonical spec divergence — paper-mount margin** — Betelgeuse per-ship resolved narrow variant at 6px; canonical `docs/design/10-photo-entry.md` §7.4 says "12px preserved at 375–599." Per-ship governs this ship; canonical needs back-merge. **owner: Betelgeuse · must_close_by: 2026-06-03**
+- **(N3) photo-variants precondition** — `img { filter }` visible tonal shift cannot be tested until `scripts/process-photos.ts` runs and generates JXL/AVIF variants. Structural code-path verified (CSS-var activation = palette IS applying); visual confirmation deferred. **owner: Procyon · must_close_by: 2026-06-05**
+
+### Thesis advance
+"Production composes from the `worldline-design` skill" moves from **convention** to **end-to-end demonstrated**: skill+gallery dual-write (P1+2) → production composes (P3) → gate proves no-raw-hex except documented exception (P3.5) → surface region matches prototype (P4). Skill↔gallery sync remains manual dual-write — still a **1.0 gap** per [[soul-factory-master-gallery]] forward backlog.
+
+### Follow-on candidate (Peat decides)
+**"Production raw-hex exception register"** in `worldline-design` skill — formalize the per-ship exception process so new sites are recorded centrally rather than re-decided. `PhotoEntry.palette.css` would be entry #1. SHIP-PLAN §4 named this. Owner: Betelgeuse, after Peat approves.
+
+---
+
+## TASK-2026-05-31-RELEASE-0.0.1-WEB-MERGE · **CLOSED ✓ 2026-05-31** (local commit; push pending Peat)
+
+scope · cherry-pick web-only production files from `genesis/orchestration-foundations` into a new branch `release/0.0.1-web` per main-branch-web-only policy ([[feedback-main-branch-web-only]] saved 2026-05-31). Provoked by Peat catching Polaris-self-bug on HARNESS close-out (narrative said "4 scripts + registry, ready" without `git diff --stat`; actual branch diff was ~166K lines incl. 2× vendored Three.js).
+
+status · **commit `62cc588` on `release/0.0.1-web` · 29 files / +3,520 / −13 · local only — Peat decides push + PR + merge timing**
+
+slices
+  Polaris (S1) · stash genesis uncommitted (63 preserved) · switch to main + sync · branch `release/0.0.1-web` from main HEAD `a0ff9e8` · `git checkout genesis -- <29 web files>` · verify scope clean (no `.claude/`, `.harness/`, `audit-*`, `tests/`, docs/{team,harness,qa} leak) · commit · switch back · unstash · genesis fully restored · **done ✓** (no signature — Polaris orchestration ops, not code authorship)
+
+scope-decisions (per Peat 2026-05-31)
+  · `lib/netra/voice.md` → **deferred** to bundle with NETRA implementation later (Peat directive 1)
+  · soul-atlas gallery (`.claude/visual-diffs/soul-atlas/**`) → **never to main** by policy (Peat directive 2)
+  · build configs (`package.json`, `package-lock.json`, `velite.config.ts`, `scripts/process-photos.ts`) → **in** (photo-feature relevant; cross-cutting but stable)
+  · `eslint.config.mjs` → **excluded** (option A — keep main baseline; ignore entries reference paths not in main per policy)
+  · 3 untracked components (`FilmSimSwitcher.tsx`, `PhotoEntry.tsx`, `PhotoEntry.palette.css`) + `app/photos/` → **deferred** — not committed in genesis = not yet "release"; resume when Peat commits these in genesis first
+
+artifacts produced this session
+  · `release/0.0.1-web` branch · commit `62cc588`
+  · 3 new memory rules (durable, all future sessions):
+    - [[feedback-polaris-self-verify]] — Polaris runs `git diff --stat` vs narrative before sign-off
+    - [[feedback-commit-at-boundary]] — commit at task/session boundary; standing-uncommitted = mega-diff disease
+    - [[feedback-main-branch-web-only]] — main contains ONLY production website; design system + harness + team infra never go to main even when web-served
+
+---
+
+## TASK-2026-05-30-HARNESS-IS-OUGHT-SEPARATOR · **DONE · DEFERRED for commit (per web-only policy 2026-05-31)**
+
+work · complete end-to-end (Wave A REVISE + Wave B core + close-out audit Phase 3c PASS-GO). All gates GREEN manually (`audit-soul-atom-drift.sh` exit 0, `audit-axiom-gate-join-coverage.sh` exit 0, `gauntlet-strengthening.test.sh` 3/3 PASS). 9 signed axioms; 8-step gauntlet standard; A1.4 predicate v2 active with text-mention loophole closed.
+
+commit-status · **PARKED — none of HARNESS-IS-OUGHT goes to main per [[feedback-main-branch-web-only]].** Work sits on `genesis/orchestration-foundations` working tree (uncommitted) + STATUS ledger + handoffs + signatures + memory. Resume point preserved end-to-end.
+
+resume hooks
+  · close-out handoff: `.claude/handoffs/from-polaris/TASK-2026-05-30-HARNESS-IS-OUGHT-SEPARATOR-CLOSE--to-peat.md` (architecture, decisions, signed axiom registry v1, follow-up findings, Polaris-self-bug CORRECTION section)
+  · audits: `.claude/signatures/AUDIT.md` "Gauntlet evolution 2026-05-30" + Phase 3c entry · `docs/qa/REPORTS/TASK-2026-05-30-HARNESS-IS-OUGHT-SEPARATOR.md`
+  · 3 standing follow-up findings for future Peat decision: attractor-pill 3.5:1 contrast · 9px legibility · localhost:8888 CI gauntlet wiring
+  · 8-dispatch process log + all `.claude/handoffs/from-{canopus,algol,betelgeuse}/TASK-2026-05-30-*` preserved
+  · 2026-06-01 join-coverage cliff is **moot for main** (HARNESS not in main); becomes live only when HARNESS is committed to its own branch (then `must_project_by` dates may need refresh)
+  · **suggested resume path:** when ready, create a dedicated `harness/` branch separate from main; commit the HARNESS deliverables there; that branch carries its own cliff/deadlines
+
+---
+
+### approval event · 2026-05-30 · Peat
+
+- **Wave A REVISE round + 3 NEW slices APPROVED for dispatch.** All `⟨Peat sets⟩` / `⟨Peat approves dispatch⟩` placeholders resolve to: **`block_until = must_close_by = 2026-05-31`** (target completion tomorrow).
+- **A1.4-FIX ought = (c) redefine.** Polaris proposed predicate per Peat's (a)-leaning read: *"every token in `manifest.atoms[].token_refs` MUST appear within that atom's `data-atom-id` section in gallery.html as either (i) a `var(--<token>)` reference on a CSS property, or (ii) an explicit `--<token>: <value>` assignment in a `data-gate-exempt` style block."* This is the deliberately-anchored version close to (a) but properly scoped.
+- **Product axioms SIGNED per draft v0:** V1–V3 (low-vision care · render-fidelity gate · one-visual-language) · C1–C5 (WCAG 2.2 AA · `#D4602A` · `#E8E2D5` · Cormorant/JetBrains/Special Elite · motion buckets 300–500ms overlay / 700–1400ms camera) · H1 ratified. **All UNPROJECTED/PARTIAL axioms set `must_project_by = 2026-05-31`** (tomorrow). Join-coverage will RED any axiom still UNPROJECTED past that date.
+
+### Phase log · 2026-05-30 (live, Polaris-maintained during autonomous run)
+
+- **Phase 1 (Canopus REVISE — A1-REVISE + A1.4-FIX step 1)** · ✅ **verified clean** (Polaris trust-but-verify: `.ts` mode=644 content-unchanged, mutation harness 4/4 PASS, structured error format honored, territory clean) · sig `...HARNESS-IS-OUGHT-SEPARATOR-REVISE--canopus.json`
+- **Phase 2 (Algol A2-EXTENDED)** · ✅ **verdict PASS-WITH-NOTES** · gauntlet steps **7a (tree-cleanliness)** + **7b (red-attribution honesty)** encoded as standard going forward (canonical 8-step gauntlet documented in AUDIT.md) · 52 RED pairs enumerated and categorized · two findings surfaced for Polaris adjudication:
+  - **(F1) text-mention loophole** — `grep "var(${token}"` matches `<code>`/comments/prose, letting through false-greens via text mention. Clear engineering bug. Polaris routes fix.
+  - **(F2) scoping strictness** — Algol's enumeration shows the predicate is too narrow given gallery CSS architecture: cat-1 (19 pairs · typography via `:root` cascade) + cat-2 (32 pairs · color/structural via `#atom-<id>` CSS selector blocks) are legitimately CSS-bound but not in HTML-container scope. Algol recommends predicate refinement (ii-b) + (iii-r). 2 known genuine gaps stay RED regardless.
+- **Polaris decision · 2026-05-30 (held pending Peat review — Peat can override → REVISE round 3 if disagree):** A1.4 **predicate v2** refined per Algol's QA recommendation. Thesis preserved ("CSS-bound demonstration, not text-mentioned"); recognizes legitimate CSS scoping mechanisms: (i) `var()` in HTML-container OR `#atom-<id>` selector, (ii) explicit binding in atom's gate-exempt block, (iii) `:root` explicit binding for CSS-inheritable properties (font-family/font-size/color/letter-spacing/etc. — fixed list). Polaris exercising "manage end-to-end" delegation; if Peat reads differently, single REVISE round 3 recovers.
+- **Phase 3a (parallel — different owners + different file types, contract-pinned, safe):**
+  - **Canopus REVISE round 2** · ✅ **verified clean 2026-05-30** · trust-but-verify: `.ts` mode=644 + git-diff-vs-HEAD exit 0 (policy holds) · mutation 6/6 PASS reproduced (4 original + 2 new positive cases A1.4b id-selector + A1.4c root-cascade) · RED count = **45** matches Canopus report · structured error format honest (enumerates ALL 4 predicate-v2 conditions per RED: i-html/i-id/ii/iii with reasons) · text-mention loophole closed (corner-reticle now correctly RED — `<code>var()</code>` in prose no longer satisfies) · sig `...-REVISE2--canopus.json`
+    finding-expansion: 45 RED total = 2 genuine gaps (`netra-console/--netra-soft`, `type-roles/--meta-tracking` — never CSS-bound) + **43 atom-scoping gaps** (atoms whose CSS uses class-based selectors like `.af-pill`/`.diverge-panel` without atom-id scope → not atom-scoped per predicate v2). Betelgeuse Phase 2 scope larger than the "2 known gaps" framing — **47-RED total budget for the gallery REVISE.**
+  - **Algol B3-design + GAUNTLET-STRENGTHENING design** · ✅ **PASS — verified clean 2026-05-30** · trust-but-verify: 7 deliverables exist (`.harness/axioms-v1.schema.json` + `scripts/audit-axiom-gate-join-coverage.ts` + `scripts/audit-property-technique-map.ts` + 2 test.mjs files + `docs/qa/gauntlet-strengthening-design.md` + signature) · tsc-noEmit exit 0 · 30/30 new tests pass · sig `...HARNESS-IS-OUGHT-SEPARATOR-B3A--algol.json`
+    findings surfaced (Peat awareness + cleanup queued):
+    - ⚠️ **attractor-pill contrast = 3.5:1 < WCAG AA 4.5:1** (accent-orange `#D4602A` on paper-base `#E8E2D5`). Technique-map (TM-01) correctly fires FAIL. Currently advisory; once C1 axiom projects through join-coverage to an enforcing gate, this becomes **BLOCKING**. **This is a design tension axiom signing has exposed — Peat decides:** accept and refactor color usage (atom-level dark text on orange button, etc.), or carve a specific axiom-level waiver for accent buttons. Either way, surfaces what C1 actually requires.
+    - 📝 stale pre-existing test: `tests/soul-atom-drift-audit.test.mjs` test 10 asserts `atoms_checked === 12` but live manifest now has 16 atoms (SOUL-FACTORY NODE-FAMILY + GAP-CLOSURE growth). Test file unchanged from git HEAD; this is stale hardcoded count, not regression. Queued for **Algol cleanup post-Canopus-REVISE-round-2** (test sits in Algol territory).
+    - 📝 3 LSP unused-locals on Algol's new `.test.mjs` files (TS6133, JS-side, tsc-default-clean but linter-flagged): `REAL_HARNESS_CONFIG` (join-coverage:38), `status` (technique-map:147 + 379). Hygiene-only. Queued for **Algol cleanup post-REVISE-round-2** with stale test.
+- **Phase 3b (parallel-3 dispatched 2026-05-30 — different owners / territories / contract-pinned):**
+  - **Canopus B2 + GAUNTLET-STRENGTHENING wiring** · ✅ **verified clean 2026-05-30** · trust-but-verify: 11 deliverables present · 9 axioms in `.harness/axioms-v1.json` (V1-V3, C1-C5, H1, IDs match SIGNED v1) · 4 new rails wired (`axiom-gate-join-coverage`, `gauntlet-overlap-composition`, `gauntlet-min-legible-size`, `gauntlet-sub-pixel-detection`) · join-coverage exit-code HONEST: 2026-05-30 all GREEN exit 0 / 2026-06-01 6 RED axioms exit 1 (Polaris independently reproduced) · gauntlet mutation 3/3 PASS exit 0 · `mutation harness Playwright cache bug` fixed (separate ports per case) · sig `...-B3B--canopus.json`
+    advisory flags (no slice — disclosed, defensible, surfaced for Peat awareness):
+    - ⚠️ **WL_HARNESS_FAILMODE=open at sign** — Canopus used the safety lever to push through signing. Justification: new `gauntlet-min-legible` caught real pre-existing 9px elements in prototype; new `gauntlet-sub-pixel` failed because `localhost:8888` (gallery server) wasn't running. New gates working AS DESIGNED — "the harness failure IS the feature working." Pre-existing issues, not regressions. Lever used per spec intent ("back out unforeseen freeze, not stage rollout"). Note: future work to address (a) 9px legibility offenders → Sirius/Betelgeuse, (b) CI harness needs gallery served before sub-pixel check → Canopus infrastructure follow-up.
+    - ⚠️ **scope deviation** — `eslint.config.mjs +6 lines` added 3 new ignore entries (`.claude/skills/**`, `.claude/exports/**`, `.claude/beta-templates/**`). Outside the brief's stated territory but disclosed honestly + justified: `.claude/skills/worldline-design/assets/three.module.js` was emitting ~200 errors blocking `post-edit.sh` for ALL agents team-wide. Same rationale as existing `.claude/visual-diffs/**` ignore. Cross-team unblocker; defensible per Polaris discretion. Algol will give independent read at Phase 3c.
+    - 📝 **schema validation not independently reproduced** — `ajv` not installed locally; Canopus claims `ajv-cli validate ... → ajv_exit: 0` but Polaris couldn't reproduce. Algol Phase 3c installs or runs equivalent validator.
+    incidental real findings from new gates (Peat awareness — NOT blocking):
+    - **9px text element somewhere** caught by `gauntlet-min-legible` (floor 11/12px). Real legibility violation. Owner TBD by Peat (likely Sirius/Betelgeuse). Surfaces the kind of issue C1 (WCAG AA) enforcement will catch.
+    - **`localhost:8888` not running** during sub-pixel check. Infrastructure question — CI/harness wiring needed; Canopus follow-up.
+  - **Betelgeuse A1.4-FIX step 2** · ✅ **verified clean 2026-05-30** · post-fix gate exits 0, A1.4 0 RED, atoms_checked=16 — Polaris-reproduced; 2 genuine gaps closed (new `var(--netra-soft)` border CSS line 1367/1369 + new `var(--meta-tracking)` letter-spacing line 1394); 43 atom-scoping gaps closed via Path A (`#atom-<id>` prefix in existing gate-exempt style block — strictly additive, no HTML restructured, no visual regression); territory clean (only gallery.html modified); sig `...HARNESS-IS-OUGHT-SEPARATOR--betelgeuse.json`. **Wave A REVISE round 2 complete; predicate v2 + text-mention loophole closure successful end-to-end.**
+  - **Algol cleanup** · ✅ **verified clean 2026-05-30** · stale test 10 refactored to dynamic `LIVE_MANIFEST_ATOM_COUNT` (future-proof against manifest growth); 3 LSP unused-locals resolved (REAL_HARNESS_CONFIG removed; technique-map status destructuring trimmed at lines 147/379); 40/40 tests pass; sig `...-B3A-CLEANUP--algol.json`. (Note: LSP transiently flagged `LIVE_MANIFEST_ATOM_COUNT` as unused mid-edit; Polaris-verified the constant IS used at lines 539-540 in assert + template — stale diagnostic, not a real issue.)
+- **stop condition reminder:** Wave A REVISE PASS + Wave B (B2∥B3) live + join-coverage demonstration that UNPROJECTED axioms RED automatically + close-out handoff to Peat. Or any blocker requiring Peat's eye (e.g., Algol+Canopus disagree on predicate v2 implementation).
+
+
+scope · Re-found the harness as an *is/ought separator* — two trust axes: **anchor** (ground-truth vs proxy) + **coverage** (declared denominator fully + non-vacuously visited; scale-recursive: atoms-in-gate · gates-in-applicable-set · axiom↔gate join). Origin: 7-turn diagnostic with Peat tracing the font-chain `.test.ts`/Times-fallback/7-of-12-skip false-green to root cause — the harness verifies attribution + proxies, not fidelity, and fail-mode was never a *decision*. Full spec: `.claude/handoffs/from-polaris/TASK-2026-05-30-HARNESS-IS-OUGHT-SEPARATOR.md`.
+
+status · **Wave A core VERIFIED (Algol A2 = PASS-WITH-NOTES) · 1 REVISE held + 1 normative call held for Peat · Wave B held for Peat's 3 actions**
+
+Wave A slices
+  Canopus (A1) · 4 hole-closers — A1.1 coverage-assert (`atoms_checked==total`), A1.2 fail-closed `harness_passed` default w/ `WL_HARNESS_FAILMODE` (default closed = immediate fix + revert lever), A1.3 skip-is-red on applicable rail, A1.4 source-bijection (`globals.css ↔ manifest∩gallery`) + mutation harness · **done** · sig `...--canopus.json`
+  Algol (A2) · machine-checked all 4 mutations target the CORRECT invariant (A1.1 RED from coverage-assert with value-detection SILENT → false-RED-attribution avoided; A1.3 RED attributable to skip-flip, not contaminated by pre-existing territory FAIL); signature self_hash CLEAN; all 6 deliverable hashes match · **PASS-WITH-NOTES** · `.claude/handoffs/from-algol/TASK-2026-05-30-HARNESS-IS-OUGHT-SEPARATOR--A2-to-polaris.md`
+
+held slices (owner + must_close_by · ledger discipline applied — no prose-without-projection)
+
+  · **A1-REVISE-CANOPUS · mutation-harness hygiene** · owner: **Canopus (α-HRN-07)** · must_close_by: ⟨Peat approves dispatch⟩ · status: held-pending-approval
+    scope: `scripts/audit-a1-mutation-harness.sh` (lines 180/198/539) `chmod +x` + `cp`-stubs-OVER the real tracked `scripts/audit-soul-atom-drift.ts` (Algol's file), restoring content but LEAKING the +x mode bit. Move all chmod/cp to **temp copies only**; add `trap` cleanup that reverts mode+content on every exit path (success/fail/interrupt/signal); re-run with paste-evidence.
+
+  · **A2-EXTEND-ALGOL · gauntlet extension (tree-cleanliness + red-attribution honesty)** · owner: **Algol (α-VER-06)** · status: held-pending-approval · blocked_on: Peat-approval-of-dispatch · block_until: ⟨Peat sets⟩
+    scope (two folded — both from Peat this turn):
+      (a) **tree-cleanliness post-assertion:** standard A2 gauntlet adds `git status --porcelain == empty` (or scoped equivalent) as a post-run step. Tree-state is an enumerable denominator; the coverage primitive applies to the verifier's own side-effects. Without this, "verifier leaves residue" remains caught only by Polaris-eye-and-hand = human-gate creep this whole task exists to eliminate. The A2 just run reported "reverted clean" while the tree wasn't — exact gap.
+      (b) **red-attribution honesty (dual of false-green):** for every RED a gate emits, A2 asserts that the *stated reason* (error message) == *actual triggering predicate* (code path that fired). A gate red-by-correct-invariant but reporting wrong cause sends the fixer the wrong direction — false-RED-attribution-in-message. A1.4 surfaced this: error says "BOTH consumers lack it" while only one (gallery) does. Attribution-honesty applied to green must extend symmetrically to red messages or fixers chase ghosts.
+
+  · **POLICY-NO-INPLACE-MUTATION · safety policy in AGENTS.md** · owner: **Polaris (α-OPS-00)** · must_close_by: ⟨Peat approves dispatch⟩ · status: held-pending-approval · NEW slice (this turn — Peat surfaced)
+    scope: forbid in-place mutation of tracked files by test/audit/mutation tooling; mandate temp-copy + restore. Compounded with SOUL-FACTORY's "delivered · working tree uncommitted per standing pattern" → real exposure: a harness crash mid-mutation leaves the real tracked file in a mutated state. The standing-uncommitted-pattern is currently normalizing this risk; the policy makes it explicit and reviewable.
+
+  · **A1.4-FIX · self-inconsistent gate + predicate redefinition** · owners: **Canopus (α-HRN-07) + Betelgeuse (α-VIS-04)** · status: ought-resolved (Peat 2026-05-30 → **(c) redefine**) · blocked_on: Peat-approval-of-dispatch · block_until: ⟨Peat sets⟩
+    is-resolved: A1.4 implementation is internally inconsistent. Code (lines 193–224) enforces "every manifest-declared token must appear in gallery as `var()`" (stricter). Comments (167–168, 174–175) describe "absent from BOTH consumers = RED" (looser). Error message (216–219) reports "Source has the token; BOTH consumers lack it" but in fact only ONE (gallery) does — manifest has the token *by construction* (loop iterates manifest tokens). Gate fires on one predicate, claims another.
+    ought-resolved (Peat 2026-05-30): **(c) redefine predicate** — not "ratify the accident" that code happens to be stricter than spec, but specify deliberately what we mean. Peat's read: (a) stricter aligns with task thesis (declaration = proxy "intended to exist"; `var()`-usage = closer to ground-truth "renders effect"; on anchor axis, usage > declaration). Redefined predicate likely lands close to (a) but PROPERLY anchored rather than accidental.
+    scope (combined): (1) Canopus + Betelgeuse co-design new predicate explicitly (one sentence + acceptance criterion); (2) Canopus REVISE: align code + comments + **error message** to the new predicate (red-attribution honesty per A2-EXTEND-ALGOL (b)); (3) Algol verify with both new gauntlet steps; (4) Betelgeuse REVISE gallery per the new predicate (if it lands at (a)-like: adds `var(--meta-tracking)` letter-spacing + `var(--netra-soft)` border in respective atom sections).
+
+advisory (no slice — pre-existing harness debt or known patterns):
+  · Canopus summary "no TS touched" inaccurate (chmod'd the `.ts`; `files_touched` honest) — ADVISORY
+  · `files_touched` carry-over bloat (no-baseline sign-work.sh fallback) — ADVISORY per prior precedent
+
+Wave B (held — gated on Peat) · B1 candidate axiom registry drafted (product value/convention tiers + harness H-tier; ~6/9 UNPROJECTED with owner+must_project_by, missing date = RED at commit). Needs Peat: (1) review A1/A2, (2) sign V1–V3 / C1–C5 + ratify H1, (3) set `must_project_by` dates. Then B2 (Canopus registry format + join-coverage wiring) ∥ B3 (Algol join-coverage audit + property technique-map + TS deep-logic) — safe parallel after A1/A2 land + join-coverage contract pinned (different owners/territories).
+
 ---
 
 ## TASK-2026-05-29-SOUL-FACTORY · **in-flight** · 2026-05-29
@@ -33,7 +209,19 @@ opus-override audit trail (per dispatch authority) · **2 overrides**: Betelgeus
 
 key outcome · the load-bearing proof is the AUDIT step: a drift gate with a silent blind-spot is worse than no gate (false confidence). The gauntlet caught it; the gate is now genuinely rigorous. Soul factory infrastructure sound.
 
-flagged forward (NOT blockers) · (1) production `components/ATLASStandby.tsx` — first real Rule-5 follow-up surface (composes FROM the globe/standby atom). (2) spec divergence: §11 says "130×130 paper-canvas" vs `60-responsive-system.md` §4.2 "140/120px SVG" — Betelgeuse to reconcile to one canonical mini-globe size before ATLASStandby locks. (3) sign-work.sh no-pre-task-baseline limitation recurred (Sirius P3/globe-fix hand-authored) — standing harness-debt, route to Canopus. (4) earth-texture external URL (`earth_specular_2048.jpg`) blocked by ad-blockers in headless CI — vendor it like three.module.js if CI render-checks need it.
+flagged-forward slices (ledger discipline applied 2026-05-30 — owner + must_close_by OR parked-with-reason):
+
+  · **PRODUCTION-ATLASSTANDBY · components/ATLASStandby.tsx** · owner: **Sirius (α-SUR-01)** · must_close_by: ⟨Peat sets — prio for first Rule-5 follow-up surface⟩
+    scope: first real Rule-5 follow-up surface (composes FROM the globe/standby atom). Dependency: blocks #2 below until mini-globe size is canonicalized.
+
+  · **SPEC-RECONCILE-MINI-GLOBE-SIZE** · owner: Betelgeuse (α-VIS-04) · **done ✓ 2026-05-29** (already closed by MINI-SPEC slice above; polaris-housekeeping erratum 2026-05-30 — was redundantly re-noted here when discipline applied; correcting)
+    resolution: canonical mini size = **140px MID / 120px NARROW** per Betelgeuse MINI-SPEC; closed §11-vs-§4.2 divergence. Documented at `docs/design/spec-globe-v1-direction.md` §11 + `docs/design/60-responsive-system.md` §4.2.
+
+  · **SIGN-WORK-NO-BASELINE-DEBT** · owner: **Canopus (α-HRN-07)** · must_close_by: ⟨Peat sets⟩ · standing harness-debt
+    scope: `sign-work.sh` no-pre-task-baseline limitation recurred (Sirius P3/globe-fix hand-authored; flagged repeatedly in `.claude/signatures/AUDIT.md` as ADVISORY). Either make `pre-task.sh` mandatory or add a `WL_NO_BASELINE_OK=1` explicit waiver. Cross-cuts every signed task — high-leverage.
+
+  · **EARTH-TEXTURE-VENDORING** · owner: **Sirius (α-SUR-01)** · parked-with-reason: "deferred until CI render-checks are reactivated; trigger = first CI run that needs `earth_specular_2048.jpg` to render"
+    scope: external URL blocked by ad-blockers in headless CI — vendor it like `three.module.js`. Parking is valid because the activation trigger is mechanical (CI render need), not human discretion.
 
 ---
 
@@ -67,7 +255,12 @@ Peat: "since we've gone interactive-globe, make the mini จัดเต็ม t
   Algol (MINI-VERIFY) · render-fidelity gauntlet · **PASS** — mini matches full (5 soul elements confirmed), degradation fires on reduced-motion, no regression on 11 atoms, gates green, specs agree 140/120
   Sirius (MINI-OVERLAP) · fixed 2D/3D layer overlap Peat caught — the 2D fallback's `::before`(sphere+graticule)/`::after`(axis) pseudo-elements on `.standby-render__globe` weren't gated by `data-mini-live` (only the fallback div was), so they rendered over the live canvas → gated with `content:none` in live mode; both modes Playwright-verified · **done ✓**
 opus-override audit trail (updated) · **4 overrides total**: Betelgeuse P1, Sirius P3, Sirius GLOBE-FIX, Sirius MINI-LIVE (all WebGL/visual-language, rubric-matched). MINI-OVERLAP was a CSS gating fix → sonnet.
-recurring-lesson note · 4× this session an automated check passed while Peat's eye caught the real issue (false-green regex; token-gate vs render-fidelity; element-presence vs layer-overlap; nodes-present-but-sub-pixel). Automated gauntlet checks presence/values; visual COMPOSITION still needs the human/side-by-side eye — Peat remains the final gate. Candidate gauntlet strengthening: add an overlap/composition + min-legible-size check, not just element-presence.
+recurring-lesson SLICE (ledger discipline applied 2026-05-30 — was previously articulated-but-unprojected prose; Peat surfaced this very pattern, so converting):
+
+  · **GAUNTLET-STRENGTHENING-VISUAL-COMPOSITION** · owners: **Algol (α-VER-06)** + **Canopus (α-HRN-07)** · must_close_by: ⟨Peat approves dispatch⟩ · status: held-pending-approval · COUNT: 4× this session
+    evidence: 4× an automated check passed while Peat's eye caught the real issue — (1) false-green regex (drift scanner 7/12 skip), (2) token-gate vs render-fidelity (Times fallback), (3) element-presence vs layer-overlap (2D/3D ::before/::after over canvas), (4) nodes-present-but-sub-pixel. Pattern: automated gauntlet checks presence/values; visual COMPOSITION still needs the human/side-by-side eye → Peat remains the final gate by default — *which is the human-gate-creep the HARNESS-IS-OUGHT task exists to compress toward zero*.
+    scope: extend the standard gauntlet with — (a) overlap/composition check (assert no element renders over a higher-z sibling unless explicitly allowed), (b) min-legible-size check (assert text/icon dimensions ≥ legibility floor per `60-responsive-system.md`), (c) sub-pixel/zero-size element detection. Each check ships with its mutation case targeting its specific invariant (per A1 acceptance discipline — false-RED-attribution guard). This converts visual-composition from human-eye to mechanized denominator.
+    note: this entry IS the projection. Before this turn it was a prose paragraph that had been carried forward without action — the exact "wisdom-storage without teeth" failure mode Peat critiqued. Encoding it as a slice with owner+date applies the discipline to the lesson that *named* the discipline.
 
 ### NODE SYSTEM + α MEANING · 2026-05-29 (Peat directive)
 Peat enriched α's meaning + asked about other globe nodes.

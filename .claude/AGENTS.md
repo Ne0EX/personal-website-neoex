@@ -44,6 +44,14 @@ Tooling note — this team works under both **Claude Code** and **Codex**. Hook 
 
 ---
 
+## Default design reference — the `worldline-design` skill
+
+All visual / design / frontend work **loads and composes from the `worldline-design` skill** (`.claude/skills/worldline-design/`) **by default** — it is the canonical soul-atlas reference (tokens, atoms, the three type roles, anti-patterns, the observatory UI kit; reverse-engineered from production, Peat-approved 2026-05-30). Binding above all for **Betelgeuse** (design) and **Sirius** (frontend); applies to any agent producing a visual surface (Vega microcopy-in-layout, Arcturus NETRA UI). Do **not** re-derive the soul from memory — invoke `/worldline-design`, read its README, compose from its atoms. Pairs with **Rule 5** (compose-from-atoms): the skill is the *input*, the atom-reuse pre-handoff gate enforces the *outcome*.
+
+> The skill is gitignored (lean repo) — it must exist on the working machine for agents to load it. If it ever needs to travel with the repo, commit it (~3MB).
+
+---
+
 ## Nomenclature · α 1.130426 cutover
 
 The roster was renamed at α 1.130426. Translate any pre-cutover reference (in handoffs, signatures, STATUS.md entries, memory, prior commits) using this table.
@@ -216,6 +224,7 @@ The full bar is at `docs/team/QUALITY-BAR.md`. The short version:
 - **Voice consistency** — NETRA's character bible and voice rules are absolute. Preserve librarian-witness persona, instrument/companion separation, grounding, and bilingual register. Any flattening into generic assistant voice = reject. Vega + Arcturus audit.
 - **Patches log truth** — every modification to an entry's content increments its patches log. No silent edits.
 - **Accessibility floor** — Lighthouse a11y ≥ 95 on every entry template, 100 on the audience-fork screen.
+- **No in-place mutation of tracked files in test/audit/mutation tooling** *(added 2026-05-30 · TASK-2026-05-30-HARNESS-IS-OUGHT-SEPARATOR · POLICY-NO-INPLACE-MUTATION)*. Test harnesses, mutation suites, and audit gates **must operate on temp copies** of any tracked file they manipulate, and **restore mode + content via `trap` on every exit path** (success, fail, interrupt, signal). Compounded with the standing "delivered but working tree uncommitted" pattern: in-place mutation on a tracked file + harness crash mid-run = the real tracked file is left in a mutated state. Algol's standard A2 gauntlet enforces this via a post-run `git status --porcelain == empty` (or scoped equivalent) assertion — tree-state is treated as an enumerable denominator. The class "verifier leaves residue" must not require Polaris-eye to catch.
 
 If you are about to submit work that violates any of the above and you have a reason: write the reason in your handoff under `// known deviations`. The recipient (and Algol) will judge it. Hidden deviations are the worst kind of failure on this team.
 

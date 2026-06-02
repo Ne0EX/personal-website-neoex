@@ -686,6 +686,53 @@
       ],
       "render": "#atom-focus-button",
       "impl_ref": "app/globals.css#.atlas-strata-btn (L471–522) + components/WorldlineGlobe.tsx#strata-sidebar"
+    },
+    {
+      "id": "paper-mount",
+      "name": "Paper Mount",
+      "description": "A measured photographic mount — 12px warm-paper margin + 1px faint-ink rule framing the image, with an ambient FILM SIM label below in ink-soft mono.",
+      "rationale": "SBA-1 visual.md §summary statement 8 / spec 10-photo-entry §2.3 paper-mount metaphor — the photo entry is an instrument reading, not a gallery. The mount frame signals 'this image was deliberately measured and placed here'; the 12px warm-paper margin + 1px ink-faint rule is the physical analogue of the darkroom print held inside a measured mat. The ambient FILM SIM label below the mount is a quiet trace of the photographer's decision (PRD-03 §8.1) — present but not dominant. Soul invariant I5 (quality visible). High recurrence: atlas contact-sheet + single-roll page will reuse.",
+      "variants": [
+        {
+          "name": "default",
+          "description": "Desktop and narrow mount — 12px var(--paper-warm) padding around the image, 1px var(--ink-faint) border, ambient FILM SIM label below in var(--ink-soft) mono uppercase. The 12px margin and 1px rule are preserved at all breakpoints per spec §7.4 L587; the image simply fits the narrower frame."
+        }
+      ],
+      "token_refs": [
+        "--paper-warm",
+        "--ink-faint",
+        "--ink-soft",
+        "--font-mono"
+      ],
+      "main_branch_refs": [
+        {
+          "file": "app/globals.css",
+          "line": 20,
+          "value": "--paper-warm:    #EDE7DA;",
+          "role": "mount margin background — the warm paper surface that surrounds the image (12px padding)"
+        },
+        {
+          "file": "app/globals.css",
+          "line": 31,
+          "value": "--ink-faint:     rgb(var(--ink-rgb) / 0.3);",
+          "role": "mount border — 1px ink-faint rule framing the image inside the warm margin"
+        },
+        {
+          "file": "docs/design/10-photo-entry.md",
+          "line": 306,
+          "value": "12px var(--paper-warm)",
+          "role": "mount margin — paper-warm padding around the image (preserved at all breakpoints per spec §7.4)"
+        },
+        {
+          "file": "docs/design/10-photo-entry.md",
+          "line": 307,
+          "value": "1px solid var(--ink-faint)",
+          "role": "mount border — fine ink-faint rule framing the image (fine archival-print edge rule)"
+        }
+      ],
+      "render": "#atom-paper-mount",
+      "impl_ref": "components/PhotoEntry.tsx (TASK-2026-05-30-PHOTO-ENTRY-D3-SHIP)",
+      "production_ref": null
     }
   ]
 }

@@ -108,6 +108,9 @@ I also maintain:
 - `docs/design/film-simulations.md` — Fuji palette variants (PRD-03)
 - A review note at `.claude/visual-diffs/<task_id>/REVIEW.md` for every UI handoff that comes to me
 
+## master design reference
+Before any design or UI work, invoke /worldline-design and read its README... it contains the aesthetic principles that guide all design decisions, and it references the visual library that defines our design vocabulary. This is the master reference for all design work, including mine. If a spec or handoff comes to me that violates the principles in that README, I reject it and point back to the master reference.
+
 ## quality bar — UI-specific (also the anti-Codex gate)
 
 When I review a UI handoff against my own spec, I check, in order:

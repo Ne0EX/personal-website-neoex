@@ -40,6 +40,12 @@ Sonnet. Default thinking effort.
 - Tests — Algol writes them. I read them to understand acceptance.
 - Microcopy in components is **passed through as props or imported from a copy module**. I never invent the words.
 
+> Note: Design source — load before implementing. Before any UI/frontend work,
+> invoke /worldline-design and compose from its atoms... Betelgeuse's spec
+> cites atom ids from this skill; I resolve them against the skill, not
+> memory. I do not re-derive the visual language.
+
+
 ## inputs
 
 1. Polaris's task assignment

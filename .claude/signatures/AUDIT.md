@@ -2,6 +2,140 @@
 
 ---
 
+## 2026-06-02 · Phase-1 globe shell close-out (Sirius, Betelgeuse, Vega) · NO INTEGRITY-FAIL · 1 SCHEMA concern → Canopus
+
+**auditor** · Algol (α-VER-06)
+**signatures**
+- `TASK-2026-06-02-ALPHA-SOUL-ALIGN--sirius.json`
+- `TASK-2026-06-02-FOOTER-HERO-LEGIBILITY--betelgeuse.json`
+- `TASK-VEGA-2026-06-02-MANIFESTO-CITE--vega.json`
+
+**self_hash** · all three REPRODUCE under canonical (without-newline) serialization
+(17721ea5… / 4bd32611… / 50d5a7eb…). **files_sha256** verify. **roster + nomenclature** valid.
+
+**Not an INTEGRITY-FAIL.** Two structural weaknesses flagged, routed to Canopus as a
+likely `sign-work.sh` / `pre-task.sh` bug (tooling, not agent malfeasance):
+
+1. **files_touched = full 221-file dirty tree on ALL three signatures.** SCHEMA.md's
+   baseline-aware scoping (`.claude/hook-logs/<task>--baseline.json` diff) is not being
+   applied — fell back to raw `git diff HEAD`. Because it affects every signature of the
+   run identically, it is the tool, not the agents. Effect: files_touched cannot bound
+   task scope for this run; the "no file outside files_touched changed" check is moot.
+   The stronger files_sha256 signal is intact.
+2. **Sirius ALPHA-SOUL-ALIGN: `steps: []` (empty) and `harness_passed: false`** with no
+   `// known deviations`. Empty steps weakens the audit trail (SCHEMA.md: steps are short
+   imperative lines). harness_passed:false undocumented. REVISE-to-Sirius asks for a re-sign
+   with populated steps + a harness note. The empty-steps default may itself be a
+   sign-work.sh fallback bug (steps not captured) — Canopus to determine.
+
+**QA verdict on the work itself:** REVISE (camera-orbit clip-through, separate quality-fail
+to Sirius). See `docs/qa/REPORTS/TASK-2026-06-02-PHASE1-SHELL.md`.
+
+---
+
+## 2026-06-01 · TASK-2026-06-01-LEGIBILITY-REGISTER-PASS (Sirius) · PASS
+
+**auditor** · Algol (α-VER-06)
+**signature** · `.claude/signatures/TASK-2026-06-01-LEGIBILITY-REGISTER-PASS--sirius.json`
+**date** · 2026-06-01
+**verdict** · PASS
+
+### Step 1 — Signature integrity
+
+self_hash: stored `afda04157f50da3b...` computed `afda04157f50da3b...` MATCH.
+
+Primary files (disk vs signature): `app/globals.css` `a9807db2...` MATCH · `components/FooterManifesto.tsx` `ab283c08...` MATCH · `lib/globe-coordinates.ts` `645b4b49...` MATCH · `components/WorldlineGlobe.tsx` `bc285b01...` MATCH.
+
+pre_cutover_codename: `"Pico"` → Sirius (α-SUR-01) — AGENTS.md confirms. PASS.
+next_recipient: `Algol` / `α-VER-06` — on roster. PASS.
+post_edit_passed: false — confirmed pre-existing condition; lint on the 4 changed production files = 0 errors; tsc = 0 errors. Advisory tolerance confirmed.
+files_touched: 147 files — no-baseline carry-over (pre-existing pattern). Primary deliverable hashes present and correct.
+
+**STEP 1 VERDICT: CLEAN**
+
+### Step 2 — Acceptance criteria
+
+`--ink-body` = `rgb(var(--ink-rgb) / 0.82)` in globals.css line 35. Distinct from `--ink-soft` (0.5 alpha). `.manifesto-body` uses `var(--ink-body)` (globals.css line 324) — not `--ink-soft`. PASS.
+
+Closing `&rdquo;` glyph: RSC payload in `.next/server/app/index.html` contains `{"className":"manifesto-glyph close","aria-hidden":"true","children":"”"}`. Present. PASS.
+
+blockquote/cite structure: RSC payload confirms `["$","blockquote",null,{"className":"manifesto-block",...}]` containing `["$","p",null,{"className":"manifesto-body",...}]` and `["$","cite",null,{"className":"manifesto-cite",...}]`. Matches spec §TASK-A. PASS.
+
+Strata collision: `.atlas-strata-btn .label-role` rule (globals.css lines 563–571) uses `align-items:start` wrap approach (Betelgeuse design revision) rather than ellipsis (original spec). Comment `α-VIS-04 2026-06-01: full labels, no truncation` — authorized territory-owner decision. Collision problem solved via wrap. PASS.
+
+### Step 3–6 — Quality bar / regression / cross-impact
+
+design-tokens audit PASS. rail-barrier-class 20/20 PASS. soul-atom-drift 10/10 PASS. font-chain PASS. tsc 0 errors. No new tokens/dependencies. `--ink-body` has zero prior consumers (additive). `.manifesto-*` classes used only in FooterManifesto.tsx.
+
+**OVERALL VERDICT: PASS**
+
+---
+
+## 2026-06-01 · TASK-GLOBE-HOVER-COORD-GATE (Sirius) · PASS
+
+**auditor** · Algol (α-VER-06)
+**signature** · `.claude/signatures/TASK-GLOBE-HOVER-COORD-GATE--sirius.json`
+**date** · 2026-06-01
+**verdict** · PASS
+
+### Step 1 — Signature integrity
+
+self_hash: stored `9244444a8519c9ac...` computed `9244444a8519c9ac...` MATCH.
+
+Primary files: `lib/globe-coordinates.ts` `645b4b49...` MATCH · `components/WorldlineGlobe.tsx` `bc285b01...` MATCH.
+
+pre_cutover_codename: `"Pico"` → Sirius (α-SUR-01) PASS. next_recipient: `Algol` / `α-VER-06` PASS. steps: [] — empty, same no-baseline pattern; work verified by code and math review. post_edit_passed: false — pre-existing lint condition; 0 errors in changed files.
+
+**STEP 1 VERDICT: CLEAN**
+
+### Step 2 — Coordinate math analysis
+
+`latLonFromGlobeHit(worldPoint, globeRotationY)` (globe-coordinates.ts lines 110–117):
+- Applies `rotateVec3AroundY(worldPoint, -globeRotationY)` — exact inverse of the globe's Y rotation (rotation matrices are orthogonal; -θ gives the transpose).
+- Passes the earth-fixed vector to `vecToLatLon` which recovers lat/lon via `acos(y)` and `atan2(z, -x)`.
+- Round-trip is algebraically exact for any lat/lon and any rotY. VERIFIED.
+
+Hit source: `onHover` calls `raycaster.intersectObject(refs.globeSphere, false)` and reads `sphereHits[0].point` — the THREE.js mesh surface intersection in world space. Previous path used `camera.position` (wrong). New path uses the actual surface hit. VERIFIED.
+
+Hover gate: `hoverGlobeCoordRef.current` set only when `sphereHits.length > 0`; cleared on miss and `pointerleave`. Tick loop blanks coord readout when both lock and hover are null. Initial JSX value `"0.00°N · 0.00°E"` overwritten to `""` on first tick (16ms). TRIANGULATE overlay: rendered outside canvas so pointer events don't reach the sphere raycaster — miss path covers it automatically. NETRA lock has priority over hover. All correct.
+
+### Step 3–6 — Quality bar / regression / cross-impact
+
+Same audit run as legibility task above (both tasks share the working tree). tsc 0 errors. `latLonFromGlobeHit` is a new export with no prior consumers — additive. All existing `lib/globe-coordinates.ts` consumers unaffected (unchanged API surface).
+
+**Interactive hover note:** Full runtime hover (pointer over spinning globe) is Peat's final visual check per gauntlet instructions. Code analysis and initial-state render (coord blank at rest) are complete.
+
+**OVERALL VERDICT: PASS**
+
+---
+
+## 2026-06-01 · TASK-2026-06-01-SECURITY-HARNESS-SENSOR-GROUND-TRUTH (Algol self-sign) · SELF-AUDIT
+
+**auditor** · Algol (α-VER-06)
+**signature** · `.claude/signatures/TASK-2026-06-01-SECURITY-HARNESS-SENSOR-GROUND-TRUTH--algol.json`
+**date** · 2026-06-01
+**verdict** · PASS — deliverables verified
+
+### Deliverables
+
+`scripts/audit-ground-truth-observed.sh` sha256 on disk: `a1aa9f2d61a8917afa9b5e8d776fca3283bc8144ff571a10f185755cdb994db7` — matches signature `hashes.files_sha256`. CLEAN.
+
+`tests/harness/audit-ground-truth-observed.fixture.sh` sha256 on disk: `2b69d534e60394e0e82df0151d5ca5af4b8610cec7f088472b745a0ab2bdb3dd` — matches signature `hashes.files_sha256`. CLEAN.
+
+### Fixture test run
+
+18/18 cases pass (6 SHOULD-PASS + 12 SHOULD-FAIL). Exit 0.
+
+### Baseline note
+
+No pre-task baseline — fallback to full dirty tree used. files_touched list is over-broad but both deliverable hashes are present and correct. Limitation noted; does not affect integrity of the two actual deliverables.
+
+### self_hash
+
+`68ab061d9cf75da3cf00dd3744d57305a7a1cfa1d6c8006e1f0cfda5b76c7396` — recomputed via canonical jq: MATCH.
+
+---
+
 ## 2026-06-01 · TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-1-REVISE-AGAIN (Canopus) · INTEGRITY-FAIL
 
 **auditor** · Algol (α-VER-06)

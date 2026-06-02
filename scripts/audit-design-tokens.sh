@@ -43,6 +43,7 @@ SEARCH_DIRS=("app" "components")
 WHITELIST=(
   "app/globals.css"
   "components/WorldlineGlobe.tsx"
+  "components/PhotoEntry.palette.css"
 )
 
 # Hex pattern: 3-8 hex digits after #, not immediately followed by another hex digit or letter.

@@ -21,15 +21,25 @@
 #             Gate must exit 1 and name R1_TRANSFORM_NOT_IDENTITY / A4a.
 #             This is the "crooked overlay" class: a page element with a
 #             CSS translate/rotate applied where none is expected.
+#             NOTE: exit-3 (Playwright absent) is SKIPPED here — not PASSED.
 #
 #   FAIL-2 — R2: sibling overlap. Two elements whose bounding rects intersect,
 #             declared must_not_overlap_with each other in manifest.
 #             Gate must exit 1 and name R2_SIBLING_OVERLAP / A4b.
 #             This is the bug class: /archive rendered on top of home-page surface.
+#             NOTE: exit-3 (Playwright absent) is SKIPPED here — not PASSED.
 #
 #   FAIL-3 — R3: overflow-clip forbidden. Element with overflow:hidden where
 #             manifest declares overflow_clip_forbidden=true.
 #             Gate must exit 1 and name R3_OVERFLOW_CLIP / A4c.
+#             NOTE: exit-3 (Playwright absent) is SKIPPED here — not PASSED.
+#
+#   SHOULD-FAIL-1 — EMPTY-MANIFEST FALSE-GREEN bypass.
+#             An empty elements:[] manifest must exit 2 (nonzero), never 0.
+#             The min-elements guard fires before Playwright import, so exit-3
+#             is also a failure here (guard absent or fires too late).
+#             This case does NOT need Playwright — deterministic regardless of
+#             tool availability.
 #
 # EXIT CODE: 0 = all cases passed; non-zero = test failure.
 #
@@ -335,9 +345,14 @@ log "  exit=${EXIT_F1}"
 _stop_server "${F1_PID}"
 
 if [[ $EXIT_F1 -eq 3 ]]; then
-  log "  Playwright unavailable — validating WARN exit-3 path"
-  log_pass "FAIL-1 — exit 3 (Playwright unavailable; correct WARN behavior)"
-  PASS_COUNT=$((PASS_COUNT + 1))
+  # FAIL cases must assert the real nonzero violation code; exit-3 (Playwright absent)
+  # is a tool-absent skip, not a pass of the violation assertion.  Accepting it as PASS
+  # here would allow the entire FAIL-case suite to pass without ever checking that the
+  # gate actually fires the violation — the original fixture skip-as-pass bypass.
+  log "  Playwright unavailable — SKIP this FAIL case (cannot assert violation code without Playwright)"
+  log "  NOTE: skipped FAIL cases are NOT counted as PASS — they are SKIPPED"
+  # Do not increment PASS_COUNT; do not set PASS_ALL=false.  The overall result
+  # stays inconclusive for this case, not green.
 elif [[ $EXIT_F1 -eq 2 ]]; then
   log "  Output: ${OUTPUT_F1}"
   log_fail "FAIL-1 — exit 2 (server/input error); expected exit 1"
@@ -434,9 +449,10 @@ log "  exit=${EXIT_F2}"
 _stop_server "${F2_PID}"
 
 if [[ $EXIT_F2 -eq 3 ]]; then
-  log "  Playwright unavailable — validating WARN exit-3 path"
-  log_pass "FAIL-2 — exit 3 (Playwright unavailable; correct WARN behavior)"
-  PASS_COUNT=$((PASS_COUNT + 1))
+  # Same reasoning as FAIL-1: Playwright absent means we cannot assert the violation
+  # code. SKIP, do not PASS.
+  log "  Playwright unavailable — SKIP this FAIL case (cannot assert violation code without Playwright)"
+  log "  NOTE: skipped FAIL cases are NOT counted as PASS — they are SKIPPED"
 elif [[ $EXIT_F2 -eq 2 ]]; then
   log "  Output: ${OUTPUT_F2}"
   log_fail "FAIL-2 — exit 2 (server/input error); expected exit 1"
@@ -519,9 +535,10 @@ log "  exit=${EXIT_F3}"
 _stop_server "${F3_PID}"
 
 if [[ $EXIT_F3 -eq 3 ]]; then
-  log "  Playwright unavailable — validating WARN exit-3 path"
-  log_pass "FAIL-3 — exit 3 (Playwright unavailable; correct WARN behavior)"
-  PASS_COUNT=$((PASS_COUNT + 1))
+  # Same reasoning as FAIL-1/FAIL-2: Playwright absent means we cannot assert the
+  # violation code. SKIP, do not PASS.
+  log "  Playwright unavailable — SKIP this FAIL case (cannot assert violation code without Playwright)"
+  log "  NOTE: skipped FAIL cases are NOT counted as PASS — they are SKIPPED"
 elif [[ $EXIT_F3 -eq 2 ]]; then
   log "  Output: ${OUTPUT_F3}"
   log_fail "FAIL-3 — exit 2 (server/input error); expected exit 1"
@@ -543,6 +560,70 @@ else
   else
     log_fail "FAIL-3 — assertion failed (see above)"
   fi
+fi
+
+# ══════════════════════════════════════════════════════════════════════════════
+# SHOULD-FAIL-1: EMPTY-MANIFEST FALSE-GREEN bypass.
+#
+# An empty elements:[] manifest previously navigated to the page, checked
+# nothing, and exited 0 with elements_checked:0.  That is a false green.
+#
+# After the min-elements guard patch in the TS script, an empty manifest must
+# exit NONZERO (exit 2, input malformed / coverage assertion failed).
+#
+# This case does NOT need Playwright — the guard fires before browser launch,
+# so exit 3 is NOT an acceptable outcome here.  If Playwright is absent and
+# the guard is working, the TS script must still exit 2 before it reaches the
+# Playwright import.  Therefore we assert exit 2 unconditionally, and treat
+# exit 3 as a test failure (guard is absent or bypassed).
+# ══════════════════════════════════════════════════════════════════════════════
+log_case "SHOULD-FAIL-1 — empty manifest must exit nonzero (EMPTY-MANIFEST FALSE-GREEN bypass)"
+CASE_COUNT=$((CASE_COUNT + 1))
+
+TMPDIR_SF1=$(_mktemp_tracked)
+
+# We do not need a server for this case: the guard fires before browser launch.
+# We pass a dummy page_url; the script must never reach it.
+cat > "${TMPDIR_SF1}/manifest.json" << 'JSON'
+{
+  "schema_version": 1,
+  "route": "/archive",
+  "description": "SHOULD-FAIL-1 fixture: empty elements array — must exit nonzero",
+  "elements": []
+}
+JSON
+
+set +e
+OUTPUT_SF1=$(echo "{\"page_url\": \"http://127.0.0.1:19999\", \"manifest_path\": \"${TMPDIR_SF1}/manifest.json\"}" \
+  | npx tsx "${REPO_ROOT}/scripts/audit-render-fidelity-vs-intent.ts" 2>&1)
+EXIT_SF1=$?
+set -e
+
+log "  exit=${EXIT_SF1}"
+
+# The guard must fire before any Playwright import, so exit 3 (Playwright absent)
+# is NOT acceptable — it would mean the guard is absent and the script reached
+# the Playwright block.  Only exit 2 is the correct nonzero response here.
+if [[ $EXIT_SF1 -eq 0 ]]; then
+  log "  Output: ${OUTPUT_SF1}"
+  log_fail "SHOULD-FAIL-1 — exit 0 (FALSE-GREEN); expected exit 2. The empty-manifest bypass is NOT closed."
+elif [[ $EXIT_SF1 -eq 3 ]]; then
+  log "  Output: ${OUTPUT_SF1}"
+  log_fail "SHOULD-FAIL-1 — exit 3 (Playwright-absent path reached); min-elements guard is absent or fires too late."
+elif [[ $EXIT_SF1 -eq 1 ]]; then
+  log "  Output: ${OUTPUT_SF1}"
+  log_fail "SHOULD-FAIL-1 — exit 1 (violation path); expected exit 2 for malformed/empty manifest."
+elif [[ $EXIT_SF1 -eq 2 ]]; then
+  if echo "${OUTPUT_SF1}" | grep -qi "empty\|elements\|nothing to check\|coverage"; then
+    log_pass "SHOULD-FAIL-1 — exit 2 (nonzero) and output names empty-manifest reason. Bypass is closed."
+    PASS_COUNT=$((PASS_COUNT + 1))
+  else
+    log "  Output: ${OUTPUT_SF1}"
+    log_fail "SHOULD-FAIL-1 — exit 2 but output does not mention empty/elements/nothing to check. Guard may be wrong."
+  fi
+else
+  log "  Output: ${OUTPUT_SF1}"
+  log_fail "SHOULD-FAIL-1 — unexpected exit ${EXIT_SF1}; expected exit 2."
 fi
 
 # ══════════════════════════════════════════════════════════════════════════════

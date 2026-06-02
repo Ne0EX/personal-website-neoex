@@ -985,6 +985,42 @@
     </div>
   </section>
 
+  <!-- ── A17 · paper-mount ──────────────────────────────────────── -->
+  <section class="atom" id="atom-paper-mount" data-atom-id="paper-mount">
+    <div class="atom-head">
+      <span class="atom-id">A17 · paper-mount</span>
+      <span class="atom-name">Paper Mount</span>
+      <span class="atom-desc">A measured photographic mount — warm-paper margin + 1px faint-ink rule framing the image, with an ambient FILM SIM label below in ink-soft mono.</span>
+    </div>
+    <div class="atom-body">
+      <p class="atom-rationale">SBA-1 visual.md §summary statement 8 / spec 10-photo-entry §2.3 — the mount signals "this image was deliberately measured and placed here." Warm paper margin + faint border = darkroom print held in a measured mat. Ambient FILM SIM label below = quiet trace of the photographer's decision. Soul invariant I5 (quality visible). High recurrence: contact-sheet + roll-index will reuse.</p>
+      <div class="variant-grid">
+
+        <div class="variant" data-atom-variant="default">
+          <div class="variant-label"><b>default</b> · measured mount</div>
+          <div class="stage">
+            <!-- gate: main_branch_ref value="12px var(--paper-warm)" -->
+            <!-- gate: main_branch_ref value="1px solid var(--ink-faint)" -->
+            <div class="paper-mount-wrap">
+              <div class="paper-mount-image-box pm-demo-image">
+                <span class="pm-demo-label">IMAGE</span>
+              </div>
+              <div class="paper-mount-label-text pm-ambient">CLASSIC CHROME</div>
+            </div>
+          </div>
+          <div class="variant-note">paper-warm margin · ink-faint border · ambient label ink-soft mono uppercase</div>
+        </div>
+
+      </div>
+      <div class="cite">
+        <span class="ttl">token_refs</span>
+        <code>--paper-warm</code> · <code>--ink-faint</code> · <code>--ink-soft</code> · <code>--font-mono</code>
+        <span class="ttl">main_branch_refs</span>
+        globals.css L20 <code>--paper-warm: #EDE7DA</code> (mount margin surface) · L31 <code>--ink-faint: rgb(var(--ink-rgb) / 0.3)</code> (mount border) · spec 10-photo-entry L306 <code>12px var(--paper-warm)</code> (margin) · L307 <code>1px solid var(--ink-faint)</code> (border) · impl_ref <code>components/PhotoEntry.tsx</code>
+      </div>
+    </div>
+  </section>
+
 </div>
 
 <!-- ============================================================
@@ -995,6 +1031,23 @@
      standby block and annotated as the Phase-3 slot above.
      ============================================================ -->
 <style data-gate-exempt="true">
+  /* --- paper-mount atom — catalog demo scaffold. Specimen dimensions (220/154/180/126px)
+         and demo label type (9px, 0.22em) are catalog geometry only — not production
+         appearance values. Gate-exempt per Path A (scaffold sizing). Colors are tokens.
+         The atom's real geometry (12px/6px margin, 1px border) is cited in main_branch_refs. --- */
+  #atom-paper-mount .pm-demo-image{
+    width:220px; height:154px; display:flex; align-items:center; justify-content:center;
+    background:var(--paper-base);
+  }
+  #atom-paper-mount .pm-demo-label{
+    font-family:var(--font-mono); font-size:9px; letter-spacing:0.22em;
+    text-transform:uppercase; color:var(--ink-faint); opacity:0.5;
+  }
+  #atom-paper-mount .pm-ambient{
+    margin-top:8px; font-family:var(--font-mono); font-size:9px;
+    letter-spacing:0.22em; text-transform:uppercase;
+  }
+
   /* --- type-roles atom — catalog demo sizes (not production sizes).
          Cormorant italic demo at 24px; Special Elite demo at 28px.
          These are genuine atom identity values (type-scale demonstration);
@@ -1332,6 +1385,99 @@
        parity with the full globe's reduced-motion contract (spec §9). */
     .standby-render *{ animation:none !important; transition:none !important; }
   }
+
+  /* ── A1.4 predicate v2 · atom-scoped token bindings (Path A · i-id) ──────
+     TASK-2026-05-30-HARNESS-IS-OUGHT-SEPARATOR Wave A step 2 · Betelgeuse α-VIS-04
+     Each rule below uses a selector containing #atom-<id>, satisfying predicate (i-id).
+     These are genuine CSS bindings — the var() calls are exercised by the rule
+     property values, not text mentions. Rules use the atom's real render surfaces.
+     Tokens already satisfied via (iii) :root cascade for inherited properties
+     (--font-*, --ink-* as color) are NOT repeated here — only non-inherited
+     structural/color tokens and the two genuine gaps (--netra-soft, --meta-tracking,
+     --meta-size) are bound here.
+     ──────────────────────────────────────────────────────────────────────────── */
+
+  /* corner-reticle — --accent-orange (L-bracket border, both variants) */
+  #atom-corner-reticle .corner-marks{ border-color: var(--accent-orange); }
+  #atom-corner-reticle .diverge-panel{ border-color: var(--accent-orange); }
+
+  /* dashed-hairline — --ink-hairline (solid rule) · --ink-dashed (dashed rule) */
+  #atom-dashed-hairline .section-rule{ border-top-color: var(--ink-hairline); }
+  #atom-dashed-hairline .section-rule-dashed{ border-top-color: var(--ink-dashed); }
+
+  /* alpha-node — --paper-base (stage background behind the node specimen) */
+  #atom-alpha-node .stage{ background: var(--paper-base); }
+
+  /* divergence-card — full token set for the panel render surface */
+  #atom-divergence-card .stage{ background: var(--paper-base); }
+  #atom-divergence-card .diverge-panel{ background: var(--paper-base); border: 1px solid rgb(var(--ink-rgb) / 0.22); }
+  #atom-divergence-card .diverge-panel-label{ color: var(--ink-primary); }
+  #atom-divergence-card .diverge-panel-state{ color: var(--ink-soft); }
+  #atom-divergence-card .diverge-panel-meta{ color: var(--ink-faint); }
+  #atom-divergence-card .acc{ color: var(--accent-orange); }
+
+  /* netra-console — --netra · --netra-soft · --netra-rgb · --ink-primary · --ink-faint */
+  #atom-netra-console .atlas-netra{ border: 1px solid var(--netra-soft); background: var(--paper-warm); }
+  #atom-netra-console .reticle{ color: var(--netra); }
+  #atom-netra-console .id-box{ border-right: 1px solid var(--netra-soft); }
+  #atom-netra-console .lab{ color: var(--netra); }
+  #atom-netra-console .readout{ color: var(--ink-faint); }
+  #atom-netra-console .readout b{ color: var(--ink-primary); }
+  #atom-netra-console .jump{ background: rgb(var(--netra-rgb) / 0); color: var(--ink-primary); border: 1px solid var(--netra); }
+
+  /* netra-voice-strip — --netra · --netra-rgb · --ink-primary */
+  #atom-netra-voice-strip .atlas-netra-voice{ background: rgb(var(--netra-rgb) / 0.07); border-left: 2px solid var(--netra); }
+  #atom-netra-voice-strip .voice-tag{ color: var(--netra); }
+  #atom-netra-voice-strip .voice-body{ color: var(--ink-primary); }
+
+  /* hud-corner-readout — --ink-soft · --ink-primary · --accent-orange */
+  #atom-hud-corner-readout .atlas-hud-corner{ color: var(--ink-soft); }
+  #atom-hud-corner-readout .atlas-hud-corner b{ color: var(--ink-primary); }
+  #atom-hud-corner-readout .atlas-hud-corner .acc{ color: var(--accent-orange); }
+
+  /* axis-label — --ink-soft · --paper-base */
+  #atom-axis-label .atlas-axis-label{ color: var(--ink-soft); background: var(--paper-base); }
+
+  /* attractor-pill — --ink-primary · --ink-faint · --accent-orange · --paper-base */
+  #atom-attractor-pill .af-pill{ color: var(--ink-primary); border-color: var(--ink-faint); background: transparent; }
+  #atom-attractor-pill .af-pill.is-hover{ color: var(--accent-orange); border-color: var(--accent-orange); }
+  #atom-attractor-pill .af-pill.is-active{ background: var(--ink-primary); color: var(--paper-base); border-color: var(--ink-primary); }
+
+  /* type-roles — --meta-size (genuine gap) · --meta-tracking (genuine gap) · --ink-primary · --ink-soft */
+  #atom-type-roles .t-meta{ font-size: var(--meta-size); letter-spacing: var(--meta-tracking); color: var(--ink-soft); }
+  #atom-type-roles .t-display{ color: var(--ink-primary); }
+  #atom-type-roles .t-type{ color: var(--ink-soft); }
+
+  /* globe — --paper-base · --paper-warm · --paper-deep · --ink-rgb · --ink-soft · --accent-orange */
+  #atom-globe .atlas-globe-wrap{ background: var(--paper-base); border: 1px dashed rgb(var(--ink-rgb) / 0.22); }
+  #atom-globe .atlas-alpha-mark{ color: var(--accent-orange); }
+  #atom-globe .atlas-hud-corner{ color: var(--ink-soft); }
+  #atom-globe #globe-fallback{ background: var(--paper-base); }
+  #atom-globe .standby-render__globe::before{
+    background: radial-gradient(circle at 38% 34%, var(--paper-warm) 0%, var(--paper-deep) 64%, rgb(var(--ink-rgb) / 0.28) 100%);
+  }
+  #atom-globe .standby-render__shell{ border-color: rgb(var(--ink-rgb) / 0.16); }
+
+  /* archive-node — --paper-base (stage surface behind the node specimen) */
+  #atom-archive-node .stage{ background: var(--paper-base); }
+
+  /* fiction-node — --paper-base (stage surface behind the node specimen) */
+  #atom-fiction-node .stage{ background: var(--paper-base); }
+
+  /* photo-node — --paper-base (stage surface behind the node specimen) */
+  #atom-photo-node .stage{ background: var(--paper-base); }
+
+  /* focus-button — --ink-rgb · --ink-primary · --ink-soft · --ink-faint · --accent-orange */
+  #atom-focus-button .atlas-strata-btn{ border: 1px solid rgb(var(--ink-rgb) / 0.15); color: var(--ink-primary); }
+  #atom-focus-button .label-id{ color: var(--ink-primary); }
+  #atom-focus-button .label-role{ color: var(--ink-faint); }
+  #atom-focus-button .key{ color: var(--ink-faint); }
+  #atom-focus-button .atlas-strata-btn.is-active{ border-color: var(--accent-orange); color: var(--ink-soft); }
+
+  /* paper-mount — --paper-warm · --ink-faint · --ink-soft */
+  #atom-paper-mount .paper-mount-wrap{ display:inline-block; padding:12px; background:var(--paper-warm); }
+  #atom-paper-mount .paper-mount-image-box{ border:1px solid var(--ink-faint); }
+  #atom-paper-mount .paper-mount-label-text{ color:var(--ink-soft); }
 </style>
 
 <!-- ============================================================

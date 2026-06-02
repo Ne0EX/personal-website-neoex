@@ -227,6 +227,26 @@ async function main(): Promise<void> {
     process.exit(2);
   }
 
+  // MIN-ELEMENTS GUARD — closes the EMPTY-MANIFEST FALSE-GREEN bypass.
+  //
+  // A manifest with elements:[] passes all array checks above, navigates to the
+  // page, checks nothing, and exits 0 with elements_checked:0. That is a false
+  // green: an empty manifest is either a misconfiguration or an intentional
+  // hollowing of a previously-populated one. Both cases must not silently pass.
+  //
+  // Exit 2 (input malformed / coverage assertion failed) is the correct code:
+  // an empty manifest is a coverage failure — the gate cannot assert anything
+  // about the page. The caller must fix the manifest or explicitly mark it as
+  // a STUB in a containing config if it is intentionally deferred.
+  if (manifest.elements.length === 0) {
+    process.stderr.write(
+      `[render-fidelity] ERROR manifest.elements is empty — nothing to check. ` +
+      `An empty manifest exits nonzero (exit 2) rather than false-green. ` +
+      `Either populate elements or mark this manifest as STUB in the rail config.\n`
+    );
+    process.exit(2);
+  }
+
   log(`manifest: ${manifest_path} (route=${manifest.route}, ${manifest.elements.length} elements)`);
   log(`page_url: ${page_url}`);
 

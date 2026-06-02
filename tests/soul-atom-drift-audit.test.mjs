@@ -22,7 +22,7 @@
 
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -32,6 +32,10 @@ const AUDIT_TS = join(REPO_ROOT, "scripts", "audit-soul-atom-drift.ts");
 const REAL_MANIFEST = join(REPO_ROOT, ".claude", "visual-diffs", "soul-atlas", "manifest.json");
 const REAL_GALLERY = join(REPO_ROOT, ".claude", "visual-diffs", "soul-atlas", "gallery.html");
 const REAL_TOKENS = join(REPO_ROOT, "app", "globals.css");
+
+// Read expected atom count from live manifest at module load time.
+// This is future-proof against manifest growth — no hardcoded count.
+const LIVE_MANIFEST_ATOM_COUNT = JSON.parse(readFileSync(REAL_MANIFEST, "utf8")).atoms.length;
 
 /**
  * Run the audit with the given input JSON and return { stdout, stderr, status }.
@@ -507,9 +511,9 @@ test("an atom listed in manifest but absent from gallery produces a violation", 
   }
 });
 
-// ─── Test 10: live manifest runs without crashing, atoms_checked = 12 ─────────
+// ─── Test 10: live manifest runs without crashing, atoms_checked matches manifest ──
 
-test("live manifest + gallery: atoms_checked === 12 and audit produces valid JSON", () => {
+test("live manifest + gallery: atoms_checked matches manifest.atoms.length and audit produces valid JSON", () => {
   const { stdout, status, stderr } = runAudit({
     manifest_path: REAL_MANIFEST,
     gallery_path: REAL_GALLERY,
@@ -529,7 +533,12 @@ test("live manifest + gallery: atoms_checked === 12 and audit produces valid JSO
 
   assert.ok("pass" in out, "missing 'pass' field");
   assert.ok("violations" in out, "missing 'violations' field");
-  assert.equal(out.atoms_checked, 12, `expected 12 atoms, got ${out.atoms_checked}`);
+  // Count is read from manifest at module load — future-proof against manifest growth.
+  assert.equal(
+    out.atoms_checked,
+    LIVE_MANIFEST_ATOM_COUNT,
+    `expected ${LIVE_MANIFEST_ATOM_COUNT} atoms (live manifest count), got ${out.atoms_checked}`
+  );
 
   // All violations should have required fields
   for (const v of out.violations) {
