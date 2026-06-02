@@ -14,7 +14,20 @@
  */
 
 // Re-export inferred types so consumers have them without importing velite directly.
-export type { Article, Fiction, Photo, PhotoSidecar, PhotoExif, PhotoVariants, PhotoVariantEntry, FictionVariant } from './types'
+export type {
+  Article,
+  Fiction,
+  Photo,
+  PhotoSidecar,
+  PhotoExif,
+  PhotoVariants,
+  PhotoVariantEntry,
+  FictionVariant,
+  // Worldline-weave types — S3 (VISION-2026-05-31 §2.1)
+  WorldlineLink,
+  WorldlineEdge,
+  WorldlineNeighborhood,
+} from './types'
 
 // ---------------------------------------------------------------------------
 // Articles
@@ -61,3 +74,47 @@ export {
 export {
   getAllGlobePins,
 } from './globe-pins'
+
+// ---------------------------------------------------------------------------
+// Worldline-weave helpers — S3 (VISION-2026-05-31 §2.1)
+// lib/content/worldline.ts — reverse-lookup + 1-hop neighbourhood
+// ---------------------------------------------------------------------------
+
+export {
+  getOutgoingLinks,
+  getIncomingLinks,
+  get1HopNeighborhood,
+  resolveNeighborhood,
+} from './worldline'
+
+export type {
+  ResolvedNeighbor,
+  ResolvedNeighborhood,
+} from './worldline'
+
+// ---------------------------------------------------------------------------
+// Photo sidecar — by roll+id (S1 roll-index; also used by worldline reverse-lookup)
+// ---------------------------------------------------------------------------
+
+export {
+  getPhotoByRollAndId,
+} from './photos'
+
+// ---------------------------------------------------------------------------
+// Archive ledger — cross-stratum /archive route (docs/design/21-archive-route.md §7.2)
+// ---------------------------------------------------------------------------
+
+export {
+  getArchiveEntries,
+  getArchiveEntriesByYear,
+  getMiniGlobePins,
+} from './archive'
+
+export type {
+  ArchiveEntry,
+  ArchiveArticle,
+  ArchivePhoto,
+  ArchiveFiction,
+  MiniGlobePin,
+  GetArchiveEntriesOptions,
+} from './archive'

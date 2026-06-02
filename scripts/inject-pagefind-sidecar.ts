@@ -247,6 +247,62 @@ function homeSidecar(): string {
     `</div>`
 }
 
+/**
+ * Build the data-pagefind-body sidecar for the /archive route.
+ *
+ * Purpose (docs/design/21-archive-route.md §7.3):
+ *   Makes /archive a searchable pagefind page. A visitor who searches for an
+ *   article title will find it via the archive route as well as the direct
+ *   entry route result. Each entry title is injected at weight 3; domain tags
+ *   carry a pagefind-filter so domain-filtered search works across the ledger.
+ *
+ * Idempotent: the caller already guards with hasRealPagefindBody() before calling
+ *   this function. The sidecar itself writes no HTML state.
+ *
+ * The visually-hidden pattern (1×1px clip) is identical to other sidecar blocks.
+ * React hydration replaces the static HTML immediately — the block is never
+ * seen by real users.
+ */
+function archiveSidecar(
+  articles: ArticleRecord[],
+  fictions: FictionRecord[],
+  photoSidecars: PhotoSidecarRecord[],
+): string {
+  // Collect all unique domains for pagefind-filter injection.
+  const domains = new Set<string>()
+
+  // Per-entry title spans at weight 3.
+  const entrySpans: string[] = []
+
+  for (const a of articles) {
+    entrySpans.push(`<span data-pagefind-weight="3">${esc(a.title)}</span>`)
+    domains.add(a.domain)
+  }
+  for (const f of fictions) {
+    entrySpans.push(`<span data-pagefind-weight="3">${esc(f.title)}</span>`)
+    domains.add(f.domain)
+  }
+  for (const s of photoSidecars) {
+    const caption = s.caption ?? s.id
+    entrySpans.push(`<span data-pagefind-weight="3">${esc(caption)}</span>`)
+    // Photos carry no domain in the schema — omit from domain filter.
+  }
+
+  // Domain filter spans — one per unique domain value present in the ledger.
+  const domainSpans = [...domains].map(
+    (d) => `<span data-pagefind-filter="domain[${esc(d)}]">${esc(d)}</span>`,
+  )
+
+  return (
+    `<div data-pagefind-body style="${VISUALLY_HIDDEN_STYLE}">` +
+    `<span data-pagefind-meta="title:ARCHIVE LEDGER,type:archive">ARCHIVE LEDGER</span>` +
+    `<span data-pagefind-weight="5">ARCHIVE LEDGER</span>` +
+    entrySpans.join('') +
+    domainSpans.join('') +
+    `</div>`
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Real HTML attribute detector
 // A real HTML element has data-pagefind-body as an attribute in an opening tag,
@@ -423,6 +479,16 @@ async function main(): Promise<void> {
         logv(`unmatched photo sidecar: ${relPath} (key=${key})`)
         unmatched++
       }
+    } else if (
+      // archive/index.html  — Next.js renders /archive as archive/index.html
+      // OR archive.html — depending on Next.js output mode
+      (parts[0] === 'archive' && parts.length === 2 && parts[1] === 'index.html') ||
+      (parts[0] === 'archive' && parts.length === 1) ||
+      relPath === 'archive.html'
+    ) {
+      // /archive route — cross-stratum ledger (docs/design/21-archive-route.md §7.3)
+      sidecar = archiveSidecar(articles, fictions, photoSidecars)
+      logv(`archive: ${articles.length} articles, ${fictions.length} fiction, ${photoSidecars.length} photos injected`)
     } else {
       logv(`unrecognised path pattern: ${relPath}`)
       unmatched++

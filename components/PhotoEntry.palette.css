@@ -1,0 +1,176 @@
+/*
+ * PhotoEntry.palette.css
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Film-simulation palette overrides for the photo entry surface.
+ *
+ * IMPORTANT — compound selectors, NOT descendant.
+ * Both [data-photo-entry-root] and [data-palette="..."] are on the SAME element.
+ * A space between them would be a descendant combinator that silently never
+ * matches. No space between the two attribute selectors is load-bearing.
+ *
+ * Exception site: this is the FIRST named production raw-hex exception per
+ * SHIP-PLAN §4 and PRD-03 §8.1. The four film-simulation palette blocks
+ * require raw hex because they are calibrated color science values that must
+ * not be rounded through CSS variable indirection.
+ *
+ * data-palette="base" = native unstyled image (Provia / as-shot).
+ * No rule targets [data-palette="base"] — the image renders with zero filter
+ * and the root uses the global :root tokens unchanged.
+ *
+ * Owner: Sirius (α-SUR-01) · TASK-2026-05-30-PHOTO-ENTRY-D3-SHIP
+ * Source: PRD-03 §8.1 verbatim raw hex values.
+ */
+
+/* ── Classic Chrome ─────────────────────────────────────────────────────── */
+/* Compound selector: both attrs on the same element — no space between them. */
+[data-photo-entry-root][data-palette="classic-chrome"] img {
+  filter: sepia(0.18) saturate(0.82) contrast(1.06) brightness(0.97);
+}
+[data-photo-entry-root][data-palette="classic-chrome"] {
+  --paper-base:         #E5DBC8;
+  --paper-warm:         #EAE0CD;
+  --paper-deep:         #D6C9A6;
+  --paper-bright:       #EFE6D2;
+  --ink-rgb:            56 75 89;
+  --netra-rgb:          94 110 122;
+  --accent-orange:      #A86B2C;
+  --accent-orange-soft: rgba(168, 107, 44, 0.18);
+}
+
+/* ── Acros ──────────────────────────────────────────────────────────────── */
+[data-photo-entry-root][data-palette="acros"] img {
+  filter: grayscale(1) contrast(1.08) brightness(0.96);
+}
+[data-photo-entry-root][data-palette="acros"] {
+  --paper-base:         #DDDAD3;
+  --paper-warm:         #E2DFD7;
+  --paper-deep:         #C8C5BC;
+  --paper-bright:       #EDE9E0;
+  --ink-rgb:            26 24 21;
+  --netra-rgb:          60 56 50;
+  --accent-orange:      #5A5A55;
+  --accent-orange-soft: rgba(90, 90, 85, 0.20);
+}
+
+/* ── Reala Ace ──────────────────────────────────────────────────────────── */
+[data-photo-entry-root][data-palette="reala-ace"] img {
+  filter: saturate(1.08) contrast(1.04) hue-rotate(2deg);
+}
+[data-photo-entry-root][data-palette="reala-ace"] {
+  --paper-base:         #EAE3D2;
+  --paper-warm:         #EFE9D8;
+  --paper-deep:         #D9CFB4;
+  --paper-bright:       #F2ECDB;
+  --ink-rgb:            36 54 80;
+  --netra-rgb:          86 100 124;
+  --accent-orange:      #C75D45;
+  --accent-orange-soft: rgba(199, 93, 69, 0.18);
+}
+
+/* ── Velvia ─────────────────────────────────────────────────────────────── */
+[data-photo-entry-root][data-palette="velvia"] img {
+  filter: saturate(1.35) contrast(1.12) brightness(0.95);
+}
+[data-photo-entry-root][data-palette="velvia"] {
+  --paper-base:         #EAE0CC;
+  --paper-warm:         #EFE5D2;
+  --paper-deep:         #D9CCAE;
+  --paper-bright:       #F2E8D5;
+  --ink-rgb:            16 70 91;
+  --netra-rgb:          58 110 128;
+  --accent-orange:      #D24820;
+  --accent-orange-soft: rgba(210, 72, 32, 0.20);
+}
+
+/* ── Photo entry links — hover state via CSS (no JS event handlers on server
+ * components). Pattern modeled after .roll-full in the D3 prototype.
+ * photo-entry-link--block adds the block + min-height for the roll back-links. */
+.photo-entry-link {
+  color: var(--ink-soft);
+  text-decoration: none;
+  padding: 2px 0;
+  transition: color 0.12s ease;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+.photo-entry-link:hover {
+  color: var(--accent-orange);
+}
+.photo-entry-link:focus-visible {
+  outline: 2px dashed var(--accent-orange);
+  outline-offset: 3px;
+  color: var(--accent-orange);
+}
+.photo-entry-link--block {
+  display: inline-block;
+  margin-top: 20px;
+  padding: 8px 0;
+  min-height: 44px; /* accessible tap target */
+}
+
+/* ── Responsive breakpoints ─────────────────────────────────────────────── */
+/* Tablet (≤1023px): collapse to 2-col, readout below */
+@media (max-width: 1023px) {
+  [data-photo-entry-root] .photo-entry-grid {
+    grid-template-columns: 1fr 200px !important;
+    gap: 24px !important;
+  }
+}
+
+/* Narrow (≤880px): single-column, hide marginalia */
+@media (max-width: 880px) {
+  [data-photo-entry-root] .photo-entry-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 20px !important;
+    padding: 20px 18px !important;
+  }
+  [data-photo-entry-root] header,
+  [data-photo-entry-root] .atlas-netra-voice {
+    padding-left: 18px !important;
+    padding-right: 18px !important;
+  }
+  [data-photo-entry-root] footer {
+    padding: 14px 18px !important;
+  }
+}
+
+/* ≤600px: single-column stack (covers 375 per Betelgeuse spec §7.4) */
+@media (max-width: 600px) {
+  [data-photo-entry-root] .photo-entry-grid {
+    padding: 16px 14px !important;
+  }
+  [data-photo-entry-root] header,
+  [data-photo-entry-root] .atlas-netra-voice {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+  [data-photo-entry-root] footer {
+    padding: 12px 14px !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+  /* paper-mount: collapse margin to 6px per atom narrow variant */
+  [data-photo-entry-root] .paper-mount {
+    padding: 6px !important;
+  }
+  [data-photo-entry-root] .paper-mount-label {
+    margin-top: 6px !important;
+  }
+}
+
+/* ── Opacity-dip transition — body-level palette switch animation ────────
+ * D4 resolved: 80ms cubic-bezier(0.4, 0, 0.6, 1) dip → apply → 80ms recover.
+ * The .is-palette-switching class is added/removed by FilmSimSwitcher.
+ * Total perceivable duration: ~160ms. Registers as a meaningful click, not
+ * an animation. Under prefers-reduced-motion, FilmSimSwitcher skips this
+ * entirely — no class is added, swap is instant.
+ */
+body {
+  transition: opacity 80ms cubic-bezier(0.0, 0, 0.2, 1);
+}
+body.is-palette-switching {
+  opacity: 0.75;
+  transition: opacity 80ms cubic-bezier(0.4, 0, 0.6, 1);
+}

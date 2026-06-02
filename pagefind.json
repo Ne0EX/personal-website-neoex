@@ -1,0 +1,5 @@
+{
+  "site": ".next/server/app",
+  "output_path": "public/pagefind",
+  "language": ["en", "th"]
+}

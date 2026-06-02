@@ -87,6 +87,21 @@ export async function getPhotoById(
 }
 
 /**
+ * A single per-photo sidecar record by roll + id. Returns null (not undefined)
+ * for idiomatic null-check in the /photos/[roll]/[id] route page.
+ *
+ * Used by: app/photos/[roll]/[id]/page.tsx
+ * Owner: Sirius (α-SUR-01) · TASK-2026-05-30-PHOTO-ENTRY-D3-SHIP
+ */
+export async function getPhotoByRollAndId(
+  roll: string,
+  id: string,
+): Promise<PhotoSidecar | null> {
+  const sidecars = await loadSidecars()
+  return sidecars.find((s) => s.roll === roll && s.id === id) ?? null
+}
+
+/**
  * Prev/next navigation within a roll, by capture-sequence (id sort).
  * Used by the roll context strip on the photo entry page (TASK-31).
  */
@@ -101,6 +116,79 @@ export async function getRollNavigation(
     prev: idx > 0 ? inRoll[idx - 1] : undefined,
     next: idx < inRoll.length - 1 ? inRoll[idx + 1] : undefined,
   }
+}
+
+// ---------------------------------------------------------------------------
+// Roll contact-sheet helper — S1 roll-index (VISION-2026-05-31)
+// ---------------------------------------------------------------------------
+
+/**
+ * Roll contacts context — sidecars + roll description for the roll-index page.
+ *
+ * Used by: app/photos/[roll]/page.tsx + components/RollIndex.tsx
+ * Owner: Sirius (α-SUR-01) · S1 roll-index ship
+ */
+export interface RollContacts {
+  /** Sidecars ordered by id ascending (capture sequence). */
+  sidecars: PhotoSidecar[]
+  /** Roll lede body text extracted from roll.mdx MDX body.
+   *  Empty string when the roll has no prose body (2026-04-chiang-mai).
+   *  The route reads this at build time via fs.readFile. */
+  lede: string
+  /** Derived date range: YYYY.MM.DD — YYYY.MM.DD (Special Elite display format).
+   *  Empty string when roll has no sidecars. */
+  dateRange: string
+}
+
+/**
+ * Returns sidecars for a roll plus the roll description lede.
+ * The lede is extracted directly from the roll.mdx MDX body at build time.
+ *
+ * @param roll - Roll slug, e.g. "2026-05-bangkok"
+ * @param rollMdxBody - The raw MDX body text of roll.mdx, passed in from the route
+ *   (which reads the file via fs). Separating the read from this helper keeps the
+ *   helper testable without filesystem access.
+ */
+export async function getRollContacts(
+  roll: string,
+  rollMdxBody: string,
+): Promise<RollContacts> {
+  const sidecars = await getSidecarsInRoll(roll)
+
+  // Derive date range from min/max isoDate across all sidecars in the roll.
+  // Format: YYYY.MM.DD — YYYY.MM.DD
+  let dateRange = ''
+  if (sidecars.length > 0) {
+    const sorted = [...sidecars].sort((a, b) => a.isoDate.localeCompare(b.isoDate))
+    const first = sorted[0].isoDate.replace(/-/g, '.')
+    const last = sorted[sorted.length - 1].isoDate.replace(/-/g, '.')
+    dateRange = first === last ? first : `${first} — ${last}`
+  }
+
+  // Extract lede: strip MDX comments and take the first non-empty paragraph.
+  // A comment-only body (<!-- ... -->) resolves to an empty lede → hide lede row.
+  const lede = extractMdxLede(rollMdxBody)
+
+  return { sidecars, lede, dateRange }
+}
+
+/**
+ * Extracts the first non-empty prose paragraph from raw MDX body content.
+ * Strips HTML comments (<!-- ... -->), trims whitespace.
+ * Returns empty string if no prose paragraph is found.
+ */
+function extractMdxLede(raw: string): string {
+  // Strip HTML comments (handles the <!-- roll description — Vega fills this --> case)
+  const stripped = raw.replace(/<!--[\s\S]*?-->/g, '').trim()
+  if (!stripped) return ''
+
+  // Split by double newlines, take first non-empty paragraph
+  const paragraphs = stripped.split(/\n\n+/)
+  for (const para of paragraphs) {
+    const clean = para.trim()
+    if (clean) return clean
+  }
+  return ''
 }
 
 // ---------------------------------------------------------------------------

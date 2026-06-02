@@ -1,0 +1,53 @@
+/**
+ * WorldlineLinks.css — co-located side-effect CSS for WorldlineLinks.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Non-module: global selectors targeting data-worldline-section internals.
+ * Imported as a side-effect from WorldlineLinks.tsx.
+ *
+ * Covers:
+ *   - Glyph color shift on entry-card hover (atom entry-glitch partner rule)
+ *   - Focus ring on neighbor <a> (2px solid var(--accent-orange), offset 2px)
+ *   - Mobile ≤600px: block layout, date hidden, min-height 44px on <a>
+ *   - prefers-reduced-motion: handled globally via worldline-atoms.css
+ *     (.entry-glitch::after transition-duration collapsed to 0.001ms)
+ *
+ * Design spec: docs/design/13-worldline-section.md §breakpoints + §motion + §accessibility
+ * Owner: Sirius (α-SUR-01) · S3 worldline-section
+ */
+
+/* ── Glyph color shift on neighbor row hover ──────────────────── */
+/* Companion to .entry-card:hover .entry-glitch::after (worldline-atoms.css line 217).
+   When the entry-card ancestor is hovered, the glyph shifts from --ink-soft
+   to --ink-primary (spec §kind-glyphs). */
+[data-worldline-section] .entry-card:hover .wl-neighbor-glyph {
+  color: var(--ink-primary);
+  transition: color 150ms ease;
+}
+
+/* ── Focus ring on neighbor links ─────────────────────────────── */
+/* 2px solid var(--accent-orange), offset 2px — spec §accessibility. */
+[data-worldline-section] .entry-card:focus-visible {
+  outline: 2px solid var(--accent-orange);
+  outline-offset: 2px;
+  border-radius: 0; /* no rounded corners per design non-negotiables */
+}
+
+/* ── Mobile ≤600px ─────────────────────────────────────────────── */
+/* Spec: neighbor row is display:block (not flex); date hidden; min-height 44px. */
+@media (max-width: 600px) {
+  [data-worldline-section] .entry-card {
+    display: block !important;
+    min-height: 44px;
+    padding: 10px 0;
+  }
+
+  /* Date hidden at mobile (space economy per spec). Kind label kept. */
+  [data-worldline-section] .wl-neighbor-date {
+    display: none;
+  }
+
+  /* THIS ENTRY row — stacked at mobile (horizontal at desktop) */
+  [data-worldline-section] [aria-current="page"] {
+    flex-wrap: wrap;
+  }
+}

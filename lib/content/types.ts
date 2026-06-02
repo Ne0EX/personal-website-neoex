@@ -175,6 +175,50 @@ export type FictionPin = {
 }
 
 // ---------------------------------------------------------------------------
+// Worldline-weave types — S3 · VISION-2026-05-31 §2.1
+// Consumed by lib/content/worldline.ts (helpers) + <WorldlineLinks /> (Sirius).
+// Design spec: docs/design/16-worldline-schema.md §2
+// ---------------------------------------------------------------------------
+
+/**
+ * A single outgoing inter-entry link, as declared in frontmatter.
+ *
+ * `to` format: "article/<fileNum>" | "fiction/<slug>" | "photos/<roll>/<id>"
+ * `label` is optional free-text prose rendered in Cormorant italic at the arc-node.
+ */
+export type WorldlineLink = {
+  to: string
+  label?: string
+}
+
+/**
+ * An incoming edge computed at build time by lib/content/worldline.ts.
+ *
+ * `from` is the full canonical key of the source entry ("article/003").
+ * `fromKind` drives glyph selection in <WorldlineLinks />:
+ *   article → circle · fiction → diamond · photo → square (journey-arch §2.2)
+ * `label` is the label the SOURCE entry assigned to this link (may differ from
+ *   the target's perspective — it's the author's framing of the relationship).
+ */
+export type WorldlineEdge = {
+  from: string
+  fromKind: 'article' | 'fiction' | 'photo'
+  label?: string
+}
+
+/**
+ * Full 1-hop neighbourhood for an entry.
+ * Returned by lib/content/worldline.ts get1HopNeighborhood().
+ * Consumed by <WorldlineLinks /> (Sirius) to render the §worldline section.
+ *
+ * Invariant: outgoing and incoming share no entries (different DAG directions).
+ */
+export type WorldlineNeighborhood = {
+  outgoing: WorldlineLink[]
+  incoming: WorldlineEdge[]
+}
+
+// ---------------------------------------------------------------------------
 // MDX component prop types — TASK-2026-05-17-PROCYON-WAVE1-BUNDLE Task A
 // Canonical prop interfaces for MDX components used in article body.
 // Sirius (α-SUR-01) implements the rendering JSX; Procyon owns this interface.

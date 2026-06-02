@@ -584,4 +584,40 @@ Anchors for evaluating voice compliance. These are the reference points; do not 
 
 ---
 
-*end of voice.md · v1.1.0 · Arcturus (α-NET-05) · TASK-2026-05-15-21 / NETRA-RECON-2026-05-16*
+## 7 · Photo entry — film simulation instrument codes
+
+> Author note (Vega) · Added TASK-2026-05-30-PHOTO-ENTRY-D3-NETRA-VOICE.
+> These codes are the canonical NETRA voice representation of Fuji film simulations
+> on the `/photos/<roll>/<id>` L1 voice strip. They keep the strip to one line at 375px.
+
+When a visitor switches the site palette to a film simulation, the NETRA L1 bay on the
+photo entry surface extends its locus string with the active simulation's instrument code.
+The code appears after a `·` separator in the same Cormorant italic body — lowercase, no
+parentheses. It reads as a selector dial state, not a label.
+
+### 7.1 Canonical code table
+
+| simulation | instrument code | example in strip |
+|---|---|---|
+| Provia (base) | `pr` | `locus · dscf0002 · pr` |
+| Classic Chrome | `cc` | `locus · dscf0002 · classic chrome · cc` |
+| Acros | `ac` | `locus · dscf0002 · base · ac` |
+| Reala Ace | `ra` | `locus · dscf0002 · base · ra` |
+| Velvia | `vv` | `locus · dscf0002 · base · vv` |
+
+### 7.2 Strip construction rules
+
+- Base prefix: `locus · <slug> · <native-sim-lowercase>` — no "PHOTO" label, no coord
+  when GPS is withheld (absent segment = withheld; nothing to state).
+- Coord present: `locus · <slug> · <native-sim-lowercase> · <lat>°N · <lon>°E`
+- Sim switched: append ` · <code>` in `var(--accent-orange)`, no parentheses.
+- Sim reverted to base: strip returns to base prefix (no code appended).
+
+### 7.3 Character budget
+
+Longest case with coord (`dscf0002`, Reala Ace active, 375px):
+`locus · dscf0002 · base · 13.04°N · 100.50°E · ra` = 51 chars — within the 52-char mobile budget.
+
+---
+
+*end of voice.md · v1.2.0 · §7 added Vega (α-VOX-08) · TASK-2026-05-30-PHOTO-ENTRY-D3-NETRA-VOICE*

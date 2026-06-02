@@ -1,0 +1,129 @@
+/*
+ * RollIndex.css
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Responsive layout rules for the /photos/<roll> contact sheet.
+ * NOT a CSS module — global selectors required for media query overrides.
+ *
+ * All values resolve to CSS variables from app/globals.css (no raw hex).
+ * Exception: none — this surface has no film-sim palette overrides.
+ *
+ * Side-effect import: import './RollIndex.css' from RollIndex.tsx.
+ *
+ * Owner: Sirius (α-SUR-01) · S1 roll-index (VISION-2026-05-31)
+ */
+
+/* ── Base: outer container padding ─────────────────────────────────────────── */
+.roll-index-outer {
+  padding-left: 32px;
+  padding-right: 32px;
+}
+
+/* ── Strip hover: surface tint to --paper-bright (150ms ease) ─────────────── */
+.roll-index-strip:hover {
+  background: var(--paper-bright) !important;
+}
+
+/* ── Strip focus-visible: 2px solid accent-orange, offset 2px ────────────── */
+.roll-index-strip:focus-visible {
+  outline: 2px solid var(--accent-orange);
+  outline-offset: 2px;
+}
+
+/* ── Strip active: brief press acknowledgment ─────────────────────────────── */
+.roll-index-strip:active {
+  opacity: 0.85;
+  transition: opacity 80ms ease;
+}
+
+/* ── Paper-mount: 8px --paper-warm margin + 1px --ink-faint border ─────────
+   Atom paper-mount (worldline-atoms.css atom 17): padding creates the
+   --paper-warm "mount margin" around the image slot. The 1px --ink-faint
+   border on .paper-mount-image completes the frame.
+   Roll-index variant uses 8px padding (desktop) / 6px (≤880px, ≤600px).
+   inline-block matches the atom's display; the strip grid sizes the column.
+   All tokens from :root — no raw hex.                                        */
+.roll-index-mount.paper-mount {
+  display: inline-block;
+  padding: 8px;
+  background: var(--paper-warm);
+  /* Self-contained: don't leak overflow on the strip grid column */
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* .paper-mount-image inside the roll-index mount: block + ink-faint border.
+   Mirrors the atom rule: .paper-mount img, .paper-mount .paper-mount-image */
+.roll-index-mount.paper-mount .paper-mount-image {
+  display: block;
+  border: 1px solid var(--ink-faint);
+  width: 100%;
+}
+
+/* ── ≤880px (tablet/wide-mobile): narrow image slot, tighter gaps ─────────── */
+@media (max-width: 880px) {
+  .roll-index-outer {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .roll-index-strip {
+    grid-template-columns: 60px 1fr 120px !important;
+    gap: 16px !important;
+  }
+
+  /* Image slot narrows to 120×90px (4:3 maintained by aspect-ratio) */
+  .roll-index-mount.paper-mount {
+    padding: 6px;
+  }
+}
+
+/* ── ≤600px (mobile): 2-row per strip, full-width mount below ────────────── */
+@media (max-width: 600px) {
+  .roll-index-outer {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  /*
+   * Strip becomes 2-row stack:
+   *   Row 1: ID + date (auto height)
+   *   Row 2: caption (auto height, full width)
+   *   Row 3: mount (full width, 4:3 aspect)
+   * Grid switches to single column.
+   */
+  .roll-index-strip {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    align-items: start !important;
+    min-height: 72px;
+  }
+
+  .roll-index-mount.paper-mount {
+    padding: 6px;
+    width: 100%;
+  }
+
+  /* Caption at mobile: clamp to 3 lines */
+  .roll-index-strip .entry-glitch {
+    -webkit-line-clamp: 3 !important;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical !important;
+    overflow: hidden !important;
+  }
+
+  /* Header row 1: stack vertically on mobile */
+  .roll-index-header-row1 {
+    flex-direction: column !important;
+    gap: 6px !important;
+  }
+}
+
+/* ── prefers-reduced-motion: disable transitions ───────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .roll-index-strip {
+    transition-duration: 0.001ms !important;
+  }
+  .roll-index-strip:active {
+    transition-duration: 0.001ms !important;
+  }
+}

@@ -1,13 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useStratumKey, type StratumKey } from "@/lib/client-state/globe-store";
 
+// ARCHIVE is a real route link per docs/design/21-archive-route.md §0 + §2.
+// Peat directive 2026-06-01 overrides VISION-2026-05-31 §1.1 Π1:
+// ◇ ARCHIVE navigates to /archive (real <a>). The triangulate:open dispatch is removed.
+// Active state (accent-orange) is driven by usePathname() below.
 const NAV_ITEMS = [
-  { label: "INDEX",     href: "#hero",      active: true  },
-  { label: "TRACES",    href: "#index",     active: false },
-  { label: "ARCHIVE",   href: "#attractor", active: false },
-  { label: "TRANSMIT",  href: "#transmit",  active: false },
+  { label: "INDEX",     href: "#hero",      isArchive: false },
+  { label: "TRACES",    href: "#index",     isArchive: false },
+  { label: "ARCHIVE",   href: "/archive",   isArchive: true  },
+  { label: "TRANSMIT",  href: "#transmit",  isArchive: false },
 ];
 
 /**
@@ -119,6 +124,9 @@ function StratumIndicator() {
 
 export function Nav() {
   const [time, setTime] = useState<string>("--:--");
+  // usePathname drives active-state for /archive — per docs/design/21-archive-route.md §2.
+  // Returns null during SSR (safe: no active decoration on server; hydrates on client).
+  const pathname = usePathname();
 
   useEffect(() => {
     const update = () => setTime(fmtTime(new Date()));
@@ -139,19 +147,24 @@ export function Nav() {
       </div>
 
       <nav className="nav-links t-meta">
-        {NAV_ITEMS.map(({ label, href, active }) => (
-          <a
-            key={label}
-            href={href}
-            className={
-              active
-                ? "text-[var(--accent-orange)]"
-                : "text-[var(--ink-primary)] hover:text-[var(--accent-orange)] transition-colors"
-            }
-          >
-            ◇ {label}
-          </a>
-        ))}
+        {NAV_ITEMS.map(({ label, href: navHref, isArchive }) => {
+          // ARCHIVE is active when current pathname is /archive (exact match).
+          // All other items keep their original static active=false behaviour.
+          const isActive = isArchive ? pathname === "/archive" : false;
+          return (
+            <a
+              key={label}
+              href={navHref}
+              className={
+                isActive
+                  ? "text-[var(--accent-orange)]"
+                  : "text-[var(--ink-primary)] hover:text-[var(--accent-orange)] transition-colors"
+              }
+            >
+              ◇ {label}
+            </a>
+          );
+        })}
       </nav>
 
       {/*

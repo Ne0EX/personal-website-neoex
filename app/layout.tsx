@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, JetBrains_Mono, Special_Elite } from "next/font/google";
 import "./globals.css";
+// Root-level Triangulate Search portal — mounts the `/` hotkey listener and
+// the overlay portal on every route. Client component; SSR renders nothing.
+import { TriangulateSearchPortal } from "@/components/TriangulateSearchPortal";
 
 const cormorant = Cormorant_Garamond({
   variable: "--font-cormorant",
@@ -38,7 +41,15 @@ export default function RootLayout({
       lang="en"
       className={`${cormorant.variable} ${jetbrains.variable} ${elite.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        {/*
+         * Triangulate Search portal — root-level mount so the `/` hotkey and
+         * Nav ◇ ARCHIVE event work on every route.
+         * Spec: docs/design/14-triangulate-search.md §overlay
+         */}
+        <TriangulateSearchPortal />
+      </body>
     </html>
   );
 }

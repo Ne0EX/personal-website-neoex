@@ -6,6 +6,43 @@ import path from 'node:path'
 // Shared sub-schemas
 // ---------------------------------------------------------------------------
 
+/**
+ * A single outgoing worldline link declared in frontmatter.
+ *
+ * Format of `to`:
+ *   article/<fileNum>                        — e.g. "article/003"
+ *   fiction/<slug>                           — e.g. "fiction/transmission-001"
+ *   photos/<roll>/<id>                       — e.g. "photos/2026-04-chiang-mai/DSCF0001"
+ *
+ * Incoming links are computed at build time by lib/content/worldline.ts;
+ * they are NEVER stored in frontmatter.
+ *
+ * Broken links (to a non-existent entry) emit console.warn at runtime but do NOT
+ * fail the build. Dangling refs are preserved in the record.
+ *
+ * Consumer: lib/content/worldline.ts (reverse-lookup) + <WorldlineLinks /> (Sirius).
+ * Vision lock: VISION-2026-05-31-search-lineage-console.md §2.1
+ * Design spec: docs/design/16-worldline-schema.md §1
+ */
+const worldlineLinkSchema = s.object({
+  /**
+   * Canonical target entry reference. Format: "<kind>/<identifier>".
+   * article → 3-digit fileNum · fiction → kebab slug · photos → <roll>/<id>
+   */
+  to: s
+    .string()
+    .regex(
+      /^(article\/\d{3}|fiction\/[a-z0-9-]+|photos\/\d{4}-\d{2}-[a-z0-9-]+\/[A-Z0-9]+)$/,
+      'worldline_links[].to must be article/<fileNum>, fiction/<slug>, or photos/<roll>/<id>',
+    ),
+  /**
+   * Optional free-text prose label for this edge.
+   * Rendered in Cormorant italic alongside the arc-node glyph (Sirius).
+   * Max 120 chars.
+   */
+  label: s.string().min(1).max(120).optional(),
+})
+
 /** Real-world geographic coordinate. */
 const coordsSchema = s.object({
   lat: s.number(),
@@ -95,6 +132,14 @@ const articles = defineCollection({
       // --- privacy ---
       /** Whether to surface coords in served metadata. Defaults false per privacy policy. */
       shareLocation: s.boolean().default(false),
+
+      // --- worldline-weave (S3) ---
+      /**
+       * Outgoing inter-entry links. Declared as `to: <kind>/<identifier>`.
+       * Incoming edges are computed at build time by lib/content/worldline.ts — never stored here.
+       * Vision lock: VISION-2026-05-31 §2.1. Design spec: docs/design/16-worldline-schema.md §1.
+       */
+      worldline_links: s.array(worldlineLinkSchema).optional().default([]),
     })
     .transform((data) => ({
       ...data,
@@ -260,6 +305,14 @@ const fiction = defineCollection({
         )
         .max(40, 'divergence_cluster must be 40 chars or fewer')
         .optional(),
+
+      // --- worldline-weave (S3) ---
+      /**
+       * Outgoing inter-entry links for this fiction transmission.
+       * Incoming edges computed at build time — never stored here.
+       * Vision lock: VISION-2026-05-31 §2.1. Design spec: docs/design/16-worldline-schema.md §1.
+       */
+      worldline_links: s.array(worldlineLinkSchema).optional().default([]),
     })
     .transform((data) => ({
       ...data,
@@ -419,6 +472,16 @@ const photoSidecars = defineCollection({
 
       // --- variant + EXIF overrides (optional — pipeline sets defaults) ---
       // Frontmatter may not include these; they are derived from process-photos cache.
+
+      // --- worldline-weave (S3) ---
+      /**
+       * Outgoing inter-entry links for this photo.
+       * Not GPS-gated: worldline_links are metadata, not location data.
+       * A photo with shareLocation=false may still declare worldline_links.
+       * Incoming edges computed at build time — never stored here.
+       * Vision lock: VISION-2026-05-31 §2.1. Design spec: docs/design/16-worldline-schema.md §1.
+       */
+      worldline_links: s.array(worldlineLinkSchema).optional().default([]),
     })
     .transform(async (data, ctx) => {
       // Derive the absolute path to this sidecar file from the velite context.
