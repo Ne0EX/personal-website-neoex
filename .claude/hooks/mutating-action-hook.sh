@@ -13,7 +13,9 @@
 #
 # CHECK ORDER (important):
 #   1. Hard structural denies (ALWAYS run first — no allowlist bypass):
-#      net-egress (curl/wget), output-redirection (>>/>/|/tee), shell-inject (bash -c, sh -c)
+#      curl/wget: WHOLESALE BLOCK (any curl/wget in command position is denied)
+#      process-substitution RCE (source/. <(...), interpreter <(curl/wget ...))
+#      output-redirection (>>/>/|/tee), shell-inject (bash -c, sh -c)
 #   2. Named-pattern denylist (mutating-bash.json)
 #   3. Allowlist (can pass through remaining commands)
 #   4. First-seen warn (allow but log)
@@ -23,8 +25,20 @@
 # `^echo ` allowlist `echo secret >> .env`. The allowlist is for intent (this
 # command type is known-safe), not for syntax (any suffix is safe).
 #
+# curl/wget rationale (WHOLESALE BLOCK):
+# A 6-round Canopus/Algol adversarial harden loop (run w21qxik6w) proved that
+# command-string precision-gating of curl/wget is an unwinnable arms race — the
+# surface is too large. Short-flag clusters (-sd, -kfsd@/etc/passwd), aliases
+# (--data-ascii, --form-string, --request), wget egress, -K config-laundering,
+# bash <(curl), wrapper-word pipes, ;/newline download-exec chains — all found
+# novel bypass classes every round (consecutiveClean:0, tight:false). The wholesale
+# block is defense-in-depth behind permissions.deny: Bash(curl *) / Bash(wget *).
+# The rare legitimate need (vendoring a static asset) is handled out-of-band by
+# Peat, not by opening the verb to agents. Verdict: NOT TIGHT. 2026-06-03.
+#
 # WHAT IT BLOCKS:
-#   Bash: curl/wget (net-egress), rm -rf/-r/-f, chmod/chown/mv, cp,
+#   Bash: curl/wget ANY invocation in command position (wholesale),
+#         rm -rf/-r/-f, chmod/chown/mv, cp,
 #         git push/reset --hard/rebase/merge/rm/mv/tag,
 #         npm/pnpm/yarn install/add/remove/update,
 #         supabase db push/reset/migrate, vercel deploy,
@@ -42,9 +56,14 @@
 #   jq, sha256sum, find . (not find -delete), ls, grep, sort, wc, cat, head, tail,
 #   awk, echo, printf, sed (without -i), WL_* env prefixed commands
 #   Read-only MCP tools (playwright browser_*)
+#   NOTE: curl/wget as ARGUMENTS (grep 'curl' file, bash scripts/curl-helper.sh,
+#   npm run curl-test, find . -name '*curl*') are NOT in command position and
+#   fall through to the allowlist/first-seen path as before.
 #
 # Owner: Canopus · α-HRN-07
 # Introduced: TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-1
+# Revised: TASK-2026-06-03-CURL-WGET-OBSERVE-ALLOW (danger-targeted rule, superseded)
+# Revised: TASK-2026-06-03-CURL-WGET-WHOLESALE-REVERT (wholesale block — NOT TIGHT verdict)
 # Rail: least-agency-config (barrier_class=HARD-BARRIER, mode=block)
 # Design: SECURITY-HARNESS-DESIGN-2026-06-01.md §3 "Tool / resource misuse"
 #
@@ -105,6 +124,39 @@ fi
 # --------------------------------------------------------------------------
 if [[ "$TOOL_NAME" == "Bash" ]]; then
   CMD="${COMMAND}"
+
+  # ---- SHARED command-position lead-in (CMD_LEADIN) ----
+  # A "command position" is where the shell begins parsing a fresh simple command,
+  # i.e. where curl/wget/tee/source/an-interpreter would be the EXECUTED token rather
+  # than an argument, filename, or search pattern. Every command-position gate in this
+  # hook (curl/wget detection, tee detection, source/. <(...) RCE, interpreter <(...) RCE)
+  # MUST use the SAME lead-in so a single shell construct cannot bypass one gate while
+  # tripping another.
+  #
+  # Recognized command lead-ins:
+  #   ^            start of string
+  #   ; & | ( )    statement separators / pipe / subshell open / case-pattern or
+  #                subshell close. ')' is a command lead-in in a case arm
+  #                ('case x in y) curl ...;; esac' — a command begins after the ')').
+  #   { <ws>       brace-group open token. In shell, '{' is a command-list keyword ONLY
+  #                when followed by whitespace ('{ cmd; }'); '{curl' / '{a,b}' are words
+  #                or brace-expansions, NOT a command position — so we REQUIRE the
+  #                trailing whitespace (\{[[:space:]]) and do not match the word forms.
+  #   then|do|else|elif|until   compound-command keywords after which a command begins.
+  #                Each is itself anchored on its left by ^ / a separator / whitespace
+  #                and on its right by whitespace, so it only matches the bare keyword
+  #                TOKEN, never a substring (e.g. 'then-curl-dir', 'do-not-curl').
+  #
+  # ROOT CAUSE (Algol R4 #brace-group, #shell-keyword): the previous anchor was
+  # (^|[;&|(]) — it knew ^ ; & | ( but NOT '{' and NOT the compound-command keywords.
+  # A curl/wget/source/interpreter placed first inside a brace group ('{ curl -d ... }')
+  # or right after then/do/else/elif/until ('if ...; then curl -d ...; fi') was preceded
+  # by a token the anchor did not recognize, so the WHOLE danger block was skipped and
+  # the command fell through to ALLOW. Isolation control: '; curl -d ...' BLOCKs but
+  # '{ curl -d ...' / 'then curl -d ...' ALLOWed — only the lead-in token differed.
+  # Fix: one shared lead-in that recognizes '{ ' and the keyword tokens, applied to
+  # every command-position gate below.
+  CMD_LEADIN='(^|[;&|()]|\{[[:space:]]|(^|[;&|()]|[[:space:]])(then|do|else|elif|until)[[:space:]])'
 
   # ---- PHASE 0: Unconditional structural allows (run before any deny) ----
   # chmod +x on our own hook/script paths is explicitly permitted.
@@ -178,37 +230,59 @@ if [[ "$TOOL_NAME" == "Bash" ]]; then
   # original command) so that e.g. curl/wget embedded in a command with safe
   # redirects is still caught.
   #
-  # Case-insensitivity (-i): all grep calls here use -i so that uppercase
-  # variants (CURL, RM, Git push) are caught. LLMs emit lowercase in practice
-  # but case-insensitive matching is cheap and closes the bypass cleanly.
+  # Case-insensitivity (-i): structural-deny greps that need it (rm, git, etc.)
+  # use -i. The curl/wget exfil-flag checks are case-SENSITIVE: flag names like
+  # -d, -F, -T are lowercase by convention; using -i on them would let -D
+  # (--dump-header, a safe receive flag) match -d. See Fix-5 note below.
+
+  # ---- PHASE 1 GLOBAL: process-substitution RCE (source/dot <(...)) ----
+  # FIX-4: `source <(curl URL)` and `. <(curl URL)` feed fetched content
+  # directly into the shell interpreter. The outer command is source/.,
+  # not curl, so the curl-branch pipe-check never fires. Block structurally,
+  # before the curl branch, so this cannot be side-stepped.
+  # Pattern: any command boundary followed by source or . then <(
+  # Cite: RCE — shell executing arbitrary remote content.
+  if echo "$CMD" | grep -qE "${CMD_LEADIN}[[:space:]]*(source|\.)[[:space:]]+<\("; then
+    block "process-substitution RCE: source/. <(...) feeds fetched content into shell — not permitted." "$CMD"
+  fi
+
+  # FIX-R2-g: interpreter run directly on a process-substitution of a fetch.
+  #   bash <(curl -s URL), sh <(curl URL), python3 <(curl URL), node <(wget -qO- URL)
+  # Only source/. <(...) was structurally blocked above; bash/sh/zsh/python/node/etc.
+  # <(curl ...) fed fetched content straight into the interpreter and bypassed.
+  # Gate on the process-sub actually containing a curl/wget fetch so legitimate
+  # process substitution (diff <(sort a) <(sort b)) is not affected.
+  # Also allow an optional wrapper word (command/env/sudo) before the interpreter.
+  if echo "$CMD" | grep -qiE "${CMD_LEADIN}[[:space:]]*((command|env|exec|sudo|xargs|nice|time|stdbuf|nohup)[[:space:]]+)*(sh|bash|zsh|dash|ksh|python3?|node|ruby|perl|php)[[:space:]]+<\([^)]*\b(curl|wget)\b"; then
+    block "process-substitution RCE: interpreter <(curl/wget ...) feeds fetched content into the shell — not permitted." "$CMD"
+  fi
+
+  # curl/wget: WHOLESALE BLOCK — any invocation in command position is denied.
   #
-  # Net-egress command-position check: matches curl/wget only when they appear as
-  # the executed token (command position), NOT as arguments, filenames, or search
-  # patterns. This prevents over-blocking legitimate commands like:
+  # RATIONALE (NOT TIGHT verdict, 2026-06-03):
+  # A 6-round Canopus/Algol adversarial harden loop (run w21qxik6w) proved that
+  # command-string precision-gating of curl/wget is an unwinnable arms race:
+  # short-flag clusters (-sd, -kfsd@/etc/passwd), aliases (--data-ascii, --form-string,
+  # --request), wget egress, -K config-laundering, bash <(curl), wrapper-word pipes,
+  # ;/newline download-exec chains — novel bypass classes every round.
+  # Conclusion: consecutiveClean=0, tight=false. Wholesale block is defense-in-depth
+  # behind permissions.deny: Bash(curl *) / Bash(wget *). The rare legitimate need
+  # (vendoring a static asset) is handled out-of-band by Peat, not by opening the verb
+  # to agents. See adversarial-harden skill run-log and RAIL-DEFINITIONS.md §least-agency-config.
+  #
+  # Command-position detection: curl/wget only fires when they appear as the executed
+  # token (not as arguments, filenames, or search patterns). Prevents over-blocking:
   #   grep -r 'curl' scripts/       (curl as argument to grep)
   #   bash scripts/curl-helper.sh   (curl as part of a filename)
   #   npm run curl-test              (curl as part of npm script name)
   #   find . -name '*curl*' -type f  (curl as part of a glob)
   #   awk '/curl/' file.log          (curl as part of awk pattern)
-  #
-  # Pattern components:
-  #   (^|[;&|(])             — command position: start, or after ; & | (
-  #   [[:space:]]*           — optional whitespace after separator
-  #   (VAR=val[[:space:]]+)* — zero or more env-var prefix assignments
-  #   ([^[:space:]]*/)?      — optional path prefix ending with / (/usr/bin/, ./, etc.)
-  #   (curl|wget)            — the executable token itself
-  #   ([[:space:]]|$)        — followed by whitespace or end-of-string
-  #
-  # Still catches all bypass forms:
-  #   /usr/bin/curl, /usr/local/bin/curl  (absolute path prefix)
-  #   FOO=bar curl, A=b B=c curl          (env-prefix wrapping)
-  #   CURL, Curl                           (case-insensitive via -i)
-  #   ls; curl, ls | curl, ls && curl     (command chaining)
+  # Uses the shared CMD_LEADIN (recognizes ^ ; & | ( ) '{ ' and then/do/else/elif/until)
+  # so brace-group and shell-keyword lead-ins cannot skip this block.
+  CURL_WGET_CMD_POSITION="${CMD_LEADIN}[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+[[:space:]]+)*)([^[:space:]]*/)?"
 
-  # Net-egress
-  if echo "$CMD" | grep -qiE '(^|[;&|(])[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+[[:space:]]+)*)([^[:space:]]*/)?curl([[:space:]]|$)' \
-  || echo "$CMD" | grep -qiE '(^|[;&|(])[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+[[:space:]]+)*)([^[:space:]]*/)?wget([[:space:]]|$)'; then
-    block "net-egress denied — curl/wget not permitted. Use the WebFetch tool instead." "$CMD"
+  if echo "$CMD" | grep -qiE "${CURL_WGET_CMD_POSITION}(curl|wget)([[:space:]]|$)"; then
+    block "curl/wget wholesale block: any curl/wget invocation is not permitted. curl/wget cannot be safely command-string-gated — proven NOT TIGHT over 6 adversarial rounds (run w21qxik6w); wholesale block is defense-in-depth behind permissions.deny. The rare legitimate need (asset vendoring) is handled out-of-band by Peat." "$CMD"
   fi
 
   # rm (any form — rm -rf, rm -r, rm -f, rm file)
@@ -280,10 +354,15 @@ if [[ "$TOOL_NAME" == "Bash" ]]; then
   # Command-position pattern: same logic as curl/wget — match tee only when it
   # is the executed token, not when it appears as an argument or filename.
   # Prevents false-positive on: grep 'tee' logs.txt, ls tee-outputs/, etc.
-  if echo "$CMD" | grep -qiE '(^|[;&|(])[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+[[:space:]]+)*)([^[:space:]]*/)?tee([[:space:]]|$)'; then
+  if echo "$CMD" | grep -qiE "${CMD_LEADIN}[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+[[:space:]]+)*)([^[:space:]]*/)?tee([[:space:]]|$)"; then
     # tee is in command position — allow only if ALL tee args are devnull/devstd.
     # Match: tee (optional flags) /dev/(null|stdout|stderr) [optional more of same] end
-    if echo "$CMD" | grep -qiE '(^|[;&|(])[[:space:]]*([^[:space:]]*/)?tee([[:space:]]+(-[a-zA-Z]+|--[a-zA-Z-]+))*[[:space:]]+/dev/(null|stdout|stderr)([[:space:]]|$)'; then
+    # Trailing boundary is [[:space:];&|)}] (not just [[:space:]]|$) so a safe devnull
+    # tee terminated by a shell metachar — '{ cmd | tee /dev/null; }', 'tee /dev/null)' —
+    # is still recognized as the safe form. The smuggle forms (/dev/nullX, /dev/null.txt)
+    # stay BLOCKED: a letter/dot after 'null' is not in the boundary set, so the safe
+    # pattern fails to match and the command falls through to the tee block.
+    if echo "$CMD" | grep -qiE "${CMD_LEADIN}[[:space:]]*([^[:space:]]*/)?tee([[:space:]]+(-[a-zA-Z]+|--[a-zA-Z-]+))*[[:space:]]+/dev/(null|stdout|stderr)([[:space:];&|)}]|$)"; then
       # Safe devnull/devstd tee — allow
       true
     else

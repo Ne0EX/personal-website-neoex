@@ -245,6 +245,20 @@
       "registry": ".harness/single-source-registry.json",
       "scope_note": "Git worktrees (.claude/worktrees/**) are parallel branch checkouts — branch divergence there is expected and MUST NOT be flagged. Only the main working tree is in scope.",
       "control": "Single-source enforcement — eliminates divergent blob accumulation across prototype, handoff, and visual-diff paths"
+    },
+    "dev-clobber-guard": {
+      "description": "Prevents a production build or serve from running while a 'next dev' process is alive. A live 'next dev' writes .next in dev mode; a subsequent 'next build' or 'next start' against the same directory will either clobber the dev artifacts or serve them, breaking production styling. On 2026-06-02 this served the entire site unstyled. Hook: .claude/hooks/dev-clobber-guard.sh (PreToolUse Bash, blocking). Trigger: next build|start, npm run build|start, pnpm/yarn build|start in command position. Check: ps scan for live next dev / next-server.*dev process.",
+      "check": ".claude/hooks/dev-clobber-guard.sh",
+      "applies_to": [".claude/hooks/**", "package.json"],
+      "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
+      "invocation": "PreToolUse Bash hook (registered in .claude/settings.json) — fires automatically before any Bash tool call",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-dev-clobber-guard",
+      "introduced": "TASK-2026-06-03-DEV-CLOBBER-GUARD-G1",
+      "root_cause": "2026-06-02: next dev running alongside next build clobbered .next, serving whole site unstyled",
+      "policy_ref": "worldline-build-verify G1",
+      "control": "Build environment isolation — prevents dev/prod .next clobber"
     }
   },
   "signature_policy": {

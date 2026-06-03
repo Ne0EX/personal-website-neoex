@@ -152,6 +152,10 @@ interface AuditOutput {
 //   single-source:        derives from artifact-integrity harness mechanics — prevents divergent blob accumulation across
 //                         production, prototype, and visual-diff paths; wiring enforcement, not a product-value axiom;
 //                         introduced TASK-2026-06-01-SECURITY-HARNESS-WAVE-2-SINGLE-SOURCE
+//   dev-clobber-guard:    derives from build-environment isolation mechanics — prevents a live 'next dev' process from
+//                         clobbering .next before production build/serve; engineering posture enforcement (the incident
+//                         on 2026-06-02 where the site served unstyled); not a product-value axiom;
+//                         introduced TASK-2026-06-03-DEV-CLOBBER-GUARD-G1
 const DERIVED_IS_GATES = new Set<string>([
   "territory",
   "next-16-api",
@@ -169,6 +173,7 @@ const DERIVED_IS_GATES = new Set<string>([
   "audit-ground-truth-observed",
   "audit-search-index-completeness",
   "single-source",
+  "dev-clobber-guard",
 ]);
 
 // ─── Date comparison ────────────────────────────────────────────────────────────
