@@ -86,9 +86,18 @@ const KIND_LABEL: Record<EntryType, { glyph: string; label: string }> = {
 function ArchiveLedgerRow({
   entry,
   onNavigate,
+  hovered,
+  onRowHover,
+  rowRef,
 }: {
   entry: ArchiveEntry;
   onNavigate: (entry: ArchiveEntry) => void;
+  /** True when the globe pin (or this row) is the active hover target (§5.8). */
+  hovered: boolean;
+  /** Forward hover sync — row hover/focus → globe pin highlight. */
+  onRowHover?: (entryId: string | null) => void;
+  /** Set by the parent so a pin-side hover can scrollIntoView this row. */
+  rowRef?: (el: HTMLAnchorElement | null) => void;
 }) {
   const { glyph, label } = KIND_LABEL[entry.kind];
 
@@ -111,8 +120,9 @@ function ArchiveLedgerRow({
 
   return (
     <a
+      ref={rowRef}
       href={entry.route}
-      className="entry-card"
+      className={`entry-card${hovered ? ' archive-row-hovered' : ''}`}
       onClick={(e) => {
         // Prevent default so we can save scroll before navigating.
         // Then delegate to the router via onNavigate. Standard <a> is used
@@ -129,6 +139,9 @@ function ArchiveLedgerRow({
           onNavigate(entry);
         }
       }}
+      // ── Forward hover sync (§5.8) — row hover/focus → globe pin highlight ──
+      onMouseEnter={() => onRowHover?.(entry.id)}
+      onMouseLeave={() => onRowHover?.(null)}
       style={{
         display: 'block',
         padding: '14px 0',
@@ -147,9 +160,12 @@ function ArchiveLedgerRow({
         // Focus ring — 2px dashed accent-orange per §12 / §6
         e.currentTarget.style.outline = '2px dashed var(--accent-orange)';
         e.currentTarget.style.outlineOffset = '2px';
+        // Keyboard hover sync — focusing a row marks its pin (§5.8 / §12).
+        onRowHover?.(entry.id);
       }}
       onBlur={(e) => {
         e.currentTarget.style.outline = 'none';
+        onRowHover?.(null);
       }}
     >
       {/* Line 1 — meta: FILE · DATE · STATUS */}
@@ -253,14 +269,29 @@ interface ArchiveLedgerProps {
   entries: ArchiveEntry[];
 
   /**
-   * Callback fired when the active filter changes, so the parent (ArchivePage)
+   * Callback fired when the active filter changes, so the parent (ArchiveClient)
    * can derive the matching MiniGlobePin[] for the right rail.
    * Receives filtered entries so the caller does not re-derive.
    */
   onFilterChange?: (filtered: ArchiveEntry[]) => void;
+
+  /**
+   * Bidirectional hover sync (§5.8). The entry id currently hovered on the
+   * globe (or in this ledger). When set, the matching row gets the hover wash
+   * and is scrolled into view (pin-side hover). null = no hover.
+   */
+  hoveredId?: string | null;
+
+  /** Forward hover sync — row hover/focus reports the id (or null) up. */
+  onRowHover?: (entryId: string | null) => void;
 }
 
-export function ArchiveLedger({ entries, onFilterChange }: ArchiveLedgerProps) {
+export function ArchiveLedger({
+  entries,
+  onFilterChange,
+  hoveredId = null,
+  onRowHover,
+}: ArchiveLedgerProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -364,6 +395,23 @@ export function ArchiveLedger({ entries, onFilterChange }: ArchiveLedgerProps) {
   // Note: this component does NOT render ArchiveFilters — that lives in the
   // right rail in ArchivePage. Counts are derived here for convenience.
 
+  // ── Bidirectional hover — scroll the hovered row into view (pin-side) ──
+  // rowRefs maps entry id → anchor element. When hoveredId changes (from the
+  // globe pin raycast), we scrollIntoView({ block: 'nearest' }) so the row the
+  // visitor is pointing at on the globe comes into view in the ledger.
+  const rowRefs = useRef<Map<string, HTMLAnchorElement>>(new Map());
+  const prevHoveredRef = useRef<string | null>(null);
+  useEffect(() => {
+    // Only act on transitions INTO a hover (not on clear) and only when the
+    // hover did not originate from the ledger itself (we cannot know origin, so
+    // scrollIntoView({ block:'nearest' }) is a no-op when already visible — safe).
+    if (hoveredId && hoveredId !== prevHoveredRef.current) {
+      const el = rowRefs.current.get(hoveredId);
+      el?.scrollIntoView({ block: 'nearest' });
+    }
+    prevHoveredRef.current = hoveredId;
+  }, [hoveredId]);
+
   // ── Empty state ──
   const isEmpty = filtered.length === 0;
 
@@ -459,7 +507,16 @@ export function ArchiveLedger({ entries, onFilterChange }: ArchiveLedgerProps) {
               <ol style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {yearEntries.map((entry) => (
                   <li key={entry.id}>
-                    <ArchiveLedgerRow entry={entry} onNavigate={handleNavigate} />
+                    <ArchiveLedgerRow
+                      entry={entry}
+                      onNavigate={handleNavigate}
+                      hovered={hoveredId === entry.id}
+                      onRowHover={onRowHover}
+                      rowRef={(el) => {
+                        if (el) rowRefs.current.set(entry.id, el);
+                        else rowRefs.current.delete(entry.id);
+                      }}
+                    />
                   </li>
                 ))}
               </ol>

@@ -212,7 +212,12 @@ async function loadEntries(): Promise<ArchiveEntry[]> {
       shareLocation: true,
       drift: null,
       patches: (a.patches ?? []).map(p => ({ n: p.n, date: p.date, note: p.note })),
-      route: `/entries/${a.fileNum}`,
+      // ROUTE FIX (Sirius, 2026-06-03, Procyon territory — flag for ratify):
+      // the article route segment is app/articles/[fileNum], NOT /entries/.
+      // The previous `/entries/${fileNum}` value 404'd for BOTH the ledger row
+      // <a href> AND the globe pin click (goal 3) — both navigate via entry.route.
+      // Verified live: /entries/003 → 404; /articles/003 → "FILE 003" article.
+      route: `/articles/${a.fileNum}`,
     })
   }
 

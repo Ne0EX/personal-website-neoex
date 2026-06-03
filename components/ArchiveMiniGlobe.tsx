@@ -143,10 +143,16 @@ export function ArchiveMiniGlobe({
     onGlobeClick: handleGlobeClick,
   };
 
+  // FIX-G: distinct stable React keys so React fully remounts on a FRESH canvas
+  // DOM node when the variant swaps (Canvas2D first paint → ThreeJS after WebGL
+  // probe). Without distinct keys, React reuses the same <canvas>, and a canvas
+  // that already has a 2D context cannot acquire a WebGL context — Three.js
+  // throws "Canvas has an existing context of a different type". Distinct keys
+  // guarantee each variant owns its own canvas element.
   if (useThree) {
-    return <ArchiveMiniGlobeThreeJS {...shared} />;
+    return <ArchiveMiniGlobeThreeJS key="mini-globe-three" {...shared} />;
   }
-  return <ArchiveMiniGlobeCanvas2D {...shared} />;
+  return <ArchiveMiniGlobeCanvas2D key="mini-globe-2d" {...shared} />;
 }
 
 export default ArchiveMiniGlobe;

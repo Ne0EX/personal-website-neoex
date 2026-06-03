@@ -47,9 +47,7 @@ import {
   getArchiveEntriesByYear,
   getMiniGlobePins,
 } from '@/lib/content';
-import { ArchiveFilters } from '@/components/ArchiveFilters';
-import { ArchiveLedger } from '@/components/ArchiveLedger';
-import { ArchiveMiniGlobe } from '@/components/ArchiveMiniGlobe';
+import { ArchiveClient } from '@/components/ArchiveClient';
 import { ArchiveSurveyAffordance } from '@/components/ArchiveSurveyAffordance';
 import type { ArchiveEntry } from '@/lib/content';
 
@@ -229,24 +227,14 @@ export default async function ArchivePage() {
           }}
         >
           {/*
-           * [ ◯ ATLAS ] — standard Next.js Link, ink-soft → accent-orange hover.
-           * Hover colour is applied via a global className — no event handler
-           * needed in the RSC. Use the .archive-atlas-link class to target it.
-           * For now a static link is acceptable (hover handled by CSS would require
-           * a new globals rule; inline is not usable in RSC). The hover transition
-           * for this link is handled by the browser default underline + the
-           * text-decoration on focus. The 150ms transition is applied by the
-           * wrapping Tailwind transition class where possible, or left to the
-           * browser for the static link.
-           *
-           * NOTE: onMouseEnter/onMouseLeave cannot be used in RSC. The color
-           * transition is omitted for the static ATLAS link — Algol may flag this
-           * as a minor regression vs spec §6. It is acceptable for v1 RSC: the
-           * link is visually accessible at ink-soft; the hover transition is a
-           * polish item not a functional requirement.
+           * [ ◯ ATLAS ] — standard Next.js Link. The 150ms ink-soft →
+           * accent-orange hover (spec §6/§9 · L3) is applied via the
+           * .archive-atlas-link global rule (app/globals.css) — no event handler
+           * needed, so the RSC stays pure. Zero new tokens.
            */}
           <Link
             href="/"
+            className="archive-atlas-link"
             style={{
               color: 'var(--ink-soft)',
               textDecoration: 'none',
@@ -299,75 +287,20 @@ export default async function ArchivePage() {
           }
         >
           {/*
-           * ArchiveLedger — client component. Left column. Year-grouped rows.
-           * URL filter via useSearchParams. "LOAD NEXT 20" pagination.
-           * Scroll restore on browser-back (§12, 20-archive.md §9.3).
+           * ArchiveClient — the single interactive island. Renders BOTH columns:
+           *   - ledger (left, year-grouped rows, URL filter, pagination, scroll
+           *     restore)
+           *   - right rail (mini-globe + filter chips)
+           * and coordinates the three goals that need client state/handlers:
+           *   1. filter → activePins recolour (goal 1 completion / FIX-F)
+           *   2. bidirectional row↔pin hover sync (goal 2 / FIX-E)
+           *   3. pin click → router.push(entry.route) (goal 3 / FIX-D)
+           * The RSC cannot pass function props or hold state, so the island owns
+           * useRouter + hoveredId. page.tsx stays an RSC → static pagefind shell
+           * above is preserved (§3).
+           * ArchiveClient calls useSearchParams internally → inside Suspense.
            */}
-          <section
-            style={{
-              flex: '1 1 0',
-              minWidth: 0,
-              maxWidth: '840px',
-            }}
-          >
-            <ArchiveLedger entries={allEntries} />
-          </section>
-
-          {/*
-           * Right rail — sticky at desktop. Contains:
-           *   1. ArchiveMiniGlobe (size=300, standby-archive variant — §5.5)
-           *   2. ArchiveFilters (filter chips — §4)
-           *
-           * The rail is sticky at top:72px (clears the Nav strip).
-           * ArchiveMiniGlobe + ArchiveFilters both use useSearchParams internally
-           * and are therefore inside the Suspense boundary.
-           */}
-          <aside
-            data-archive-filter-region
-            aria-label="archive filters and globe"
-            style={{
-              width: '360px',
-              flexShrink: 0,
-              position: 'sticky',
-              top: '72px',
-              alignSelf: 'flex-start',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '16px',
-            }}
-          >
-            {/* Mini-globe — 300×300 (standby-archive variant, §5.5) */}
-            <div
-              className="archive-mini-globe"
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}
-            >
-              {/*
-               * activePins defaults to pins (all in-membership) when no filter
-               * is active. For v1, pin re-colour on filter change is handled by
-               * passing activePins from ArchiveLedger via parent state. In v1 we
-               * pass pins as both pins and activePins — Algol may flag this as a
-               * v1.1 item: bidirectional filter↔globe sync.
-               *
-               * onPinClick: default no-op in wrapper (§5.6 optional).
-               * onGlobeClick: navigate to '/' (ATLAS) per §5.6 — handled by the
-               *   wrapper's no-op default plus the ArchiveMiniGlobe's onClick. The
-               *   ArchiveMiniGlobe wrapper already has a no-op default; we pass
-               *   the navigation intent here via an ArchiveGlobePanel client wrapper
-               *   is not needed — the wrapper's default onGlobeClick no-op is
-               *   acceptable for v1. Pin clicks navigate via onPinClick no-op (v1).
-               *   Full nav wiring is a v1.1 item.
-               */}
-              <ArchiveMiniGlobe
-                size={300}
-                pins={pins}
-              />
-            </div>
-
-            {/* Filter chips — type filter (§4 filter rail) */}
-            <div className="archive-filters">
-              <ArchiveFilters counts={counts} />
-            </div>
-          </aside>
+          <ArchiveClient entries={allEntries} pins={pins} counts={counts} />
         </Suspense>
       </div>
 

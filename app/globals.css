@@ -382,6 +382,38 @@ body {
 }
 
 /* =============================================================
+   /archive — [ ◯ ATLAS ] header link hover (spec 21-archive-route §6/§9 · L3).
+   The link lives in an RSC (app/archive/page.tsx) which cannot take an
+   onMouseEnter handler, so the 150ms ink-soft → accent-orange hover is
+   expressed here as a static rule. Zero new tokens.
+   ============================================================= */
+.archive-atlas-link {
+  transition: color 150ms ease;
+}
+.archive-atlas-link:hover {
+  color: var(--accent-orange);
+}
+
+/* =============================================================
+   /archive — bidirectional hover sync (spec 21-archive-route §5.8 · FIX-E).
+   When a globe pin is hovered (or focused via keyboard), the matching ledger
+   row receives .archive-row-hovered → the SAME hover wash as a direct row
+   hover (rgba(212,96,42,0.04), ChapterIndex carry-over) plus the underline
+   draw, so the row↔pin correspondence reads both directions. Reduced-motion:
+   the transition collapses with the global reduced-motion rule already in this
+   file; the wash itself is instant state, not animation.
+   ============================================================= */
+.entry-card.archive-row-hovered {
+  background: rgba(212, 96, 42, 0.04);
+}
+.entry-card.archive-row-hovered .entry-glitch {
+  color: var(--ink-primary);
+}
+.entry-card.archive-row-hovered .entry-glitch::after {
+  width: 100%;
+}
+
+/* =============================================================
    Divergence panel — featured compact display in the hero header
    ============================================================= */
 .diverge-panel {
