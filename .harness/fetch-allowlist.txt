@@ -1,0 +1,67 @@
+# .harness/fetch-allowlist.txt
+# Untrusted-fetch gate — domain allowlist (deny-default)
+# Owner: Canopus · α-HRN-07
+# Used by: .claude/hooks/untrusted-fetch-gate.sh (PreToolUse WebFetch|WebSearch)
+#
+# FORMAT:
+#   One entry per line. Blank lines and lines beginning with '#' are ignored.
+#   Entries are bare hostnames (no scheme, no path). Matching is exact on the
+#   REGISTERED domain (eTLD+1), so subdomains are included automatically.
+#   Example: "github.com" matches github.com AND raw.githubusercontent.com
+#   AND api.github.com (because all share the eTLD+1 "github.com").
+#
+#   Special entries:
+#     __WEBSEARCH_ALLOW__  — if this line is present, WebSearch (text-query
+#                           fetches with no URL) is permitted. Remove to block.
+#
+#     __UNCERTAIN_EGRESS_ALLOW__<suffix>  — opts in ONE uncertain-egress tool.
+#                           The suffix is the trailing part of the tool name
+#                           after the last __ separator. Examples:
+#                             __UNCERTAIN_EGRESS_ALLOW__browser_evaluate
+#                               → allows mcp__playwright__browser_evaluate
+#                             __UNCERTAIN_EGRESS_ALLOW__notion-search
+#                               → allows mcp__claude_ai_Notion__notion-search
+#                           Uncertain-egress tools are MCP tools that issue
+#                           outbound network requests whose destination cannot
+#                           be statically inspected (no URL in tool_input).
+#                           The full class is documented in untrusted-fetch-gate.sh.
+#                           Peat sign-off required before adding any opt-in token.
+#
+# POLICY:
+#   Any domain NOT in this file causes untrusted-fetch-gate.sh to emit:
+#     {"decision":"block","reason":"domain not in fetch allowlist"}
+#   and exit non-zero. The gate is PreToolUse, so Claude Code treats exit 2
+#   as a hard block (the tool call is rejected before execution).
+#
+# HOW TO ADD A DOMAIN:
+#   Add the bare registered domain (e.g., "npm.org") on its own line.
+#   Domains added here do NOT automatically inherit a settings.json allow entry
+#   for the WebFetch(domain:...) permission. Peat must also add the allow entry
+#   in settings.json (or settings.local.json) to prevent the permission prompt.
+#   The gate and the settings-layer allow entry serve different functions:
+#   the gate is a hook-level domain check; the allow entry is a UI prompt bypass.
+#
+# LOCALHOST / DEV-SERVER NOTE (read before wiring in §2):
+#   When this gate is wired (Peat applies .harness/proposed-wiring-M.md §2b),
+#   browser_navigate / navigate_page / new_page calls to http://localhost:3000
+#   (and 127.0.0.1) will be blocked — "localhost" is not in this allowlist.
+#   The visual-diff and preview-local workflows (Canopus, Sirius) use exactly
+#   these tools against the dev server. ADD "localhost" and "127.0.0.1" to this
+#   file at wiring time to preserve those workflows. Flagged here so Peat sees
+#   it at the human-at-seam gate before live enforcement begins.
+#
+# CURRENTLY ONE-OFF ALLOWED DOMAINS (from settings.local.json as of 2026-06-04):
+#   These three were granted individually via WebFetch(domain:...) allow entries.
+#   Seeded here so they are covered by the gate from day one.
+#
+github.com
+githubusercontent.com
+mager.co
+loooom.xyz
+#
+# WebSearch (text queries, no URL) — allowed by default.
+# WebSearch does not fetch a specific URL; it submits a search query to an
+# internal search API. Domain gating does not apply (no host in the request).
+# The gate logs all WebSearch calls for audit. To block WebSearch entirely,
+# remove the line below or comment it out.
+__WEBSEARCH_ALLOW__

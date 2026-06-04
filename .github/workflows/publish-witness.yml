@@ -1,0 +1,174 @@
+# publish-witness.yml — the recurring ledger→witness-ref publisher
+#
+# Owner:   Canopus (α-HRN-07)
+# Task:    TASK-2026-06-04-WITNESS-PUBLISHER (S1 + S3)
+# Status:  INERT — nothing here is live until Peat wires at the seam:
+#            (a) create refs/heads/integrity-witness
+#            (b) enable branch-protection-no-bypass on that ref (THE load-bearing
+#                toggle — without it T-a is not blocked)
+#            (c) grant contents:write scoped to refs/heads/integrity-witness
+#          See .harness/WITNESS-REF-DESIGN.md §4 for the exact steps.
+#
+# WHAT THIS DOES
+# --------------
+# On every push to genesis/orchestration-foundations:
+#   1. Reads the ledger (.harness/integrity-ledger.jsonl) from the pushed
+#      genesis checkout.
+#   2. Fetches the current snapshot at refs/heads/integrity-witness.
+#   3. If genesis ledger is a pure append-only superset → ff-advances the
+#      witness ref to a new snapshot commit. GREEN.
+#   4. If any previously-published line was mutated/removed → fails the job.
+#      RED = detection (M1-B co-tamper or M2-C5 deletion-tamper).
+#
+# WHY THE PUBLISHER IS THE WITNESS (forge-resistance argument)
+# ------------------------------------------------------------
+# This job runs on GitHub's own runners — the agent cannot make GitHub emit a
+# green it did not earn. The append-only comparison is done by
+# scripts/audit-ledger-append-only.sh (the same script the local harness uses).
+# The witness ref can only be fast-forward-advanced (branch-protection enforces
+# no-force-push). Together these three components give the irreducible root:
+#   (a) CI substrate (unforgeable by agent) — THIS FILE
+#   (b) append-only git history (agent can't rewrite without force-push)
+#   (c) no-force-push branch protection (only Peat sets this — the Peat-seam)
+# Remove any one of (a)(b)(c) and the root is forgeable.
+#
+# TOKEN SCOPE (least-privilege, Peat-seam)
+# -----------------------------------------
+# The workflow-level permissions block below requests contents: write. At the
+# Peat-seam, Peat grants this ONLY to the witness ref (via GITHUB_TOKEN scoped
+# by the branch-protection + the fact that only ff pushes to integrity-witness
+# are allowed). The token CANNOT write any other ref because:
+#   - Peat's branch-protection setup ensures the token can only ff-push
+#     the protected witness ref.
+#   - The push refspec in publish-witness-ledger.sh is
+#     `<sha>:refs/heads/integrity-witness` — explicit, not a wildcard.
+#   - No secrets are referenced. No signing keys. No repo/org secrets.
+#
+# STALENESS MONITORING (S3 / T-b detection)
+# ------------------------------------------
+# A scheduled job runs audit-witness-staleness.sh once daily. It alerts (job
+# failure) if the publisher has gone dark: genesis has an unpublished delta
+# older than WL_WITNESS_MAX_LAG_SECONDS (default 86400 = 24h). This closes T-b
+# without requiring a separate service — same yml, separate job.
+#
+# HARD CONSTRAINTS (Peat directive, do not "improve" away)
+# --------------------------------------------------------
+#   - NO commit-signing / GPG / SSH-signing step.
+#   - NO repo/org secrets. Only GITHUB_TOKEN.
+#   - NO curl/wget in any step.
+#   - The ONLY git push target is refs/heads/integrity-witness. No wildcards.
+#   - The push is NEVER --force. publish-witness-ledger.sh enforces this.
+#   - .claude/beta/** never touched.
+
+name: publish-witness
+
+on:
+  push:
+    branches:
+      - genesis/orchestration-foundations
+
+  # S3 staleness monitor: runs daily and alerts if the publisher went dark.
+  schedule:
+    - cron: '0 3 * * *'   # 03:00 UTC daily — well after typical work hours
+
+# Minimum privilege: contents:write is needed ONLY for the ff-push to the
+# witness ref. The staleness-monitor job needs only contents:read. We set
+# write at the workflow level; the monitor job overrides down to read.
+#
+# IMPORTANT (Peat-seam): this write permission is inert until Peat scopes the
+# branch-protection on integrity-witness to allow ff-push from this workflow's
+# GITHUB_TOKEN and no other write operations. See WITNESS-REF-DESIGN.md §4.
+permissions:
+  contents: write
+
+# Concurrency guard: only one publisher runs at a time per branch. If a second
+# push arrives while the first publisher is running, the second job waits
+# (cancel-in-progress: false). This prevents two jobs racing to ff the same
+# ref and one seeing a non-ff rejection (spurious red).
+concurrency:
+  group: witness-publisher-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # publisher — S1 · advances refs/heads/integrity-witness on push to genesis
+  # ─────────────────────────────────────────────────────────────────────────
+  publisher:
+    name: ledger → witness ref (ff-only)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout genesis (full history)
+        uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 is REQUIRED. The append-only audit walks every
+          # committed revision of the ledger to prove no prior line was mutated.
+          # A shallow clone (depth 1) sees only one revision and silently
+          # neuters the cross-revision check. Full history; no extra scope.
+          fetch-depth: 0
+          # Use the built-in GITHUB_TOKEN for the checkout. The push step
+          # below uses a separate git push with the same token.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Fetch the current witness-ref tip. Required for the "already current"
+      # idempotency check and for building the parent-chain of the new snapshot
+      # commit in publish-witness-ledger.sh.
+      - name: Fetch witness ref
+        run: |
+          git fetch origin \
+            "refs/heads/integrity-witness:refs/remotes/witness-publisher/integrity-witness" \
+            || echo "witness ref not yet created — will go NEUTRAL"
+
+      - name: Publish ledger snapshot to witness ref
+        env:
+          # Let the script push via the GITHUB_TOKEN credential that checkout
+          # configured on the local remote "origin".
+          WL_WITNESS_REF: integrity-witness
+          WL_WITNESS_REMOTE: origin
+          WL_LEDGER_REL: .harness/integrity-ledger.jsonl
+          CLAUDE_TASK_ID: ${{ github.run_id }}-publisher
+        run: bash scripts/publish-witness-ledger.sh
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # staleness-monitor — S3 · T-b detection · runs on schedule
+  # ─────────────────────────────────────────────────────────────────────────
+  staleness-monitor:
+    name: witness staleness monitor (T-b detection)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+
+    # Monitor only needs to read. Override the workflow-level write down.
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout genesis (full history)
+        uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 REQUIRED — staleness age computation needs full history,
+          # not the shallow tip. Under depth 1, git log -1 -- <ledger> returns the
+          # tip-commit timestamp rather than the ledger-delta timestamp, causing a
+          # days-old unpublished delta to read as ~1 second old → false HEALTHY.
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # No full fetch needed; ls-remote gives us the witness tip SHA and the
+      # audit script fetches the blob directly.
+      - name: Check witness-ref staleness
+        env:
+          WL_WITNESS_REF: integrity-witness
+          WL_WITNESS_REMOTE: origin
+          WL_LEDGER_REL: .harness/integrity-ledger.jsonl
+          # 24-hour cadence. Tune via env if the push cadence changes.
+          WL_WITNESS_MAX_LAG_SECONDS: "86400"
+          CLAUDE_TASK_ID: ${{ github.run_id }}-staleness
+        run: bash scripts/audit-witness-staleness.sh
+
+      # Surface a summary line in the GitHub Actions UI so the red job has a
+      # clear human-readable explanation without diving into logs.
+      - name: Emit staleness summary (on failure)
+        if: failure()
+        run: |
+          echo "::error title=Witness publisher dark::The integrity-witness ref has an unpublished ledger delta older than the cadence. The publisher job may be disabled or broken. See scripts/audit-witness-staleness.sh for how to fix."

@@ -252,15 +252,30 @@ Rare; Peat overrides. Polaris documents the override in `STATUS.md` and proceeds
 
 ---
 
-## Dispatch depth
+## Dispatch depth — Zero-Trust multi-agent orchestration
 
-**Polaris is the planning orchestrator. Actual agent dispatch runs through Peat's root session.** Algol's REVISE loop uses handoff documents, not Agent dispatch.
+> Revised 2026-06-04 (Peat-approved, under the Zero-Trust condition). **Supersedes** the prior no-redispatch limitation — see the note at the end of this section.
 
-- Polaris is the sole planning orchestrator: she decomposes tasks, assigns slices, and writes dispatch instructions for Peat.
-- Actual `Task` tool calls happen in Peat's root session — Polaris cannot dispatch subagents from within her own subagent session. This is a confirmed platform limitation of the current Claude Code version: subagents cannot dispatch further subagents. If this changes in future Claude Code versions, revisit here.
-- All other agents are single-task workers. If a subagent believes it needs to dispatch another agent, it writes a handoff to Polaris and stops. Polaris and Peat make the dispatch decision together.
-- Algol's REVISE loop is document-based: Algol writes a REVISE handoff to the author agent; the author agent picks it up on its next run. No `Task` call is involved.
-- Violation of this rule (any non-root-session entity calling `Task` to dispatch team agents) is a harness failure. Report to Canopus immediately.
+Three orchestration modes coexist; choose per goal (see *goal-driven dispatch* below):
+
+- **Single slice / clear spec** — direct subagent or document handoff. The plan lives in the orchestrator's context.
+- **Multi-agent orchestration** (fan-out, adversarial cross-check, migrations, audits) — a **Workflow script** holds the plan; it runs in the background, is resumable, and is launched from the session's main loop (where Polaris runs front-of-house). This is the mode the prior limitation forbade. Nesting is one level only and concurrency/total are runtime-capped (≤16 concurrent / ≤1000 agents per run) — so dispatch depth and load stay bounded *structurally*, not by a manual rule.
+- **Iterative REVISE** — Algol's REVISE loop stays document-based: Algol writes a REVISE handoff to the author; the author picks it up on its next run. No `Task` call needed.
+
+A worker agent does **not** spawn its own workers. If a phase needs more agents, that is a signal to restructure the workflow (add a phase) or hand back — never to recurse. Bounded depth is preserved as a Zero-Trust property (blast radius), now enforced by the runtime rather than by a prohibition.
+
+Multi-agent orchestration operates under these **binding** controls — mandatory, not advisory. Together they bound blast radius more strongly than the old depth-limit did:
+
+- **Lattice, not chain.** Agents cross-verify; no agent trusts another's output unverified. A chain `A→B→C` (delegate-and-trust) is where Zero-Trust dies — it is the confused-deputy / unscoped-privilege-inheritance pathology (Zero-Trust eBook p10). A verification *lattice* is Zero-Trust-native and gets *stronger* with more agents, not weaker (no single trusted point).
+- **Born deny-by-default.** Every spawned agent is scoped to the least-privilege `settings.json` allowlist + an isolated context (no parent history) — bounded regardless of which agent spawned it; one poisoned agent cannot poison a sibling.
+- **Script-declared behavioral contract.** The workflow script declares each phase's expected shape; anomaly = runtime diverging from the declared shape (specified, not learned — stronger than an inferred baseline).
+- **Human at the seam.** Workflows halt at gate boundaries; Peat/Algol sign the *aggregate* (partition / findings / diff) before the next stage. For sign-off between stages, run each stage as its own workflow. Models take notes; humans make the calls.
+- **Goal-driven, advisor-backed dispatch (least-agency at the model layer).** Every dispatch is decided from the *goal* → minimal persona + minimal model tier + spawn-or-inline + verify-model — never a reflexive default. That judgment escalates to the advisor model (Opus) on hard/ambiguous calls via `/advisor`, then resumes: **JIT-Opus, not standing-Opus** (the model-tier analog of Zero-Trust JIT/JEA, eBook p15). For the JIT benefit to land, run a light main tier with Opus as advisor. This is the native form of the manual rubric in *Model-tier dispatch* below, which still defines the per-persona escalation triggers that feed the decision.
+- **Model-diverse verify path.** A verifier should not share the model family of the agent it verifies, or the lattice's independence is partly illusory (same weights = correlated failure).
+- **Attribution.** Every agent signs (identity + audit + handoff trace) — Foundation-tier observability; precise incident attribution.
+- **Irreducible roots, declared.** Two trusted roots remain and are not pretended away: the signed Workflow **script** (inspect it via the approval gate before it runs) and the **model weights** (supply chain). Minimize, inspect, sign; never claim zero trusted roots.
+
+**Why the old rule is gone.** The prior no-redispatch rule ("subagents may not dispatch; all `Task` calls through Peat's root session") was a **cost-era proxy** for bounded blast radius. It is **superseded, not discarded** — the controls above enforce the real property (bounded blast radius) directly and more strongly, while the Workflow runtime caps the cost the proxy was protecting against. Any *expansion* of agent autonomy or other high-risk config change still requires Peat's explicit sign (Zero-Trust configuration-integrity, eBook p19) — a recorded override, never a hidden one.
 
 ---
 

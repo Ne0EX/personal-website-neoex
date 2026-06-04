@@ -37,6 +37,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        # fetch-depth: 0 = full history. The append-only witness
+        # (audit-ledger-append-only.sh) walks every committed revision of the
+        # integrity ledger to prove no prior-committed line was mutated/removed;
+        # the default shallow clone (depth 1) would expose only one revision and
+        # silently neuter the cross-revision check. Read-only; no token scope
+        # change — full history needs no secrets.
+        with:
+          fetch-depth: 0
 
       # Match the local toolchain: Node 24 (repo dev runs v24.x), npm + lockfile.
       # No .nvmrc / packageManager field exists, so node-version is pinned here.
@@ -100,6 +108,63 @@ jobs:
             tests/audit-axiom-gate-join-coverage.test.mjs \
             tests/audit-property-technique-map.test.mjs \
             tests/worldline-globe-coordinates.test.mjs
+
+      # ── Forge-resistant integrity-ledger witness (the trust-root) ──────────
+      # This is THE reason CI is a forge-resistant anchor and a LOCAL gate is
+      # not. The integrity-ledger writing agent runs AS Peat (fs read+write), so
+      # any local anchor is forgeable: a held key is agent-readable, an OS-perm
+      # lock is agent-as-owner, an in-file hash chain is agent-recomputable. The
+      # ONLY check it cannot forge past is "this ledger entry was a different
+      # value in PRIOR COMMITTED history" — asserted here, on GitHub's runners
+      # (a substrate the agent cannot fake), over append-only git history the
+      # agent cannot rewrite without a force-push, which branch protection on the
+      # witness ref forbids (a toggle ONLY Peat sets at the seam).
+      #
+      # This is NOT a hash-recompute: a co-tamper rewrites both the body AND its
+      # stored sha256, so every recompute passes. The script compares COMMITTED
+      # REVISIONS of the ledger against each other (append-only), catching the
+      # M1-B co-tamper (incl. the terminal entry the in-file chain cannot) and
+      # the M2-C5 deletion-co-tamper — both share this single root.
+      #
+      # NEUTRAL (exit 0) before the ledger is seeded: with zero or one committed
+      # ledger revision there is nothing prior to have been mutated, so CI is
+      # never red pre-operationally. Honors the HARD CONSTRAINTS above: no
+      # signing, no secrets, read-only checkout. Full git history (the checkout
+      # step sets fetch-depth: 0) is required for the cross-revision walk.
+      #
+      # WHERE THE GUARANTEE LIVES: forge-resistance attaches ONLY to the run over
+      # the fast-forward-only, branch-protected witness ref (refs/heads/
+      # integrity-witness — see .harness/WITNESS-REF-DESIGN.md). The audit walks
+      # --first-parent so it is also correct (no false-positive) if it ever runs
+      # on a merge HEAD (e.g. a PR merge ref), but the LOAD-BEARING run — the one
+      # Peat should mark as a required status check at the seam — is the one on
+      # the witness ref. WL_WITNESS_REF is passed explicitly so the contract does
+      # not silently trust ambient HEAD.
+      - name: Witness (authoritative) — append-only over the protected witness ref
+        if: github.ref == 'refs/heads/integrity-witness'
+        env:
+          WL_WITNESS_REF: HEAD
+        run: bash scripts/audit-ledger-append-only.sh
+
+      # Informational run on all other push/PR events: same check, same
+      # --first-parent determinism, but NOT the forge-resistant run (these refs
+      # are rebaseable, so a green here is a convenience signal, not the anchor).
+      #
+      # continue-on-error: true is LOAD-BEARING — this step must NEVER block.
+      # On a pull_request event, checkout gives refs/pull/N/merge, whose FIRST
+      # PARENT is the base branch. Once the ledger is live and base advances with
+      # its own appends after the PR branched, a perfectly legitimate append-only
+      # union (e.g. [h,a,pr1,main1]) is not a prefix of the base spine tip
+      # ([h,a,main1]) — git's JSONL conflict-resolution order is not guaranteed.
+      # Without continue-on-error that exit 1 would RED a legit PR (verified in
+      # sandbox). These refs are explicitly NOT append-only by construction
+      # (WITNESS-REF-DESIGN.md §1), so blocking on them would contradict the
+      # thesis. This stays a visible signal only; the anchor is the authoritative
+      # run on the protected witness ref above.
+      - name: Witness (informational) — append-only on this ref
+        if: github.ref != 'refs/heads/integrity-witness'
+        continue-on-error: true
+        run: bash scripts/audit-ledger-append-only.sh
 
       # ── Build (appropriate IN CI — runner-local, not the local .next) ──────
       # Real script: package.json "build": "velite && next build && npm run index:search"

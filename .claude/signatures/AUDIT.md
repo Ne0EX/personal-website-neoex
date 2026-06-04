@@ -2,6 +2,331 @@
 
 ---
 
+## 2026-06-04 · TASK-2026-06-04-RTK-CARVEOUT (Canopus) · SAFE-BUT-INERT / main_compresses UNMET
+
+**auditor** · Algol (α-VER-06)
+**task** · TASK-2026-06-04-RTK-CARVEOUT
+**files audited** · `~/.claude/hooks/rtk-guard.sh` · `~/.claude/settings.json` · `~/Library/Application Support/rtk/config.toml`
+**verdict** · SAFE — gate integrity confirmed, agent fidelity confirmed. RTK compression is dormant (IS_MAIN_SESSION=0 hardcoded universally). The `main_compresses` acceptance criterion is NOT met by the delivered artifact. This is acknowledged safe-behavior-by-design per the build report's own contract ("rtk is effectively dormant... correct safe behavior").
+
+### Test 1 — Agent/Beta NO-OP
+
+Synthetic PreToolUse JSON `{"tool_name":"Bash","tool_input":{"command":"git status"}}` piped to `~/.claude/hooks/rtk-guard.sh`.
+
+```
+WL_AGENT=algol: stdout=[] exit=0 (NO-OP)
+SESSION_MODE=beta: stdout=[] exit=0 (NO-OP)
+```
+
+PASS — command runs unchanged in agent/beta contexts. Caveat: the guard no-ops unconditionally (IS_MAIN_SESSION hardcoded 0), not because it detected the agent. Agent protection is correct but trivially achieved.
+
+### Test 2 — Main Compresses
+
+Same payload with WL_AGENT and SESSION_MODE unset (main session candidate).
+
+```
+env -u WL_AGENT -u SESSION_MODE: stdout=[] exit=0 (NO-OP)
+```
+
+FAIL — IS_MAIN_SESSION is hardcoded to 0 at line 64 of rtk-guard.sh. All candidate discriminator paths (CLAUDE_TASK_ID, WL_AGENT, SESSION_MODE, AI_AGENT) are commented out with no code path setting IS_MAIN_SESSION=1. RTK never rewrites in any context. The build report admits this ("rtk is effectively dormant") but the `main_compresses` field in the task contract cannot be satisfied. Worst-case consequence: lost token savings only, not a safety regression.
+
+### Test 3 — Fail-Safe (uncertain/edge contexts)
+
+```
+empty payload:      stdout=[] exit=0 (NO-OP)
+garbage payload:    stdout=[] exit=0 (NO-OP)
+AI_AGENT set:       stdout=[] exit=0 (NO-OP — AI_AGENT not a discriminator, correctly ignored)
+CLAUDE_TASK_ID set: stdout=[] exit=0 (NO-OP — candidate signal, but commented out as UNCONFIRMED)
+```
+
+PASS — all uncertain contexts fall to NO-OP. Uncertainty never falls to rewrite.
+
+### Test 4 — Gate Safety
+
+Project mutating-action gate (`mutating-action-hook.sh`) tested directly with synthetic JSON. Hooks are separate: global `~/.claude/settings.json` carries only rtk-guard; project `.claude/settings.json` carries mutating-action-hook independently. rtk-guard dormancy has zero effect on the project gate.
+
+All tests run by writing payload to /tmp/*.json then feeding via stdin redirect (no dangerous token in command position, so outer gate passes; inner hook processes the synthetic payload and returns real exit code):
+
+```
+curl https://example.com  → exit 2 BLOCKED ("BLOCKED by mutating-action-hook: curl/wget wholesale block: any curl/wget invocation is not permitted...")
+wget https://example.com  → exit 2 BLOCKED ("BLOCKED by mutating-action-hook: curl/wget wholesale block...")
+rm -rf /tmp/testdir       → exit 2 BLOCKED ("BLOCKED by mutating-action-hook: rm command detected — file deletion is not permitted. Use the file tools.")
+git push origin main      → exit 2 BLOCKED ("BLOCKED by mutating-action-hook: command matches mutating-action denylist pattern /\bgit\s+(push|reset\s+--hard|rebase|merge|rm|mv|tag)\b/")
+echo data >> /tmp/xfile.txt → exit 2 BLOCKED ("BLOCKED by mutating-action-hook: output-redirection '>>' detected — write by redirection is not permitted.")
+echo data > /tmp/xfile.txt  → exit 2 BLOCKED ("BLOCKED by mutating-action-hook: output-redirection '>' detected — write by redirection is not permitted.")
+```
+
+Bridge: rtk-guard is a proven pure no-op in all contexts (Tests 1–3: empty stdout, exit 0, every context; IS_MAIN_SESSION hardcoded 0). A no-op PreToolUse hook cannot alter a downstream hook's decision. Therefore gate behavior in isolation equals gate behavior with rtk-guard active as an upstream hook.
+
+PASS — all 6 dangerous verb classes exit 2 with block reason. Wholesale curl/wget block from the 6-round adversarial hardening (run w21qxik6w) does NOT regress. Gate is fully independent of rtk-guard.
+
+### rtk binary path check
+
+`~/.local/bin/rtk` confirmed executable at guard's hardcoded `$RTK` path. Binary present; if IS_MAIN_SESSION is ever wired to 1, the `[[ -x "$RTK" ]]` check will succeed.
+
+### Settings.json edit scope
+
+Global `~/.claude/settings.json`: only the PreToolUse Bash hook `command` string changed (`rtk hook claude` → `bash "$HOME/.claude/hooks/rtk-guard.sh"`). Backup at `~/.claude/settings.json.rtk-guard.bak` confirmed present. Project `.claude/settings.json` and `.claude/settings.local.json`: untouched.
+
+### config.toml exclude_commands
+
+25-verb exclusion list covers all gate-blocked verb classes. Defense-in-depth against future rtk version changes.
+
+### Residuals (named, non-blocking)
+
+1. `main_compresses` architecturally unmet — no IS_MAIN_SESSION=1 code path exists. Canopus must wire a confirmed positive discriminator to activate compression. rtk saves zero tokens until then.
+2. Whether WL_AGENT/CLAUDE_TASK_ID propagate into a real subagent or main-session hook env is unverifiable until Peat restarts Claude Code in a live context. Synthetic env-override tests prove guard logic only, not live-harness env propagation.
+3. Whether global (rtk-guard) and project (mutating-action-hook) PreToolUse hooks fire in the correct order in the real harness is unconfirmable from per-script synthetic tests.
+
+**wireable_now** · rtk dormant pending Canopus wiring a confirmed main-session discriminator
+**safe_to_restart** · YES — worst case = IS_MAIN_SESSION=0 universally = no token savings; gate unchanged
+
+---
+
+## 2026-06-04 · T-b silent-dark re-refute (post-Canopus fetch-depth fix) · BUG CLOSED
+
+**auditor** · Algol (α-VER-06)
+**task** · TASK-2026-06-04-WITNESS-PUBLISHER T-b re-refute (Canopus REVISE applied)
+**fix verified** · `.github/workflows/publish-witness.yml` staleness-monitor `fetch-depth: 1` → `fetch-depth: 0`
+**verdict** · BUG CLOSED — T-b is now correctly caught in the deployed config
+
+### YAML verification (primary source check)
+
+Read `.github/workflows/publish-witness.yml` directly before running any sandbox.
+Confirmed: both jobs now carry `fetch-depth: 0`:
+- `publisher` job (line 110): `fetch-depth: 0` with inline comment explaining why full history is required
+- `staleness-monitor` job (line 154): `fetch-depth: 0` with inline comment explicitly citing the R4 bug:
+  "Under depth 1, git log -1 -- <ledger> returns the tip-commit timestamp rather than the
+  ledger-delta timestamp, causing a days-old unpublished delta to read as ~1 second old → false HEALTHY."
+
+### New test: `tests/harness/witness-publisher-refute-Tb-fulldepth-discriminator.sh`
+
+Same remote layout as the R4 shallow discriminator (commit-1: ledger delta 2 days ago; commit-2: code-only tip now; witness ref: pre-delta snapshot). Clone: full history (no `--depth`), modeling the fixed `fetch-depth:0` checkout.
+
+**4/4 PASS:**
+
+S1 (critical — discriminator): full clone (depth=2 commits), aged 2-day delta
+- `git log -1 %ct -- ledger` resolves to commit-1 epoch (no mtime fallback)
+- `delta_age_seconds=172800  max_lag_seconds=86400`
+- `RESULT status=STALE exit=1`
+- `delta_age_seconds observed: 172800`
+- exit=1 STALE **with delta_age_seconds≈172800** — FIX CONFIRMED (right reason, not fail-closed path)
+
+S2 (control): full clone, fresh delta (1h old, 3601s), cadence 24h
+- `delta_age_seconds=3601` — `RESULT status=HEALTHY reason=WITHIN_CADENCE`
+- exit=0 — no false alarm introduced
+
+S3 (control): full clone, witness current (genesis == witness), no pending delta
+- `RESULT status=HEALTHY reason=WITNESS_CURRENT`
+- exit=0 — no false alarm on current witness
+
+### R4 shallow discriminator — still exits 1 (correct, not a regression)
+
+`witness-publisher-refute-Tb-shallow-discriminator.sh` re-run unchanged:
+- Shallow clone (depth=1): `git log -1 -- ledger` resolves to the shallow tip commit (code-only, dated now)
+- `delta_age_seconds=0` — `RESULT status=HEALTHY` — exit=0
+- This still exits 1 (BUG REPRODUCED under shallow clone)
+- This is **correct and expected** — the script hasn't changed; a shallow clone still hits the mtime fallback.
+  This negative-control now demonstrates exactly why `fetch-depth:0` is load-bearing in the YAML.
+
+### Proven defenses — regression check
+
+| Test | Verdict |
+|------|---------|
+| T-a forge-via-publisher (witness-publisher-refute-Ta-forge.sh) | 5/5 PASS — rewrite-spine rejected, ff control accepted, ref pinned to honest history |
+| T-d token-scope (witness-publisher-refute-Td-tokenscope.sh) | 5/5 PASS — push to main/attacker-ref REJECTED, witness ref advanced correctly |
+| T-b silentdark scenarios (witness-publisher-refute-Tb-silentdark.sh) | 4/4 PASS — stale-aged-append/stale-co-tamper STALE(1); fresh/current HEALTHY(0) |
+| T-c born-tampered (witness-publisher-refute-Tc-borntampered.sh) | 1/1 PASS — out-of-scope confirmed (by design, not a closed guarantee) |
+
+No regressions. All previously-proven defenses hold.
+
+### Residuals (named, non-blocking, carried from R4)
+
+1. **Publisher + monitor share one YAML**: disabling both is one edit. Backstop: required-status-check at the Peat seam (WITNESS-REF-DESIGN §4 step 3).
+2. **Content-delta gating**: a dark publisher with NO pending ledger change is correctly HEALTHY (quiet ledger = no signal). By design.
+3. **git log latest-touch**: if multiple unpublished commits touch the ledger, `git log -1` measures from the newest touch, not the oldest. Minor age undercount; out-of-scope for this fix.
+
+**wireable_now: true** (inert pending Peat seam — WITNESS-REF-DESIGN §4)
+
+---
+
+## 2026-06-04 · R4 mechanical fixes re-refutation — SEED / M3-MATCHER / M1-WARN · ALL CLOSED
+
+**auditor** · Algol (α-VER-06)
+**task** · R4 mechanical fixes (three: SEED mode, M3-matcher broadening, M1 APPEND_ONLY 2-sha WARN)
+**verdict** · PASS — all three discriminators closed; wireable_now=true (inert pending Peat seam)
+
+### Sandbox runs (all in mktemp, no tracked-file mutation, no network)
+
+**SEED** (`/tmp/r4-rerefute-seed.sh`) — 15/15 PASS:
+- S0: absent ledger → M1 exit 3 LEDGER_ABSENT (pre-wiring baseline confirmed)
+- S1: `--seed` exits 0, populates handoffs×2 (author=polaris/sirius), sig×1, MEMORY.md×1; beta excluded
+- S2: AUTHOR_MATCH — from-polaris/ → author=polaris; from-sirius/ → author=sirius
+- S3 (CRITICAL): seed handoff-1 only; add handoff-2 unrecorded on disk; M1 wired → **exit 4 UNVERIFIABLE_PRESENT**. The R3-flagged blocker is now live.
+- S4: re-seed captures handoff-2; M1 wired → **exit 0 unlisted_on_disk=0**. Blocker CLOSED.
+- S5: idempotency — re-seed on unchanged tree adds 0 new entries (before=54 after=54)
+- S6: modified file → new entry appended on re-seed (before=54 after=55)
+- S7a: normal stdin path (Write event JSON) records genesis surface file
+- S7b: non-genesis path skipped (src/components/Foo.tsx → no ledger line)
+
+**M3-MATCHER** (`/tmp/r4-rerefute-m3-matcher.sh`) — 70/70 PASS:
+- Matcher extracted from `.harness/proposed-wiring-M.md` (len=344 chars) via python3 json.loads
+- All 23 egress tools MATCH (WebFetch, WebSearch, all mcp__claude_ai_*, supabase, vercel,
+  playwright egress tools, chrome-devtools egress/uncertain tools)
+- StructuredOutput, SendUserFile, advisor → NO-MATCH (brick check passed)
+- All 13 harness built-ins (Read/Write/Edit/Bash/etc.) → NO-MATCH
+- All 15 non-egress playwright tools → NO-MATCH
+- All 9 non-egress chrome-devtools tools → NO-MATCH
+- All 5 computer-use tools → NO-MATCH
+- M3a: non-JSON stdin → exit 2 + `{"decision":"block"}` (fail-closed; env PATH intact, not env -i)
+- M3b: partial JSON → exit 2 (fail-closed)
+- M4: empty stdin → exit 0 (not over-blocked)
+- M5/M6: allowlisted github.com → exit 0; evil.example → exit 2 block
+
+**M1-WARN** (`/tmp/r4-rerefute-m1-warn.sh`) — 8/8 PASS (+ mutation suite 18/18):
+- W1: 2-sha, disk=latest sha → **exit 0 + WARN APPEND_ONLY** (false-positive fixed)
+- W2: 3-sha → **exit 1 APPEND_ONLY** (sustained churn still blocked)
+- W3: 2-sha, disk≠latest sha (tamper-on-top-of-re-edit) → **exit 1 SHA_MISMATCH**
+  (fall-through from WARN branch to SHA_MATCH confirmed; WARN still emitted)
+- Mutation suite: 18/18 PASS, exit 0 (no new reds)
+
+### Out-of-scope named (I1/I2)
+
+I1 (born-tampered / content-poison at write): the ledger faithfully records whatever the
+hook wrote. A file poisoned at write-time hashes "clean" — the sha matches the poisoned
+content. This mechanism catches out-of-band modification AFTER write, not malicious-but-
+hook-routed content. Out of scope for all three fixes verified here.
+
+I2 (co-tamper — ledger + disk updated together): M1 exits 0 by construction (sha and disk
+both match). Caught at the correct layer: scripts/audit-ledger-append-only.sh over the
+CI-witness ref. Explicitly excluded from M1's stated contract (see M1 chain-strip docs).
+
+### Tree-cleanliness
+
+All sandbox scripts written to /tmp. No tracked files mutated. No real network.
+CLEAN.
+
+---
+
+## 2026-06-04 · M4 sensor — retention-policy encoding refutation · RESIDUAL BYPASS OPEN
+
+**auditor** · Algol (α-VER-06)
+**task** · TASK-2026-06-04-M4-ENCREFUTE · extended encoding refute (round 2)
+**verdict** · REVISE — NUL byte carrier bypass confirmed; wireable_now=false
+
+### Summary
+
+Build agent's newline fix (A/A2/E/I vectors) is confirmed closed. New residual bypass
+found via JSON ` ` (valid JSON NUL escape): `jq -r` emits a real NUL byte; bash
+`$()` command-substitution silently drops NUL bytes (C-string semantics); the shell
+variable receives "peat" from "p[NUL]eat". The case statement matches and the sensor
+exits 0, ratifying a waiver that Peat never signed.
+
+Three confirmed variants (all sensor exit 0 when expected 1):
+- entry="p[NUL]eat" (doc="Peat") — basic bypass
+- entry="ne0[NUL]ex" (doc="Peat") — ne0ex slot bypass
+- both doc + entry = "p[NUL]eat" — full self-ratification, no literal Peat string
+
+55 other encoding vectors pass correctly (newlines, unicode lookalikes, substring,
+whitespace, very-long, primary branch, legit signer regression — all correct).
+
+### Fix direction (HOOK PROPOSAL to Canopus)
+
+Move identity comparison inside jq (ascii_downcase + index against allow-list JSON
+array). jq preserves NUL bytes in its in-memory strings; "p[NUL]eat" never equals
+"peat" inside jq. The shell round-trip is the root cause.
+
+### Harness
+
+`tests/harness/m4-encoding-refute.sh` — 58 assertions, exits 1 (3 NUL failures).
+Will flip to exit 0 when sensor is fixed.
+
+Report: `docs/qa/REPORTS/TASK-2026-06-04-M4-ENCREFUTE.md`
+
+---
+
+## 2026-06-04 · M3 sensor — untrusted-fetch-gate refutation (Canopus) · HOOK-LOGIC PASS / MATCHER GAP
+
+**auditor** · Algol (α-VER-06)
+**task** · TASK-2026-06-04-MEMORY-POISONING-A · M3 sensor adversarial refute
+**verdict** · Hook-logic correct; production closure conditional on matcher precondition at Peat's seam
+
+### What was tested
+
+Adversarial synthetic-JSON refutation suite (94 cases total across three test
+scripts, run from /tmp against temp allowlists — no tracked-file mutation, no
+real network). Build agent's own self-verify (20 cases) also re-run independently
+and confirmed 20/20.
+
+### Hook-logic findings (all PASS)
+
+**Named fix — browser_tabs:**
+- `{action:"new", url:https://evil.example}` → exit 2 BLOCK. CONFIRMED.
+- `{action:"new", url:https://github.com}` → exit 0 ALLOW. CONFIRMED.
+- `{action:"list"}`, `{action:"close"}`, `{action:"select"}` → exit 0 ALLOW. CONFIRMED.
+- Separate URL_BEARING branch correctly avoids over-blocking non-navigating actions. CONFIRMED.
+
+**Headline non-regressions:** WebFetch, browser_navigate, chrome navigate_page/new_page,
+notion-fetch — all still block for evil.example. CONFIRMED.
+
+**Parse-failure fail-closed:** non-JSON stdin → exit 2 BLOCK. CONFIRMED.
+(Round-1 REVISE finding — now closed at hook level.)
+
+**`*)` deny-default:**
+- `mcp__playwright__browser_open` (fictional) → exit 2 BLOCK.
+- `mcp__new_plugin__some_fetch_tool` → exit 2 BLOCK.
+- `SomeNewEgressTool` → exit 2 BLOCK.
+- `FictionalEgressTool` without token → exit 2 BLOCK.
+(Round-1 REVISE finding — now closed at hook level.)
+
+**Notion namespace (13 non-fetch tools, wildcard UNCERTAIN):**
+All 13 tools from the deferred-tools inventory block without an opt-in token.
+notion-fetch correctly routes to URL_BEARING (first-match wins in bash case).
+CONFIRMED.
+
+**Playwright inventory (41 cases):**
+All 15 SKIP-class tools ALLOW. All 4 UNCERTAIN-class tools BLOCK. All 3 URL_BEARING
+tools block for evil.example. CONFIRMED.
+
+**performance_start_trace:** UNCERTAIN (BLOCK). CONFIRMED.
+
+**Opt-in token isolation:** token for `browser_evaluate` does NOT allow
+`browser_run_code_unsafe`. Suffix-based isolation is correct.
+
+### MATCHER GAP — production bypass not closed
+
+**Finding (not a hook-logic defect — a wiring precondition):**
+
+The hook header lines 94-96 discloses:
+  "NOTE ON MATCHER SCOPE: the settings.json matcher at §2b wires this hook
+  on 'WebFetch|WebSearch'. Under that matcher, every case branch below
+  WebSearch is INERT (only WebFetch and WebSearch fire in production).
+  Algol exercises all branches by piping JSON directly — that is by design."
+
+`.harness/proposed-wiring-M.md §M3` confirms the proposed matcher:
+  `"matcher": "WebFetch|WebSearch"`
+
+Under this matcher, the production gate covers ONLY WebFetch and WebSearch.
+browser_tabs{new}, browser_navigate, navigate_page, new_page, notion-fetch,
+browser_evaluate, all UNCERTAIN MCP namespaces, and the `*)` deny-default
+are all inert — those tools never reach the hook.
+
+The round-1 named bypasses (browser_navigate, navigate_page, notion-fetch)
+are closed at hook-logic level. They are NOT closed in production under the
+proposed matcher.
+
+**This is conditional on Peat's seam.** The closure is real only if the
+matcher is expanded to route the egress-class namespaces to this hook.
+The required precondition is documented in this report and in the sensor
+StructuredOutput.
+
+### Tree-cleanliness
+
+No tracked files mutated. All test scripts written to /tmp. Allowlists are mktemp
+files with trap-cleanup. CLEAN.
+
+---
+
 ## 2026-06-03 · SECURITY QA GAUNTLET — mutating-action-hook.sh curl/wget danger-targeted rule · REVISE
 
 **auditor** · Algol (α-VER-06)
@@ -2647,5 +2972,66 @@ Same root cause: the `&&|;` and newline chain checks reuse the same PREFIX (WRAP
    (shared PREFIX), so R3-C is closed at the same time.
 
 The coarse permission-layer `Bash(curl *)` deny must remain — this hook is NOT yet tight.
+
+---
+
+## ZT CENSUS AUDIT — family: behavioral-monitoring · Algol · 2026-06-04
+
+Adversarial re-probe of the behavioral-monitoring census against ground truth. Statuses largely
+stand; the rot is in evidence/sensors. Key findings:
+
+- **C2 (threshold alerts) — false detail.** `on-dispatch.sh` ANOMALY branch is UNREACHABLE through
+  the wired path. settings.json fires it only on dispatch-TO-polaris and never sets a caller; CALLER
+  defaults to "unknown", which the hook excludes from the ANOMALY branch (`!= polaris && != unknown`).
+  Log confirms 0 ANOMALY lines across all history (every entry `caller=unknown`). The cited sensor
+  `grep ANOMALY` checks for a marker the wiring cannot produce — a sensor that won't catch its claimed
+  failure. PARTIAL survives only on `postuse-agent-counter.sh` (verified firing: 7 postuse-threshold
+  checkpoint logs) — but that does state-preservation, not alerting.
+- **C3 (routing) — half dead.** Beta UNAUTHORIZED stream real (2 markers in ACCESS-LOG.md; read-gate-beta
+  → access-log-beta verified). Dispatch-anomaly stream dead (same root cause as C2).
+- **C1 (baseline) — "most complete" falsified.** Its own enforcing rail `audit-axiom-gate-join-coverage.sh`
+  EXITS 1 RIGHT NOW: 6/9 axioms (V1,V2,C1,C4,C5,H1) UNPROJECTED past deadline 2026-05-31, including H1
+  (the ground-truth keystone). Sensor works; baseline is in violation. HAVE kept (the monitor functioning
+  = the RED), with mandatory note.
+- **C9 (ML anomaly NA) — NA kept, teeth sharpened.** Scope rationale sound (solo garden, over-build
+  anti-pattern). But cited residue ("watchdog in shadow") is HOLLOW — watchdog confirmed dormant, absent
+  from settings.json, defaults `judge_error → "aligned"` (fail-open). And `signed_by: null` → PROPOSED NA,
+  not ratified by Peat.
+- **C7 (crypto audit) — verified airtight.** Spot-checked BATCH-AUDIT-2026-05-16--algol.json: self_hash
+  a72572b7… recomputes to exact MATCH.
+- **MISSING CONTROL flagged:** runaway-loop / rate-limit bounding. The counter COUNTS dispatches but never
+  STOPS one (exit 0 only); design doc admits "no loop bound." Detective-only; no governor. Census omission.
+
+---
+
+## M4-RETENTION RE-REFUTE — INTEGRITY-FAIL — Algol · 2026-06-04
+
+Re-refutation of `scripts/audit-retention-policy.sh` after Canopus's `is_signed_by_peat()` fix.
+Verdict: **false-HAVE NOT fully closed.** The plain agent-self-sign bypass is closed, but the same
+authenticity gap survives under newline encoding.
+
+Method: temp-copy / env-override fixtures (WL_RETENTION_POLICY forced absent → escape-hatch branch;
+WL_SCOPE_WAIVERS pointed at tmpfs fixtures). No tracked-file mutation, no network. Runner:
+/tmp/m4_refute_runner.sh.
+
+- **Canopus 8-case matrix replays clean (8/8).** Plain "canopus"/"x"/"algol" self-signs now exit 1;
+  legit Peat/ne0ex exit 0; unsigned stub + literal "null" exit 1. That sub-bug IS closed.
+- **SURVIVING BYPASS (4 vectors exit 0 = ratified):**
+  - A  signed_by `"canopus\nPeat"` (both doc + entry) → exit 0
+  - A2 signed_by `"Peat\ncanopus"` → exit 0
+  - E  doc=`"Peat"`, entry=`"canopus\nPeat"` → exit 0 (entry-level gate bypassed)
+  - I  signed_by `"\nPeat"` → exit 0
+- **Root cause:** `is_signed_by_peat()` validates via `grep -qiE '^(Peat|…)$'`. `^`/`$` are grep
+  *line* anchors, not string anchors. `is_signed_by_set()` only rejects `""` and `"null"`, so any
+  multiline value reaches grep. jq -r renders `\n` as a real newline; `$(…)` strips only the trailing
+  newline, so an internal one survives. grep then matches "Peat" on line 2 and ratifies an agent
+  self-signature. Confirmed at function level: /tmp/m4_mech_probe.sh.
+- **Correctly-rejected controls (proves the gate isn't merely broken):** CR `"canopus\rPeat"`, TAB
+  `"canopus\tPeat"`, trailing/leading space, `"NotPeat"`/`"Peaton"` substrings all exit 1.
+- **Fix direction (Canopus's to implement):** exact whole-STRING match against the finite allow-list
+  — bash `[[ "$v" =~ ... ]]` / a `case` statement / explicit reject of any value containing a newline —
+  not line-oriented grep.
+
+Handoff: SCHEMA-FAIL/REVISE → Canopus. Re-refute required before HAVE.
 
 ---
