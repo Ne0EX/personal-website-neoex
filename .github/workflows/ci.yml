@@ -1,0 +1,109 @@
+# CI — independent-witness substrate for the Worldline repo.
+#
+# WHY THIS EXISTS
+#   The symbiote / trust-machine Stage-0 probe flagged that this repo had no
+#   external corroborator: every existing gate runs locally, under the same
+#   custodian group, on the same machine — easy to fake a green by skipping.
+#   This workflow is that missing cross-substrate witness: it runs on GitHub's
+#   own runners, on every push and PR, and re-runs the REAL existing gates.
+#   It does not invent new checks — every step below maps to a script or test
+#   that already lives in the repo.
+#
+# HARD CONSTRAINTS (Peat directive, do not "improve" away)
+#   - NO commit-signing / GPG / SSH-signing step. Signing with Peat's key would
+#     gate the agents' own verify-and-close loop on Peat's key and break team
+#     autonomy. The independent witness is CI itself, not a signature.
+#   - NO steps requiring secrets. Everything here runs with the default
+#     read-only GITHUB_TOKEN and needs no repo/org secrets.
+
+name: ci
+
+on:
+  push:
+  pull_request:
+
+# Least privilege: the witness only needs to read the checked-out tree.
+permissions:
+  contents: read
+
+# Never run signing/secret-bearing logic; make the absence explicit & auditable.
+# (No `secrets:` are referenced anywhere in this file.)
+
+jobs:
+  verify:
+    name: typecheck · lint · gates · harness-tests · build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Match the local toolchain: Node 24 (repo dev runs v24.x), npm + lockfile.
+      # No .nvmrc / packageManager field exists, so node-version is pinned here.
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      # npm ci uses package-lock.json (the committed lockfile) for a clean,
+      # reproducible install — the same dependency closure the team builds against.
+      - name: Install dependencies
+        run: npm ci
+
+      # ── Typecheck ──────────────────────────────────────────────────────────
+      # tsconfig.json already sets noEmit:true + strict:true. There is no
+      # `typecheck` npm script in package.json, so invoke the TypeScript compiler
+      # directly via the locally-installed binary (npx --no-install resolves the
+      # devDependency `typescript`, never fetches a new one).
+      - name: Typecheck (tsc --noEmit)
+        run: npx --no-install tsc --noEmit
+
+      # ── Lint ───────────────────────────────────────────────────────────────
+      # Real script: package.json "lint": "eslint"
+      - name: Lint (eslint)
+        run: npm run lint
+
+      # ── Existing quality gates (all real npm scripts) ──────────────────────
+      # harness:audit chains four existing audit scripts:
+      #   scripts/audit-design-tokens.sh
+      #   scripts/audit-territory.sh
+      #   scripts/audit-soul-atom-drift.sh
+      #   scripts/audit-font-chain.sh
+      - name: Gate — design-token / territory / soul-atom-drift / font-chain audits
+        run: npm run harness:audit
+
+      # Real script: package.json "harness:barrier-class"
+      #   → scripts/audit-rail-barrier-class.sh
+      - name: Gate — rail barrier-class audit
+        run: npm run harness:barrier-class
+
+      # Real script: package.json "harness:permissions"
+      #   → scripts/audit-permissions-nonempty.sh
+      - name: Gate — permissions non-empty audit
+        run: npm run harness:permissions
+
+      # Real script: package.json "harness:least-agency"
+      #   → scripts/audit-least-agency-config.sh
+      - name: Gate — least-agency config audit
+        run: npm run harness:least-agency
+
+      # ── Harness fixture tests (node --test) ────────────────────────────────
+      # These .test.mjs files drive the audit scripts via spawnSync against the
+      # real repo (no .next / build dependency). git is preinstalled on the
+      # runner, which the fixtures need for their temp-dir git init steps.
+      - name: Harness fixture & regression tests (node --test)
+        run: |
+          node --test \
+            tests/harness/font-chain.test.mjs \
+            tests/soul-atom-drift-audit.test.mjs \
+            tests/audit-axiom-gate-join-coverage.test.mjs \
+            tests/audit-property-technique-map.test.mjs \
+            tests/worldline-globe-coordinates.test.mjs
+
+      # ── Build (appropriate IN CI — runner-local, not the local .next) ──────
+      # Real script: package.json "build": "velite && next build && npm run index:search"
+      # This is CI's own ephemeral runner; it is NOT the local .next another
+      # workflow owns. Building here proves the gates ran against a buildable tree.
+      - name: Build (velite + next build + search index)
+        run: npm run build
