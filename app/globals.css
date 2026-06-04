@@ -33,6 +33,25 @@
      (0.5 / squint-tier) and --ink-primary (1.0 / instrument accent + chrome).
      Never use --ink-soft for read-tier content. */
   --ink-body:      rgb(var(--ink-rgb) / 0.82);
+  /* --ink-label: read-tier SUBLABEL — sits between --ink-body (0.82, paragraph
+     read tier) and --ink-soft (0.5, squint/ambient tier). For data you SCAN but
+     don't read as prose: the /archive locus place-name, the section YEAR anchor.
+     0.72 is read-intentional yet quieter than body copy, so a survey eye can pull
+     KYOTO / 2026 out of the field WITHOUT raising the genuinely-ambient labels
+     (FILE line, tags, type badge) that stay at --ink-soft. The reference's value
+     comes from a CLEAR tier split (title 1.0 · sublabel ~0.55), not from raising
+     everything; --ink-label is the third rung that makes that split exist in the
+     teal system. Never use for prose body (use --ink-body) or for ambient
+     scaffolding (use --ink-soft). */
+  --ink-label:     rgb(var(--ink-rgb) / 0.72);
+  /* --ink-read: HIGH read-tier — for instrument READOUT + FILTER values that
+     Peat reported hard to read. Sits above --ink-label (0.72) but below
+     --ink-primary (1.0, reserved for chrome accent). 0.9 → strong legibility
+     for the RETICLE / DRIFT / BEARING / COORD values + the active filter family
+     headers WITHOUT promoting them to full instrument-accent weight. This is the
+     read-tier lift of refinement #3 (lift the READ register, keep the two
+     registers distinguishable — ambient labels stay --ink-soft/--ink-label). */
+  --ink-read:      rgb(var(--ink-rgb) / 0.9);
   --ink-soft:      rgb(var(--ink-rgb) / 0.5);
   --ink-faint:     rgb(var(--ink-rgb) / 0.3);
   --ink-hairline:  rgb(var(--ink-rgb) / 0.12);
@@ -66,7 +85,17 @@
   --h1-tracking:   -0.01em;
   --body-size:     13.5px;
   --meta-size:     9px;
+  /* --meta-tracking: AMBIENT label tracking. Wide 0.3em = "this is scaffolding,
+     a label, squint past it." Keep on the FILE line, tags, type badge. */
   --meta-tracking: 0.3em;
+  /* --meta-tracking-read: READ-tier value tracking. Tight 0.12em = "this is a
+     value, read it." For the /archive locus coord + place-name, where wide
+     letter-spacing would scatter the lat/lon numerals instead of grouping them
+     as one legible datum. Pairs with --ink-label (opacity lever) so the second
+     legibility register is signalled by BOTH tracking and contrast — texture +
+     contrast tuned together, per the legibility-registers brief. Same 9px
+     --meta-size; only opacity + tracking change, never the font size. */
+  --meta-tracking-read: 0.12em;
   --num-size:      38px;
 }
 
@@ -411,6 +440,440 @@ body {
 }
 .entry-card.archive-row-hovered .entry-glitch::after {
   width: 100%;
+}
+
+/* =============================================================
+   /archive — SURVEY REFINEMENT (Peat 2026-06-03, 4 items)
+   Owner: Betelgeuse (α-…-DESIGN). CSS-only; markup contract handed to Sirius.
+
+   #2 REAL 3-COLUMN GRID — the ledger rows are an explicit CSS grid so id |
+      title+tags | locus line up vertically down the page (a surveyed table,
+      not a left-stack). Column template lives HERE (single source of truth)
+      as FIXED pixel widths: col1=160px · col2=1fr · col3=130px. Fixed widths
+      are required because each <a>.archive-ledger-row is its OWN grid
+      (the <ol> parent is display:flex, not display:grid), so track sizing is
+      computed independently per row. Using minmax(0,max-content) on col3
+      caused drift of up to ~28px row-to-row (locationless fiction rows
+      collapsed col3 to 0 and pushed the title right). Fixed tracks guarantee
+      col2/col3 left edges match within ~1px across every row, including rows
+      with no locus. Sirius applies the classes only — no inline grid.
+
+      COL 1  .alr-col-id    — kind glyph + short id (fixed gutter), with the
+                              FILE—date·status·duration meta as a sub-line
+                              (.alr-meta) so the meta no longer floats on line 1.
+      COL 2  .alr-col-body  — italic title + tags.
+      COL 3  .alr-col-locus — coord + place, RIGHT-aligned read gutter.
+   ============================================================= */
+.archive-ledger-row {
+  display: grid;
+  /* FIXED SHARED TRACKS — every row uses identical pixel widths so col2/col3
+     left edges align within ~1px across ALL rows, including locationless fiction
+     rows where col3 carries no content (the track stays fixed-empty, not
+     collapsed). col1 = 160px covers the widest id head (■ PH·DSCF0005 +
+     tracking); col3 = 130px covers the widest locus string (18.79°N 98.99°E /
+     CHIANG MAI · TH at t-meta 9px mono). col2 takes the remaining space.
+     The previous minmax(0,max-content) on col3 was the root cause: max-content
+     is computed per-row independently, so empty fiction rows collapsed col3 to 0
+     and shifted the title right by ~28px. Fixed tracks eliminate that drift. */
+  grid-template-columns: 160px minmax(0, 1fr) 130px;
+  column-gap: 20px;
+  align-items: baseline;
+  padding: 12px 12px 12px 4px;
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 1px dashed var(--ink-dashed);
+  transition: background 150ms ease;
+  outline: none;
+  cursor: pointer;
+}
+
+/* COL 1 — id zone: glyph + id on line 1, FILE meta as a quiet sub-line. */
+.alr-col-id {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.alr-id-head {
+  white-space: nowrap;
+  letter-spacing: var(--meta-tracking-read);
+  color: var(--ink-label);
+}
+.alr-id-glyph { color: var(--accent-orange); }   /* glyph carries the kind accent */
+.alr-meta {
+  /* sub-line: FILE — date · status · duration — quiet ambient register so it
+     does NOT compete with the title; sits UNDER the id, aligned in col 1. */
+  color: var(--ink-soft);
+  letter-spacing: var(--meta-tracking);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.alr-meta .alr-meta-accent { color: var(--accent-orange); }
+
+/* COL 2 — body: title + tags. */
+.alr-col-body { min-width: 0; }
+.alr-tags {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 5px;
+}
+.alr-tags .alr-tag-lead { color: var(--accent-orange); }
+.alr-tags .alr-tag { color: var(--ink-soft); }
+
+/* COL 3 — locus: right-aligned read gutter (coord + place). */
+.alr-col-locus {
+  text-align: right;
+  white-space: nowrap;
+  letter-spacing: var(--meta-tracking-read);
+  color: var(--ink-label);
+}
+.alr-col-locus .alr-place {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink-soft);
+}
+
+/* ── #4 PAGE-GRID SHIFT — rail further right, ledger wider ──
+   The two-column body becomes an explicit grid (was inline flex). The ledger
+   track grows (more room for the 3-col table to align) and the instrument rail
+   sits FURTHER RIGHT / tighter to the edge: narrower gap, rail pinned to the
+   right track, page padding tightened on the right so the rail hugs the margin.
+   Applied to the body wrapper Sirius keys with .archive-body. */
+.archive-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  column-gap: 56px;            /* widened ledger pull; rail set off to the right */
+  align-items: start;
+  padding: 28px 28px 60px 40px; /* tighter RIGHT padding → rail hugs the edge */
+}
+.archive-body > .archive-ledger-col {
+  min-width: 0;
+  max-width: 960px;            /* was 840px — wider ledger for clean col alignment */
+}
+.archive-body > .archive-rail-col {
+  position: sticky;
+  top: 72px;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── #3 READ-TIER CONTRAST LIFT — READOUT + FILTER ──
+   Peat finds the readout (RETICLE/DRIFT/BEARING/STRATUM/COORD/α + NEXT NODE)
+   and the filter (§ FILTER / TYPE / ALL ART PHO FIC) hard to read. Lift the
+   read register: ambient KEYS rise --ink-soft(0.5) → --ink-label(0.72); read
+   VALUES rise --ink-label(0.72) → --ink-read(0.9). The α row + active-filter
+   accent stay orange (reserved). Borders firm from --ink-dashed → --ink-hairline
+   is intentionally NOT done (keep the surveyed-paper seam); contrast is lifted
+   on TEXT only, so the two registers (ambient label vs read value) stay split. */
+/* ── ROW BASE LAYOUT (moved out of the inline rowStyle object) ──
+   The row grid (display + columns + gap + padding) lives HERE, not inline, so
+   the @container arl mini rules can fold BEARING/STRATUM/COORD (display:none)
+   and recompute the RETICLE/DRIFT/α columns. Inline display/grid-template would
+   beat the stylesheet (equal-specificity loses to inline) and re-break the fold.
+   Must precede the @container block below — equal specificity, source-order wins. */
+.archive-globe-readout [data-arl-row] {
+  display: grid;
+  grid-template-columns: minmax(54px, auto) 1fr;
+  column-gap: 10px;
+  align-items: baseline;
+  padding: 3px 0;
+}
+.archive-globe-readout .arl-key   {
+  color: var(--ink-label);                /* was ink-soft */
+  letter-spacing: 0.18em;                 /* moved out of inline keyStyle so the
+                                             mini .arl-key (0.1em) can override */
+}
+/* .arl-val — full-panel value cell: right-aligned, single-line ellipsis. The
+   wrapping/alignment lives HERE (not inline) so the @container mini rule below
+   can re-wrap the RETICLE locus at ≤300px (inline styles would beat it). */
+.archive-globe-readout .arl-val {
+  color: var(--ink-read);          /* was ink-label */
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.archive-globe-readout .arl-head  { color: var(--ink-label); }   /* panel title up */
+/* NEXT NODE — base spacing/tracking moved out of the inline button style so the
+   mini @container .arl-next can tighten them (margin-top/letter-spacing/padding).
+   Inline values would beat the mini rule. */
+.archive-globe-readout .arl-next  {
+  color: var(--ink-label);                /* NEXT NODE label up */
+  margin-top: 8px;
+  letter-spacing: 0.24em;
+  padding: 6px 8px;
+}
+/* α row stays orange (reserved observer accent) — class kept for clarity. */
+.archive-globe-readout .arl-alpha { color: var(--accent-orange); }
+/* α VALUE cell — match the full-panel .arl-val single-line behaviour (the value
+   span is the row's 2nd .arl-alpha). The mini @container rule re-wraps it. */
+.archive-globe-readout [data-arl-row="alpha"] .arl-alpha:last-child {
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── MINI-READOUT — compact instrument telemetry for constrained width ──
+   Owner: Betelgeuse (α-VIS-04). Problem (Peat 2026-06-04): the full readout
+   (RETICLE / DRIFT A / BEARING / STRATUM / COORD / α + NEXT NODE) is a stacked
+   2-col grid hard-pinned at width:100%, fontSize:9px, with .arl-val ellipsis-
+   truncating the RETICLE label + COORD. In the Triangulate overlay's globe
+   column (380px desktop → 240px tablet → mobile) and at narrow viewports the
+   panel runs out of horizontal room: the 'READOUT' panel + value cells clip.
+
+   FIX — SAME component, SAME instrument language, just compacted by container
+   query. We make the panel its OWN size container and, below the switch width,
+   COLLAPSE the stacked grid into a compact strip. We do NOT splay meaning: this
+   compacts the telemetry SHELL only. What SURVIVES (essential surveyed-instrument
+   telemetry): the RETICLE coordinate/locus label + DRIFT A. What FOLDS AWAY in
+   mini: BEARING, STRATUM, COORD rows, and the panel header. α stays (reserved
+   observer locus) but compacts to a trailing inline datum. NEXT NODE stays
+   (the survey-cycle affordance) but shrinks to an icon-tight control.
+
+   SWITCH WIDTH: 300px (container inline-size). Above 300px → full stacked grid
+   (unchanged). At/below 300px → mini strip. 300px is chosen because the 9px mono
+   2-col grid with a 54px key column + the longest RETICLE value needs ~300px to
+   render the locked title+place without ellipsis; below that the value clips —
+   so 300px is exactly where full→mini must flip. The overlay's 240px tablet
+   globe column and any sub-300px viewport column land in mini automatically;
+   the 380px desktop column and 348px globe stay full.
+
+   MARKUP CONTRACT for Sirius (NO new component, NO JS breakpoint):
+   1. Keep rendering <ArchiveGlobeReadout> exactly as today (same rows, same
+      arl-key / arl-val / arl-head / arl-alpha / arl-next classes). The mini
+      form is produced ENTIRELY by this CSS reading the container width — no
+      conditional rendering, no prop, no duplicated markup. This is what keeps
+      mini and full from ever drifting (one component, one source of truth).
+   2. REQUIRED: tag each telemetry row so CSS can fold/keep it. Add a data
+      attribute to the row <div> wrappers (the rowStyle divs):
+         RETICLE row → data-arl-row="reticle"
+         DRIFT A row → data-arl-row="drift"
+         BEARING row → data-arl-row="bearing"
+         STRATUM row → data-arl-row="stratum"
+         COORD row   → data-arl-row="coord"
+         α row       → data-arl-row="alpha"
+      (reticle + drift are KEPT in mini; bearing/stratum/coord are FOLDED;
+       alpha is RESTYLED to a trailing inline datum.)
+   3. The panel root already carries .archive-globe-readout — that becomes the
+      size container. No wrapper change needed.
+   Everything below is pure CSS; Sirius only adds the six data-arl-row hooks.
+
+   worldline-design compliance: teal/ink tokens only, no hex; orange stays
+   reserved for α; no shadow/gradient/rounded; JetBrains mono inherited; dashed
+   seams kept. */
+.archive-globe-readout {
+  container-type: inline-size;
+  container-name: arl;
+}
+
+@container arl (max-width: 300px) {
+  /* Panel header folds — at mini width the 'READOUT' title costs a whole line
+     and the panel already reads as the instrument by its dashed frame + glyphs. */
+  .archive-globe-readout .arl-head { display: none; }
+
+  /* Folded telemetry — BEARING / STRATUM / COORD drop out of the compact strip.
+     Their data is recoverable in the full panel; mini keeps only the two essential
+     rows worldline-soul requires (active RETICLE coord + DRIFT). */
+  .archive-globe-readout [data-arl-row="bearing"],
+  .archive-globe-readout [data-arl-row="stratum"],
+  .archive-globe-readout [data-arl-row="coord"] { display: none; }
+
+  /* RETICLE + DRIFT compact: collapse the 2-col grid (54px key | value) into a
+     single tight line each. The ambient KEY shrinks to a lead glyph-width; the
+     value gets the full remaining width and may WRAP (not ellipsis-clip) so the
+     locked locus label survives. */
+  .archive-globe-readout [data-arl-row="reticle"],
+  .archive-globe-readout [data-arl-row="drift"] {
+    grid-template-columns: minmax(38px, auto) 1fr;
+    column-gap: 6px;
+    padding: 2px 0;
+  }
+  .archive-globe-readout [data-arl-row="reticle"] .arl-key,
+  .archive-globe-readout [data-arl-row="drift"] .arl-key {
+    letter-spacing: 0.1em;        /* tighten the tracking that ate width */
+    font-size: 8px;
+  }
+  .archive-globe-readout [data-arl-row="reticle"] .arl-val {
+    white-space: normal;          /* allow the locus label to wrap, never clip */
+    overflow: visible;
+    text-overflow: clip;
+    text-align: left;             /* left in the strip — right-align needs the grid */
+    line-height: 1.35;
+  }
+  .archive-globe-readout [data-arl-row="drift"] .arl-val {
+    text-align: left;
+  }
+
+  /* α — keep the reserved observer locus, but compact: same orange, smaller,
+     folded onto its own tight line at the strip foot. Still data, never chrome. */
+  .archive-globe-readout [data-arl-row="alpha"] {
+    grid-template-columns: minmax(38px, auto) 1fr;
+    column-gap: 6px;
+    padding: 2px 0;
+    margin-top: 2px;
+    border-top: 1px dashed var(--ink-dashed);   /* seam between live + observer */
+    padding-top: 4px;
+  }
+  .archive-globe-readout [data-arl-row="alpha"] .arl-alpha:first-child {
+    font-size: 9px;               /* the α glyph stays legible */
+  }
+  .archive-globe-readout [data-arl-row="alpha"] .arl-alpha:last-child {
+    text-align: left;
+    white-space: normal;
+    font-size: 8px;
+  }
+
+  /* NEXT NODE — survey-cycle affordance survives but tightens to fit the strip. */
+  .archive-globe-readout .arl-next {
+    margin-top: 6px;
+    letter-spacing: 0.14em;
+    padding: 5px 6px;
+  }
+
+  /* Panel padding pulls in slightly so the strip isn't choked at 300px. */
+  .archive-globe-readout {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+
+.archive-filters .af-section,
+.archive-filters .af-family {
+  color: var(--ink-label);          /* § FILTER + TYPE headers: 0.5 → 0.72 */
+}
+.archive-filters .af-pill {
+  color: var(--ink-label);          /* inactive pill label: 0.5 → 0.72 (read-tier) */
+}
+.archive-filters .af-pill.is-active {
+  color: var(--accent-orange);      /* active stays orange (reserved) */
+}
+
+/* =============================================================
+   § QUERY — in-rail archive search bar (folds the deleted
+   Triangulate overlay's pagefind search INTO /archive)
+   ─────────────────────────────────────────────────────────────
+   Lives in the right instrument rail, ABOVE § FILTER, inside the
+   .archive-rail-col sticky track. Search + filter read as one
+   instrument: same paper/teal register, JetBrains mono, dashed
+   survey seams, NO shadow/gradient/rounded. Orange is reserved —
+   used ONLY for the focus reticle + the live match count, never
+   for resting chrome. Owner: Betelgeuse (CSS) · wired by Sirius.
+   ============================================================= */
+
+/* Section header — mirrors .af-section register (§ QUERY ↔ § FILTER). */
+.archive-query .aq-section {
+  color: var(--ink-label);          /* read-tier, matches § FILTER (0.72) */
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed var(--ink-dashed);
+}
+
+/* Input field shell — the survey instrument q.bar. Square, dashed,
+   paper-warm; ⌖ prefix glyph is positioned by .aq-field padding-left. */
+.archive-query .aq-field {
+  position: relative;
+  margin-top: 10px;
+}
+.archive-query .aq-glyph {
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1;
+  color: var(--ink-soft);           /* resting = ambient teal (NOT orange) */
+  pointer-events: none;
+  user-select: none;
+  transition: color 120ms ease;
+}
+.archive-query .aq-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 26px 8px 26px;       /* L: glyph gutter · R: clear-button gutter */
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--ink-read);           /* read-tier value (0.9) — same as filter values */
+  background: var(--paper-warm);
+  border: 1px dashed var(--ink-dashed);
+  border-radius: 0;                 /* no rounded — paper instrument */
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color 120ms ease;
+}
+.archive-query .aq-input::placeholder {
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+}
+/* Focus = the reticle lock: solid orange hairline + glyph lights orange.
+   This is the ONE place orange enters the query bar (reserved: active/reticle). */
+.archive-query .aq-field:focus-within .aq-input {
+  border: 1px solid var(--accent-orange);
+}
+.archive-query .aq-field:focus-within .aq-glyph {
+  color: var(--accent-orange);
+}
+/* Hide the native search-input clear affordance; we render our own ✕. */
+.archive-query .aq-input::-webkit-search-decoration,
+.archive-query .aq-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* In-field clear button (✕) — appears only when the query is non-empty. */
+.archive-query .aq-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1;
+  color: var(--ink-soft);
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+.archive-query .aq-clear:hover,
+.archive-query .aq-clear:focus-visible {
+  color: var(--accent-orange);      /* active intent → reticle orange */
+  outline: none;
+}
+
+/* Status line under the field: live match count + empty / no-result states.
+   Ambient by default; the COUNT value is lifted to read-tier; an .is-count
+   flag tints the integer orange (active survey reading), the surrounding
+   words stay quiet. */
+.archive-query .aq-status {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-soft);           /* ambient narration tier */
+}
+.archive-query .aq-status .aq-count {
+  color: var(--accent-orange);      /* the integer = active reading (reserved) */
+}
+.archive-query .aq-status.is-empty {
+  color: var(--ink-faint);          /* no-result = quietest (// nothing surveyed) */
 }
 
 /* =============================================================

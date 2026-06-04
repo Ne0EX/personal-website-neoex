@@ -466,6 +466,26 @@ const photoSidecars = defineCollection({
       /** Optional place name override when GPS is opted in but EXIF geocoding is absent. */
       overridePlace: s.string().max(200).optional(),
 
+      /**
+       * Optional LOCALITY-LEVEL coordinate declared directly in frontmatter.
+       *
+       * Use this when the source JPEG carries no EXIF GPS (no process-photos cache
+       * coords) but the photographer still wants the photo to plot on the globe at a
+       * deliberately COARSE, city-level locus — NOT a precise capture point.
+       *
+       * PRIVACY (HARD — Peat policy 2026-06-01): the value authored here must already
+       * be a city centroid / locality, never a private home or exact corner. The
+       * transform additionally rounds servedCoords to ~2 decimals (≈1km) as defence in
+       * depth, so even a too-precise frontmatter value cannot pinpoint a private spot.
+       *
+       * Gating is unchanged: this is only ever surfaced as servedCoords when
+       * shareLocation=true. With shareLocation=false it is dropped exactly like cache GPS.
+       *
+       * Precedence in the transform: frontmatter `coords` wins over cache coords. The
+       * `place` field here supersedes `overridePlace` for the served locality label.
+       */
+      coords: coordsSchema.optional(),
+
       // --- display date ---
       /** Display date string in site format YYYY.MM.DD (capture date or override). */
       date: s.string().regex(/^\d{4}\.\d{2}\.\d{2}$/, 'date must be YYYY.MM.DD'),
@@ -508,19 +528,46 @@ const photoSidecars = defineCollection({
       }
 
       // GPS privacy gate — defence in depth on top of process-photos.ts scrub.
-      // Only expose coords when shareLocation=true AND cache has coords.
-      const rawCoords = cache.coords as { lat: number; lon: number } | undefined
+      //
+      // Coordinate SOURCE precedence (first defined wins):
+      //   1. frontmatter `coords` — author-declared LOCALITY (city centroid). Used for
+      //      the street rolls whose source JPEGs carry no EXIF GPS. Already coarse.
+      //   2. cache `coords` — raw EXIF GPS written by process-photos.ts. PRECISE — must
+      //      be rounded before it leaves this transform or it would pinpoint a spot.
+      //
+      // LOCALITY-ROUNDING (HARD — Peat privacy policy 2026-06-01):
+      //   servedCoords lat/lon are ALWAYS rounded to 2 decimal places (~1.1km at the
+      //   equator) before emission, regardless of source. This guarantees the pin sits
+      //   on the city, never on the exact corner/home, even if a precise value reaches
+      //   here from the EXIF cache or an over-precise frontmatter entry. The raw `coords`
+      //   field is NEVER exposed; only this rounded servedCoords leaves the transform.
+      //
+      // Place label precedence: frontmatter coords.place → overridePlace → ''.
+      const roundLocality = (n: number) => Math.round(n * 100) / 100
+
+      const frontmatterCoords = data.coords as
+        | { lat: number; lon: number; place: string }
+        | undefined
+      const cacheCoords = cache.coords as { lat: number; lon: number } | undefined
+      const sourceCoords = frontmatterCoords ?? cacheCoords
+
       const servedCoords =
-        data.shareLocation && rawCoords != null
+        data.shareLocation && sourceCoords != null
           ? {
-              lat: rawCoords.lat,
-              lon: rawCoords.lon,
-              place: data.overridePlace ?? '',
+              lat: roundLocality(sourceCoords.lat),
+              lon: roundLocality(sourceCoords.lon),
+              place: frontmatterCoords?.place ?? data.overridePlace ?? '',
             }
           : undefined
 
+      // PRIVACY: strip the raw frontmatter `coords` from the served record. Only the
+      // locality-rounded, gate-controlled `servedCoords` is allowed to leave this
+      // transform. `coords` is a SOURCE field consumed above (precedence over cache);
+      // exposing it would re-introduce a second, ungated copy of the location.
+      const { coords: _rawCoords, ...served } = data
+
       return {
-        ...data,
+        ...served,
         /** ISO date for programmatic sort. */
         isoDate: data.date.replace(/\./g, '-'),
         /** EXIF metadata from process-photos cache. May be absent if pipeline not run. */

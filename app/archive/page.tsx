@@ -26,8 +26,6 @@
  *   - components/ArchiveLedger.tsx ('use client') — NO exports called from RSC
  *   - components/ArchiveFilters.tsx ('use client')
  *   - components/ArchiveMiniGlobe.tsx ('use client')
- *   - components/ArchiveSurveyAffordance.tsx ('use client')
- *
  *   CRITICAL: never import/call a 'use client' export from this RSC.
  *   Filter counts are computed here by deriveFilterCountsServer() (plain reduce).
  *
@@ -118,10 +116,6 @@ export default async function ArchivePage() {
   const patchCount = yearKeys.length;
 
   return (
-    /*
-     * Root layout: app/layout.tsx provides <html>, fonts, TriangulateSearchPortal.
-     * The '/' hotkey opens the Triangulate overlay from /archive (§2 coexistence).
-     */
     <main
       data-pagefind-body
       data-pagefind-meta="title:ARCHIVE LEDGER,type:archive"
@@ -129,7 +123,6 @@ export default async function ArchivePage() {
       className="paper-canvas"
       style={{
         minHeight: '100vh',
-        paddingRight: '28px',
       }}
     >
       {/* Scroll meter — top 2px accent-orange fill (existing .scroll-meter atom) */}
@@ -217,14 +210,15 @@ export default async function ArchivePage() {
           </span>
         </div>
 
-        {/* Line 3 — [ ◯ ATLAS ] link left · [ ⌕ survey ] affordance right */}
+        {/* Line 3 — [ ◯ ATLAS ] link + [ ⌕ survey ] affordance.
+            Search is overlay-only (Peat 2026-06-04): the survey affordance
+            dispatches 'triangulate:open' to open the global Triangulate OVERLAY
+            over /archive (same event the '/' hotkey fires). It is a visible
+            click affordance for the SEARCH surface; the ledger itself has no
+            in-page search bar. */}
         <div
           className="t-meta"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
+          style={{ display: 'flex', alignItems: 'center', gap: '16px' }}
         >
           {/*
            * [ ◯ ATLAS ] — standard Next.js Link. The 150ms ink-soft →
@@ -243,10 +237,8 @@ export default async function ArchivePage() {
             [ ◯ ATLAS ]
           </Link>
 
-          {/*
-           * [ ⌕ survey ] — imported from ArchiveSurveyAffordance.tsx ('use client').
-           * Dispatches 'triangulate:open'. OPTIONAL per v1 spec §4.
-           */}
+          {/* [ ⌕ survey ] — client-island button (dispatches 'triangulate:open').
+              Separate 'use client' file so this page stays an RSC (§3). */}
           <ArchiveSurveyAffordance />
         </div>
       </header>
@@ -260,19 +252,12 @@ export default async function ArchivePage() {
        * Source: node_modules/next/dist/docs/01-app/03-api-reference/04-functions/
        *   use-search-params.md — Suspense required for static prerender.
        */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '40px',
-          padding: '28px 40px 60px',
-          alignItems: 'flex-start',
-        }}
-      >
+      <div className="archive-body">
         <Suspense
           fallback={
             <div
               style={{
-                flex: '1 1 0',
+                gridColumn: '1 / 2',
                 fontFamily: 'var(--font-mono)',
                 fontSize: '9px',
                 letterSpacing: '0.3em',

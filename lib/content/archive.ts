@@ -49,6 +49,13 @@ export type MiniGlobePin = {
   route: string
   /** Display title for tooltip / accessibility. */
   title: string
+  /**
+   * Locality name for the readout RETICLE meta (e.g. "Bangkok"). Sourced from
+   * ArchiveEntry.locus.place. Added so the /archive instrument readout can show
+   * the place without re-fetching the full entry. Empty string when the locus
+   * carried no place label.
+   */
+  place: string
 }
 
 // ---------------------------------------------------------------------------
@@ -400,6 +407,7 @@ export function getMiniGlobePins(entries: ArchiveEntry[]): MiniGlobePin[] {
         lon: entry.locus.lon,
         route: entry.route,
         title: entry.title,
+        place: entry.locus.place ?? '',
       })
       continue
     }
@@ -416,6 +424,7 @@ export function getMiniGlobePins(entries: ArchiveEntry[]): MiniGlobePin[] {
         lon: entry.locus.lon,
         route: entry.route,
         title: entry.title,
+        place: entry.locus.place ?? '',
       })
       continue
     }

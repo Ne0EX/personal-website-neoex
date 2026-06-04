@@ -48,6 +48,9 @@ import {
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ArchiveMiniGlobe } from "./ArchiveMiniGlobe";
+import type { MiniGlobeReadout } from "./ArchiveMiniGlobe";
+import { ArchiveGlobeReadout } from "./ArchiveGlobeReadout";
+import { canonicalPath } from "@/lib/client-state/usePagefind";
 import type { MiniGlobePin } from "@/lib/content";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -73,6 +76,8 @@ interface PagefindResult {
     tags?: string;
     /** pagefind-meta: coord — "lat°N · lon°E" or blank */
     coord?: string;
+    /** pagefind-meta: place — locality label for the readout RETICLE meta */
+    place?: string;
     /** pagefind-meta: drift — "N.Nk" distance from α locus */
     drift?: string;
     /** pagefind-meta: tended-count — number of revisions */
@@ -129,8 +134,11 @@ function resultsToPins(results: PagefindResult[]): MiniGlobePin[] {
   for (const r of results) {
     const coords = parseCoordString(r.meta.coord);
     if (!coords) continue;
+    // "photo-roll" maps to the same pin kind as "photo" — roll index pages
+    // sit in the photo stratum. Rolls carry no coord today so this path is
+    // currently defensive; kept for correctness when coords land.
     const kind: MiniGlobePin["kind"] =
-      r.meta.kind === "photo"
+      r.meta.kind === "photo" || r.meta.kind === "photo-roll"
         ? "photo"
         : r.meta.kind === "fiction"
         ? "fiction"
@@ -143,8 +151,14 @@ function resultsToPins(results: PagefindResult[]): MiniGlobePin[] {
       kind,
       lat: coords.lat,
       lon: coords.lon,
-      route: r.url,
+      // Canonicalize at the SOURCE: r.url is a raw pagefind URL ending in .html
+      // ("…/DSCF0005.html"). Storing it clean here means every consumer of
+      // pin.route — onPinClick's router.push (desktop + mobile) and any future
+      // reader — gets the 404-free clean route. Pins from allPins are already
+      // clean; this fallback is the only path that injects a raw URL.
+      route: canonicalPath(r.url),
       title: r.meta.title ?? "",
+      place: r.meta.place ?? "",
     });
   }
   return pins;
@@ -156,13 +170,13 @@ function resultsToPins(results: PagefindResult[]): MiniGlobePin[] {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function kindGlyph(kind?: string): string {
-  if (kind === "photo") return "▪";
+  if (kind === "photo" || kind === "photo-roll") return "▪";
   if (kind === "fiction") return "◆";
   return ""; // article — no prefix per spec
 }
 
 function kindLabel(kind?: string): string {
-  if (kind === "photo") return "PHOTO";
+  if (kind === "photo" || kind === "photo-roll") return "PHOTO";
   if (kind === "fiction") return "FICTION";
   return "ARTICLE";
 }
@@ -191,6 +205,13 @@ function ResultCard({
   reducedMotion,
 }: ResultCardProps) {
   const { url, meta } = item;
+  // The raw pagefind result url ends in .html ("/articles/001.html") which 404s —
+  // the clean route has no suffix. canonicalPath strips .html (+ query/#frag +
+  // trailing slash) so the row links to the real route ("/articles/001"). SAME
+  // normaliser used for the globe-pin match + hover sync, so the link can't drift
+  // from the matching logic. The raw `url` is kept for hover keying (canonicalised
+  // at the comparison sites) and the keyboard nav handler canonicalises separately.
+  const href = canonicalPath(url);
   const glph = kindGlyph(meta.kind);
   const label = kindLabel(meta.kind);
   const tags = meta.tags
@@ -280,7 +301,7 @@ function ResultCard({
       }}
     >
       <a
-        href={url}
+        href={href}
         tabIndex={isKeySelected ? 0 : -1}
         style={{
           display: "block",
@@ -455,10 +476,15 @@ function SortToggle({
 }
 
 // MiniGlobeStub removed — replaced by <ArchiveMiniGlobe size={348} …> per
-// docs/design/21-archive-route.md §5.11. The real mini-globe atom is wired
-// below in TriangulateSearch. Bidirectional hover: result-row hover sets
-// hoveredUrl → hoveredEntryId prop; pin hover calls setHoveredUrl so the
-// matching result row highlights (isGlobeActive guard in ResultCard).
+// docs/design/21-archive-route.md §5.11. The overlay renders the SAME refined
+// instrument /archive uses (ArchiveMiniGlobe → ArchiveMiniGlobeThreeJS: drift
+// line, teal reticle, unified small markers, α-only orange, free-orbit,
+// node-click) + the SAME <ArchiveGlobeReadout> panel, wired the SAME way
+// (onReadout / lockedEntryId / onLockChange) — so the two globes share one atom
+// and can never drift again (Peat 2026-06-04 consistency port).
+// Bidirectional hover: result-row hover sets hoveredUrl → hoveredEntryId prop;
+// pin hover calls setHoveredUrl so the matching result row highlights
+// (isGlobeActive guard in ResultCard).
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TriangulateSearch — main overlay
@@ -466,9 +492,17 @@ function SortToggle({
 
 interface TriangulateSearchProps {
   onClose: () => void;
+  /**
+   * The FULL privacy-gated pin set (getMiniGlobePins over the whole corpus) —
+   * the SAME source /archive uses. Result pins are derived by intersecting this
+   * with the pagefind result URLs (canonicalPath), so the overlay globe plots the
+   * SAME loci /archive plots. This is what keeps the two globes consistent in
+   * DATA as well as instrument.
+   */
+  allPins?: MiniGlobePin[];
 }
 
-export function TriangulateSearch({ onClose }: TriangulateSearchProps) {
+export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchProps) {
   const uid = useId();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -490,23 +524,58 @@ export function TriangulateSearch({ onClose }: TriangulateSearchProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
 
+  // ── Instrument readout + lock — SAME wiring as /archive (ArchiveClient) ──────
+  // readout drives the shared <ArchiveGlobeReadout> panel (RETICLE / DRIFT A /
+  // BEARING / STRATUM / COORD / α). lockedEntryId is the click-locked node; the
+  // globe broadcasts both via onReadout / onLockChange, and the NEXT NODE button
+  // cycles the lock here. This is the consistency port — the overlay globe is the
+  // SAME refined instrument /archive uses, wired the same way.
+  const [readout, setReadout] = useState<MiniGlobeReadout | null>(null);
+  const [lockedEntryId, setLockedEntryId] = useState<string | null>(null);
+  const jumpIdxRef = useRef(0);
+
   // pagefind instance — loaded lazily on first search
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pagefindRef = useRef<any>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Mini-globe pin derivations (§5.11 — docs/design/21-archive-route.md) ────
-  // publicLociPins = all results in current search set that carry a coord.
-  // matchedPins = same set filtered to in-membership (all when no extra filter).
-  // Both are derived from searchState.items — no privacy re-gating needed here
-  // (pagefind only indexed coords that were written by entry components, which
-  // already gate on shareLocation===true upstream).
+  // ── Mini-globe pin derivations — SAME DATA SOURCE as /archive ──────────────
+  // CONSISTENCY (Peat 2026-06-04): the overlay globe plots the SAME loci /archive
+  // plots. /archive derives pins from getMiniGlobePins(corpus) (server). The
+  // overlay receives that exact full pin set as `allPins` and INTERSECTS it with
+  // the current pagefind result URLs (canonicalPath, the same normaliser used by
+  // usePagefind + ArchiveClient). A result with no public locus (privacy-gated,
+  // or no coord) simply contributes no pin — same as /archive.
+  //
+  // Fallback: any result whose URL is NOT in allPins but DOES carry a parseable
+  // coord meta is plotted via resultsToPins (belt-and-suspenders for index/route
+  // skew). allPins wins on URL collision so the id/place/title match /archive.
   const { items: searchItems } = searchState;
 
-  const publicLociPins = useMemo(
-    () => resultsToPins(searchItems),
-    [searchItems],
-  );
+  const publicLociPins = useMemo(() => {
+    const byRoute = new Map<string, MiniGlobePin>();
+    for (const p of allPins) byRoute.set(canonicalPath(p.route), p);
+
+    const out: MiniGlobePin[] = [];
+    const seen = new Set<string>();
+    for (const item of searchItems) {
+      const key = canonicalPath(item.url);
+      const pin = byRoute.get(key);
+      if (pin && !seen.has(key)) {
+        out.push(pin);
+        seen.add(key);
+      }
+    }
+    // Fallback for results not covered by allPins but carrying coord meta.
+    for (const fb of resultsToPins(searchItems)) {
+      const key = canonicalPath(fb.route);
+      if (!seen.has(key)) {
+        out.push(fb);
+        seen.add(key);
+      }
+    }
+    return out;
+  }, [searchItems, allPins]);
 
   // Triangulate overlay: no additional filter beyond the search query — all
   // visible results are "in membership". activePins === publicLociPins.
@@ -519,9 +588,40 @@ export function TriangulateSearch({ onClose }: TriangulateSearchProps) {
   //   pin hover → onPinHover(pin.id) → resolve pin.route → setHoveredUrl
   const hoveredEntryId = useMemo(() => {
     if (!hoveredUrl) return null;
-    const matched = publicLociPins.find((p) => p.route === hoveredUrl);
+    // canonicalPath both sides: result URLs carry .html ("…/DSCF0002.html") while
+    // pin.route is clean ("…/DSCF0002"). Without normalising, the hover never maps
+    // to a pin and the drift-line/reticle/readout stay STANDBY.
+    const key = canonicalPath(hoveredUrl);
+    const matched = publicLociPins.find((p) => canonicalPath(p.route) === key);
     return matched?.id ?? null;
   }, [hoveredUrl, publicLociPins]);
+
+  // ── NEXT NODE — cycle the lock through the result pin set (SAME as /archive) ──
+  const handleJumpNext = useCallback(() => {
+    if (publicLociPins.length === 0) return;
+    const curIdx = lockedEntryId
+      ? publicLociPins.findIndex((p) => p.id === lockedEntryId)
+      : jumpIdxRef.current - 1;
+    const nextIdx = (curIdx + 1 + publicLociPins.length) % publicLociPins.length;
+    jumpIdxRef.current = nextIdx;
+    setLockedEntryId(publicLociPins[nextIdx].id);
+  }, [publicLociPins, lockedEntryId]);
+
+  // When the result set changes (new query), drop any stale lock so the reticle
+  // does not point at a node that is no longer in the survey. queueMicrotask
+  // defers the setState out of the effect body (react-hooks/set-state-in-effect —
+  // same pattern as the media-query effect below + Nav.tsx).
+  useEffect(() => {
+    if (
+      lockedEntryId &&
+      !publicLociPins.some((p) => p.id === lockedEntryId)
+    ) {
+      queueMicrotask(() => {
+        setLockedEntryId(null);
+        setReadout(null);
+      });
+    }
+  }, [publicLociPins, lockedEntryId]);
 
   // ── Init: detect media queries (client-only, hydration-safe) ────────────────
   useEffect(() => {
@@ -631,7 +731,9 @@ export function TriangulateSearch({ onClose }: TriangulateSearchProps) {
       if (e.key !== "Enter") return;
       if (keyboardIndex < 0) return;
       const item = searchState.items[keyboardIndex];
-      if (item) window.location.href = item.url;
+      // canonicalPath strips the raw .html suffix so ↵ navigates to the clean
+      // route (parity with the ResultCard anchor href), not the 404 raw URL.
+      if (item) window.location.href = canonicalPath(item.url);
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -681,10 +783,18 @@ export function TriangulateSearch({ onClose }: TriangulateSearchProps) {
 
         const pf = pagefindRef.current;
 
-        // Build filters object for pagefind
-        const filters: Record<string, string> = {};
+        // Build filters object for pagefind.
+        // PHOTO filter must include "photo-roll" (roll index pages) as well as
+        // "photo" (individual frames) — pagefind v1 supports array OR within a
+        // filter key. Without photo-roll, roll index pages are dropped by the
+        // server-side filter even though they display as PHOTO in results.
+        const filters: Record<string, string | string[]> = {};
         if (kind !== "ALL") {
-          filters.kind = kind.toLowerCase();
+          if (kind === "PHOTO") {
+            filters.kind = ["photo", "photo-roll"];
+          } else {
+            filters.kind = kind.toLowerCase();
+          }
         }
 
         // Sort: TIME only. "NEWEST" = descending isoDate; "OLDEST" = ascending.
@@ -1156,7 +1266,10 @@ export function TriangulateSearch({ onClose }: TriangulateSearchProps) {
                         key={item.url}
                         item={item}
                         isKeySelected={keyboardIndex === idx}
-                        isGlobeActive={hoveredUrl === item.url}
+                        isGlobeActive={
+                          hoveredUrl != null &&
+                          canonicalPath(hoveredUrl) === canonicalPath(item.url)
+                        }
                         isMobile={isMobile}
                         query={query}
                         onHover={setHoveredUrl}
@@ -1217,15 +1330,19 @@ export function TriangulateSearch({ onClose }: TriangulateSearchProps) {
                 </div>
 
                 {/*
-                 * Mini-globe atom (§5.11 — docs/design/21-archive-route.md).
+                 * Mini-globe atom — the SAME refined instrument /archive uses,
+                 * wired the SAME way (the consistency port · Peat 2026-06-04).
                  * size={348}: Triangulate overlay variant per §5.5.
                  * publicLociPins: all coord-bearing results in the current set.
                  * matchedPins: activePins (all in overlay; no extra filter layer).
                  * hoveredEntryId: derived from hoveredUrl via pin.route match (§5.8).
                  * onPinHover: sets hoveredUrl via pin.route → drives isGlobeActive
                  *   on the matching ResultCard, completing bidirectional sync.
+                 * onReadout / lockedEntryId / onLockChange: identical wiring to
+                 *   ArchiveClient — the globe broadcasts the RETICLE/DRIFT/BEARING/
+                 *   STRATUM readout + click-lock, rendered by <ArchiveGlobeReadout>.
                  * onPinClick: navigates to the entry route and closes the overlay.
-                 * onGlobeClick: closes the overlay and navigates to '/' (ATLAS) per spec.
+                 * onGlobeClick: clears the lock only (anti-bounce); stays open.
                  */}
                 <ArchiveMiniGlobe
                   size={348}
@@ -1247,26 +1364,22 @@ export function TriangulateSearch({ onClose }: TriangulateSearchProps) {
                     router.push(pin.route);
                   }}
                   onGlobeClick={() => {
-                    onClose();
-                    router.push("/");
+                    // ANTI-BOUNCE: a bare-surface click clears the in-globe lock
+                    // (free exploration) and leaves the overlay open. Clone WL L1007.
+                    setLockedEntryId(null);
                   }}
+                  onReadout={setReadout}
+                  lockedEntryId={lockedEntryId}
+                  onLockChange={setLockedEntryId}
                 />
 
-                {/* α coordinate readout */}
-                <div
-                  style={{
-                    fontFamily: "var(--font-mono)",
-                    fontSize: "9px",
-                    letterSpacing: "0.22em",
-                    color: "var(--ink-faint)",
-                    textTransform: "uppercase",
-                    textAlign: "center",
-                  }}
-                >
-                  {hoveredUrl && items.find((r) => r.url === hoveredUrl)?.meta.coord
-                    ? `COORDINATES · α ${items.find((r) => r.url === hoveredUrl)!.meta.coord}`
-                    : "COORDINATES · α 13.76°N · 100.50°E"}
-                </div>
+                {/* RETICLE / DRIFT A / BEARING / STRATUM / COORD / α readout —
+                    the SAME shared panel /archive renders under its globe. */}
+                <ArchiveGlobeReadout
+                  readout={readout}
+                  hasPins={publicLociPins.length > 0}
+                  onJumpNext={handleJumpNext}
+                />
               </div>
             )}
 
@@ -1281,7 +1394,9 @@ export function TriangulateSearch({ onClose }: TriangulateSearchProps) {
                   gap: "8px",
                 }}
               >
-                {/* size={300}: mobile uses archive right-rail variant (smaller canvas) */}
+                {/* size={300}: mobile uses archive right-rail variant (smaller
+                    canvas). SAME wiring as desktop / /archive — refined instrument
+                    + shared readout panel. */}
                 <ArchiveMiniGlobe
                   size={300}
                   pins={publicLociPins}
@@ -1293,7 +1408,18 @@ export function TriangulateSearch({ onClose }: TriangulateSearchProps) {
                     if (pin) setHoveredUrl(pin.route);
                   }}
                   onPinClick={(pin) => { onClose(); router.push(pin.route); }}
-                  onGlobeClick={() => { onClose(); router.push("/"); }}
+                  onGlobeClick={() => {
+                    // ANTI-BOUNCE: bare-surface click clears the lock only.
+                    setLockedEntryId(null);
+                  }}
+                  onReadout={setReadout}
+                  lockedEntryId={lockedEntryId}
+                  onLockChange={setLockedEntryId}
+                />
+                <ArchiveGlobeReadout
+                  readout={readout}
+                  hasPins={publicLociPins.length > 0}
+                  onJumpNext={handleJumpNext}
                 />
               </div>
             )}
@@ -1311,11 +1437,14 @@ export function TriangulateSearch({ onClose }: TriangulateSearchProps) {
 interface TriangulateSearchOverlayProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Full privacy-gated pin set (same source as /archive). Threaded to the globe. */
+  allPins?: MiniGlobePin[];
 }
 
 export function TriangulateSearchOverlay({
   isOpen,
   onClose,
+  allPins = [],
 }: TriangulateSearchOverlayProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -1328,7 +1457,7 @@ export function TriangulateSearchOverlay({
   if (!mounted || !isOpen) return null;
 
   return createPortal(
-    <TriangulateSearch onClose={onClose} />,
+    <TriangulateSearch onClose={onClose} allPins={allPins} />,
     document.body
   );
 }

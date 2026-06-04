@@ -60,6 +60,15 @@ export function RollIndex({ roll, contacts }: RollIndexProps) {
       }}
       className="roll-index-outer"
     >
+      {/*
+       * Pagefind body + kind meta are NOT set here.
+       * scripts/inject-pagefind-sidecar.ts rollIndexSidecar() is the single
+       * source of truth for this page's pagefind metadata (kind:photo-roll,
+       * roll, frame-count, date-range). If data-pagefind-body were present
+       * here the sidecar's hasRealPagefindBody() guard would skip injection,
+       * leaving the page without the correct kind meta.
+       * TriangulateSearch maps "photo-roll" → PHOTO bucket (label + filter).
+       */}
       {/* Corner reticles — atom corner-reticle, L-bracket marks */}
       <div className="corner-marks" aria-hidden />
 

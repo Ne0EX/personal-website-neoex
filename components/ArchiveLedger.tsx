@@ -12,12 +12,18 @@
  * Reference component: components/ChapterIndex.tsx (entry-card row vocabulary;
  *   hover wash rgba(212,96,42,0.04); .entry-glitch underline draw; 5-line anatomy).
  *
- * Row anatomy (5-line — per spec §4 ledger ASCII + §8 typography):
- *   1. FILE — NNN · YYYY.MM.DD · STATUS · NM  (t-meta, ink-soft; accent values accent-orange)
- *   2. Title (t-display italic, ink-primary; .entry-glitch draw animation)
- *   3. Domain tag(s) — first tag accent-orange, rest ink-soft (t-meta)
- *   4. LOCUS lat°N lon°E · DRIFT –N.NN  (t-meta; omitted when locus=null)
- *   5. Type glyph + label  (◯ ARTICLE | ■ PHOTO | ◆ FICTION, t-meta)
+ * Row anatomy (3-ZONE survey grid — adapt-not-copy of the reference's scannable
+ * 61px cadence; was a 5-line left-stack that read as a wall):
+ *   LEFT RAIL  — kind glyph + short id (◯ 003 / ■ PH·05 / ◆ FC·02), fixed gutter
+ *   CENTER     — meta line (FILE date status) · Title (.entry-glitch) · tags
+ *   RIGHT COL  — coord + place, RIGHT-justified, NO literal "LOCUS" label word
+ *                (position + °N/°E glyphs carry the meaning; omitted when
+ *                locus=null). Coord/place use the read-tier --ink-label (0.72) +
+ *                --meta-tracking-read (0.12em) so geography skims cleanly down a
+ *                right gutter independent of the titles.
+ * Whitespace rhythm: ~16px row-to-row breathing + the kept 1px dashed
+ * --ink-dashed hairline (a Worldline signature — NOT flattened to the reference's
+ * borderless look). Eye runs Title down the centre, coords down the right gutter.
  *
  * Pagination: initial slice of PAGE_SIZE entries. "LOAD NEXT 20" button
  * appends the next slice. Button only shown when entries > 60 (spec §4).
@@ -76,6 +82,23 @@ const KIND_LABEL: Record<EntryType, { glyph: string; label: string }> = {
   fiction: { glyph: '◆', label: 'FICTION' },
 };
 
+/**
+ * Short id for the LEFT-rail gutter (3-zone grid). Compact, scannable, fixed-
+ * width-ish so the glyph+id column aligns down the rail:
+ *   article → fileNum            (e.g. 003)
+ *   photo   → PH·<sidecarId>     (e.g. PH·DSCF0001 — drop the roll path segment)
+ *   fiction → FC·<slug-head>     (e.g. FC·GLASS — short uppercased slug fragment)
+ */
+function shortId(entry: ArchiveEntry): string {
+  if (entry.kind === 'article') return entry.fileNum;
+  if (entry.kind === 'photo') {
+    const seg = entry.sidecarId || entry.id.split('/').pop() || entry.id;
+    return `PH·${seg}`;
+  }
+  const head = (entry.slug || entry.id).split('-')[0]?.toUpperCase() || entry.id;
+  return `FC·${head}`;
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 /**
@@ -99,30 +122,24 @@ function ArchiveLedgerRow({
   /** Set by the parent so a pin-side hover can scrollIntoView this row. */
   rowRef?: (el: HTMLAnchorElement | null) => void;
 }) {
-  const { glyph, label } = KIND_LABEL[entry.kind];
-
-  // Build the meta line — FILE · DATE · STATUS · READING TIME
-  // Articles have status + readingTime; photos/fiction have just date.
-  const metaLine = (() => {
-    if (entry.kind === 'article') {
-      return `FILE — ${entry.fileNum} · ${entry.date} · ${entry.status.toUpperCase()} · ${entry.readingTime}M`;
-    }
-    if (entry.kind === 'photo') {
-      return `FILE — ${entry.id} · ${entry.date}`;
-    }
-    // fiction
-    return `FILE — ${entry.id} · ${entry.date}`;
-  })();
+  const { glyph } = KIND_LABEL[entry.kind];
+  const idTag = shortId(entry);
 
   // Tags — first tag accent-orange, rest ink-soft (§8)
   const tags = entry.tags ?? [];
   const domain = entry.domain ?? '';
+  const locus = entry.locus;
 
   return (
     <a
       ref={rowRef}
       href={entry.route}
-      className={`entry-card${hovered ? ' archive-row-hovered' : ''}`}
+      // ── 3-COLUMN SURVEY GRID (Betelgeuse #2) — id | title+tags | locus ──
+      // Grid template + alignment + padding + hairline all live in globals.css
+      // (.archive-ledger-row, single source of truth) so every row inherits the
+      // SAME tracks and columns line up vertically down the page. Sirius applies
+      // the classes only — no inline grid style.
+      className={`entry-card archive-ledger-row${hovered ? ' archive-row-hovered' : ''}`}
       onClick={(e) => {
         // Prevent default so we can save scroll before navigating.
         // Then delegate to the router via onNavigate. Standard <a> is used
@@ -142,20 +159,6 @@ function ArchiveLedgerRow({
       // ── Forward hover sync (§5.8) — row hover/focus → globe pin highlight ──
       onMouseEnter={() => onRowHover?.(entry.id)}
       onMouseLeave={() => onRowHover?.(null)}
-      style={{
-        display: 'block',
-        padding: '14px 0',
-        paddingLeft: '4px',
-        paddingRight: '12px',
-        textDecoration: 'none',
-        color: 'inherit',
-        borderBottom: '1px dashed var(--ink-dashed)',
-        // Hover bg via className .entry-card + CSS in globals (rgba(212,96,42,0.04))
-        // Transition 150ms ease per §9 — globals.css already has the rule.
-        transition: 'background 150ms ease',
-        outline: 'none',
-        cursor: 'pointer',
-      }}
       onFocus={(e) => {
         // Focus ring — 2px dashed accent-orange per §12 / §6
         e.currentTarget.style.outline = '2px dashed var(--accent-orange)';
@@ -168,91 +171,78 @@ function ArchiveLedgerRow({
         onRowHover?.(null);
       }}
     >
-      {/* Line 1 — meta: FILE · DATE · STATUS */}
-      <div
-        className="t-meta"
-        style={{ marginBottom: '6px', color: 'var(--ink-soft)' }}
-      >
-        {entry.kind === 'article' ? (
-          <>
-            <span style={{ color: 'var(--ink-soft)' }}>FILE — </span>
-            <span style={{ color: 'var(--accent-orange)' }}>{entry.fileNum}</span>
-            <span style={{ color: 'var(--ink-soft)' }}> · {entry.date} · </span>
-            <span style={{ color: 'var(--accent-orange)' }}>{entry.status.toUpperCase()}</span>
-            <span style={{ color: 'var(--ink-soft)' }}> · {entry.readingTime}M</span>
-          </>
-        ) : (
-          <span style={{ color: 'var(--ink-soft)' }}>{metaLine}</span>
-        )}
-      </div>
-
-      {/* Line 2 — Title with entry-glitch draw animation (ChapterIndex pattern) */}
-      <div
-        className="t-display"
-        style={{
-          fontSize: '18px',
-          fontStyle: 'italic',
-          fontWeight: 400,
-          lineHeight: 1.25,
-          color: 'var(--ink-primary)',
-          marginBottom: '6px',
-        }}
-      >
-        {/* .entry-glitch applies the marching-dash underline draw from globals.css.
-            The animation is already reduced-motion gated in globals.css. */}
-        <span className="entry-glitch" data-text={entry.title}>
-          {entry.title}
+      {/* ── COL 1 — id zone: glyph + id on line 1, FILE meta as a quiet sub-line.
+          The FILE—date·status·duration meta no longer floats on line 1; it sits
+          UNDER the id, aligned in col 1 (.alr-meta). ── */}
+      <div className="alr-col-id t-meta">
+        <span className="alr-id-head">
+          <span className="alr-id-glyph">{glyph}</span> {idTag}
+        </span>
+        <span className="alr-meta">
+          {entry.kind === 'article' ? (
+            <>
+              FILE — <span className="alr-meta-accent">{entry.fileNum}</span> ·{' '}
+              {entry.date} ·{' '}
+              <span className="alr-meta-accent">{entry.status.toUpperCase()}</span> ·{' '}
+              {entry.readingTime}M
+            </>
+          ) : (
+            <>FILE — {entry.date}</>
+          )}
         </span>
       </div>
 
-      {/* Line 3 — Domain / tags */}
-      {(domain || tags.length > 0) && (
+      {/* ── COL 2 — body: italic title (entry-glitch) + tags ── */}
+      <div className="alr-col-body">
+        {/* Title with entry-glitch draw animation (ChapterIndex pattern).
+            .entry-glitch applies the marching-dash underline draw from globals.css;
+            the animation is already reduced-motion gated there. */}
         <div
-          className="t-meta"
+          className="t-display"
           style={{
-            display: 'flex',
-            gap: '10px',
-            flexWrap: 'wrap',
-            marginBottom: '5px',
+            fontSize: '18px',
+            fontStyle: 'italic',
+            fontWeight: 400,
+            lineHeight: 1.25,
+            color: 'var(--ink-primary)',
           }}
         >
-          {/* Domain first — accent-orange per §8 */}
-          {domain && (
-            <span style={{ color: 'var(--accent-orange)' }}>{domain.toUpperCase()}</span>
-          )}
-          {tags.map((tag, i) => (
-            <span key={tag} style={{ color: i === 0 && !domain ? 'var(--accent-orange)' : 'var(--ink-soft)' }}>
-              {tag.toUpperCase()}
-            </span>
-          ))}
+          <span className="entry-glitch" data-text={entry.title}>
+            {entry.title}
+          </span>
         </div>
-      )}
 
-      {/* Line 4 — Locus + drift (omitted when locus=null — §11 / §4)
-          Assign to a local variable so TypeScript's narrowing flow works
-          correctly on the discriminated union (entry.locus typed 'null' for
-          fiction prevents narrowing inside JSX expressions). */}
-      {(() => {
-        const locus = entry.locus;
-        if (!locus) return null;
-        return (
-          <div className="t-meta" style={{ marginBottom: '5px', color: 'var(--ink-soft)' }}>
-            <span>LOCUS </span>
-            <span style={{ color: 'var(--accent-orange)' }}>
+        {/* Domain / tags — first accent (.alr-tag-lead), rest ink-soft (.alr-tag) */}
+        {(domain || tags.length > 0) && (
+          <div className="alr-tags t-meta">
+            {domain && <span className="alr-tag-lead">{domain.toUpperCase()}</span>}
+            {tags.map((tag, i) => (
+              <span
+                key={tag}
+                className={i === 0 && !domain ? 'alr-tag-lead' : 'alr-tag'}
+              >
+                {tag.toUpperCase()}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── COL 3 — locus: coord + place, RIGHT-aligned read gutter, NO "LOCUS"
+          label word. Position + the °N/°E glyphs carry the meaning. Omitted
+          entirely when locus=null — the gutter simply stays empty for those rows
+          and the max-content track collapses. ── */}
+      <div className="alr-col-locus t-meta">
+        {locus ? (
+          <>
+            <span>
               {locus.lat.toFixed(2)}°N {locus.lon.toFixed(2)}°E
             </span>
-            {/* drift is null in the current schema for all entry kinds.
-                Reserved display slot for when drift becomes non-null. */}
             {locus.place && (
-              <span> · {locus.place.toUpperCase()}</span>
+              <span className="alr-place">{locus.place.toUpperCase()}</span>
             )}
-          </div>
-        );
-      })()}
-
-      {/* Line 5 — Type glyph + label */}
-      <div className="t-meta" style={{ color: 'var(--ink-soft)' }}>
-        <span>{glyph} {label}</span>
+          </>
+        ) : null}
       </div>
     </a>
   );
@@ -402,12 +392,23 @@ export function ArchiveLedger({
   const rowRefs = useRef<Map<string, HTMLAnchorElement>>(new Map());
   const prevHoveredRef = useRef<string | null>(null);
   useEffect(() => {
-    // Only act on transitions INTO a hover (not on clear) and only when the
-    // hover did not originate from the ledger itself (we cannot know origin, so
-    // scrollIntoView({ block:'nearest' }) is a no-op when already visible — safe).
+    // Only act on transitions INTO a hover (not on clear).
     if (hoveredId && hoveredId !== prevHoveredRef.current) {
       const el = rowRefs.current.get(hoveredId);
-      el?.scrollIntoView({ block: 'nearest' });
+      if (el) {
+        // Guard: only scroll when the row is COMPLETELY off-screen. A row that
+        // is even partially visible must produce zero page movement — the
+        // original scrollIntoView({ block:'nearest' }) was nudging the page
+        // whenever the row sat near a viewport edge, causing the jarring shift
+        // on pin-hover. (Fix: guard with getBoundingClientRect before acting.)
+        const rect = el.getBoundingClientRect();
+        const partiallyVisible =
+          rect.bottom > 0 && rect.top < window.innerHeight;
+        if (!partiallyVisible) {
+          // Row is fully off-screen — reveal it vertically only (no X shift).
+          el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
+      }
     }
     prevHoveredRef.current = hoveredId;
   }, [hoveredId]);
@@ -503,8 +504,20 @@ export function ArchiveLedger({
                 </span>
               </h2>
 
-              {/* Ordered list — semantically ordered entries (§12) */}
-              <ol style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {/* Ordered list — semantically ordered entries (§12).
+                  rowGap adds the ~16px row-to-row breathing the survey cadence
+                  wants (whitespace rhythm), layered over the kept dashed hairline
+                  — separation is whitespace FIRST, hairline as a Worldline accent. */}
+              <ol
+                style={{
+                  listStyle: 'none',
+                  padding: 0,
+                  margin: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  rowGap: '16px',
+                }}
+              >
                 {yearEntries.map((entry) => (
                   <li key={entry.id}>
                     <ArchiveLedgerRow

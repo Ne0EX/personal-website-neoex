@@ -24,8 +24,29 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { latLonToVec3 } from '@/lib/globe-coordinates';
+import {
+  latLonToVec3,
+  greatCircleDistanceKm,
+  initialBearingDeg,
+  bearingToCardinal,
+} from '@/lib/globe-coordinates';
 import type { MiniGlobePin } from '@/lib/content';
+import type { MiniGlobeReadout } from './ArchiveMiniGlobeThreeJS';
+
+// Observer α — Bangkok (fixed observer locus; drift-line + readout endpoint).
+const ALPHA_LAT = 13.7563;
+const ALPHA_LON = 100.5018;
+
+/** Degraded readout for the static fallback — locked node + computed km/bearing,
+ *  but no live hover preview (the 2D variant has no rAF hover loop). */
+function buildReadout(pin: MiniGlobePin | null, locked: boolean): MiniGlobeReadout {
+  if (!pin) {
+    return { pin: null, locked: false, driftKm: null, bearingDeg: null, cardinal: '' };
+  }
+  const driftKm = greatCircleDistanceKm(ALPHA_LAT, ALPHA_LON, pin.lat, pin.lon);
+  const bearingDeg = initialBearingDeg(ALPHA_LAT, ALPHA_LON, pin.lat, pin.lon);
+  return { pin, locked, driftKm, bearingDeg, cardinal: bearingToCardinal(bearingDeg) };
+}
 
 // Token-sourced colour strings — resolved at runtime from CSS custom properties.
 // Canvas 2D requires concrete colour strings; we read them from the document root
@@ -47,6 +68,11 @@ export interface MiniGlobeCanvas2DProps {
   onPinHover?: (entryId: string | null) => void;
   onPinClick: (pin: MiniGlobePin) => void;
   onGlobeClick: () => void;
+  /** Degraded readout broadcast (locked node only — no live hover). */
+  onReadout?: (readout: MiniGlobeReadout) => void;
+  /** Accepted for prop parity with the Three.js variant (unused in 2D). */
+  lockedEntryId?: string | null;
+  onLockChange?: (entryId: string | null) => void;
 }
 
 export default function ArchiveMiniGlobeCanvas2D({
@@ -55,6 +81,8 @@ export default function ArchiveMiniGlobeCanvas2D({
   activePins,
   onPinClick,
   onGlobeClick,
+  onReadout,
+  onLockChange,
 }: MiniGlobeCanvas2DProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -63,11 +91,15 @@ export default function ArchiveMiniGlobeCanvas2D({
   const pinsRef = useRef(pins);
   const onPinClickRef = useRef(onPinClick);
   const onGlobeClickRef = useRef(onGlobeClick);
+  const onReadoutRef = useRef(onReadout);
+  const onLockChangeRef = useRef(onLockChange);
   useEffect(() => {
     pinsRef.current = pins;
     onPinClickRef.current = onPinClick;
     onGlobeClickRef.current = onGlobeClick;
-  }, [pins, onPinClick, onGlobeClick]);
+    onReadoutRef.current = onReadout;
+    onLockChangeRef.current = onLockChange;
+  }, [pins, onPinClick, onGlobeClick, onReadout, onLockChange]);
 
   const activeIdsKey = activePins.map((p) => p.id).join(',');
 
@@ -156,8 +188,17 @@ export default function ArchiveMiniGlobeCanvas2D({
       }
     }
 
-    if (nearest) onPinClickRef.current(nearest);
-    else onGlobeClickRef.current();
+    if (nearest) {
+      // HIT → degraded lock readout, then open the entry.
+      onLockChangeRef.current?.(nearest.id);
+      onReadoutRef.current?.(buildReadout(nearest, true));
+      onPinClickRef.current(nearest);
+    } else {
+      // BARE MISS → clear the lock; NEVER navigate (anti-bounce, mirrors 3D).
+      onLockChangeRef.current?.(null);
+      onReadoutRef.current?.(buildReadout(null, false));
+      onGlobeClickRef.current();
+    }
   };
 
   const visibleCount = activePins.length;

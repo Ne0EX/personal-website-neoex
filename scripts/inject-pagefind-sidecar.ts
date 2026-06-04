@@ -180,6 +180,7 @@ function articleSidecar(a: ArticleRecord): string {
     `<span data-pagefind-meta="fileNum">${esc(a.fileNum)}</span>` +
     `<span data-pagefind-meta="date">${esc(a.date)}</span>` +
     `<span data-pagefind-meta="isoDate">${esc(a.isoDate)}</span>` +
+    `<span data-pagefind-sort="isoDate">${esc(a.isoDate)}</span>` +
     `<span data-pagefind-meta="tags">${esc(a.tags.join(', '))}</span>` +
     (coordStr ? `<span data-pagefind-meta="coord">${esc(coordStr)}</span>` : '') +
     `<span data-pagefind-meta="tended-count">${tendedCount}</span>` +
@@ -195,6 +196,7 @@ function fictionSidecar(f: FictionRecord): string {
     `<span data-pagefind-meta="slug">${esc(f.slug)}</span>` +
     `<span data-pagefind-meta="date">${esc(f.date)}</span>` +
     `<span data-pagefind-meta="isoDate">${esc(f.isoDate)}</span>` +
+    `<span data-pagefind-sort="isoDate">${esc(f.isoDate)}</span>` +
     `<span data-pagefind-meta="tags">${esc(f.tags.join(', '))}</span>` +
     `<span>${esc(f.title)} ${esc(f.summary)} ${esc(f.domain)} ${esc(f.tags.join(' '))}</span>` +
     `</div>`
@@ -213,6 +215,7 @@ function photoSidecar(p: PhotoSidecarRecord): string {
     `<span data-pagefind-meta="id">${esc(p.id)}</span>` +
     `<span data-pagefind-meta="date">${esc(p.date)}</span>` +
     `<span data-pagefind-meta="isoDate">${esc(p.isoDate)}</span>` +
+    `<span data-pagefind-sort="isoDate">${esc(p.isoDate)}</span>` +
     (coordStr ? `<span data-pagefind-meta="coord">${esc(coordStr)}</span>` : '') +
     (caption ? `<span>${esc(caption)}</span>` : '') +
     `</div>`
@@ -230,11 +233,15 @@ function rollIndexSidecar(roll: string, sidecars: PhotoSidecarRecord[]): string 
     .filter(Boolean)
     .join(' ')
 
+  // Representative date for sort: earliest frame date in the roll.
+  const sortDate = dates[0] ?? ''
+
   return `<div data-pagefind-body style="${VISUALLY_HIDDEN_STYLE}">` +
     `<span data-pagefind-meta="kind">photo-roll</span>` +
     `<span data-pagefind-meta="roll">${esc(roll)}</span>` +
     `<span data-pagefind-meta="frame-count">${frameCount}</span>` +
     (dateRange ? `<span data-pagefind-meta="date-range">${esc(dateRange)}</span>` : '') +
+    (sortDate ? `<span data-pagefind-sort="isoDate">${esc(sortDate)}</span>` : '') +
     `<span>${esc(roll.replace(/-/g, ' '))}${captions ? ' ' + esc(captions) : ''}</span>` +
     `</div>`
 }

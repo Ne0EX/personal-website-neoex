@@ -25,6 +25,9 @@
 import { useSyncExternalStore } from 'react';
 import dynamic from 'next/dynamic';
 import type { MiniGlobePin } from '@/lib/content';
+import type { MiniGlobeReadout } from './ArchiveMiniGlobeThreeJS';
+
+export type { MiniGlobeReadout };
 
 /**
  * Props contract — docs/design/21-archive-route.md §5.6.
@@ -62,9 +65,25 @@ export interface ArchiveMiniGlobeProps {
 
   /**
    * Called when empty globe surface (no pin under cursor) is clicked.
-   * /archive: navigate to '/'. Overlay: navigate to '/' + close overlay.
+   * ANTI-BOUNCE: this NO LONGER navigates to '/'. A bare-surface click clears the
+   * lock (free exploration) and does nothing navigational — cloning ATLAS L1007.
+   * Kept in the contract for parity; callers pass a no-op / lock-clear.
    */
   onGlobeClick?: () => void;
+
+  /**
+   * Instrument readout broadcast — fired on pin hover (preview), pin click (lock),
+   * and bare-surface clear (STANDBY). The /archive rail + overlay render the
+   * RETICLE / DRIFT A / BEARING / STRATUM panel from this. Three.js variant only;
+   * the Canvas2D fallback reports a degraded readout (locked node, no live km).
+   */
+  onReadout?: (readout: MiniGlobeReadout) => void;
+
+  /** The entry id to LOCK (reticle + held readout). Parent-driven (e.g. NEXT NODE). */
+  lockedEntryId?: string | null;
+
+  /** Called when an in-globe pin click sets/clears the lock. */
+  onLockChange?: (entryId: string | null) => void;
 }
 
 // Both variants are client-only (Three.js / canvas touch the browser). ssr:false
@@ -117,6 +136,9 @@ export function ArchiveMiniGlobe({
   onPinHover,
   onPinClick,
   onGlobeClick,
+  onReadout,
+  lockedEntryId,
+  onLockChange,
 }: ArchiveMiniGlobeProps) {
   // First paint is the deterministic Canvas2D fallback (server snapshot false →
   // no hydration mismatch). After hydration the client snapshot reports actual
@@ -141,6 +163,9 @@ export function ArchiveMiniGlobe({
     onPinHover,
     onPinClick: handlePinClick,
     onGlobeClick: handleGlobeClick,
+    onReadout,
+    lockedEntryId,
+    onLockChange,
   };
 
   // FIX-G: distinct stable React keys so React fully remounts on a FRESH canvas

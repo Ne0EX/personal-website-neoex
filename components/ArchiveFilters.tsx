@@ -4,9 +4,16 @@
  * components/ArchiveFilters.tsx
  * ─────────────────────────────────────────────────────────────────────────────
  * Filter chip strip for the /archive right rail.
- * Reads and writes the `?type` URL param via useSearchParams + useRouter.
- * Browser back/forward restores filter state — no internal React state for
- * the active type.
+ *
+ * BUG-1 FIX (Sirius 2026-06-04): filter state is now driven by props, not by
+ * useRouter/useSearchParams. The parent (ArchiveClient) owns activeType as
+ * useState and syncs the URL via window.history.replaceState (shallow, no
+ * navigation, no route re-render). This keeps the ArchiveMiniGlobe subtree
+ * mounted across filter changes — only its activePins prop updates.
+ * NOTE: replaceState does NOT create history entries, so browser back/forward
+ * no longer restores a previously-selected type filter (prior behaviour via
+ * router.push). Deep-links (/archive?type=photo) still work on initial load
+ * because ArchiveClient reads useSearchParams ONCE at mount to seed useState.
  *
  * Design spec: docs/design/21-archive-route.md §4, §6, §8
  * Composed from atoms: `attractor-pill` (.af-pill pattern — FilmSimSwitcher
@@ -37,7 +44,6 @@
  */
 
 import { useCallback } from 'react';
-import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 
 type EntryType = 'article' | 'photo' | 'fiction';
 
@@ -72,31 +78,28 @@ interface ArchiveFiltersProps {
     photo: number;
     fiction: number;
   };
+  /**
+   * BUG-1 FIX: activeType is now owned by the parent (ArchiveClient), not read
+   * from useSearchParams here. The parent seeds it once from the URL on mount.
+   */
+  activeType: EntryType | 'all';
+  /**
+   * Called when the user clicks a filter pill. The parent handles both the
+   * setState and the shallow window.history.replaceState URL sync.
+   */
+  onTypeChange: (next: EntryType | 'all') => void;
 }
 
-export function ArchiveFilters({ counts }: ArchiveFiltersProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
-  const activeType = (searchParams.get('type') as EntryType | null) ?? 'all';
-
+export function ArchiveFilters({ counts, activeType, onTypeChange }: ArchiveFiltersProps) {
+  // BUG-1 FIX: setType now delegates entirely to onTypeChange — no router, no
+  // searchParams, no navigation. Toggle-to-clear logic stays: clicking the
+  // currently-active pill cycles back to 'all'.
   const setType = useCallback(
     (next: EntryType | 'all') => {
-      const current = searchParams.get('type') ?? 'all';
-      const params = new URLSearchParams(searchParams.toString());
-
-      if (next === 'all' || current === next) {
-        // Toggle off or reset to all
-        params.delete('type');
-      } else {
-        params.set('type', next);
-      }
-
-      const qs = params.toString();
-      router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      const effective = activeType === next ? 'all' : next;
+      onTypeChange(effective);
     },
-    [router, pathname, searchParams],
+    [activeType, onTypeChange],
   );
 
   return (
@@ -104,15 +107,16 @@ export function ArchiveFilters({ counts }: ArchiveFiltersProps) {
       aria-label="archive filters"
       style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
     >
-      {/* Section header — § FILTER */}
+      {/* Section header — § FILTER. Colour comes from .af-section (read-tier
+          lift, Betelgeuse #3) — no inline colour so the stylesheet wins. */}
       <div
         aria-hidden
+        className="af-section"
         style={{
           fontFamily: 'var(--font-mono)',
           fontSize: '9px',
           letterSpacing: '0.3em',
           textTransform: 'uppercase',
-          color: 'var(--ink-soft)',
           paddingBottom: '8px',
           borderBottom: '1px dashed var(--ink-dashed)',
         }}
@@ -122,15 +126,15 @@ export function ArchiveFilters({ counts }: ArchiveFiltersProps) {
 
       {FILTER_FAMILIES.map((family) => (
         <div key={family.id}>
-          {/* Family label — INSTRUMENT register */}
+          {/* Family label — INSTRUMENT register. Colour from .af-family (lift). */}
           <div
             aria-hidden
+            className="af-family"
             style={{
               fontFamily: 'var(--font-mono)',
               fontSize: '9px',
               letterSpacing: '0.3em',
               textTransform: 'uppercase',
-              color: 'var(--ink-soft)',
               marginBottom: '6px',
             }}
           >
@@ -157,8 +161,10 @@ export function ArchiveFilters({ counts }: ArchiveFiltersProps) {
                   aria-disabled={isDisabled}
                   disabled={isDisabled}
                   onClick={() => !isDisabled && setType(value)}
-                  // Keyboard: Enter / Space handled natively by button.
-                  // §12 — 'f' shortcut to focus first pill is handled in ArchiveLedger.
+                  // .af-pill carries the read-tier inactive label colour (#3);
+                  // .is-active forces the reserved orange. Only the disabled state
+                  // sets colour inline (hairline). Keyboard Enter/Space native.
+                  className={`af-pill${isActive ? ' is-active' : ''}`}
                   style={{
                     // Typography — t-meta register (§8)
                     fontFamily: 'var(--font-mono)',
@@ -172,15 +178,10 @@ export function ArchiveFilters({ counts }: ArchiveFiltersProps) {
                     // Borders — active vs inactive (§6)
                     border: isActive
                       ? '1px solid var(--accent-orange)'
-                      : isDisabled
-                        ? '1px solid var(--ink-hairline)'
-                        : '1px solid var(--ink-hairline)',
-                    // Colour — active vs inactive vs disabled (§6)
-                    color: isActive
-                      ? 'var(--accent-orange)'
-                      : isDisabled
-                        ? 'var(--ink-hairline)'
-                        : 'var(--ink-soft)',
+                      : '1px solid var(--ink-hairline)',
+                    // Colour: inactive-enabled comes from .af-pill (read-tier lift);
+                    // active from .af-pill.is-active (orange); disabled inline only.
+                    ...(isDisabled ? { color: 'var(--ink-hairline)' } : {}),
                     background: isActive
                       ? 'var(--accent-orange-soft)'
                       : 'transparent',
