@@ -804,6 +804,13 @@ export function WorldlineGlobe() {
     fictionSlug?: string; // set for NeX fiction nodes
   }[]>([]);
   const netraLockRef = useRef<{ coords: { lat: number; lon: number }; range: number } | null>(null);
+  // Orbital-active gate — true while a NeX possibility node is the active target.
+  // A NeX node is an ORBITAL meaning-coordinate, not a surface place (ontology
+  // §4.2). While true, the coord HUD must NOT manufacture a surface lat/lon from
+  // hover; it shows the absence-of-place token "—" instead. Cleared whenever the
+  // lock is set or cleared (setNetraLock / clearNetraLock), which all surface and
+  // stratum transitions route through.
+  const nexActiveRef = useRef(false);
 
   // Hover coordinate gate — set by onPointerMove when the raycaster hits the
   // globe sphere; cleared on miss or pointer-leave. null = readout hidden.
@@ -883,10 +890,12 @@ export function WorldlineGlobe() {
     };
     const clearNetraLock = () => {
       netraLockRef.current = null;
+      nexActiveRef.current = false;
       refs.netraTracker.visible = false;
     };
     const setNetraLock = (coords: { lat: number; lon: number }, range: number) => {
       netraLockRef.current = { coords, range };
+      nexActiveRef.current = false;
       setTrackerMarker(coords);
     };
     const cameraTrack = (coords: { lat: number; lon: number }, range: number) => {
@@ -1060,10 +1069,10 @@ export function WorldlineGlobe() {
       // Stratum change = deactivate branches (spec §5.1 option iii rejection logic:
       // framing change calls deactivateDrift — same applies here).
       deactivateBranches();
-      // neo = α-locked stratum: set lock BEFORE the slerp so softTrackCamera holds
-      // the camera on the α locus after the transition completes. The slerp end
-      // position (latLonToVec3(ALPHA_LAT, ALPHA_LON, 2.7)) targets the same
-      // point as cameraTrack(α, 2.7), so they compose without fighting.
+      // neo = α-locked stratum (Ne0 = the alpha observer's own surface ground,
+      // ontology §4.2c). setNetraLock clears any prior NeX/NETRA active-node lock
+      // AND resets nexActiveRef, so entering Ne0 can never route through the
+      // previously-active node — α is the destination, never a waypoint.
       // All other strata are wide/aggregate views — clear any existing lock.
       if (key === "neo") {
         setNetraLock({ lat: ALPHA_LAT, lon: ALPHA_LON }, 2.7);
@@ -1071,6 +1080,7 @@ export function WorldlineGlobe() {
         clearNetraLock();
       }
       const T = STRATA[key];
+      const isNeo = key === "neo";
       const startPos = camera.position.clone();
       const startLook = currentLook.clone();
       const endPos = T.camPos.clone();
@@ -1080,10 +1090,27 @@ export function WorldlineGlobe() {
       cameraAnim = (now: number) => {
         const k = Math.min(1, (now - t0) / dur);
         const e = easeInOutCubic(k);
+        // neo: recompute the α endpoint EVERY frame from cameraTrack(α, 2.7) —
+        // the same ROTATION-ADJUSTED locus softTrackCamera holds after the slerp
+        // completes (cameraTrack → atlasPoint → globeSurfacePointAtRotation reads
+        // refs.globe.rotation.y). The captured T.camPos uses latLonToVec3 which is
+        // EARTH-FIXED (ignores the always-advancing globe rotation), so slerping to
+        // it parked the camera on the wrong texel — the "sits on Africa/Yirgacheffe"
+        // detour — and only softTrack corrected it seconds later. Recomputing per
+        // frame makes the slerp END exactly where the hold begins: straight to the
+        // VISIBLE α, no detour. Other strata (neon pole, all/nex orbital overviews)
+        // keep their correctly earth-fixed captured endpoints.
+        let toPos = endPos;
+        let toLook = endLook;
+        if (isNeo) {
+          const track = cameraTrack({ lat: ALPHA_LAT, lon: ALPHA_LON }, 2.7);
+          toPos = track.position;
+          toLook = track.look;
+        }
         // Orbit interpolation — slerpCameraPos sweeps the camera along a great-circle
         // arc rather than a straight chord, so the camera never cuts through the globe.
-        camera.position.copy(slerpCameraPos(startPos, endPos, e));
-        currentLook.lerpVectors(startLook, endLook, e);
+        camera.position.copy(slerpCameraPos(startPos, toPos, e));
+        currentLook.lerpVectors(startLook, toLook, e);
         camera.lookAt(currentLook);
         if (k >= 1) cameraAnim = null;
       };
@@ -1369,9 +1396,17 @@ export function WorldlineGlobe() {
             }
           }
         };
-        // NeX fiction nodes have no GPS coords — no netraLock so camera stays
-        // at slerp landing position (softTrackCamera is not called after slerp).
-        netraLockRef.current = null;
+        // NeX fiction nodes are ORBITAL meaning-coordinates, not surface places
+        // (ontology §4.2). clearNetraLock() nulls the lock AND hides the 3D
+        // surface tracker — the bare `netraLockRef.current = null` used here
+        // before left the PRIOR surface node's tracker visible, riding the globe
+        // auto-rotation as a drifting reticle. nexActiveRef gates the coord HUD
+        // off a real lat/lon so the node never reads as a surveyed place. Order
+        // matters: clearNetraLock resets nexActiveRef to false, so set the flag
+        // AFTER clearing. softTrackCamera is not called (lock null) → camera
+        // holds the slerp orbital landing position.
+        clearNetraLock();
+        nexActiveRef.current = true;
         setNetraTarget(`${n.label} · ${n.place}`);
         return;
       }
@@ -1660,27 +1695,31 @@ export function WorldlineGlobe() {
       }
 
       // NETRA coordinate readout — priority order:
-      //   1. netraLock (a pinned node) → always show its earth-fixed coords.
-      //   2. live hover over the globe sphere (hoverGlobeCoordRef set by onHover
-      //      raycaster hit) → show the hit-point's earth-fixed lat/lon.
-      //   3. no hit / pointer outside globe / pointer over any overlay → hide.
-      // Previously this read from camera.position unconditionally (wrong source,
-      // no hover gate). The raycaster hit-test in onHover now gates both cases:
-      // a miss is a miss whether the pointer is over an overlay or empty canvas.
+      //   1. netraLock (a pinned surface node) → show its earth-fixed coords.
+      //   2. nexActive (a NeX possibility node is the active target) → show the
+      //      absence-of-place token "—". A NeX node is ORBITAL, not a place
+      //      (ontology §4.2): it has NO surface lat/lon, so the HUD must not
+      //      manufacture one from hover. "—" matches the NeX stratum readout
+      //      (STRATA.nex.netraCoord) and marks "this is not a place; no surface
+      //      fix" — NOT a richer telemetry/orbit readout (guardrail (b)/(d)).
+      //   3. live hover over the globe sphere → show the hit-point's lat/lon.
+      //   4. no hit / pointer outside globe / pointer over any overlay → hide.
       if (netraCoordRef.current) {
         const lockCoords = netraLockRef.current?.coords ?? null;
         const hoverCoords = hoverGlobeCoordRef.current;
-        const activeCoords = lockCoords ?? hoverCoords;
-        if (activeCoords) {
-          const coordText = formatNetraCoord(activeCoords.lat, activeCoords.lon);
-          if (netraCoordRef.current.textContent !== coordText) {
-            netraCoordRef.current.textContent = coordText;
-          }
+        let coordText: string;
+        if (lockCoords) {
+          coordText = formatNetraCoord(lockCoords.lat, lockCoords.lon);
+        } else if (nexActiveRef.current) {
+          // Orbital node active — absence-of-place marker, never a fake lat/lon.
+          coordText = "—";
+        } else if (hoverCoords) {
+          coordText = formatNetraCoord(hoverCoords.lat, hoverCoords.lon);
         } else {
-          // No lock and no hover hit — blank the readout.
-          if (netraCoordRef.current.textContent !== "") {
-            netraCoordRef.current.textContent = "";
-          }
+          coordText = "";
+        }
+        if (netraCoordRef.current.textContent !== coordText) {
+          netraCoordRef.current.textContent = coordText;
         }
       }
       const rangeText = camera.position.length().toFixed(2);
