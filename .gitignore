@@ -92,6 +92,11 @@ docs/team/.status-drafts/
 
 # build + tooling caches (not project source)
 /.velite/
+# codegraph MCP — per-machine local state (SQLite index + daemon.pid + a Unix
+# socket). LOAD-BEARING: also keeps Tailwind v4's source-scan out of this dir so
+# it can't try to read daemon.sock as a file and panic Turbopack (os error 102,
+# ENOTSUP) on the photo routes. Do NOT remove without re-fixing that.
+/.codegraph/
 # pagefind search index (regenerates on every build — never committed)
 /public/pagefind/
 /.playwright-mcp/
