@@ -23,6 +23,14 @@
  *   prefers-reduced-motion: instant (no stagger) — handled by @media query
  *   in <style> tag embedded at component level.
  *
+ * Extraction (TASK-2026-06-06 atlas-console editor):
+ *   ArticleEntryContent — shared presentational sub-component extracted so the
+ *   Article Editor preview can render the same entry content in a scoped inline
+ *   shell without the full page chrome (PageShell, Nav, MarginaliaHUD, etc.).
+ *   body?: React.ReactNode — generic velite-agnostic seam; when omitted, the
+ *   component falls back to the existing summary-placeholder behavior (preserving
+ *   byte-identical public page output). Procyon wires MDX body via this seam.
+ *
  * Owner: Sirius (α-SUR-01) · S2 entry-routes (VISION-2026-05-31)
  */
 
@@ -55,13 +63,49 @@ const PATCHES_CSS = `
 }
 `
 
-export function ArticleEntry({ article }: ArticleEntryProps) {
+// ─────────────────────────────────────────────────────────────────────────────
+// ArticleEntryContent props
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ArticleEntryContentProps {
+  article: Article
+  /**
+   * Optional MDX/ReactNode body to render in the body region.
+   *
+   * When omitted (the default), falls back to the approved summary-placeholder
+   * behavior — a Cormorant italic lede paragraph — so the public
+   * /articles/<fileNum> page is BYTE-IDENTICAL to its pre-refactor state.
+   *
+   * When provided (editor preview path), this node is rendered directly in the
+   * body region. The seam is velite-agnostic: Procyon's future MDX body
+   * wiring plugs in here without touching the public page.
+   *
+   * TODO(Procyon): plug in velite `code` field via useMDXComponent once the
+   * MDX body render infrastructure lands.
+   */
+  body?: React.ReactNode
+}
+
+/**
+ * ArticleEntryContent — shared presentational sub-component.
+ *
+ * Contains everything that was previously rendered as EntryShell's children
+ * in ArticleEntry: pagefind meta block, H1/title, domain label, body region
+ * (placeholder or live body via seam), § patches timeline, and the footer-
+ * internal end-of-file marker.
+ *
+ * Extracted so the Article Editor's inline preview pane can compose the full
+ * entry register without mounting the public page chrome (PageShell, Nav,
+ * MarginaliaHUD, ScrollMeter, fixed HUD). See atlas-console editor slice.
+ *
+ * INVARIANT: when body is omitted, this component's output is identical to the
+ * pre-refactor ArticleEntry children. The public page MUST remain byte-identical.
+ */
+export function ArticleEntryContent({ article, body }: ArticleEntryContentProps) {
   const {
     fileNum,
     title,
     date,
-    status,
-    readingTime,
     tags,
     domain,
     coords,
@@ -87,18 +131,7 @@ export function ArticleEntry({ article }: ArticleEntryProps) {
       : ''
 
   return (
-    <EntryShell
-      kind="article"
-      identifier={fileNum}
-      title={title}
-      date={date}
-      status={status}
-      readingTime={readingTime}
-      tags={tags}
-      shareLocation={shareLocation}
-      coords={coords}
-      fileNum={fileNum}
-    >
+    <>
       {/* Stagger CSS — injected once per render */}
       {hasPatches && <style>{PATCHES_CSS}</style>}
 
@@ -163,7 +196,9 @@ export function ArticleEntry({ article }: ArticleEntryProps) {
       </div>
 
       {/*
-       * Body prose placeholder — summary shown until MDX rendering is wired.
+       * Body region — body prop takes precedence when provided (editor preview path).
+       * Falls back to summary-placeholder when body is omitted (public page path).
+       *
        * wl-body: JetBrains Mono 13.5px leading 1.75 (spec §typography).
        * Full MDX body render requires next-mdx-remote or @next/mdx integration
        * at the velite layer — deferred as a follow-up (Procyon territory).
@@ -179,28 +214,30 @@ export function ArticleEntry({ article }: ArticleEntryProps) {
           marginBottom: '40px',
         }}
       >
-        {/*
-         * TODO(Procyon): Wire MDX body rendering via velite `body` field
-         * (velite outputs compiled JSX in the `code` field; needs
-         * useMDXComponent or equivalent at this layer).
-         * WAIT(Procyon): MDX body render infrastructure.
-         *
-         * For now: summary as lede paragraph (entry is still readable).
-         */}
-        <p
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontStyle: 'italic',
-            fontSize: '16px',
-            lineHeight: 1.6,
-            color: 'var(--ink-soft)',
-            borderLeft: '2px solid var(--accent-orange)',
-            paddingLeft: '16px',
-            marginBottom: '24px',
-          }}
-        >
-          {article.summary}
-        </p>
+        {body ?? (
+          /*
+           * TODO(Procyon): Wire MDX body rendering via velite `body` field
+           * (velite outputs compiled JSX in the `code` field; needs
+           * useMDXComponent or equivalent at this layer).
+           * WAIT(Procyon): MDX body render infrastructure.
+           *
+           * For now: summary as lede paragraph (entry is still readable).
+           */
+          <p
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontStyle: 'italic',
+              fontSize: '16px',
+              lineHeight: 1.6,
+              color: 'var(--ink-soft)',
+              borderLeft: '2px solid var(--accent-orange)',
+              paddingLeft: '16px',
+              marginBottom: '24px',
+            }}
+          >
+            {summary}
+          </p>
+        )}
       </div>
 
       {/* ─────────────────────────────────────────────────────── */}
@@ -324,6 +361,45 @@ export function ArticleEntry({ article }: ArticleEntryProps) {
           />
         </section>
       )}
+    </>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ArticleEntry — public page component (byte-identical to pre-refactor output)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function ArticleEntry({ article }: ArticleEntryProps) {
+  const {
+    fileNum,
+    title,
+    date,
+    status,
+    readingTime,
+    tags,
+    shareLocation,
+    coords,
+  } = article
+
+  /*
+   * body omitted intentionally — falls back to summary-placeholder.
+   * This preserves the byte-identical public page invariant.
+   * When Procyon wires MDX body, it passes `body` here instead.
+   */
+  return (
+    <EntryShell
+      kind="article"
+      identifier={fileNum}
+      title={title}
+      date={date}
+      status={status}
+      readingTime={readingTime}
+      tags={tags}
+      shareLocation={shareLocation}
+      coords={coords}
+      fileNum={fileNum}
+    >
+      <ArticleEntryContent article={article} />
     </EntryShell>
   )
 }
