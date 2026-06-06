@@ -1942,39 +1942,40 @@ See the current deny list at `.claude/settings.json` for the full Worldline post
 **Barrier class:** HARD-BARRIER
 **Mode:** block
 **Introduced:** TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-1
+**Revised:** TASK-2026-06-06-CURL-WGET-UNBLOCK (Peat directive — curl/wget wholesale block removed; RCE floor + generic guards remain)
 **Control:** Least-agency / tool-misuse (OWASP ZT §Least Agency)
 
-**Purpose:** Asserts the full least-agency stack is wired and hasn't regressed. Two hard assertions:
+**Purpose:** Asserts the least-agency stack is wired. One hard assertion:
 
-1. **deny-present:** `permissions.deny` in `settings.json` contains entries for both `curl` and `wget`
-2. **hook-wired:** A blocking PreToolUse Bash hook referencing `mutating-action-hook.sh` is present in `settings.json`
+1. **hook-wired:** A blocking PreToolUse Bash hook referencing `mutating-action-hook.sh` is present in `settings.json`
+
+NOTE: The prior `deny-present` assertion (curl AND wget must be in `permissions.deny`) was removed per TASK-2026-06-06-CURL-WGET-UNBLOCK (Peat directive 2026-06-06). An empty `permissions.deny` is now an authorized posture. The active controls are the hook (RCE floor + redirect/rm guards) and the permissions allow-list.
 
 **How to fix a fail:**
-- For deny-present: ensure `permissions.deny` in `.claude/settings.json` has both `Bash(curl *)` and `Bash(wget *)` entries
 - For hook-wired: ensure the PreToolUse hooks in `settings.json` include a `matcher: "Bash"` hook that calls `bash .claude/hooks/mutating-action-hook.sh`
 
-**curl/wget rule: WHOLESALE BLOCK (2026-06-03 · TASK-2026-06-03-CURL-WGET-WHOLESALE-REVERT — NOT TIGHT verdict)**
+**curl/wget posture: FETCH VERBS UN-GATED (2026-06-06 · TASK-2026-06-06-CURL-WGET-UNBLOCK — Peat directive)**
 
-**Rationale for wholesale block:**
+Per Peat's explicit directive, curl/wget fetch verbs are fully un-gated. This includes all invocations in command position, including data/exfil flags (`-d`, `--data*`, `-F`, `--form*`, `-T`, `--upload-file`, `-X POST/PUT/DELETE`, `--json`, etc.), absolute paths (`/usr/bin/curl`), env-prefixed forms (`FOO=bar curl`), pipe-to-non-interpreter (`curl | jq`), chain-to-non-interpreter (`curl -o f && cat f`), and all historical adversarial bypass forms from rounds 1–7.
 
-A 6-round Canopus/Algol adversarial harden loop (workflow run w21qxik6w, using the `adversarial-harden` skill) ran on the prior danger-targeted precision rule and returned **NOT TIGHT** (`consecutiveClean: 0`, `tight: false`). Algol found novel bypass classes in every single round — short-flag clusters (`-sd`, `-kfsd@/etc/passwd`), flag aliases (`--data-ascii`, `--form-string`, `--request`), wget-specific egress vocabulary, `-K` config-file laundering, `bash <(curl)` process substitution, wrapper-word pipe chains, and `;`/newline download-exec two-step chains. Conclusion: command-string precision-gating of `curl`/`wget` is an unwinnable arms race on this verb surface. The wholesale block matches the `permissions.deny` layer rather than being strictly weaker than it.
+The prior wholesale block (2026-06-03, NOT TIGHT verdict) is superseded. Historical archaeology of those 7 adversarial rounds is preserved below for record purposes only.
 
-The rare legitimate need (vendoring a static asset) is handled out-of-band by Peat, not by opening the verb to agents.
+**What remains BLOCKED — the RCE floor:**
 
-**What the process-substitution RCE blocks preserve (kept from the precision era):**
-
-The following two structural blocks were introduced during the adversarial harden loop and remain in force independently of the curl/wget wholesale rule. They close RCE vectors that do not require curl/wget to be in command position:
+The following two structural blocks remain unconditionally in Phase 1 Global of `mutating-action-hook.sh`. They are independent of any curl/wget command-position detection and cannot be bypassed by the un-gate:
 
 | Block | What it catches | Why kept |
 |-------|----------------|----------|
 | `source/. <(...)` procsub RCE | `source <(curl URL)`, `. <(curl URL)` — the outer command is `source`/`.`, not `curl`; feeds fetched content into shell | Purely structural; does not rely on curl/wget command-position detection |
 | `interpreter <(curl/wget ...)` procsub RCE | `bash <(curl URL)`, `python3 <(wget ...)` — interpreter directly on a process-sub that contains a fetch | Same; gated on the fetch token inside the process-sub, not curl/wget in command position |
 
-Both blocks live in Phase 1 Global of `mutating-action-hook.sh`, before the curl/wget wholesale check.
+These blocks are the irreducible RCE floor: feeding remotely-fetched content into a shell interpreter via process substitution `<(curl ...)` is blocked regardless of any other posture.
+
+Generic guards that also remain unchanged: output-redirection (`>>` / `>`), rm, tee, shell-inject (`bash -c`), sed -i, find -delete.
 
 **Historical record (adversarial hardening rounds 1–7, 2026-06-03):**
 
-These rounds established the NOT TIGHT verdict. Preserved here as archaeology only — the precision rule they document has been superseded by the wholesale block above.
+These rounds established the NOT TIGHT verdict that justified the (now-superseded) wholesale block. Preserved as archaeology only.
 
 | Fix | Bypass closed | How |
 |-----|--------------|-----|
@@ -2444,6 +2445,118 @@ BLOCKED by dev-clobber-guard [worldline-build-verify G1]
 Stub process technique: `exec -a "next dev" sleep 300` launches a background process with argv[0] = "next dev", which appears in `ps -eo pid,command` and matches the hook's grep pattern. The fixture starts and stops the stub around the block-case assertions.
 
 Run: `bash tests/harness/dev-clobber-guard.fixture.sh`
+
+---
+
+## Rail: memory-drift
+
+**Check:** `scripts/audit-memory-drift.sh`
+**Applies to:** all GENESIS memory surfaces (see "Covered surfaces" below)
+**Owner:** Canopus (α-HRN-07)
+**Introduced:** TASK-2026-06-04-INTEGRITY-HASH-ON-WRITE (M2 sensor)
+**Wiring:** Stop hook + harness rail (unwired pending Peat gate)
+
+### Purpose
+
+Asserts that every GENESIS memory node's current sha256 matches the hash
+recorded in the integrity ledger (`.harness/integrity-ledger.jsonl`).
+
+Two failure classes, both reported in a single run:
+
+| Class | Meaning |
+|---|---|
+| DRIFT | File exists on disk, has a ledger entry, but current sha256 ≠ latest ledger hash. The file was mutated out-of-band — written without the ledger hook firing. |
+| UNEXPLAINED | File exists on disk, ledger is present, but file has NO ledger entry. It was created/modified after the hook was wired without the hook firing (or the agent bypassed it). |
+
+### Covered surfaces
+
+| Surface | Ledger key format |
+|---|---|
+| Auto-memory dir (`~/.claude/projects/…/memory/**`) | Absolute path |
+| `.claude/handoffs/**` | Repo-relative, no leading `./` |
+| `.claude/signatures/**` | Repo-relative, no leading `./` |
+| `MEMORY.md` (project root) | `MEMORY.md` (repo-relative) |
+| `.claude/beta/**` | EXCLUDED — Track B, checked first before any reads |
+
+### How it reads the ledger
+
+The ledger (`.harness/integrity-ledger.jsonl`) is append-only JSONL. For each
+path, the sensor uses jq to group all entries by path and take the last element's
+`sha256` as the reference hash. This is the "latest entry per path" semantics:
+
+- For mutable nodes (MEMORY.md, handoffs, auto-memory files) that accumulate
+  one entry per legitimate write, the latest entry is the current expected hash.
+- For write-once nodes (`.claude/signatures/*.json`) that have exactly one entry,
+  latest == first.
+
+### Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | All nodes pass — current hash matches latest ledger hash; no unexplained writes |
+| 1 | DRIFT or UNEXPLAINED detected — blocks handoff |
+| 5 | Ledger absent or empty (pre-operational) — emits NOTICE, does not assert |
+
+Exit 5 is the pre-operational state: `integrity-write-ledger.sh` has not been
+wired (or no writes have been recorded). Treat as WARN in harness-check.sh
+until the ledger is seeded. See `.harness/proposed-wiring-M.md` for the
+seeding prerequisite.
+
+### How to fix a DRIFT fail
+
+The audit emits:
+```
+[memory-drift] DRIFT — <canonical-path>
+              expected (ledger-latest): <hash>
+              actual   (current file):  <hash>
+```
+
+Options:
+1. Revert the file to its ledger-recorded state (use `git checkout -- <path>`
+   for in-repo files, or restore from the last known-good copy for auto-memory
+   files).
+2. If the mutation was legitimate (e.g., Polaris updated MEMORY.md intentionally),
+   re-run the write through a tool (Write or Edit) with `WL_AGENT` set so the
+   ledger hook fires and records the new hash. The new ledger entry becomes the
+   latest reference.
+
+### How to fix an UNEXPLAINED fail
+
+The audit emits:
+```
+[memory-drift] UNEXPLAINED — no ledger entry: <canonical-path>
+```
+
+If the file was created AFTER the hook was wired but without the hook firing:
+re-run the write through the hook as above. The hook will append a ledger entry.
+
+If the file pre-dates hook wiring (created before the hook was wired into
+settings.json): this is a baseline-seeding gap, not tampering. Run the
+baseline seed pass (separate writer task — see `.harness/proposed-wiring-M.md`)
+to back-fill ledger entries for all pre-existing nodes.
+
+### Pre-operational state and baseline seeding
+
+Until two steps are complete, this sensor cannot make meaningful assertions:
+
+1. **Wire integrity-write-ledger.sh** — PostToolUse Write|Edit|MultiEdit hook
+   (at Peat's gate, proposed in `.harness/proposed-wiring-M.md`).
+2. **Run a baseline seed pass** — back-fill ledger entries for all GENESIS
+   memory nodes that existed before the hook was wired.
+
+Until both steps complete, exit 5 (NOTICE) is the expected result. Do not
+treat exit 5 as a blocking failure until the baseline is seeded.
+
+### Environment overrides (tests)
+
+| Variable | Purpose |
+|---|---|
+| `WL_INTEGRITY_LEDGER` | Override ledger path (default: `.harness/integrity-ledger.jsonl`) |
+| `WL_REPO_ROOT` | Override repo root (default: `$CLAUDE_PROJECT_DIR`) |
+| `WL_AUTO_MEMORY_DIR` | Override auto-memory dir |
+| `WL_MEMORY_MD` | Override MEMORY.md path |
+
+All test fixtures use TEMP COPIES per POLICY-NO-INPLACE-MUTATION.
 
 ---
 
