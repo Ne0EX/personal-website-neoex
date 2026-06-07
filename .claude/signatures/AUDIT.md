@@ -2,6 +2,21 @@
 
 ---
 
+## 2026-06-07 · TASK-2026-06-07-ATLAS-CONSOLE-SLICE2 (Sirius) · SCHEMA-FAIL — ABSENT (pre-sign)
+
+**auditor** · Algol (α-VER-06)
+**task** · Atlas Console front door (Slice 2)
+**expected signature file** · `.claude/signatures/TASK-2026-06-07-ATLAS-CONSOLE-SLICE2--sirius.json` (or similar)
+**verdict** · SCHEMA-FAIL (absent, not tampered)
+
+No signature file exists for Slice 2 in `.claude/signatures/`. Most recent Sirius signature on disk is `TASK-2026-06-ARCHIVE-GLOBE-VENDOR--sirius.json` (Jun 3). All Slice 2 new files are untracked; `sign-work.sh` has not been run.
+
+**Classification rationale:** this is a process gap, not a tamper event. The delivered work matches the spec (QA gauntlet passes on all dimensions except the cosmetic D1 defect). Severity is SCHEMA-FAIL (route to Canopus to ensure `sign-work.sh` runs after Sirius closes D1) rather than INTEGRITY-FAIL.
+
+**Required action:** Sirius runs `sign-work.sh` after delivering the D1 fix (rail `.key` badge truncation). Canopus verifies the signature is written before Polaris closes the task.
+
+---
+
 ## 2026-06-04 · TASK-2026-06-04-RTK-CARVEOUT (Canopus) · SAFE-BUT-INERT / main_compresses UNMET
 
 **auditor** · Algol (α-VER-06)

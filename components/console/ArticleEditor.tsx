@@ -60,7 +60,7 @@ export const SAMPLE_DRAFT: Article = {
 // Ported from prototype editor-engine.jsx@14.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SAMPLE_MD = `the question isn't whether you have taste. everyone does. the question is whether you've *surveyed* it — walked its perimeter, noted where it holds and where it gives.
+export const SAMPLE_MD = `the question isn't whether you have taste. everyone does. the question is whether you've *surveyed* it — walked its perimeter, noted where it holds and where it gives.
 
 ## what taste loads
 
@@ -341,6 +341,7 @@ const EDITOR_CSS = `
 // ─────────────────────────────────────────────────────────────────────────────
 
 type EditorMode = 'split' | 'wysiwyg'
+type EntryKind = 'article' | 'fiction' | 'photo'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Toolbar — stable (always shown; import zone deferred → md always truthy)
@@ -348,17 +349,26 @@ type EditorMode = 'split' | 'wysiwyg'
 
 interface ToolbarProps {
   fileNum:      string
+  /** Semantic content kind for the toolbar label (article/fiction/photo). */
+  entryKind:    EntryKind
   mode:         EditorMode
   onMode:       (m: EditorMode) => void
   outlineOpen:  boolean
   onOutline:    () => void
 }
 
-function Toolbar({ fileNum, mode, onMode, outlineOpen, onOutline }: ToolbarProps) {
+/** Kind → toolbar glyph. Mirrors KINDS in console-types.ts. */
+const KIND_GLYPH: Record<EntryKind, string> = {
+  article: '◆',
+  fiction: '△',
+  photo:   '◎',
+}
+
+function Toolbar({ fileNum, entryKind, mode, onMode, outlineOpen, onOutline }: ToolbarProps) {
   return (
     <div className="ed-toolbar">
       <div className="ed-tb-left">
-        {/* ⟵ CONSOLE — placeholder link (slice 1; /console not yet built) */}
+        {/* ⟵ CONSOLE — Slice 2: /console front door now exists (nav round-trip complete) */}
         <a
           className="ed-back"
           href="/console"
@@ -368,8 +378,9 @@ function Toolbar({ fileNum, mode, onMode, outlineOpen, onOutline }: ToolbarProps
           ⟵ CONSOLE
         </a>
         <span className="ed-tb-sep" aria-hidden>·</span>
-        <span className="ed-tb-file">◆ FILE {fileNum}</span>
-        <span className="ed-tb-kind">ARTICLE</span>
+        <span className="ed-tb-file">{KIND_GLYPH[entryKind]} FILE {fileNum}</span>
+        {/* Tier-b: toolbar label reflects real kind from URL searchParams */}
+        <span className="ed-tb-kind">{entryKind.toUpperCase()}</span>
       </div>
 
       <div className="ed-tb-right">
@@ -485,10 +496,46 @@ function SourcePane({ md, onChange }: SourcePaneProps) {
 // ArticleEditor — three-column Direction C
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function ArticleEditor() {
+// ─────────────────────────────────────────────────────────────────────────────
+// ArticleEditor props
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface ArticleEditorProps {
+  /**
+   * Pre-filled draft from velite metadata (tier-b: metadata only).
+   * When provided, seeds fileNum/title/date/domain/tags/summary/kind.
+   * When absent, falls back to SAMPLE_DRAFT.
+   *
+   * Shape is Article — fiction/photo entries are mapped to Article shape in the
+   * page Server Component with safe defaults for Article-only fields.
+   * FIELD-GAP(Procyon): fiction/photo gaps documented in editor/page.tsx lookupDraft.
+   */
+  initialDraft?: Article
+  /**
+   * Semantic kind from the URL searchParams (?kind=…).
+   * Drives the toolbar label (ARTICLE / FICTION / PHOTO) independently of
+   * the draft's .kind field (which is always 'article' for type compat).
+   * When absent (no URL params / SAMPLE_DRAFT path), defaults to 'article'.
+   */
+  entryKind?: EntryKind
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ArticleEditor — three-column Direction C
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function ArticleEditor({ initialDraft, entryKind }: ArticleEditorProps = {}) {
+  // Seed from initialDraft when provided; fall back to SAMPLE_DRAFT.
+  // Body stays SAMPLE_MD — velite has no body field.
+  // tier-c: real article body deferred (velite has no body field — TODO Procyon)
+  const draft = initialDraft ?? SAMPLE_DRAFT
+
   const [md, setMd]               = useState<string>(SAMPLE_MD)
   const [mode, setMode]           = useState<EditorMode>('split')
   const [outlineOpen, setOutline] = useState<boolean>(true)
+
+  // Resolved kind for toolbar display. Defaults to 'article' on SAMPLE_DRAFT path.
+  const resolvedKind: EntryKind = entryKind ?? 'article'
 
   // Grid columns computed from mode × outlineOpen.
   // 212px = outline rail width (TOKEN-GAP: no spacing token)
@@ -501,8 +548,10 @@ export function ArticleEditor() {
   const statusText = useMemo<string>(() => {
     const modeLabel = mode === 'split' ? 'split source ↔ preview' : 'full page preview'
     const outlineLabel = !outlineOpen ? ' · outline hidden' : ''
-    return `imported from markdown · ${modeLabel}${outlineLabel}`
-  }, [mode, outlineOpen])
+    // Distinguish "live entry" from "sample" in the status line
+    const source = initialDraft ? 'velite metadata · draft body placeholder' : 'sample draft'
+    return `${source} · ${modeLabel}${outlineLabel}`
+  }, [mode, outlineOpen, initialDraft])
 
   return (
     <>
@@ -532,7 +581,8 @@ export function ArticleEditor() {
 
         {/* ── Toolbar ── */}
         <Toolbar
-          fileNum={SAMPLE_DRAFT.fileNum}
+          fileNum={draft.fileNum}
+          entryKind={resolvedKind}
           mode={mode}
           onMode={setMode}
           outlineOpen={outlineOpen}
@@ -560,9 +610,11 @@ export function ArticleEditor() {
             <SourcePane md={md} onChange={setMd} />
           )}
 
-          {/* Preview pane — always shown */}
+          {/* Preview pane — always shown. `draft` carries real velite metadata when
+              initialDraft is provided (title/date/domain/tags/summary/fileNum from velite).
+              Body (md) stays SAMPLE_MD — tier-c: real body deferred (TODO Procyon). */}
           <div className="ed-preview-wrap" id="ed-preview">
-            <ArticlePreview article={SAMPLE_DRAFT} md={md} />
+            <ArticlePreview article={draft} md={md} />
           </div>
         </div>
       </div>

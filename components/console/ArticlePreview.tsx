@@ -138,6 +138,12 @@ const PREVIEW_CSS = `
   font-weight: 500;
   color: var(--ink-primary);
 }
+/* FIX(gap#5): zero top margin on the first block so a leading h2/h3 does not
+   carry its 30px/24px top margin. Placed after .wlc-preview-body .wlc-h2/h3
+   rules (specificity ties resolved by source order — this wins). Uses
+   .wl-body because Blocks are children of that div, not direct children of
+   .wlc-preview-body. Scoped under .wlc-preview-body so it stays editor-only. */
+.wlc-preview-body .wl-body > *:first-child { margin-top: 0; }
 
 /* ── scoped non-fixed marginalia rail ─────────────────────────────── */
 .wlc-preview .wlc-marginalia {

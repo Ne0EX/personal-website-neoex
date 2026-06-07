@@ -118,7 +118,7 @@ export function Blocks({ blocks }: { blocks: Block[] }): React.ReactNode {
     if (b.type === 'hr') return <hr key={key} className="wlc-hr" />
     if (b.type === 'quote') return (
       <blockquote key={key} className="wlc-quote">
-        <span className="wlc-quote-mark" aria-hidden>"</span>
+        <span className="wlc-quote-mark" aria-hidden>&#x201C;</span>
         {renderInline(b.text, key)}
       </blockquote>
     )
