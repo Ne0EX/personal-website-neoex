@@ -52,6 +52,8 @@ export const SAMPLE_DRAFT: Article = {
   summary:       "taste isn't preference; it's a load-bearing structure — a record of what you choose to keep, what you let go, and the residue that becomes you.",
   coords:        { lat: 35.01, lon: 135.77, place: 'Kyoto · JP' },
   shareLocation: true,
+  placeId:       'kyoto',
+  highlightForPlace: false,
   worldline_links: [],
 }
 

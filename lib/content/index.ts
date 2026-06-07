@@ -101,6 +101,35 @@ export {
 } from './photos'
 
 // ---------------------------------------------------------------------------
+// Place-aware globe — place entity, query API, highlights
+// Spec: place-aware-globe-spec.md §14
+// ---------------------------------------------------------------------------
+
+export type {
+  Place,
+  PlacedArticle,
+  PlacedSidecar,
+  PlaceHighlights,
+  PlaceContent,
+  PlaceSummary,
+} from './types'
+
+export {
+  // All registered L1 places (globe nodes, console rail)
+  getAllPlaces,
+  // Per-place weights (globe ring density, NETRA "N RECORDS ARCHIVED")
+  getPlacesSummary,
+  getPlaceWeight,
+  // Full content + highlights (globe panel + dig-to-all)
+  getPlaceContent,
+  // Highlights only (globe panel initial open)
+  getPlaceHighlights,
+  // Filtered lists for highlight editor (console curation)
+  getArticlesAtPlace,
+  getSidecarsAtPlace,
+} from './places'
+
+// ---------------------------------------------------------------------------
 // Archive ledger — cross-stratum /archive route (docs/design/21-archive-route.md §7.2)
 // ---------------------------------------------------------------------------
 

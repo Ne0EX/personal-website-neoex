@@ -38,10 +38,10 @@
  */
 
 import type { Metadata } from 'next'
-import type { Article } from '@/lib/content/types'
+import type { Article, PhotoSidecar } from '@/lib/content/types'
 import { getArticleByFileNum } from '@/lib/content/articles'
 import { getFictionBySlug }    from '@/lib/content/fiction'
-import { getPhotos }           from '@/lib/content/photos'
+import { getPhotos, getPhotoByRollAndId, getSidecarsInRoll } from '@/lib/content/photos'
 import { EntryEditor }         from '@/components/console/EntryEditor'
 
 export const metadata: Metadata = {
@@ -97,6 +97,7 @@ async function lookupDraft(
       shareLocation:  false,            // FIELD-GAP: always suppress coords display
       patches:        undefined,        // FIELD-GAP: fiction has no patches log
       worldline_links: entry.worldline_links ?? [],
+      highlightForPlace: false,         // FIELD-GAP: fiction has no place highlight
     }
   }
 
@@ -122,10 +123,56 @@ async function lookupDraft(
       shareLocation:  false,              // Always suppress in editor context (privacy)
       patches:        undefined,          // FIELD-GAP: Photo has no patches log
       worldline_links: [],                // FIELD-GAP: roll-level Photo has no worldline_links
+      highlightForPlace: false,           // FIELD-GAP: Photo (roll) has no place highlight
     }
   }
 
   return null
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REAL photo sidecar lookup — for the PHOTO preview's real film-sim system.
+//
+// The editor's PHOTO preview reuses the REAL <PhotoEntry> + working FilmSimSwitcher
+// (the public /photos/<roll>/<id> render). To feed it, load the REAL velite
+// PhotoSidecar here (server-only — lib/content reads the .velite cache; a client
+// component cannot await these loaders). PhotoSidecar is a plain serializable
+// object → safe to pass across the RSC→client boundary to EntryEditor.
+//
+// Slug format: "roll/id" (same key the lookupDraft photo branch + console node use).
+// Returns the sidecar plus its roll sequence context (sequenceIndex / rollTotal),
+// mirroring the public photo route. Null when no slug / no match → EntryEditor's
+// PhotoPreview falls back to its MOCK styled-slot path (graceful, no crash).
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function lookupPhotoSidecar(
+  kind: string | string[] | undefined,
+  slug: string | string[] | undefined,
+): Promise<{ photo: PhotoSidecar; sequenceIndex: number; rollTotal: number } | null> {
+  if (kind !== 'photo') return null
+  if (typeof slug !== 'string' || !slug) return null
+
+  // slug = "roll/id" — split on the FIRST slash only (rolls never contain '/',
+  // ids are DSCF-style with no slash, so a single split is safe).
+  const sep = slug.indexOf('/')
+  if (sep <= 0) return null
+  const roll = slug.slice(0, sep)
+  const id = slug.slice(sep + 1)
+  if (!roll || !id) return null
+
+  const photo = await getPhotoByRollAndId(roll, id)
+  if (!photo) return null
+
+  // Roll context — sequence index + total (same derivation as the public route).
+  const rollPhotos = await getSidecarsInRoll(roll)
+  const sequenceIndex = rollPhotos.findIndex((s) => s.id === id)
+  const rollTotal = rollPhotos.length
+
+  return {
+    photo,
+    sequenceIndex: sequenceIndex >= 0 ? sequenceIndex : 0,
+    rollTotal: rollTotal > 0 ? rollTotal : 1,
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -144,6 +191,11 @@ export default async function ArticleEditorPage({
   // Look up the entry. Returns null → editor uses SAMPLE_DRAFT fallback.
   const initialDraft = await lookupDraft(kind, slug)
 
+  // Load the REAL photo sidecar (photo kind only) so the PHOTO preview reuses
+  // the real <PhotoEntry> + working FilmSimSwitcher. Null → PhotoPreview MOCK
+  // fallback (graceful). Runs server-side; passes a serializable plain object.
+  const photoCtx = await lookupPhotoSidecar(kind, slug)
+
   // Seed the editor's top-level kind state from the URL ?kind param. The draft's
   // `.kind` is hardcoded 'article' (ArticlePreview's type constraint); the URL
   // kind param is the semantic kind the console node carries, and it drives the
@@ -157,6 +209,9 @@ export default async function ArticleEditorPage({
     <EntryEditor
       initialDraft={initialDraft ?? undefined}
       kind={entryKind}
+      initialPhoto={photoCtx?.photo}
+      photoSequenceIndex={photoCtx?.sequenceIndex}
+      photoRollTotal={photoCtx?.rollTotal}
     />
   )
 }

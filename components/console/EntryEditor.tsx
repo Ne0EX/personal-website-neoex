@@ -72,7 +72,7 @@
 
 import type React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Article } from '@/lib/content/types'
+import type { Article, PhotoSidecar } from '@/lib/content/types'
 import type {
   ArticleMeta,
   EntryKind,
@@ -1085,13 +1085,35 @@ interface EntryEditorProps {
    * state (default kind). Defaults to 'article' when absent / unrecognized.
    */
   kind?: EntryKind
+  /**
+   * REAL velite PhotoSidecar loaded by the route (?kind=photo&slug=roll/id).
+   * When present, the in-pane PHOTO preview reuses the REAL <PhotoEntry> +
+   * working FilmSimSwitcher (the public photo page). Plain serializable object
+   * (velite JSON) → safe across the RSC→client boundary. Absent → PhotoPreview
+   * falls back to its MOCK styled-slot path (graceful, no crash).
+   *
+   * NOTE: the source pane + //FRAMES rail stay on MOCK frames this slice
+   * (read-only build; no curation/save). The WIN is a REAL preview — the
+   * preview-real / source-mock split is intentional for this slice.
+   */
+  initialPhoto?: PhotoSidecar
+  /** Zero-based index of `initialPhoto` within its roll (default 0). */
+  photoSequenceIndex?: number
+  /** Total photos in `initialPhoto`'s roll (default 1). */
+  photoRollTotal?: number
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EntryEditor — kind-aware instrument panel (Direction C frame)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function EntryEditor({ initialDraft, kind: initialKind }: EntryEditorProps = {}) {
+export function EntryEditor({
+  initialDraft,
+  kind: initialKind,
+  initialPhoto,
+  photoSequenceIndex = 0,
+  photoRollTotal = 1,
+}: EntryEditorProps = {}) {
   const draft = initialDraft ?? SAMPLE_DRAFT
 
   // Top-level kind state — default from URL ?kind. Kind is a view mode, not a
@@ -1476,11 +1498,20 @@ export function EntryEditor({ initialDraft, kind: initialKind }: EntryEditorProp
                 ))}
               {showPreview && (
                 <div className="ed-preview-wrap" id="ed-preview">
+                  {/* REAL preview when the route loaded a velite sidecar (reuses
+                      the public <PhotoEntry> + working FilmSimSwitcher). When
+                      absent, PhotoPreview falls back to its MOCK styled-slot
+                      spread (graceful — no crash). Only ONE [data-photo-entry-root]
+                      mounts here; FullPreview's photo path stays MOCK so the
+                      switcher's global querySelector never grabs a hidden root. */}
                   <PhotoPreview
                     meta={photoMeta}
                     frames={frames}
                     active={activeFrame}
                     narrow={false}
+                    photo={initialPhoto}
+                    sequenceIndex={photoSequenceIndex}
+                    rollTotal={photoRollTotal}
                   />
                   {publishPanelNode}
                 </div>

@@ -1,28 +1,39 @@
 /**
  * components/console/PhotoPreview.tsx — Atlas Console Full Editor · PHOTO preview pane
  * ─────────────────────────────────────────────────────────────────────────────
- * Server-safe (NO 'use client'): the film-sim label is decorative, no interaction.
+ * Server-safe (NO 'use client' at module top): the REAL path mounts PhotoEntry,
+ * which itself mounts the FilmSimSwitcher client island — no client boundary is
+ * crossed in this file. The MOCK path's label is decorative, no interaction.
  *
- * Contract: docs/design/atlas-console-full-editor.md §"per-kind: PHOTO → preview pane"
- * + §"prop contracts → 2. PhotoPreview" (Betelgeuse · α-VIS-04 · signed 2026-06-07).
+ * TWO RENDER PATHS — REAL (new) and MOCK (preserved):
  *
- * Built to the CONTRACT, not the prototype. The contract's PhotoPreview is deliberately
- * minimal — a full-spread frame preview, not the prototype's pe-grid / pe-side / NETRA
- * voice / marginalia / back-links (those would be the over-build trap):
- *   - Frame fills the pane (object-fit: contain, no crop).
- *   - Active frame displayed (default frames[0] when active missing).
- *   - Film-sim overlay: single-word label in the top-right corner-reticle area
- *     (mono 9px orange), decorative only.
- *   - Provenance line: `SOURCE: {fileNum} · {frames.length} FRAMES · {place}`.
+ *   REAL (when `photo` prop is provided): renders the ACTUAL photo-entry surface
+ *   via <PhotoEntry photo={photo} …/> — the SAME component the public page
+ *   (/photos/<roll>/<id>) renders, plus the working <FilmSimSwitcher> it mounts.
+ *   This makes the editor preview the real film-sim system: the switcher mutates
+ *   [data-photo-entry-root] data-palette → the PhotoEntry.palette.css palette
+ *   blocks re-tint the whole surface (paper/ink/accent tokens swap) + filter the
+ *   <img> once pixels land; the photo's as-shot sim is photo.exif.filmSim. This
+ *   mirrors the ARTICLE pattern (ArticlePreview reuses ArticleEntryContent). We
+ *   reuse PhotoEntry WHOLE — PhotoEntry is the photo content-core (the route owns
+ *   PageShell/Nav/HUD chrome, not PhotoEntry), so NO extraction is needed and the
+ *   public render stays byte-identical by construction (PhotoEntry untouched).
  *
- * `narrow` prop (contract §2): true = 390px preview inside the FullPreview overlay.
- *   Collapses the spread to fit a phone-width device frame (smaller type, tighter pad).
- *   The frame still fills with object-fit: contain.
+ *   No real pixels yet: velite variants are undefined until process-photos runs
+ *   (Procyon: thumbWebp = variants?.thumb.webp). PhotoEntry already handles the
+ *   no-pixels state — it renders its own "VARIANTS PENDING" placeholder. We do
+ *   NOT add a second placeholder; the WIN is the real photo-entry + real film-sim
+ *   wiring, with pixels appearing when the pipeline runs.
  *
- * MOCK DATA: no real image files exist in /public, so the spread renders a styled
- *   placeholder slot (precedent: .wlc-img-slot) keyed by frame id rather than an <img>
- *   that would 404. The object-fit: contain intent is documented on the slot; src is
- *   retained on PhotoFrame for future real-image wiring (Procyon SCHEMA-NEEDS).
+ *   MOCK (when `photo` is absent — e.g. FullPreview's photo path, or no real
+ *   sidecar for the slug): the original minimal styled-slot spread, kept verbatim
+ *   so existing callers (FullPreview) build unchanged and a graceful fallback
+ *   exists when no real sidecar resolves.
+ *
+ * `narrow` prop (contract §2): true = 390px preview inside the FullPreview overlay
+ *   (MOCK path only — FullPreview never passes a real `photo`, so it never mounts
+ *   a second [data-photo-entry-root] that FilmSimSwitcher's global querySelector
+ *   could grab). The REAL path lets PhotoEntry's own responsive CSS handle width.
  *
  * Owner: Sirius (α-SUR-01) · atlas-console full editor
  * Reference (NOT copied): editor-kinds.jsx PhotoPreview@137 — its grid/side/NETRA
@@ -30,6 +41,16 @@
  */
 
 import type { PhotoMeta, PhotoFrame } from './editor-types'
+// Type-only import: pulling the VALUE would drag lib/content + the .velite cache
+// into the client bundle and break `next build`. PhotoSidecar is a plain
+// serializable object (velite JSON) → safe to receive across the RSC boundary.
+import type { PhotoSidecar } from '@/lib/content/types'
+// PhotoEntry is the real photo content-core (the public page renders it too). It
+// has NO server-only runtime import (next/link · FilmSimSwitcher client island ·
+// a side-effect palette CSS import · a type-only PhotoSidecar), so it renders
+// fine inside this (client-tree) preview. Reusing it WHOLE keeps the public
+// /photos/<roll>/<id> render byte-identical — PhotoEntry is not modified.
+import { PhotoEntry } from '@/components/PhotoEntry'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Scoped component CSS. <style> blocks are NOT scoped — all selectors prefixed
@@ -159,6 +180,18 @@ const PHOTO_PREVIEW_CSS = `
 .ppv.is-narrow .ppv-frame-glyph { font-size: 22px; }
 .ppv.is-narrow .ppv-caption { font-size: 13px; margin-top: 12px; }
 .ppv.is-narrow .ppv-prov { font-size: 8px; letter-spacing: 0.15em; }
+
+/* ── REAL path — scoped scroll host for the live PhotoEntry surface ──────────
+   PhotoEntry is the public photo content-core (data-photo-entry-root). It sizes
+   to content and lays out with its own (inline + palette.css) responsive grid —
+   we only provide a scrolling host so the full instrument fits the preview pane,
+   exactly like ArticlePreview's .wlc-preview scroll column. NOT scoped INTO
+   PhotoEntry (no override of its columns); the inline grid wins regardless. */
+.ppv-real {
+  height: 100%;
+  overflow-y: auto;
+  background: var(--paper-base);
+}
 `
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -169,15 +202,57 @@ export interface PhotoPreviewProps {
   meta: PhotoMeta
   frames: PhotoFrame[]
   active: string | null // frame.id to display
-  narrow: boolean // true = 390px preview in FullPreview overlay
+  narrow: boolean // true = 390px preview in FullPreview overlay (MOCK path)
+  /**
+   * REAL velite sidecar loaded by the route (?kind=photo&slug=roll/id). When
+   * provided, the preview reuses the REAL <PhotoEntry> + working FilmSimSwitcher
+   * (the public photo page render). When absent → MOCK styled-slot path (the
+   * graceful fallback used by FullPreview and when no real sidecar resolves).
+   */
+  photo?: PhotoSidecar
+  /** Zero-based index of `photo` within its roll (real path; default 0). */
+  sequenceIndex?: number
+  /** Total photos in `photo`'s roll (real path; default 1). */
+  rollTotal?: number
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PhotoPreview
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function PhotoPreview({ meta, frames, active, narrow }: PhotoPreviewProps) {
-  // Resolve active frame — default to frames[0] when active missing.
+export function PhotoPreview({
+  meta,
+  frames,
+  active,
+  narrow,
+  photo,
+  sequenceIndex = 0,
+  rollTotal = 1,
+}: PhotoPreviewProps) {
+  // ── REAL path — reuse the actual PhotoEntry + working FilmSimSwitcher ───────
+  // This is the win: the editor preview IS the real photo-entry + real film-sim
+  // system (as-shot sim photo.exif.filmSim + working switcher + palette), not a
+  // dead label. Pixels appear when process-photos runs (variants); PhotoEntry
+  // renders its own no-pixels placeholder until then. PhotoEntry is untouched →
+  // the public /photos/<roll>/<id> render stays byte-identical.
+  if (photo) {
+    return (
+      <>
+        <style>{PHOTO_PREVIEW_CSS}</style>
+        <div className="ppv-real">
+          <PhotoEntry
+            photo={photo}
+            sequenceIndex={sequenceIndex}
+            rollTotal={rollTotal}
+          />
+        </div>
+      </>
+    )
+  }
+
+  // ── MOCK path — original minimal styled-slot spread (unchanged) ─────────────
+  // Used by FullPreview's photo path and as the graceful fallback when no real
+  // sidecar resolves for the slug. Resolve active frame — default frames[0].
   const i = frames.findIndex((f) => f.id === active)
   const frame = frames[i >= 0 ? i : 0]
 

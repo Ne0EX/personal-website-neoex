@@ -133,6 +133,30 @@ const articles = defineCollection({
       /** Whether to surface coords in served metadata. Defaults false per privacy policy. */
       shareLocation: s.boolean().default(false),
 
+      // --- place-aware globe (place-aware-globe-spec.md §14) ---
+      /**
+       * Place this article belongs to. Slug-form place ID (e.g. "bangkok").
+       * Optional — when absent, derived from coords.place at query time (see lib/content/places.ts).
+       * Written by the Atlas Console (highlight editor) once curation begins.
+       * NULL until console phase; the globe derives placement from coords until then.
+       *
+       * Consumer: lib/content/places.ts getContentAtPlace() / getPlacesSummary()
+       * Spec: place-aware-globe-spec.md §14 item 2
+       */
+      placeId: s.string().regex(/^[a-z0-9-]+$/, 'placeId must be kebab-case slug').optional(),
+
+      /**
+       * When true, this article is the curated front-door highlight for its placeId.
+       * At most one article per place may have this set to true.
+       * Build-time constraint is enforced in lib/content/places.ts (cross-record, cannot be a
+       * per-file zod refinement).
+       * Default: false (unset means not a highlight).
+       *
+       * Consumer: lib/content/places.ts getPlaceHighlights() highlight-panel
+       * Spec: place-aware-globe-spec.md §14 item 4
+       */
+      highlightForPlace: s.boolean().optional().default(false),
+
       // --- worldline-weave (S3) ---
       /**
        * Outgoing inter-entry links. Declared as `to: <kind>/<identifier>`.
@@ -492,6 +516,29 @@ const photoSidecars = defineCollection({
 
       // --- variant + EXIF overrides (optional — pipeline sets defaults) ---
       // Frontmatter may not include these; they are derived from process-photos cache.
+
+      // --- place-aware globe (place-aware-globe-spec.md §14) ---
+      /**
+       * Place this photo (frame) belongs to. Slug-form place ID (e.g. "chiang-mai").
+       * Optional — when absent, derived from roll slug at query time (see lib/content/places.ts).
+       * Written by the Atlas Console once curation begins.
+       * NULL until console phase; the globe derives placement from servedCoords until then.
+       *
+       * Consumer: lib/content/places.ts getContentAtPlace() / getPlaceHighlights()
+       * Spec: place-aware-globe-spec.md §14 item 3
+       */
+      placeId: s.string().regex(/^[a-z0-9-]+$/, 'placeId must be kebab-case slug').optional(),
+
+      /**
+       * Highlight rank for this frame within its placeId (1 = first in strip, 5 = last).
+       * Null when not curated as a highlight. At most 5 frames per place may have a rank.
+       * Build-time cross-record constraint enforced in lib/content/places.ts.
+       * Unit: individual frame (PhotoSidecar), not roll.
+       *
+       * Consumer: lib/content/places.ts getPlaceHighlights() photo strip
+       * Spec: place-aware-globe-spec.md §14 item 4
+       */
+      highlightRank: s.number().int().min(1).max(5).optional(),
 
       // --- worldline-weave (S3) ---
       /**

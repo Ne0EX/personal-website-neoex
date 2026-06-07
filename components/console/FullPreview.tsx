@@ -120,6 +120,7 @@ function articleMetaToArticle(meta: ArticleMeta): Article {
     coords:       meta.coords ?? { lat: 0, lon: 0, place: '—' },
     shareLocation: Boolean(meta.coords),
     worldline_links: [],
+    highlightForPlace: false, // FIELD-GAP: preview context has no place highlight
   } as Article
 }
 

@@ -6,6 +6,7 @@
  *
  * Owner: Procyon (α-IDX-03)
  * Tasks: TASK-2026-05-15-22 / TASK-2026-05-15-30 / TASK-2026-05-17-PROCYON-WAVE1-BUNDLE
+ *       place-aware-globe-spec.md §14 (Place entity + PlaceHighlights + PlaceContent)
  *
  * Note: After velite build runs, types are also available from '.velite'.
  * This module re-exports them under stable names so consumers are insulated
@@ -217,6 +218,24 @@ export type WorldlineNeighborhood = {
   outgoing: WorldlineLink[]
   incoming: WorldlineEdge[]
 }
+
+// ---------------------------------------------------------------------------
+// Place-aware globe types — place-aware-globe-spec.md §14
+// Consumed by: WorldlineGlobe.tsx (Sirius), ConsoleApp.tsx (Sirius), NETRA (Altair)
+// ---------------------------------------------------------------------------
+
+/**
+ * Re-export Place entity from place-registry.
+ * Stable re-export; do not import from place-registry.ts in UI code.
+ */
+export type {
+  Place,
+  PlacedArticle,
+  PlacedSidecar,
+  PlaceHighlights,
+  PlaceContent,
+  PlaceSummary,
+} from './places'
 
 // ---------------------------------------------------------------------------
 // MDX component prop types — TASK-2026-05-17-PROCYON-WAVE1-BUNDLE Task A

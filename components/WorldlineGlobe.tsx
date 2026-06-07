@@ -1,13 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import {
-  RECENT_ENTRIES,
   OBSERVER_NODES,
-  type Entry,
   type ArchiveNode,
 } from "@/lib/entries";
+// Place-aware globe — place-aware-globe-spec.md §2/§3/§4 + DECISION-2026-06-07 §15 (Option A).
+// Consume Procyon's query API (lib/content/places.ts) — READ ONLY, do not change the schema.
+import {
+  getPlacesSummary,
+  getPlaceContent,
+  type PlaceSummary,
+  type PlaceContent,
+} from "@/lib/content/places";
 import {
   dampVec3,
   formatNetraCoord,
@@ -403,9 +409,92 @@ type SceneRefs = {
   netraTracker: THREE.Group;
   alphaRing: THREE.Mesh | null;
   arcLine: THREE.Line;
-  pinObjects: { entry: Entry; head: THREE.Mesh; hit: THREE.Mesh }[];
+  // Ne0 place-nodes — built ASYNC from getPlacesSummary() after the scene mounts
+  // (mirrors the async NeX fiction-glyph population). `nodesGroup` is the parent
+  // the place-node builder appends into. `placeObjects` is the raycast registry.
+  nodesGroup: THREE.Group;
+  placeObjects: PlaceNodeObject[];
   observerObjects: { node: ArchiveNode; head: THREE.Mesh }[];
 };
+
+/**
+ * A rendered place-node on the Ne0 surface (spec §3.1 glyph: center dot +
+ * concentric survey rings whose count scales with weight). Ring density is the
+ * weight signal — no numeral badge (spec §3.1, §13). `hit` is the invisible
+ * raycast proxy; `rings` are recolored on hover/select per the §3.4 states table.
+ */
+type PlaceNodeObject = {
+  summary: PlaceSummary;
+  dot: THREE.Mesh;
+  /** ring-1 always; ring-2 when weight>=3; ring-3 when weight>=7. Index 0 = ring-1. */
+  rings: THREE.Mesh[];
+  hit: THREE.Mesh;
+};
+
+// ─── Place-node glyph constants — spec §3.1 (extends arc-node + alpha-node halo) ───
+const PLACE_INK_HEX = 0x1f5063;       // --ink-primary (teal active palette)
+const PLACE_ACCENT_HEX = 0xd4602a;    // --accent-orange (selected state)
+const PLACE_RING_WEIGHT_2 = 3;        // ring-2 visible at weight >= 3 (spec §3.1)
+const PLACE_RING_WEIGHT_3 = 7;        // ring-3 visible at weight >= 7 (spec §3.1)
+// Ring geometry tuples [inner, outer, defaultOpacity] — spec §3.1 glyph block.
+const PLACE_RING_GEO: [number, number, number][] = [
+  [0.022, 0.026, 0.7],   // ring-1
+  [0.034, 0.037, 0.45],  // ring-2 (weight >= 3)
+  [0.048, 0.05, 0.28],   // ring-3 (weight >= 7)
+];
+
+/**
+ * Build one place-node glyph (dot + weight-scaled survey rings) and its hit proxy,
+ * append into `nodesGroup`, and return the registry object. Spec §3.1.
+ * Rings face outward (lookAt origin + rotateY π) like the existing α halo (§3.1).
+ */
+function buildPlaceNode(summary: PlaceSummary, nodesGroup: THREE.Group): PlaceNodeObject {
+  const { place, weight } = summary;
+  const v = latLonToVec3(place.coord.lat, place.coord.lon, 1.005);
+
+  // Center dot — slightly larger arc-node (spec §3.1: SphereGeometry(0.014)).
+  const dot = new THREE.Mesh(
+    new THREE.SphereGeometry(0.014, 12, 12),
+    new THREE.MeshBasicMaterial({ color: PLACE_INK_HEX })
+  );
+  dot.position.copy(v);
+  nodesGroup.add(dot);
+
+  // Survey rings — ring-1 always; ring-2/3 gated by weight (density = the signal).
+  const ringCount =
+    1 + (weight >= PLACE_RING_WEIGHT_2 ? 1 : 0) + (weight >= PLACE_RING_WEIGHT_3 ? 1 : 0);
+  const rings: THREE.Mesh[] = [];
+  for (let i = 0; i < ringCount; i++) {
+    const [inner, outer, opacity] = PLACE_RING_GEO[i];
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(inner, outer, 32),
+      new THREE.MeshBasicMaterial({
+        color: PLACE_INK_HEX,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity,
+      })
+    );
+    ring.position.copy(v.clone().multiplyScalar(1.001));
+    ring.lookAt(0, 0, 0);
+    ring.rotateY(Math.PI);
+    ring.userData.baseOpacity = opacity;
+    nodesGroup.add(ring);
+    rings.push(ring);
+  }
+
+  // Invisible hit proxy — same pattern as the old entry pins. Carries placeId.
+  const hit = new THREE.Mesh(
+    new THREE.SphereGeometry(0.05, 8, 8),
+    new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false })
+  );
+  hit.position.copy(v);
+  hit.renderOrder = 999;
+  hit.userData.placeId = place.id;
+  nodesGroup.add(hit);
+
+  return { summary, dot, rings, hit };
+}
 
 // Procedural surface textures (paper-cream base + baked lat/long grid + async
 // Earth coastline silhouette) were EXTRACTED 2026-06-03 to lib/globe-surface.ts
@@ -606,26 +695,15 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
   const nodeMatInk = new THREE.MeshBasicMaterial({ color: 0x1f5063 });
   const nodeMatAcc = new THREE.MeshBasicMaterial({ color: 0xd4602a });
 
-  // Entry pins (clickable, with hit proxies for raycaster)
-  const pinObjects: { entry: Entry; head: THREE.Mesh; hit: THREE.Mesh }[] = [];
-  for (const e of RECENT_ENTRIES) {
-    const v = latLonToVec3(e.coords.lat, e.coords.lon, 1.005);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.012, 12, 12), nodeMatInk.clone());
-    head.position.copy(v);
-    nodesGroup.add(head);
+  // Ne0 place-nodes are built ASYNC from getPlacesSummary() after the scene
+  // mounts (mirrors the NeX fiction-glyph async population). The registry starts
+  // empty; the THREE-setup effect fills it via buildPlaceNode() and re-targets
+  // the JUMP cycle. Until then nodesGroup carries only the observer glyphs below.
+  const placeObjects: PlaceNodeObject[] = [];
 
-    const hitGeo = new THREE.SphereGeometry(0.05, 8, 8);
-    const hitMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false });
-    const hit = new THREE.Mesh(hitGeo, hitMat);
-    hit.position.copy(v);
-    hit.renderOrder = 999;
-    hit.userData.entry = e.fileNum;
-    nodesGroup.add(hit);
-
-    pinObjects.push({ entry: e, head, hit });
-  }
-
-  // Observer nodes (α + 012 + 047, not clickable)
+  // Observer nodes (α + 012 + 047, not clickable) — SEPARATE LAYER from places
+  // (spec §2.3): α co-locates with the Bangkok place-node but stays its own
+  // object with its own orange halo; never a place, never clickable.
   let alphaRing: THREE.Mesh | null = null;
   const observerObjects: { node: ArchiveNode; head: THREE.Mesh }[] = [];
   for (const n of OBSERVER_NODES) {
@@ -706,7 +784,8 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
       netraTracker,
       alphaRing,
       arcLine,
-      pinObjects,
+      nodesGroup,
+      placeObjects,
       observerObjects,
     },
     cleanup: () => {
@@ -726,7 +805,26 @@ export function WorldlineGlobe() {
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const [stratum, setStratum] = useState<StratumKey>("all");
+  // `selectedId` now holds the SELECTED PLACE ID (slug, e.g. "bangkok") — the
+  // place-node era repurposes the old entry-selection machine (one selection
+  // state, one camera-focus effect, one ESC path). Null = no place open.
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // ─── Place-aware globe state — spec §3/§4 + DECISION §15 (Option A) ───
+  // Loaded async from Procyon's query API (lib/content/places.ts), same
+  // dynamic-velite-import pattern getFiction() already uses in this file.
+  const [placeSummaries, setPlaceSummaries] = useState<PlaceSummary[]>([]);
+  // Per-place full content (highlights + dig-to-all), fetched lazily on first
+  // open and memoized so re-selecting a place is instant.
+  const [placeContentCache, setPlaceContentCache] = useState<
+    Record<string, PlaceContent>
+  >({});
+  // Dig-deeper expansion state for the open front-door panel (spec §4.3).
+  const [digOpen, setDigOpen] = useState(false);
+  // Hovered place summary — drives the §3.2 hover NETRA line. Set from the THREE
+  // hover handler; null when not hovering a place-node.
+  const [hoveredPlace, setHoveredPlace] = useState<PlaceSummary | null>(null);
+  const hoveredPlaceIdRef = useRef<string | null>(null);
 
   // Live readouts driven via DOM refs (mutated each frame inside the render
   // loop) — keeps the component from re-rendering 60×/sec and prevents the
@@ -742,8 +840,14 @@ export function WorldlineGlobe() {
 
   const stratumRef = useRef<StratumKey>("all");
   const selectedIdRef = useRef<string | null>(null);
+  // Mirror dig state for the once-bound keydown handler closure (same reason
+  // selectedIdRef exists — the handler is bound with [] deps).
+  const digOpenRef = useRef(false);
   useEffect(() => { stratumRef.current = stratum; }, [stratum]);
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
+  useEffect(() => { digOpenRef.current = digOpen; }, [digOpen]);
+  // Collapse the dig expansion whenever the selected place changes/closes.
+  useEffect(() => { setDigOpen(false); }, [selectedId]);
 
   // Broadcast stratum changes to the module-level globe-store so Nav and
   // other client components can read the current stratum without coupling
@@ -757,11 +861,14 @@ export function WorldlineGlobe() {
     );
   }, [stratum]);
 
-  const entryById = useMemo(
-    () => Object.fromEntries(RECENT_ENTRIES.map((e) => [e.fileNum, e])),
-    []
+  // Selected place — its summary (weight/name/coord, always available once
+  // summaries load) and its full content (highlights + dig list, lazy-fetched).
+  const summaryById = useMemo(
+    () => Object.fromEntries(placeSummaries.map((s) => [s.place.id, s])),
+    [placeSummaries]
   );
-  const selected = selectedId ? entryById[selectedId] : null;
+  const selectedSummary = selectedId ? summaryById[selectedId] ?? null : null;
+  const selectedContent = selectedId ? placeContentCache[selectedId] ?? null : null;
 
   const t = STRATA[stratum];
 
@@ -769,22 +876,98 @@ export function WorldlineGlobe() {
    * NETRA voice — companion-intelligence framing line shown below the console.
    * Priority (highest to lowest):
    *   1. branchVoice — NeX branching Q-F/Q-G lines (Vega locked copy)
-   *   2. selected entry trace line
+   *   2. selected place trace line (spec §3.3 / §3.4 states table)
    *   3. current stratum voice
    * Per spec §13.2 step 7: NETRA voice update uses existing aria-live strip.
    */
+  const placeVoice = (() => {
+    if (!selectedSummary) return null;
+    const name = selectedSummary.place.name.toLowerCase();
+    const n = selectedSummary.weight;
+    if (n === 0) return `trace · ${name} · no records anchored here yet.`;
+    if (digOpen) return `trace · ${name} · full archive surface. ${n} records.`;
+    if (selectedSummary.hasHighlights)
+      return `trace · ${name} · highlights surface. dig to see all.`;
+    return `trace · ${name} · ${n} records. no highlights curated yet.`;
+  })();
+
+  // Hover NETRA line (spec §3.2) — instrument narration on pointer-enter; only
+  // when no place is selected (a selected place owns the voice strip).
+  const hoverVoice =
+    !selectedSummary && hoveredPlace
+      ? `PLACE · ${hoveredPlace.place.name.toUpperCase()} · ${hoveredPlace.weight} RECORD${hoveredPlace.weight === 1 ? "" : "S"} ARCHIVED`
+      : null;
+
   const netraVoice = branchVoice
     ? branchVoice
-    : selected
-      ? `trace · "${selected.title.toLowerCase()}". patched ${selected.date} · anchored ${selected.coords.place.toLowerCase()}.`
-      : t.voice;
+    : placeVoice
+      ? placeVoice
+      : hoverVoice
+        ? hoverVoice
+        : t.voice;
 
-  // ESC closes article panel.
+  // ─── Load all place summaries once (weight + hasHighlights for every node) ───
+  // Same dynamic-velite-import path as getFiction(); wrapped in try/catch for the
+  // same robustness parity (assertHighlightConstraints can throw on bad data —
+  // the globe must still render without place-nodes rather than blank).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const summaries = await getPlacesSummary();
+        if (!cancelled) setPlaceSummaries(summaries);
+      } catch {
+        // Non-fatal: globe + observer/NeX layers still work without place-nodes.
+        console.warn("[WorldlineGlobe] Place summary load failed — place-nodes unavailable.");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  /**
+   * Open a place front-door panel: set selection (drives camera + panel) and
+   * lazy-fetch the place's full content (highlights + dig-to-all), memoized.
+   * Spec §3.3 (select) + §4.2 (front door). DECISION §15 Option A: a place with
+   * content but no highlights still opens (panel shows only DIG DEEPER + NETRA).
+   */
+  const openPlace = useCallback(
+    (placeId: string) => {
+      setSelectedId(placeId);
+      setDigOpen(false);
+      if (!placeContentCacheRef.current[placeId]) {
+        (async () => {
+          try {
+            const content = await getPlaceContent(placeId);
+            if (content) setPlaceContentCache((c) => ({ ...c, [placeId]: content }));
+          } catch {
+            console.warn(`[WorldlineGlobe] Place content load failed for "${placeId}".`);
+          }
+        })();
+      }
+    },
+    []
+  );
+  // Latest-openPlace ref so the once-bound THREE click/jump closures can invoke
+  // it without going stale. placeContentCacheRef likewise feeds the dedupe check.
+  const openPlaceRef = useRef(openPlace);
+  useEffect(() => { openPlaceRef.current = openPlace; }, [openPlace]);
+  const placeContentCacheRef = useRef(placeContentCache);
+  useEffect(() => { placeContentCacheRef.current = placeContentCache; }, [placeContentCache]);
+
+  // ESC / D — place-panel keyboard map (spec §9 keyboard table).
+  //   ESC: if dug-open → collapse to highlights (1st press); if at highlights →
+  //        close panel; if no panel → reset stratum to "all".
+  //   D:   activate dig-deeper when a place panel is open (matches 1/2/3 convention).
+  // The handler is bound once ([] deps) — it reads selectedIdRef/digOpenRef
+  // mirrors, never stale state.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (selectedIdRef.current) setSelectedId(null);
+        if (selectedIdRef.current && digOpenRef.current) setDigOpen(false);
+        else if (selectedIdRef.current) setSelectedId(null);
         else setStratum("all");
+      } else if (e.key === "d" || e.key === "D") {
+        if (selectedIdRef.current && !digOpenRef.current) setDigOpen(true);
       } else if (e.key === "1") setStratum((s) => (s === "neo" ? "all" : "neo"));
       else if (e.key === "2") setStratum((s) => (s === "neon" ? "all" : "neon"));
       else if (e.key === "3") setStratum((s) => (s === "nex" ? "all" : "nex"));
@@ -794,15 +977,42 @@ export function WorldlineGlobe() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Jump-to-next-node (NETRA) — cycles through observer + entry + fiction nodes.
+  // Jump-to-next-node (NETRA) — cycles through observer + place + fiction nodes.
   const jumpIdxRef = useRef(0);
-  // Extended jump target: optional fictionSlug marks NeX orbital nodes (no real-world coords).
-  const jumpTargetsRef = useRef<{
+  // Extended jump target: optional fictionSlug marks NeX orbital nodes (no
+  // real-world coords); optional placeId marks a clickable Ne0 place-node so the
+  // JUMP cycle opens its front-door panel (spec §9 keyboard table).
+  type JumpTarget = {
     label: string;
     place: string;
     coords: { lat: number; lon: number };
     fictionSlug?: string; // set for NeX fiction nodes
-  }[]>([]);
+    placeId?: string;      // set for Ne0 place-nodes
+  };
+  const jumpTargetsRef = useRef<JumpTarget[]>([]);
+  // Fiction jump targets are appended after async fiction load; kept separate so
+  // the place-summary effect can rebuild the surface targets without clobbering
+  // the fiction tail. The combined list is observer+place THEN fiction.
+  const fictionJumpTargetsRef = useRef<JumpTarget[]>([]);
+  // Latest summaries for once-bound closures (fiction-load rebuild).
+  const placeSummariesRef = useRef<PlaceSummary[]>([]);
+  const rebuildJumpTargets = useCallback((summaries: PlaceSummary[]) => {
+    placeSummariesRef.current = summaries;
+    const surface: JumpTarget[] = [
+      ...OBSERVER_NODES.map((n) => ({
+        label: n.label,
+        place: n.coords.place,
+        coords: { lat: n.coords.lat, lon: n.coords.lon },
+      })),
+      ...summaries.map((s) => ({
+        label: s.place.name.split(" · ")[0].toUpperCase(),
+        place: s.place.name,
+        coords: { lat: s.place.coord.lat, lon: s.place.coord.lon },
+        placeId: s.place.id,
+      })),
+    ];
+    jumpTargetsRef.current = [...surface, ...fictionJumpTargetsRef.current];
+  }, []);
   const netraLockRef = useRef<{ coords: { lat: number; lon: number }; range: number } | null>(null);
   // Orbital-active gate — true while a NeX possibility node is the active target.
   // A NeX node is an ORBITAL meaning-coordinate, not a surface place (ontology
@@ -830,13 +1040,16 @@ export function WorldlineGlobe() {
   // Per spec §10.2: no fade animations, instant alpha, no breathing.
   const reducedMotionRef = useRef(false);
 
+  // Live scene refs — set inside the THREE setup effect so the place-node
+  // build/recolor effect (which depends on async data + selection) can reach
+  // into the persistent scene without tearing it down.
+  const sceneRefsRef = useRef<SceneRefs | null>(null);
+
+  // Seed jump targets with observer nodes immediately; place-nodes join once the
+  // async summary load resolves, fiction nodes after their own async load.
   useEffect(() => {
-    jumpTargetsRef.current = [
-      ...OBSERVER_NODES.map((n) => ({ label: n.label, place: n.coords.place, coords: { lat: n.coords.lat, lon: n.coords.lon } })),
-      ...RECENT_ENTRIES.map((e) => ({ label: e.fileNum, place: e.coords.place, coords: { lat: e.coords.lat, lon: e.coords.lon } })),
-    ];
-    // Fiction pins are appended to jumpTargets after async load — see THREE setup effect.
-  }, []);
+    rebuildJumpTargets(placeSummaries);
+  }, [placeSummaries, rebuildJumpTargets]);
 
   // ─── THREE setup ───
   useEffect(() => {
@@ -850,6 +1063,7 @@ export function WorldlineGlobe() {
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const { scene, refs, cleanup } = buildScene();
+    sceneRefsRef.current = refs;
 
     const camera = new THREE.PerspectiveCamera(36, 1, 0.01, 100);
     camera.position.set(0, 0, 4.2);
@@ -1009,10 +1223,10 @@ export function WorldlineGlobe() {
       ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
       ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
       raycaster.setFromCamera(ndc, camera);
-      const hits = raycaster.intersectObjects(refs.pinObjects.map((p) => p.hit), false);
+      const hits = raycaster.intersectObjects(refs.placeObjects.map((p) => p.hit), false);
       if (hits.length > 0) {
-        const fileNum = (hits[0].object as THREE.Mesh).userData.entry as string | undefined;
-        if (fileNum) setSelectedId(fileNum);
+        const placeId = (hits[0].object as THREE.Mesh).userData.placeId as string | undefined;
+        if (placeId) openPlaceRef.current(placeId);
       } else if (selectedIdRef.current) {
         setSelectedId(null);
       }
@@ -1023,9 +1237,32 @@ export function WorldlineGlobe() {
       ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
       raycaster.setFromCamera(ndc, camera);
 
-      // Cursor style — pin hit proxies take priority.
-      const pinHits = raycaster.intersectObjects(refs.pinObjects.map((p) => p.hit), false);
+      // Cursor style — place-node hit proxies take priority.
+      const pinHits = raycaster.intersectObjects(refs.placeObjects.map((p) => p.hit), false);
       renderer.domElement.style.cursor = pinHits.length > 0 ? "pointer" : "";
+
+      // Hover ring-1 glow (spec §3.2): hovered, non-selected place → ring-1 0.95.
+      // Restore others to base. Selected place is owned by the selection effect
+      // (orange) — never overridden here. NETRA hover voice is surfaced via the
+      // hover target name set on the React side.
+      const hoveredHit = pinHits.length > 0 ? (pinHits[0].object as THREE.Mesh) : null;
+      const hoveredId = hoveredHit ? (hoveredHit.userData.placeId as string | undefined) : undefined;
+      if (hoveredId !== hoveredPlaceIdRef.current) {
+        hoveredPlaceIdRef.current = hoveredId ?? null;
+        for (const node of refs.placeObjects) {
+          if (node.summary.place.id === selectedIdRef.current) continue; // selected owns its color
+          const ring1 = node.rings[0];
+          if (!ring1) continue;
+          const mat = ring1.material as THREE.MeshBasicMaterial;
+          const base = (ring1.userData.baseOpacity as number) ?? PLACE_RING_GEO[0][2];
+          mat.opacity = node.summary.place.id === hoveredId ? 0.95 : base;
+        }
+        setHoveredPlace(
+          hoveredId
+            ? refs.placeObjects.find((p) => p.summary.place.id === hoveredId)?.summary ?? null
+            : null
+        );
+      }
 
       // Globe sphere hit-test — earth-fixed coordinate gate.
       // Raycaster returns world-space intersection points; un-rotate by the
@@ -1058,6 +1295,18 @@ export function WorldlineGlobe() {
     const onGlobePointerLeave = () => {
       hoverGlobeCoordRef.current = null;
       window.dispatchEvent(new CustomEvent(WL_GLOBE_COORD_EVENT, { detail: null }));
+      // Clear place hover glow + NETRA hover line.
+      if (hoveredPlaceIdRef.current !== null) {
+        for (const node of refs.placeObjects) {
+          if (node.summary.place.id === selectedIdRef.current) continue;
+          const ring1 = node.rings[0];
+          if (!ring1) continue;
+          const mat = ring1.material as THREE.MeshBasicMaterial;
+          mat.opacity = (ring1.userData.baseOpacity as number) ?? PLACE_RING_GEO[0][2];
+        }
+        hoveredPlaceIdRef.current = null;
+        setHoveredPlace(null);
+      }
     };
     renderer.domElement.addEventListener("click", onClick);
     renderer.domElement.addEventListener("pointermove", onHover);
@@ -1122,23 +1371,29 @@ export function WorldlineGlobe() {
     // Expose for state changes from outside the effect.
     (window as unknown as { __atlasApplyStratum?: (k: StratumKey) => void }).__atlasApplyStratum = applyStratum;
 
-    // Entry-selected camera focus — orbit camera to face the selected pin's world position.
+    // Place-selected camera focus — orbit camera to face the selected place-node
+    // coord (spec §3.3 / §8: 700–1000ms easeInOutCubic, no chord through globe).
+    // `id` is now a placeId; coords resolve from the async-built place registry.
     const applySelected = (id: string | null) => {
       if (!id) {
         applyStratum(stratumRef.current);
         return;
       }
-      const entry = RECENT_ENTRIES.find((e) => e.fileNum === id);
-      if (!entry) return;
-      setNetraLock(entry.coords, 2.4);
+      const node = refs.placeObjects.find((p) => p.summary.place.id === id);
+      if (!node) return;
+      const coords = {
+        lat: node.summary.place.coord.lat,
+        lon: node.summary.place.coord.lon,
+      };
+      setNetraLock(coords, 2.4);
       const startPos = camera.position.clone();
       const startLook = currentLook.clone();
-      const dur = 1100;
+      const dur = 900;
       const t0 = performance.now();
       cameraAnim = (now: number) => {
         const k = Math.min(1, (now - t0) / dur);
         const e = easeInOutCubic(k);
-        const { position: camTarget, look: lookTarget } = cameraTrack(entry.coords, 2.4);
+        const { position: camTarget, look: lookTarget } = cameraTrack(coords, 2.4);
         // Orbit arc — no chord through the globe.
         camera.position.copy(slerpCameraPos(startPos, camTarget, e));
         currentLook.lerpVectors(startLook, lookTarget, e);
@@ -1411,7 +1666,18 @@ export function WorldlineGlobe() {
         return;
       }
 
-      // Standard Ne0 surface node.
+      // Ne0 place-node — JUMP opens its front-door panel (spec §9 keyboard table).
+      // openPlace() sets selection → the selectedId effect drives applySelected,
+      // which owns the camera focus + NETRA lock for places. We only set the
+      // NETRA target label here so JUMP and click share one camera path.
+      if (n.placeId) {
+        deactivateBranches();
+        openPlaceRef.current(n.placeId);
+        setNetraTarget(`${n.label} · ${n.place}`);
+        return;
+      }
+
+      // Standard Ne0 surface node (observer α/012/047 — no panel, camera only).
       deactivateBranches();
       setNetraLock(n.coords, 2.6);
       const startPos = camera.position.clone();
@@ -1471,8 +1737,9 @@ export function WorldlineGlobe() {
           refs.nexFictionGlyphs.add(ring);
         });
 
-        // Append fiction targets to jump list.
-        const fictionTargets = pins.map((pin) => ({
+        // Append fiction targets to jump list — stored separately so the
+        // place-summary rebuild never clobbers the fiction tail.
+        fictionJumpTargetsRef.current = pins.map((pin) => ({
           label: pin.slug.replace(/^transmission-/, "t."),
           place: `NeX · ${pin.domain}`,
           // Virtual orbital coord — we use lat=0 lon=0 as placeholder;
@@ -1480,7 +1747,7 @@ export function WorldlineGlobe() {
           coords: { lat: 0, lon: 0 },
           fictionSlug: pin.slug,
         }));
-        jumpTargetsRef.current = [...jumpTargetsRef.current, ...fictionTargets];
+        rebuildJumpTargets(placeSummariesRef.current);
       } catch {
         // Fiction load failure is non-fatal. Globe works without NeX branching.
         // Intentional console.warn: surfaces load failures in browser devtools.
@@ -1756,6 +2023,7 @@ export function WorldlineGlobe() {
         branchSessionRef.current = null;
       }
       cleanup();
+      sceneRefsRef.current = null;
       renderer.dispose();
       if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
       delete (window as unknown as Record<string, unknown>).__atlasApplyStratum;
@@ -1774,6 +2042,45 @@ export function WorldlineGlobe() {
     const apply = (window as unknown as { __atlasApplySelected?: (id: string | null) => void }).__atlasApplySelected;
     if (apply) apply(selectedId);
   }, [selectedId]);
+
+  // ─── Build Ne0 place-nodes into the live scene when summaries resolve ───
+  // Mirrors the async NeX fiction-glyph population: the scene mounts once, this
+  // effect fills nodesGroup once summaries are loaded (whichever order they
+  // resolve). Idempotent — only builds when placeObjects is still empty.
+  useEffect(() => {
+    const refs = sceneRefsRef.current;
+    if (!refs || placeSummaries.length === 0 || refs.placeObjects.length > 0) return;
+    for (const summary of placeSummaries) {
+      refs.placeObjects.push(buildPlaceNode(summary, refs.nodesGroup));
+    }
+  }, [placeSummaries]);
+
+  // ─── Recolor place-node dot + rings on selection (spec §3.4 states table) ───
+  // Selected place: dot + visible rings → accent-orange. Others: ink, base
+  // opacity. Pure material mutation — no geometry rebuild, no re-render churn.
+  useEffect(() => {
+    const refs = sceneRefsRef.current;
+    if (!refs) return;
+    for (const node of refs.placeObjects) {
+      const isSel = node.summary.place.id === selectedId;
+      (node.dot.material as THREE.MeshBasicMaterial).color.setHex(
+        isSel ? PLACE_ACCENT_HEX : PLACE_INK_HEX
+      );
+      node.rings.forEach((ring, i) => {
+        const mat = ring.material as THREE.MeshBasicMaterial;
+        const base = (ring.userData.baseOpacity as number) ?? PLACE_RING_GEO[i][2];
+        // Spec §3.4: selected recolors ring-1 + ring-2 to orange (1.0 / 0.7);
+        // ring-3 is "no change" — stays ink at its base opacity.
+        if (isSel && i < 2) {
+          mat.color.setHex(PLACE_ACCENT_HEX);
+          mat.opacity = i === 0 ? 1.0 : 0.7;
+        } else {
+          mat.color.setHex(PLACE_INK_HEX);
+          mat.opacity = base;
+        }
+      });
+    }
+  }, [selectedId, placeSummaries]);
 
   return (
     <div className="atlas-frame">
@@ -1953,75 +2260,242 @@ export function WorldlineGlobe() {
         </div>
       </footer>
 
-      {/* ── Article side panel — slides in when an entry is selected ── */}
-      <article
-        className="absolute z-[6] flex flex-col"
-        style={{
-          top: 78,
-          right: 22,
-          bottom: 22,
-          width: "min(46%, 360px)",
-          background: "var(--paper-warm)",
-          border: "1px solid var(--ink-primary)",
-          padding: "18px 20px",
-          boxShadow: "3px 3px 0 rgba(31,80,99,0.16)",
-          transform: selectedId ? "translateX(0)" : "translateX(calc(100% + 30px))",
-          opacity: selectedId ? 1 : 0,
-          transition: "transform 520ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 320ms ease-out",
-          pointerEvents: selectedId ? "auto" : "none",
-        }}
-        aria-hidden={!selectedId}
+      {/* ── Place front-door panel — slides in when a place-node is selected ──
+          Spec §4.2 (front door: curated highlights) + §4.3 (dig to all).
+          DECISION §15 Option A: a place with content but NO highlights still
+          opens, showing only the DIG DEEPER trigger + NETRA "N records, not
+          curated yet". Same translateX slide pattern as the prior entry panel. */}
+      <PlaceFrontDoorPanel
+        open={!!selectedId}
+        summary={selectedSummary}
+        content={selectedContent}
+        digOpen={digOpen}
+        reducedMotion={reducedMotionRef.current}
+        onClose={() => setSelectedId(null)}
+        onToggleDig={() => setDigOpen((d) => !d)}
+      />
+    </div>
+  );
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// Place front-door panel — spec §4.2 / §4.3 / §9 (a11y). DOM (not THREE.js), so
+// semantic HTML applies. Reuses the established translateX slide + paper-warm
+// tokens of the prior entry panel; no app/globals.css change (Betelgeuse owns).
+// ───────────────────────────────────────────────────────────────────────────
+
+/** Format a place coord for the header strip — "13.76°N 100.50°E". */
+function formatPlaceCoord(lat: number, lon: number): string {
+  const ns = lat >= 0 ? "N" : "S";
+  const ew = lon >= 0 ? "E" : "W";
+  return `${Math.abs(lat).toFixed(2)}°${ns} ${Math.abs(lon).toFixed(2)}°${ew}`;
+}
+
+function PlaceFrontDoorPanel(props: {
+  open: boolean;
+  summary: PlaceSummary | null;
+  content: PlaceContent | null;
+  digOpen: boolean;
+  reducedMotion: boolean;
+  onClose: () => void;
+  onToggleDig: () => void;
+}) {
+  const { open, summary, content, digOpen, reducedMotion, onClose, onToggleDig } = props;
+  const place = summary?.place ?? null;
+  const weight = summary?.weight ?? 0;
+  const highlights = content?.highlights ?? null;
+  const articleHi = highlights?.articleHighlight ?? null;
+  const photoHi = highlights?.photoHighlights ?? [];
+  // Curation state comes from the SUMMARY (loaded with the node), not the lazy
+  // content — so the header never flashes "NOT CURATED YET" while content loads
+  // for a place that does have highlights.
+  const hasHighlights = summary?.hasHighlights ?? false;
+
+  // Group dig-list photos by roll (spec §4.3: rolls, not individual frames).
+  const rollRows = (() => {
+    if (!content) return [] as { roll: string; isoDate: string; frames: number }[];
+    const byRoll = new Map<string, { roll: string; isoDate: string; frames: number }>();
+    for (const s of content.sidecars) {
+      const existing = byRoll.get(s.roll);
+      if (existing) {
+        existing.frames += 1;
+        if (s.isoDate > existing.isoDate) existing.isoDate = s.isoDate;
+      } else {
+        byRoll.set(s.roll, { roll: s.roll, isoDate: s.isoDate, frames: 1 });
+      }
+    }
+    return Array.from(byRoll.values()).sort((a, b) => b.isoDate.localeCompare(a.isoDate));
+  })();
+
+  const panelLabel = place ? `${place.name} highlights` : "place highlights";
+
+  return (
+    <section
+      className="absolute z-[6] flex flex-col overflow-y-auto"
+      aria-label={panelLabel}
+      aria-hidden={!open}
+      style={{
+        top: 78,
+        right: 22,
+        bottom: 22,
+        width: "min(46%, 360px)",
+        background: "var(--paper-warm)",
+        border: "1px solid var(--ink-primary)",
+        padding: "18px 20px",
+        boxShadow: "3px 3px 0 rgba(31,80,99,0.16)",
+        transform: open ? "translateX(0)" : "translateX(calc(100% + 30px))",
+        opacity: open ? 1 : 0,
+        // Spec §8: reduced motion → instant (no slide/fade).
+        transition: reducedMotion
+          ? "none"
+          : "transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 320ms ease-out",
+        pointerEvents: open ? "auto" : "none",
+      }}
+    >
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute top-2 right-3 t-mono text-[11px] tracking-[0.2em] text-[var(--ink-soft)] hover:text-[var(--accent-orange)] transition-colors"
+        aria-label="Close place panel"
       >
-        <button
-          type="button"
-          onClick={() => setSelectedId(null)}
-          className="absolute top-2 right-3 t-mono text-[11px] tracking-[0.2em] text-[var(--ink-soft)] hover:text-[var(--accent-orange)] transition-colors"
-          aria-label="Close article"
-        >
-          ✕ ESC
-        </button>
-        {selected && (
-          <>
-            <div className="flex items-baseline gap-3 t-meta tracking-[0.25em] mb-1">
-              <span className="t-meta-accent">FILE — {selected.fileNum}</span>
-              <span className="text-[var(--ink-faint)]">/</span>
-              <span className="text-[var(--ink-soft)]">{selected.date}</span>
-            </div>
-            <div className="t-meta tracking-[0.22em] text-[var(--ink-soft)] mb-3">
-              <span className="t-meta-accent">{selected.coords.place.toUpperCase()}</span>
-              <span className="text-[var(--ink-faint)] mx-1.5">·</span>
-              <span>{selected.status.toUpperCase()}</span>
-              <span className="text-[var(--ink-faint)] mx-1.5">·</span>
-              <span>{selected.readingTime} MIN</span>
-            </div>
-            <h3
-              className="t-display italic text-[var(--ink-primary)] mb-4"
-              style={{ fontSize: 26, lineHeight: 1.05, letterSpacing: "-0.005em" }}
-            >
-              {selected.title}
-            </h3>
-            <div
-              className="t-display italic text-[var(--ink-primary)]/85"
-              style={{ fontSize: 14, lineHeight: 1.55, letterSpacing: "0.01em" }}
-            >
-              {selected.summary}
-            </div>
-            <div className="mt-auto pt-4 border-t border-[var(--ink-faint)]/60 flex items-center justify-between t-meta tracking-[0.22em]">
-              <span className="text-[var(--ink-soft)]">
-                TAGS · <span className="text-[var(--ink-primary)]">{selected.tags.join(" / ")}</span>
-              </span>
+        ✕ ESC
+      </button>
+
+      {place && (
+        <>
+          {/* ── PLACE HEADER STRIP (spec §4.2) ── */}
+          <div className="t-mono uppercase mb-1" style={{ fontSize: 9, letterSpacing: "0.3em", color: "var(--ink-soft)" }}>
+            PLACE · {place.name.toUpperCase()}
+          </div>
+          <div className="t-mono uppercase mb-3" style={{ fontSize: 9, letterSpacing: "0.12em", color: "var(--ink-soft)" }}>
+            {formatPlaceCoord(place.coord.lat, place.coord.lon)} · {weight} RECORD{weight === 1 ? "" : "S"}
+          </div>
+          <div className="t-mono uppercase mb-4" style={{ fontSize: 9, letterSpacing: "0.3em", color: "var(--ink-faint)" }}>
+            HIGHLIGHTS
+            {articleHi ? " · 1 ARTICLE" : ""}
+            {photoHi.length > 0 ? ` · ${photoHi.length} FRAME${photoHi.length === 1 ? "" : "S"}` : ""}
+            {!hasHighlights ? " · NOT CURATED YET" : ""}
+          </div>
+
+          {/* ── ARTICLE HIGHLIGHT — renders only if set (spec §4.1/§4.2) ── */}
+          {articleHi && (
+            <div className="mb-4">
+              <div className="t-mono uppercase mb-1" style={{ fontSize: 9, letterSpacing: "0.3em", color: "var(--accent-orange)" }}>
+                ◆ FILE {articleHi.fileNum} · {articleHi.date}
+              </div>
               <a
-                href={`#entry-${selected.fileNum}`}
-                onClick={() => setSelectedId(null)}
-                className="t-meta-accent tracking-[0.25em] hover:underline"
-                style={{ textUnderlineOffset: 3 }}
+                href={`/articles/${articleHi.fileNum}`}
+                className="t-display italic block hover:underline"
+                style={{ fontSize: 18, lineHeight: 1.15, color: "var(--ink-body)", textUnderlineOffset: 3 }}
               >
-                READ ENTRY →
+                {articleHi.title}
+              </a>
+              <a
+                href={`/articles/${articleHi.fileNum}`}
+                className="t-mono uppercase inline-block mt-2 hover:text-[var(--accent-orange)] transition-colors"
+                style={{ fontSize: 9, letterSpacing: "0.3em", color: "var(--ink-soft)" }}
+              >
+                → READ ENTRY
               </a>
             </div>
-          </>
-        )}
-      </article>
-    </div>
+          )}
+
+          {/* dashed rule only when BOTH article and photos present (spec §4.2) */}
+          {articleHi && photoHi.length > 0 && (
+            <div className="mb-4" style={{ borderTop: "1px dashed var(--ink-dashed)" }} />
+          )}
+
+          {/* ── PHOTO HIGHLIGHTS — renders only if set. Frame unit; tap → roll. ── */}
+          {photoHi.length > 0 && (
+            <ol className="flex gap-[6px] mb-4 overflow-x-auto list-none p-0 m-0">
+              {photoHi.map((s) => (
+                <li key={`${s.roll}/${s.id}`} className="flex-shrink-0">
+                  <a
+                    href={`/photos/${s.roll}`}
+                    aria-label={`Roll ${s.roll} · frame ${s.id}`}
+                    className="block"
+                    style={{ width: 80, height: 80, border: "1px solid var(--ink-dashed)", overflow: "hidden" }}
+                  >
+                    {s.thumbWebp ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={s.thumbWebp} alt="" width={80} height={80} style={{ width: 80, height: 80, objectFit: "cover", display: "block" }} />
+                    ) : (
+                      <span className="flex items-center justify-center w-full h-full t-mono" style={{ fontSize: 8, letterSpacing: "0.2em", color: "var(--ink-faint)" }}>
+                        ◎
+                      </span>
+                    )}
+                  </a>
+                </li>
+              ))}
+            </ol>
+          )}
+
+          {/* ── DIG DEEPER trigger (spec §4.2 / §4.3) — collapse when dug ── */}
+          <button
+            type="button"
+            onClick={onToggleDig}
+            aria-expanded={digOpen}
+            className="t-mono uppercase text-left hover:text-[var(--accent-orange)] transition-colors mt-1"
+            style={{ fontSize: 9, letterSpacing: "0.3em", color: "var(--ink-soft)", minHeight: 44, paddingTop: 8, paddingBottom: 8 }}
+          >
+            {digOpen
+              ? "↑ HIGHLIGHTS"
+              : `↓ DIG DEEPER — ALL ${weight} RECORD${weight === 1 ? "" : "S"} AT ${place.name.split(" · ")[0].toUpperCase()}`}
+          </button>
+
+          {/* ── DIG TO ALL — within-panel expansion (spec §4.3) ── */}
+          {digOpen && content && (
+            <div aria-hidden={!digOpen} className="mt-3" style={{ borderTop: "1px dashed var(--ink-dashed)", paddingTop: 12 }}>
+              <div className="t-mono uppercase mb-3" style={{ fontSize: 8, letterSpacing: "0.32em", color: "var(--ink-faint)" }}>
+                ALL RECORDS AT {place.name.split(" · ")[0].toUpperCase()} — {weight} TOTAL
+              </div>
+
+              {content.articles.length > 0 && (
+                <div className="mb-4">
+                  <div className="t-mono uppercase mb-2" style={{ fontSize: 9, letterSpacing: "0.3em", color: "var(--ink-soft)" }}>
+                    ARTICLES
+                  </div>
+                  <ul className="list-none p-0 m-0 flex flex-col gap-2">
+                    {content.articles.map((a) => (
+                      <li key={a.fileNum}>
+                        <a href={`/articles/${a.fileNum}`} className="block group">
+                          <span className="t-mono uppercase block" style={{ fontSize: 9, letterSpacing: "0.3em", color: "var(--accent-orange)" }}>
+                            ◆ FILE {a.fileNum} · {a.date} · {a.status} · {a.readingTime} MIN
+                          </span>
+                          <span className="t-display italic block group-hover:text-[var(--ink-primary)]" style={{ fontSize: 14, lineHeight: 1.2, color: "var(--ink-soft)" }}>
+                            {a.title} →
+                          </span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {rollRows.length > 0 && (
+                <div>
+                  <div className="t-mono uppercase mb-2" style={{ fontSize: 9, letterSpacing: "0.3em", color: "var(--ink-soft)" }}>
+                    PHOTOS
+                  </div>
+                  <ul className="list-none p-0 m-0 flex flex-col gap-2">
+                    {rollRows.map((r) => (
+                      <li key={r.roll}>
+                        <a
+                          href={`/photos/${r.roll}`}
+                          className="t-mono uppercase block hover:text-[var(--ink-primary)] transition-colors"
+                          style={{ fontSize: 9, letterSpacing: "0.3em", color: "var(--ink-soft)" }}
+                        >
+                          ◎ ROLL {r.roll} · {r.isoDate.replace(/-/g, ".")} · {r.frames} FRAME{r.frames === 1 ? "" : "S"} →
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </section>
   );
 }
