@@ -97,6 +97,40 @@
      --meta-size; only opacity + tracking change, never the font size. */
   --meta-tracking-read: 0.12em;
   --num-size:      38px;
+
+  /* Paper RGB channels — mirror --ink-rgb pattern so palette-aware
+     rgba tints compose as rgb(var(--paper-base-rgb) / alpha) rather
+     than raw hex literals. Sync these if paper palette ever changes.
+     Values: --paper-base:#E8E2D5 · --paper-warm:#EDE7DA
+             --paper-deep:#D8CFB9 · --paper-bright:#F0EBDD           */
+  --paper-base-rgb:    232 226 213;
+  --paper-warm-rgb:    237 231 218;
+  --paper-deep-rgb:    216 207 185;
+  --paper-bright-rgb:  240 235 221;
+
+  /* Accent RGB channel — mirrors --ink-rgb; use for sub-0.18 tints
+     e.g. rgb(var(--accent-orange-rgb) / 0.1) instead of raw rgba.
+     Value: --accent-orange:#D4602A                                   */
+  --accent-orange-rgb: 212 96 42;
+
+  /* Layout spacing — console + editor recurring literals promoted to
+     tokens. Consumers: ConsoleRail (--console-rail-width),
+     ArticleEditor outline rail (--outline-rail-width),
+     ConsoleCanvas nodes (--node-w / --node-h),
+     ConsoleApp header (--console-header-height),
+     ATLAS alpha-mark (--alpha-mark-size),
+     editor toolbar file-num cell (--ed-tb-file-min),
+     canvas frame gutter (--canvas-frame-margin).
+     Integrators: adopt these tokens when touching each surface;
+     do NOT change values — change only if the design ruler changes. */
+  --console-rail-width:     260px;
+  --outline-rail-width:     212px;
+  --node-w:                 158px;
+  --node-h:                 70px;
+  --console-header-height:  54px;
+  --alpha-mark-size:        280px;
+  --ed-tb-file-min:         92px;
+  --canvas-frame-margin:    12px;
 }
 
 /* INK palette (archive navy — v2 baseline backup).
@@ -742,6 +776,53 @@ body {
   }
 }
 
+/* =============================================================
+   § AF-PILL — base atom (unscoped)
+   Mirrors master worldline-atoms.css:200-207 verbatim.
+   Compose from this before adding context-scoped overrides.
+   ATOM RULE: every consumer must cite this class; do not
+   re-derive button + pill primitives from scratch.
+
+   is-active = filled-ink (canonical; master catalog authority).
+   hover     = orange border + text (accent reserved for hover
+               + reticle, NOT for resting state).
+
+   INTENTIONAL DIVERGENCES (recorded, not silent):
+   · .archive-filters .af-pill.is-active — overrides to
+     orange-text + transparent-bg (see below). Archive pills
+     are KIND filters on a paper surface; orange-text reads
+     as "selected axis" here without filling the pill. This
+     is a context-scoped override, not a design-system change.
+   · .console-rail-pills .af-pill.is-active — ships orange-
+     outline (ConsoleRail.tsx). PENDING CORRECTION: this is
+     the audit MAJOR (#1). When Sirius wires the rail patch,
+     delete the scoped override and let this base rule land.
+   ============================================================= */
+.af-pill {
+  appearance: none;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  padding: 0.6em 0.9em;
+  background: transparent;
+  border: 1px solid var(--ink-faint);
+  color: var(--ink-primary);
+  transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+}
+.af-pill:hover,
+.af-pill.is-hover {
+  border-color: var(--accent-orange);
+  color: var(--accent-orange);
+}
+.af-pill.is-active {
+  background: var(--ink-primary);
+  border-color: var(--ink-primary);
+  color: var(--paper-base);
+  font-weight: 500;
+}
+
 .archive-filters .af-section,
 .archive-filters .af-family {
   color: var(--ink-label);          /* § FILTER + TYPE headers: 0.5 → 0.72 */
@@ -750,7 +831,15 @@ body {
   color: var(--ink-label);          /* inactive pill label: 0.5 → 0.72 (read-tier) */
 }
 .archive-filters .af-pill.is-active {
-  color: var(--accent-orange);      /* active stays orange (reserved) */
+  /* INTENTIONAL DIVERGENCE from base .af-pill.is-active (filled-ink).
+     Archive context: orange-text on transparent bg reads as "selected
+     filter axis" on the paper surface. The filled-ink atom is correct
+     for nav-rail / editor kind tabs; it is wrong here because it would
+     drown the paper texture behind a solid ink block.
+     background: transparent neutralizes the base's filled-ink rule. */
+  background: transparent;
+  border-color: var(--accent-orange);
+  color: var(--accent-orange);
 }
 
 /* =============================================================
