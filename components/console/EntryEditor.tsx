@@ -866,8 +866,8 @@ const EDITOR_CSS = `
 const LC = {
   delete: {
     button:         'DELETE ENTRY',
-    prompt:         'ลบถาวร?',
-    clause:         'source removed. recoverable from git.',
+    prompt:         'REMOVE ENTRY?',
+    clause:         'source removed · restorable before you commit',
     action:         'CONFIRM DELETE',
     cancel:         'CANCEL',
     confirmed:      'entry removed',
