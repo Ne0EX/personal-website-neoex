@@ -145,27 +145,64 @@ const EDITOR_CSS = `
   overflow: hidden;
 }
 
-/* ── toolbar ───────────────────────────────────────────────────────── */
+/* ── toolbar — two-row stack ───────────────────────────────────────── */
+/* ROW 1: entry object (navigation · identity · lifecycle)
+   ROW 2: editing surface (kind · view · output)
+   The two rows together are ~108px; --console-header-height (54px) is
+   reused per row, NOT redefined. The console graph header stays at 54px;
+   the editor toolbar is simply taller — that is fine per the task spec.
+   Row-1 bottom hairline separates the two rows.
+   Outer bottom border separates the toolbar from the 3-pane grid. */
 .ed-toolbar {
   flex-shrink: 0;
-  min-height: var(--console-header-height);
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 0 16px;
+  flex-direction: column;
   border-bottom: 1px dashed var(--ink-dashed);
 }
-.ed-tb-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-.ed-tb-right {
+/* Single horizontal row inside the toolbar — both rows share this base. */
+.ed-tb-row {
   display: flex;
   align-items: center;
   gap: 10px;
+  padding: 0 16px;
+  min-height: var(--console-header-height);
+}
+/* Row-1 only: hairline separating it from row-2. */
+.ed-tb-row-1 {
+  border-bottom: 1px dashed var(--ink-dashed);
+}
+/* Row-2: let controls wrap at extreme narrow widths (RE-IMPORT / FULL PREVIEW
+   shed gracefully; no text-cut). flex-wrap is the safe net since ImportZone
+   owns its own RE-IMPORT label — we never reach into that component. */
+.ed-tb-row-2 {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+/* Identity lane (ROW 1 left): flex:1 so it takes all leftover space from the
+   fixed back-link; min-width:0 is the flex ellipsis unlock. */
+.ed-tb-identity {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+/* Lifecycle cluster (ROW 1 right): never shrinks; margin-left:auto pushes it
+   against the right wall, ensuring the identity lane can never grow into it. */
+.ed-tb-lifecycle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+/* Row-2 right cluster: actions that live on the trailing edge. */
+.ed-tb-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 .ed-back {
   text-decoration: none;
@@ -185,15 +222,23 @@ const EDITOR_CSS = `
 }
 .ed-tb-sep { color: var(--ink-faint); }
 
-/* file-num jitter reserve — always present in the DOM (--ed-tb-file-min: 92px)
-   so the kind tabs never cause layout shift on kind switch. */
+/* File identity — lives inside .ed-tb-identity (flex:1, min-width:0).
+   Previously a 92px jitter-reserve inline span (kind tabs were adjacent and
+   caused layout shift on kind switch). Kind tabs are now on ROW 2 so the
+   jitter reserve is no longer needed; the lane is flex:1, never collapses.
+   display:block + max-width + overflow:hidden + text-overflow:ellipsis form
+   the truncation chain — all four rules are required together. white-space:nowrap
+   prevents the slug from line-wrapping before the ellipsis can apply. */
 .ed-tb-file {
-  min-width: var(--ed-tb-file-min);
+  display: block;
+  max-width: 38ch;
   font-size: 9px;
   letter-spacing: 0.2em;
   color: var(--ink-primary);
   text-transform: uppercase;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ed-tb-file .ed-tb-file-empty { color: var(--ink-faint); }
 
@@ -924,9 +969,31 @@ function EntryToolbar({
     requestAnimationFrame(() => deleteButtonRef.current?.focus())
   }, [onDeleteCancel])
 
+  // ── Two-tier toolbar layout ──────────────────────────────────────────────
+  // ROW 1 — entry object: navigation · identity · lifecycle cluster.
+  // ROW 2 — editing surface: kind switch · outline · view mode · output actions.
+  //
+  // The overlap fix: `.ed-tb-identity` is flex:1/min-width:0 — it takes all
+  // remaining row-1 space and the slug truncates with ellipsis when squeezed.
+  // `.ed-tb-lifecycle` is flex-shrink:0/margin-left:auto — it never shrinks and
+  // is always pinned to the right wall. The two containers cannot collide because
+  // flexbox resolves identity first (leftover space), then lifecycle pushes right.
+  // DRAFT badge + PUBLISHED⇄DRAFT toggle live inside the lifecycle cluster now
+  // (previously in .ed-tb-left right after FILE, where they could overflow into
+  // each other as Peat observed — "ใครมันจะอ่านออก").
+  //
+  // VISIBILITY DELTA (layout reorg, intentional): ▲ PUBLISH is now gated on
+  // hasEntry (inside the lifecycle cluster, per the task spec: "the whole lifecycle
+  // cluster is gated on hasEntry — hidden for the SAMPLE fallback where there's no
+  // real entry"). In the previous layout PUBLISH was always shown. The handler
+  // (onPublish / openPublish) is UNCHANGED — only the mounting condition changes.
+  // Rationale: publishing a SAMPLE is meaningless; the gating is semantically correct.
   return (
     <div className="ed-toolbar">
-      <div className="ed-tb-left">
+
+      {/* ── ROW 1 — entry object (navigation · identity · lifecycle) ── */}
+      <div className="ed-tb-row ed-tb-row-1">
+        {/* Back link */}
         <a
           className="ed-back"
           href="/console"
@@ -937,56 +1004,45 @@ function EntryToolbar({
         </a>
         <span className="ed-tb-sep" aria-hidden>·</span>
 
-        {/* Kind-switcher tabs — FILLED-INK is-on (canonical DS state, NOT orange) */}
-        <div className="ed-kindtabs" role="tablist" aria-label="Entry kind">
-          {KINDS.map((k) => (
-            <button
-              key={k.id}
-              type="button"
-              role="tab"
-              aria-selected={kind === k.id}
-              aria-label={k.label}
-              className={'ed-kindtab' + (kind === k.id ? ' is-on' : '')}
-              onClick={() => onKind(k.id)}
-            >
-              <span className="ed-kindtab-glyph" aria-hidden>{k.glyph}</span>
-              <span className="ed-kindtab-label">{k.label}</span>
-            </button>
-          ))}
+        {/* Identity lane — flex:1 / min-width:0 — slug truncates when the
+            lifecycle cluster expands (e.g., delete-confirm inline row). */}
+        <div className="ed-tb-identity">
+          {/* File slug — truncated with ellipsis; title attr carries the full slug
+              so the full value is discoverable on hover (WCAG technique). */}
+          <span
+            className="ed-tb-file"
+            title={fileNum ? `FILE ${fileNum}` : 'FILE ···'}
+          >
+            {fileNum
+              ? `FILE ${fileNum}`
+              : <span className="ed-tb-file-empty">FILE ···</span>}
+          </span>
         </div>
 
-        {/* File-num jitter reserve — 92px cell always present (empty when no entry) */}
-        <span className="ed-tb-file">
-          {fileNum
-            ? `FILE ${fileNum}`
-            : <span className="ed-tb-file-empty">FILE ···</span>}
-        </span>
-
-        {/* DRAFT badge — shown when entry is hidden from prod.
-            Two styled segments: DRAFT (orange) · HIDDEN FROM SITE (ink-dashed).
-            Only visible when there is a real entry AND it is in draft/hidden state. */}
-        {hasEntry && isHidden && (
-          <span
-            className="ed-lc-badge"
-            role="status"
-            title={LC.draft.devNote}
-            aria-label={LC.draft.badge}
-          >
-            <span className="ed-lc-badge-draft">{LC_BADGE_DRAFT}</span>
-            <span className="ed-lc-badge-sep" aria-hidden>·</span>
-            <span className="ed-lc-badge-hidden">{LC_BADGE_HIDDEN}</span>
-          </span>
-        )}
-      </div>
-
-      <div className="ed-tb-right">
-        {/* T1 lifecycle: DELETE ENTRY + DRAFT⇄PUBLISH — only when a real entry is loaded */}
+        {/* Lifecycle cluster — only rendered when a real entry is loaded.
+            flex-shrink:0 / margin-left:auto keeps it pinned to the right wall.
+            Contents: error · DRAFT badge · PUBLISHED⇄DRAFT toggle · DELETE · ▲ PUBLISH */}
         {hasEntry && (
-          <>
+          <div className="ed-tb-lifecycle">
             {/* Error message from last lifecycle action */}
             {lifecycleError && (
               <span className="ed-lc-error" role="alert" aria-live="assertive">
                 {lifecycleError}
+              </span>
+            )}
+
+            {/* DRAFT badge — shown only when entry is in draft/hidden state.
+                Two styled segments: DRAFT (orange) · HIDDEN FROM SITE (ink-dashed). */}
+            {isHidden && (
+              <span
+                className="ed-lc-badge"
+                role="status"
+                title={LC.draft.devNote}
+                aria-label={LC.draft.badge}
+              >
+                <span className="ed-lc-badge-draft">{LC_BADGE_DRAFT}</span>
+                <span className="ed-lc-badge-sep" aria-hidden>·</span>
+                <span className="ed-lc-badge-hidden">{LC_BADGE_HIDDEN}</span>
               </span>
             )}
 
@@ -1027,7 +1083,8 @@ function EntryToolbar({
             </div>
 
             {/* DELETE ENTRY — inline confirm (ImportZone "REPLACE CURRENT CONTENT?" pattern).
-                Precedent: ImportZone.tsx confirming state + ESC dismiss. */}
+                Precedent: ImportZone.tsx confirming state + ESC dismiss.
+                deleteButtonRef + handleDeleteCancel move as one unit (focus-restore). */}
             <div className="ed-lc-delete-wrap">
               {isDeleteConfirming ? (
                 // Confirm row — ESC is handled by useEffect in EntryEditor (closes confirm)
@@ -1076,8 +1133,44 @@ function EntryToolbar({
                 </button>
               )}
             </div>
-          </>
+
+            {/* ▲ PUBLISH — primary trigger → mocked PublishPanel.
+                Lives in the lifecycle cluster (gated on hasEntry) so it cannot
+                appear for the SAMPLE fallback. Handler (onPublish) is unchanged. */}
+            <button
+              type="button"
+              className="ed-tb-action is-primary"
+              onClick={onPublish}
+              title="transmit sequence (mocked)"
+              aria-label="publish entry"
+            >
+              ▲ PUBLISH
+            </button>
+          </div>
         )}
+      </div>
+
+      {/* ── ROW 2 — editing surface (kind · outline · view · output actions) ── */}
+      <div className="ed-tb-row ed-tb-row-2">
+        {/* Kind-switcher tabs — FILLED-INK is-on (canonical DS state, NOT orange).
+            Moved from row-1 (was in .ed-tb-left) — kind is an editing-surface concern,
+            not an identity/lifecycle concern. Glyphs collapse at ≤600px per existing rule. */}
+        <div className="ed-kindtabs" role="tablist" aria-label="Entry kind">
+          {KINDS.map((k) => (
+            <button
+              key={k.id}
+              type="button"
+              role="tab"
+              aria-selected={kind === k.id}
+              aria-label={k.label}
+              className={'ed-kindtab' + (kind === k.id ? ' is-on' : '')}
+              onClick={() => onKind(k.id)}
+            >
+              <span className="ed-kindtab-glyph" aria-hidden>{k.glyph}</span>
+              <span className="ed-kindtab-label">{k.label}</span>
+            </button>
+          ))}
+        </div>
 
         {/* Outline toggle — orange-active srctoggle atom */}
         <button
@@ -1105,38 +1198,35 @@ function EntryToolbar({
           ))}
         </div>
 
-        {/* ↻ RE-IMPORT — ImportZone(hasContent) self-renders the toolbar control
-            (inline confirm + ESC-cancel built inside). When the editor is empty
-            the source pane shows the ImportZone DROP TARGET instead; this control
-            only appears when there IS content to replace. */}
-        {hasContent && (
-          <ImportZone
-            onImport={onImport}
-            hasContent
-            onReImport={onReImport}
-          />
-        )}
+        {/* Right-pinned output actions — margin-left:auto via .ed-tb-actions */}
+        <div className="ed-tb-actions">
+          {/* ↻ RE-IMPORT — ImportZone(hasContent) self-renders the toolbar control
+              (inline confirm + ESC-cancel built inside). When the editor is empty
+              the source pane shows the ImportZone DROP TARGET instead; this control
+              only appears when there IS content to replace. */}
+          {hasContent && (
+            <ImportZone
+              onImport={onImport}
+              hasContent
+              onReImport={onReImport}
+            />
+          )}
 
-        {/* ◻ FULL PREVIEW — ghost trigger → FullPreview overlay */}
-        <button
-          type="button"
-          className="ed-tb-action"
-          onClick={onFullPreview}
-          title="full preview — how it reads on the site"
-        >
-          ◻ FULL PREVIEW
-        </button>
-
-        {/* ▲ PUBLISH — primary trigger → mocked PublishPanel */}
-        <button
-          type="button"
-          className="ed-tb-action is-primary"
-          onClick={onPublish}
-          title="transmit sequence (mocked)"
-        >
-          ▲ PUBLISH
-        </button>
+          {/* ◻ FULL PREVIEW — ghost trigger → FullPreview overlay.
+              aria-label provided so the text label can be hidden at narrow widths
+              via CSS without losing the accessible name (mirrors kind-tab pattern). */}
+          <button
+            type="button"
+            className="ed-tb-action"
+            onClick={onFullPreview}
+            title="full preview — how it reads on the site"
+            aria-label="full preview — how it reads on the site"
+          >
+            ◻ FULL PREVIEW
+          </button>
+        </div>
       </div>
+
     </div>
   )
 }
