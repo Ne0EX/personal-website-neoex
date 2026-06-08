@@ -13,6 +13,22 @@
 
 ---
 
+## TASK-2026-06-08-WORLDLINE-FOUNDATION-REDESIGN · **PRD SETTLED + Peat-APPROVED ✓ 2026-06-08/09** · grill → foundation re-architecture
+
+scope · Peat's critique: the team shipped FEATURES (console/editor/curation/draft/toolbar) on an **UNBUILT foundation** — 0-edge link graph, blind-NETRA (stub tools), mock body editing, a binary-in-git trap; "ทำให้เสร็จๆ... digital garden เก็บอะไร link ยังไง ขยายยังไง... หายนะ." Settled the foundational architecture via `grill-me-until-prds-settled` (root-deps-first, one decision/turn, verify-not-guess; D0–D7, **Peat-approved via ExitPlanMode**). PRD + verbatim decision log: `~/.claude/plans/recursive-sparking-stardust.md`. Detailed implement-plan: `docs/team/IMPLEMENT-PLAN-2026-06-09-worldline-foundation.md`. Memory: [[project_worldline_foundation_redesign]] + lesson [[feedback_form_over_foundation]].
+
+settled (D0–D7) · **scale = personal gallery** · **source-of-truth = a writable RUNTIME STORE** (DB: entries + typed/weighted/provenance edges + embeddings), **media → object storage + CDN**, **MDX-in-git = one-way export** · **edge model = hybrid** (explicit spine + derived-suggested; **accept/reject = the forced-reflection tending loop**) · **serving = runtime store → instant publish** (no rebuild) · **authoring = store-first, author-from-anywhere** · **auth = single-user, read-public/write-authed** · **NETRA = graph-RAG**.
+
+**CRITICAL** · the existing console / kind-aware editor / curation / real-draft+delete / two-tier toolbar / `proxy.ts` dev-gate / `lib/server/entries/*` dev-only file-writes were built on the **now-SUPERSEDED foundation** (files-as-source · dev-only · static/refresh-on-deploy). They **ADAPT** (UI / globe / velite-schema survive) but the **write-path + serving model are REPLACED** (file→store-write, static→runtime-store, dev-gate→auth-gate). **Do NOT build more on the old foundation.**
+
+done this session · **A0 — `.gitignore` binary-fix** (`/public/photos/` + `content/photos/**` binaries/`.cache/` ignored, `.mdx` sidecars kept; verified via `git check-ignore`).
+
+held / next · **§1 open-decisions (RESOLVE before Phase-A code — build-spec gate):** store tech [**Peat + Polaris** — turbovec/personal-os-pilot overlap] · auth provider · embedding model · media provider [Blob/R2/S3] · RAW/HEIC decode · files↔store export · personal-os↔NETRA boundary [**Peat**]. Then **Phase A** (writable store + object storage + single-user auth + store-write actions + files-export + migrate 10 entries + adapt UI). owner: **Peat-resolves-§1-with-Polaris** · block_until: ⟨next session⟩
+
+> **atlas-console arc (this session, committed on `feat/atlas-console`):** `35cd9a9` curation · `db9657f`/`411de20`/`26b884b` docs · `7aeca0b` prod-gate+scroll · `aefcc9e` T1 lifecycle · `b8c5eb9` two-tier toolbar · `e7556e7` copy-fix — all SHIP + ground-truthed, but now sit on the superseded foundation (adapt per above). push stays Peat's.
+
+---
+
 ## TASK-2026-06-08-CONSOLE-PLACES-CURATION · **SHIP ✓ 2026-06-08** · Algol GREEN + Polaris browser ground-truth · atlas-console arc
 
 scope · Peat's #2 ask ("console links real articles + controls what shows on the globe"). Console **PLACES rail block** + **highlight editor**: curate 1 article + ≤5 ordered photos per place + set/adjust place coord. Latest slice of the atlas-console arc (prior committed: `d4e79b0` DS-foundation · `fecc05f` console front-door + full editor · `e08a297` place-aware globe + film-sim + schema). Chose curation-FIRST over photo-pipeline (**pipeline BLOCKED** — `process-photos` scans `content/photos/<roll>/` for JPEGs, none in repo; needs Peat's source images).

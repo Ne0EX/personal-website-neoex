@@ -99,6 +99,16 @@ docs/team/.status-drafts/
 /.codegraph/
 # pagefind search index (regenerates on every build — never committed)
 /public/pagefind/
+
+# ─── photo media — binary, NOT git (foundation D7, 2026-06-09) ───
+# At scale (10k photos / RAW / HEIC) binaries belong in object storage + CDN, never
+# git (the binary-in-git bomb Peat flagged). Generated variants + source binaries +
+# the regenerable .cache/ are all ignored; ONLY the .mdx sidecars (text metadata =
+# the entry source) stay tracked. See ~/.claude/plans/recursive-sparking-stardust.md.
+/public/photos/
+content/photos/**
+!content/photos/**/
+!content/photos/**/*.mdx
 /.playwright-mcp/
 /.codex/
 .claude/skills/
