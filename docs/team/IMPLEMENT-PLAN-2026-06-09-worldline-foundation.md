@@ -9,17 +9,20 @@ Source-of-truth = a **writable runtime store** (DB: entries + typed/weighted/pro
 
 ---
 
-## §1 · PRE-FLIGHT — resolve the open decisions (build-spec gate) ⟵ DO THIS BEFORE ANY PHASE-A CODE
-Building before these are settled = repeating the under-design failure. Output: a **build-spec** that names the chosen stack with verified evidence (per the grill rule: verify primary sources, don't guess).
+## §1 · OPENING MOVE — confirm the stack, then build (recommendations LOCKED; one Peat-call open)
+NOT a separate phase — this is the first ~30–60 min of the Phase-A session: confirm the stack (verify the volatile specifics — pricing/limits — at the source per the grill rule), then build. Schema design (A1) **parallelizes immediately** (store-agnostic).
 
-| # | Decision | Owner | Blocks | Resolve by |
-|---|---|---|---|---|
-| O1 | **Store tech** — Turso/libSQL (+sqlite-vec) vs Postgres+pgvector vs other. Must be writable-at-runtime + vector + edge queries on Vercel (Fluid Compute). | **Peat + Polaris** (Peat uses turbovec on Beta + pilots graph-query in personal-os → may share substrate) | A1, B1, C2 | verify runtime-write + vector limits/pricing |
-| O2 | **Auth provider** — passkey vs OAuth (GitHub/Google) vs magic-link (Auth.js/Clerk). Single allowed identity. | Polaris-research → Peat | A3 | verify Vercel + single-user pattern |
-| O3 | **Embedding model + vector index** — model + cost/latency per re-embed on tend. | Polaris-research → Peat | B2, C2 | verify model + dimensions + cost |
-| O4 | **Media provider** — Vercel Blob vs Cloudflare R2 vs S3 + CDN; **RAW/HEIC decode** (libvips HEIC; libraw RAW). | Polaris-research → Peat | A2 | verify presigned-write + RAW/HEIC decode |
-| O5 | **files↔store export** — store→MDX→git mechanism + cadence (commit-on-tend vs batch). | Polaris/Canopus | A5 | design + verify gate-safety |
-| O6 | **personal-os ↔ NETRA shared context** — share the graph-query/context PATTERN (not impl). | **Peat** (boundary owner) | C2 | Peat confirms boundary |
+**Recommended stack (Polaris — positions taken; confirm or override):**
+| layer | recommendation | reason | verify-at-build |
+|---|---|---|---|
+| **Store** | **Turso/libSQL + sqlite-vec** (standalone) | serverless SQLite · edge-readable · vector in-engine · writable-runtime · cheap · Vercel-fit; graph = edge table (fine at personal scale) | runtime-write + vector limits/pricing |
+| **Auth** | **Auth.js (NextAuth) + GitHub OAuth, allowlist = Peat's account** | single-user · read-public/write-authed · Next-standard · Peat is a dev | single-user-allowlist pattern |
+| **Media** | **Cloudflare R2** (S3-compatible · free egress · CDN) + sharp/libvips (HEIC) + a RAW(RAF) decode step | cheapest for 10k–100k photos; Vercel Blob is simpler but pricier at scale | presigned-write + RAW/HEIC decode |
+| **Embeddings** | **OpenAI `text-embedding-3-small`** → the vector store (or a local model to avoid an external API) | cheap semantic edges for the weave + graph-RAG | model dims + cost per re-embed |
+
+**THE ONE OPEN KEYSTONE (Peat's call — dictates the Store row):** does Worldline **share personal-os's substrate** (Peat pilots graph-query there + uses turbovec on Beta → unified context, but couples two systems + must hold the studio/gallery boundary) **or stand alone** (→ Turso/libSQL, as recommended)? **Resolve this first thing next session;** everything else above is locked pending Peat's nod.
+
+**Also (Polaris/Canopus — design, NOT blocking the stack pick):** O5 the files↔store export mechanism + cadence (commit-on-tend vs batch); O6/personal-os↔NETRA boundary (Peat).
 
 ---
 
