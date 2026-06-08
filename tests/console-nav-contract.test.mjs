@@ -153,15 +153,27 @@ test('ConsoleCanvas.tsx search-to-fly checks prefers-reduced-motion', () => {
 // Contract 9: globals.css is not modified (regression guard)
 // ─────────────────────────────────────────────────────────────────────────────
 // This test verifies the console CSS lives inline (no new globals.css entries).
-// It checks that console-specific class names do NOT appear in globals.css.
+// It checks that console-specific class RULE DEFINITIONS do NOT appear in
+// globals.css. Comments and token names are excluded by stripping /* ... */
+// blocks first, then matching only actual selector patterns (cls followed by
+// optional whitespace then `{` or `,`).
 test('globals.css does not contain console-specific class names', () => {
-  const src = readFile('app/globals.css')
-  // None of these should be in globals.css — they live in inline CSS blocks
+  const raw = readFile('app/globals.css')
+  // Strip all CSS block comments (including multiline) before testing.
+  // This prevents comment mentions (e.g. "· .console-rail-pills .af-pill") from
+  // triggering false positives. Only actual CSS rule definitions will remain.
+  const src = raw.replace(/\/\*[\s\S]*?\*\//g, '')
+  // None of these should appear as a CSS selector in globals.css — they live
+  // in inline CSS blocks inside each component (Contract 9).
   const consoleClasses = ['.console-shell', '.console-rail', '.console-body', '.kn-card', '.ef-input', '.ch-dot']
   for (const cls of consoleClasses) {
+    // Match `cls` followed by optional whitespace then `{` or `,` — this is
+    // the signature of a real rule definition, not a token, comment, or class
+    // name embedded in a longer selector that legitimately belongs elsewhere.
+    const escaped = cls.replace('.', '\\.')
     assert.doesNotMatch(
       src,
-      new RegExp(cls.replace('.', '\\.'), 'm'),
+      new RegExp(escaped + '\\s*[{,]'),
       `globals.css must not define ${cls} — it belongs in inline component CSS`
     )
   }

@@ -120,6 +120,19 @@ const RAIL_CSS = `
   white-space: nowrap;
 }
 
+/* scroll wrapper — flex:1 child carrying everything between the pinned CONSOLE
+   header (ConsoleApp's <header>) and the pinned footer. Moved inline from
+   globals.css (was Betelgeuse's stub; CSS Contract 9 requires console rules here).
+   Standard scrollbar: thin with ink-faint thumb, soft on hover. */
+.console-rail-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: var(--ink-soft) transparent;
+}
+.console-rail-scroll::-webkit-scrollbar { width: 4px; }
+.console-rail-scroll::-webkit-scrollbar-track { background: transparent; }
+.console-rail-scroll::-webkit-scrollbar-thumb { background-color: var(--ink-faint); border-radius: 2px; }
+.console-rail-scroll::-webkit-scrollbar-thumb:hover { background-color: var(--ink-soft); }
+
 /* rail footer */
 .rail-foot { padding: 14px 16px; border-top: 1px dashed var(--ink-dashed); }
 .rail-new {
@@ -187,99 +200,106 @@ export function ConsoleRail({
       <style>{RAIL_CSS}</style>
       <aside className="console-rail paper-warm-surface" aria-label="Authoring controls">
 
-        {/* 0. PLACES block — above filter (spec §5.1 preferred position) */}
-        {placesBlock && (
-          <>
-            {placesBlock}
-            <div className="section-rule-dashed rail-sep" />
-          </>
-        )}
+        {/* ── scroll wrapper: flex:1 child that carries everything between the
+            pinned CONSOLE header (ConsoleApp's <header>) and the pinned footer.
+            .console-rail-scroll lives in RAIL_CSS above (inline per Contract 9). ── */}
+        <div className="console-rail-scroll">
 
-        {/* 1. KIND FILTER */}
-        {/* role="group" dropped: role="radiogroup" on the pill container carries the implicit group role */}
-        <div className="rail-block" aria-label="Filter by kind">
-          <div className="rail-head">{'// FILTER · KIND'}</div>
-          <div className="console-rail-pills" role="radiogroup" aria-label="Filter by kind">
-            {KIND_FILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                role="radio"
-                aria-checked={activeFilter === f.id}
-                className={'af-pill' + (activeFilter === f.id ? ' is-active' : '')}
-                onClick={() => onFilter(f.id)}
-              >
-                {f.label}
-              </button>
-            ))}
+          {/* 0. PLACES block — above filter (spec §5.1 preferred position) */}
+          {placesBlock && (
+            <>
+              {placesBlock}
+              <div className="section-rule-dashed rail-sep" />
+            </>
+          )}
+
+          {/* 1. KIND FILTER */}
+          {/* role="group" dropped: role="radiogroup" on the pill container carries the implicit group role */}
+          <div className="rail-block" aria-label="Filter by kind">
+            <div className="rail-head">{'// FILTER · KIND'}</div>
+            <div className="console-rail-pills" role="radiogroup" aria-label="Filter by kind">
+              {KIND_FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={activeFilter === f.id}
+                  className={'af-pill' + (activeFilter === f.id ? ' is-active' : '')}
+                  onClick={() => onFilter(f.id)}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
 
-        <div className="section-rule-dashed rail-sep" />
+          <div className="section-rule-dashed rail-sep" />
 
-        {/* 2. SEARCH */}
-        <div className="rail-block">
-          <div className="rail-search">
-            <span className="rail-search-glyph" aria-hidden="true">⌕</span>
-            <input
-              type="text"
-              className="rail-search-input"
-              placeholder="search traces…"
-              value={query}
-              onChange={(e) => onQuery(e.target.value)}
-              aria-label="Search the graph"
-            />
-            {query && (
-              <button
-                type="button"
-                className="rail-search-clear"
-                onClick={() => onQuery('')}
-                aria-label="Clear search"
-              >
-                ×
-              </button>
-            )}
+          {/* 2. SEARCH */}
+          <div className="rail-block">
+            <div className="rail-search">
+              <span className="rail-search-glyph" aria-hidden="true">⌕</span>
+              <input
+                type="text"
+                className="rail-search-input"
+                placeholder="search traces…"
+                value={query}
+                onChange={(e) => onQuery(e.target.value)}
+                aria-label="Search the graph"
+              />
+              {query && (
+                <button
+                  type="button"
+                  className="rail-search-clear"
+                  onClick={() => onQuery('')}
+                  aria-label="Clear search"
+                >
+                  ×
+                </button>
+              )}
+            </div>
           </div>
-        </div>
 
-        <div className="section-rule-dashed rail-sep" />
+          <div className="section-rule-dashed rail-sep" />
 
-        {/* 3. ENTRY LIST */}
-        <div className="rail-block rail-list-block">
-          <div className="rail-head">
-            {'// ENTRIES'} <span className="rail-count">{count}</span>
-          </div>
-          <ul className="rail-list" role="listbox" aria-label="Entries">
-            {nodes.map((n) => {
-              const k = KINDS[n.kind]
-              const sel = selectedId === n.id
-              return (
-                <li key={n.id} role="option" aria-selected={sel} style={{ listStyle: 'none' }}>
-                  <button
-                    type="button"
-                    className={'atlas-strata-btn' + (sel ? ' is-active' : '')}
-                    onClick={() => onSelect(n.id)}
-                  >
-                    <span
-                      className="glyph"
-                      style={{ color: sel ? 'var(--accent-orange)' : k.color }}
+          {/* 3. ENTRY LIST */}
+          <div className="rail-block rail-list-block">
+            <div className="rail-head">
+              {'// ENTRIES'} <span className="rail-count">{count}</span>
+            </div>
+            <ul className="rail-list" role="listbox" aria-label="Entries">
+              {nodes.map((n) => {
+                const k = KINDS[n.kind]
+                const sel = selectedId === n.id
+                return (
+                  <li key={n.id} role="option" aria-selected={sel} style={{ listStyle: 'none' }}>
+                    <button
+                      type="button"
+                      className={'atlas-strata-btn' + (sel ? ' is-active' : '')}
+                      onClick={() => onSelect(n.id)}
                     >
-                      {k.glyph}
-                    </span>
-                    <span>
-                      <span className="label-id">{n.title}</span>
-                      <span className="label-role">{n.kind} · {n.domain}</span>
-                    </span>
-                    {/* title preserves full fileId when truncated by D1 fix */}
-                    <span className="key" title={n.fileId}>{n.fileId}</span>
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        </div>
+                      <span
+                        className="glyph"
+                        style={{ color: sel ? 'var(--accent-orange)' : k.color }}
+                      >
+                        {k.glyph}
+                      </span>
+                      <span>
+                        <span className="label-id">{n.title}</span>
+                        <span className="label-role">{n.kind} · {n.domain}</span>
+                      </span>
+                      {/* title preserves full fileId when truncated by D1 fix */}
+                      <span className="key" title={n.fileId}>{n.fileId}</span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
 
-        {/* 4. NEW ENTRY */}
+        </div>{/* /console-rail-scroll */}
+
+        {/* 4. NEW ENTRY — pinned footer, outside scroll wrapper */}
         <div className="rail-foot">
           <button type="button" className="rail-new" onClick={onNew}>
             + &nbsp;NEW ENTRY
