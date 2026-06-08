@@ -62,3 +62,44 @@ export const KINDS: Record<NodeKind, { glyph: string; role: string; color: strin
   fiction: { glyph: '△', role: 'POSSIBILITY SHELL', color: 'var(--ink-primary)' },
   repo:    { glyph: '○', role: 'SOURCE LOCUS',      color: 'var(--ink-faint)' },
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Places curation DTO — serialisable, no velite internals
+// Populated by app/console/page.tsx (server) and passed to the client.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** One article in the editor's article pick-list. */
+export interface PlaceArticleItem {
+  fileNum: string   // zero-padded 3-digit, e.g. "003". IS the articleSlug for the action.
+  title:   string
+  isoDate: string   // YYYY-MM-DD; used for display date YYYY.MM.DD
+}
+
+/** One photo frame in the editor's photo pick-list (degraded-safe). */
+export interface PlacePhotoItem {
+  roll:      string   // roll slug, e.g. "2026-05-bangkok"
+  id:        string   // frame id, e.g. "DSCF0002"
+  thumbWebp: string | undefined   // undefined until process-photos pipeline runs
+  isoDate:   string   // YYYY-MM-DD for degraded distinguisher
+}
+
+/** Currently saved highlight state for a place, from the server-seeded fetch. */
+export interface PlaceHighlightState {
+  articleHighlight: { fileNum: string; title: string } | null
+  photoHighlights:  Array<{ roll: string; id: string; rank: number }>
+}
+
+/**
+ * Lean DTO per place — serialisable across the server→client boundary.
+ * Populated by getPlaceContent() in app/console/page.tsx. Never carries MDX body.
+ */
+export interface PlaceDTO {
+  id:           string               // place registry id, e.g. "bangkok"
+  name:         string               // display, e.g. "Bangkok · TH"
+  coord:        { lat: number; lon: number }
+  articleCount: number
+  photoCount:   number
+  highlights:   PlaceHighlightState  // current saved highlights (seed for editor)
+  articlePicks: PlaceArticleItem[]   // articles at this place (for typeahead)
+  photoPicks:   PlacePhotoItem[]     // photo frames at this place (for photo picker)
+}

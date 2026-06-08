@@ -23,6 +23,7 @@
 
 'use client'
 
+import type { ReactNode } from 'react'
 import type { ConsoleNode, NodeKind } from './console-types'
 import { KINDS } from './console-types'
 
@@ -166,6 +167,8 @@ interface ConsoleRailProps {
   onQuery:      (q: string) => void
   onSelect:     (id: string) => void
   onNew:        () => void
+  /** Optional PLACES block injected above the filter — avoids splitting ConsoleRail further. */
+  placesBlock?: ReactNode
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -175,6 +178,7 @@ interface ConsoleRailProps {
 export function ConsoleRail({
   nodes, selectedId, activeFilter, query,
   onFilter, onQuery, onSelect, onNew,
+  placesBlock,
 }: ConsoleRailProps) {
   const count = String(nodes.length).padStart(3, '0')
 
@@ -182,6 +186,14 @@ export function ConsoleRail({
     <>
       <style>{RAIL_CSS}</style>
       <aside className="console-rail paper-warm-surface" aria-label="Authoring controls">
+
+        {/* 0. PLACES block — above filter (spec §5.1 preferred position) */}
+        {placesBlock && (
+          <>
+            {placesBlock}
+            <div className="section-rule-dashed rail-sep" />
+          </>
+        )}
 
         {/* 1. KIND FILTER */}
         {/* role="group" dropped: role="radiogroup" on the pill container carries the implicit group role */}

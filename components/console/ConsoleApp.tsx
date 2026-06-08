@@ -38,11 +38,13 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import type { ConsoleNode, ConsoleEdge, ConsoleFormData, NodeKind } from './console-types'
+import type { ConsoleNode, ConsoleEdge, ConsoleFormData, NodeKind, PlaceDTO } from './console-types'
 import { KINDS } from './console-types'
-import { ConsoleRail }      from './ConsoleRail'
-import { ConsoleCanvas }    from './ConsoleCanvas'
-import { ConsoleEntryForm } from './ConsoleEntryForm'
+import { ConsoleRail }           from './ConsoleRail'
+import { ConsoleCanvas }         from './ConsoleCanvas'
+import { ConsoleEntryForm }      from './ConsoleEntryForm'
+import { PlacesRailBlock }       from './PlacesRailBlock'
+import { PlaceHighlightEditor }  from './PlaceHighlightEditor'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CSS — shell, header, body grid, NETRA foot, offline
@@ -137,16 +139,33 @@ const nextId = () => 'n' + (++_uid)
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface ConsoleAppProps {
-  initialNodes: ConsoleNode[]
-  initialEdges: ConsoleEdge[]
+  initialNodes:  ConsoleNode[]
+  initialEdges:  ConsoleEdge[]
+  initialPlaces: PlaceDTO[]
 }
 
-export function ConsoleApp({ initialNodes, initialEdges }: ConsoleAppProps) {
+export function ConsoleApp({ initialNodes, initialEdges, initialPlaces }: ConsoleAppProps) {
   // ── Core graph state ──
   const [nodes,      setNodes]     = useState<ConsoleNode[]>(initialNodes)
   const [edges,      setEdges]     = useState<ConsoleEdge[]>(initialEdges)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [hoveredId,  setHoveredId]  = useState<string | null>(null)
+
+  // ── Places state ──
+  // Held in React state; seeded from server. Updated from action return values only
+  // (decoupled-state contract — no velite refetch, no router.refresh for immediate panel).
+  const [places,           setPlaces]           = useState<PlaceDTO[]>(initialPlaces)
+  const [placeEditorOpen,  setPlaceEditorOpen]  = useState(false)
+  const [editingPlaceId,   setEditingPlaceId]   = useState<string | null>(null)  // null = new place
+  // Nonce: bumped on each open so the PlaceHighlightEditor key changes → component remounts →
+  // useState initializers re-run → working state reseeds from the current place DTO.
+  // This is load-bearing: without it, closing+reopening the same place retains unsaved edits.
+  const [editorNonce, setEditorNonce] = useState(0)
+
+  // The PlaceDTO currently being edited (derived — no useEffect for derived state)
+  const editingPlace = editingPlaceId
+    ? (places.find((p) => p.id === editingPlaceId) ?? null)
+    : null
 
   // ── Filter + search ──
   const [activeFilter, setActiveFilter] = useState<'all' | NodeKind>('all')
@@ -256,10 +275,51 @@ export function ConsoleApp({ initialNodes, initialEdges }: ConsoleAppProps) {
     if (id == null) { setSelectedId(null) } else { openEdit(id) }
   }, [openEdit])
 
+  // ── Places handlers ──
+  const openPlaceEditor = useCallback((placeId: string) => {
+    setEditingPlaceId(placeId)
+    setPlaceEditorOpen(true)
+    // Bump nonce so the PlaceHighlightEditor key changes → remount → useState
+    // initializers re-run → working state reseeds. Load-bearing for reopen after close.
+    setEditorNonce((n) => n + 1)
+    // Close entry form when switching to place editor (mutually exclusive panels)
+    setFormOpen(false)
+  }, [])
+
+  const openNewPlace = useCallback(() => {
+    setEditingPlaceId(null)
+    setPlaceEditorOpen(true)
+    // Same nonce bump — ensures new-place form reseeds cleanly on each open.
+    setEditorNonce((n) => n + 1)
+    setFormOpen(false)
+  }, [])
+
+  const closePlaceEditor = useCallback(() => {
+    setPlaceEditorOpen(false)
+  }, [])
+
+  // Called by PlaceHighlightEditor after a successful savePlaceHighlights / savePlaceCoord.
+  // Updates the rail card's highlight state + coord from the ACTION RETURN VALUE only.
+  const onPlaceSaved = useCallback((placeId: string, updated: Partial<PlaceDTO>) => {
+    setPlaces((ps) =>
+      ps.map((p) => p.id === placeId ? { ...p, ...updated } : p)
+    )
+  }, [])
+
+  // Called after createPlace — appends the new place to rail state.
+  // NOTE: intentionally does NOT call setEditingPlaceId(newPlace.id). Switching the id
+  // would change the key → component remounts → status message "place created…" is lost.
+  // The editor stays in new-place mode; the new card appears in the rail immediately.
+  const onPlaceCreated = useCallback((newPlace: PlaceDTO) => {
+    setPlaces((ps) => [...ps, newPlace])
+  }, [])
+
   // ── Keyboard: ESC closes form / deselects; Cmd+S saves draft ──
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        // Mutually exclusive panels — close whichever is open
+        if (placeEditorOpen) { closePlaceEditor(); return }
         if (formOpen) closeForm()
         else setSelectedId(null)
       }
@@ -270,7 +330,7 @@ export function ConsoleApp({ initialNodes, initialEdges }: ConsoleAppProps) {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [formOpen, persist, closeForm])
+  }, [formOpen, placeEditorOpen, persist, closeForm, closePlaceEditor])
 
   // ── NETRA narration — derived synchronously (no useEffect for derived state) ──
   const selected = nodes.find((n) => n.id === selectedId) ?? null
@@ -347,7 +407,7 @@ export function ConsoleApp({ initialNodes, initialEdges }: ConsoleAppProps) {
         {/* ── Body — two-pane ── */}
         <div id="console-main" className="console-body" tabIndex={-1}>
 
-          {/* Left rail */}
+          {/* Left rail — PLACES block above entry list */}
           <ConsoleRail
             nodes={nodes}
             selectedId={selectedId}
@@ -357,6 +417,14 @@ export function ConsoleApp({ initialNodes, initialEdges }: ConsoleAppProps) {
             onQuery={setQuery}
             onSelect={openEdit}
             onNew={openNew}
+            placesBlock={
+              <PlacesRailBlock
+                places={places}
+                selectedPlaceId={editingPlaceId}
+                onEditPlace={openPlaceEditor}
+                onNewPlace={openNewPlace}
+              />
+            }
           />
 
           {/* Canvas column */}
@@ -383,9 +451,9 @@ export function ConsoleApp({ initialNodes, initialEdges }: ConsoleAppProps) {
               </div>
             </div>
 
-            {/* Entry form — slides up from canvas foot */}
+            {/* Entry form — slides up from canvas foot (mutually exclusive with place editor) */}
             <ConsoleEntryForm
-              open={formOpen}
+              open={formOpen && !placeEditorOpen}
               mode={formMode}
               data={formData}
               dirty={dirty}
@@ -394,6 +462,19 @@ export function ConsoleApp({ initialNodes, initialEdges }: ConsoleAppProps) {
               onClose={closeForm}
               onSaveDraft={() => persist(false)}
               onCommit={() => persist(true)}
+            />
+
+            {/* Place highlight editor — slides up from canvas foot.
+                key= ensures remount on place change + on each reopen (nonce) so
+                useState initializers re-run, reseeding working state from current DTO.
+                Avoids useEffect for derived state per Sirius quality bar. */}
+            <PlaceHighlightEditor
+              key={`${editingPlaceId ?? 'new'}-${editorNonce}`}
+              open={placeEditorOpen}
+              place={editingPlace}
+              onClose={closePlaceEditor}
+              onSaved={onPlaceSaved}
+              onCreated={onPlaceCreated}
             />
           </div>
 

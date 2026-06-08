@@ -1,0 +1,30 @@
+[
+  {
+    "id": "bangkok",
+    "level": 1,
+    "parentId": null,
+    "name": "Bangkok · TH",
+    "coord": { "lat": 13.7563, "lon": 100.5018 }
+  },
+  {
+    "id": "kyoto",
+    "level": 1,
+    "parentId": null,
+    "name": "Kyoto · JP",
+    "coord": { "lat": 35.0116, "lon": 135.7681 }
+  },
+  {
+    "id": "chiang-mai",
+    "level": 1,
+    "parentId": null,
+    "name": "Chiang Mai · TH",
+    "coord": { "lat": 18.7883, "lon": 98.9853 }
+  },
+  {
+    "id": "yirgacheffe",
+    "level": 1,
+    "parentId": null,
+    "name": "Yirgacheffe · ET",
+    "coord": { "lat": 6.16, "lon": 38.2058 }
+  }
+]

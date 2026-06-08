@@ -39,8 +39,9 @@ import type { Metadata } from 'next'
 import { getArticles }  from '@/lib/content/articles'
 import { getFiction }   from '@/lib/content/fiction'
 import { getPhotos }    from '@/lib/content/photos'
+import { getAllPlaces, getPlaceContent } from '@/lib/content/places'
 import { ConsoleApp }   from '@/components/console/ConsoleApp'
-import type { ConsoleNode, ConsoleEdge } from '@/components/console/console-types'
+import type { ConsoleNode, ConsoleEdge, PlaceDTO } from '@/components/console/console-types'
 
 export const metadata: Metadata = {
   title: 'Worldline · Console',
@@ -66,11 +67,55 @@ function gridPosition(index: number): { x: number; y: number } {
 
 export default async function ConsolePage() {
   // Fetch all three collections from velite (build-time cache, no runtime I/O)
+  // Also fetch place content for the PLACES rail block + highlight editor seeding.
   const [articles, fictions, photos] = await Promise.all([
     getArticles(),
     getFiction(),
     getPhotos(),
   ])
+
+  // ── Build place DTOs for the console (server-side; never ships velite internals) ──
+  // Uses getPlaceContent per place so the DTO carries split article/photo counts,
+  // highlights, and picker lists — getPlacesSummary only carries a combined weight.
+  const allPlaces = getAllPlaces()
+  const placeContents = await Promise.all(
+    allPlaces.map((p) => getPlaceContent(p.id))
+  )
+  const initialPlaces: PlaceDTO[] = placeContents
+    .filter((c): c is NonNullable<typeof c> => c !== null)
+    .map((content) => ({
+      id:           content.place.id,
+      name:         content.place.name,
+      coord:        content.place.coord,
+      articleCount: content.articles.length,
+      photoCount:   content.sidecars.length,
+      highlights: {
+        articleHighlight: content.highlights.articleHighlight
+          ? {
+              fileNum: content.highlights.articleHighlight.fileNum,
+              title:   content.highlights.articleHighlight.title,
+            }
+          : null,
+        photoHighlights: content.highlights.photoHighlights.map((s, i) => ({
+          roll: s.roll,
+          id:   s.id,
+          rank: s.highlightRank ?? i + 1,
+        })),
+      },
+      // Article pick-list for typeahead (ordered newest-first by isoDate)
+      articlePicks: content.articles.map((a) => ({
+        fileNum: a.fileNum,
+        title:   a.title,
+        isoDate: a.isoDate,
+      })),
+      // Photo frame pick-list (ordered roll+id ascending per places.ts sort)
+      photoPicks: content.sidecars.map((s) => ({
+        roll:      s.roll,
+        id:        s.id,
+        thumbWebp: s.thumbWebp,
+        isoDate:   s.isoDate,
+      })),
+    }))
 
   // ── Build nodes ──
   const nodes: ConsoleNode[] = []
@@ -170,5 +215,5 @@ export default async function ConsolePage() {
   // FIELD-GAP(Procyon): Photo worldline_links live on PhotoSidecar, not Photo.
   // Edges from photos deferred until PhotoSidecar is wired here (Slice 3 scope).
 
-  return <ConsoleApp initialNodes={nodes} initialEdges={edges} />
+  return <ConsoleApp initialNodes={nodes} initialEdges={edges} initialPlaces={initialPlaces} />
 }

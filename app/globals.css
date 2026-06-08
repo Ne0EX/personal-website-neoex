@@ -131,6 +131,15 @@
   --alpha-mark-size:        280px;
   --ed-tb-file-min:         92px;
   --canvas-frame-margin:    12px;
+
+  /* Places curation — console highlight editor thumb slot.
+     Consumer: highlight editor photo strip (§5.3) — the 72px ordered
+     thumb slots in the console canvas panel. 72px is the editor-context
+     dimension; the front-door viewer panel (§4.2) uses 80px cells,
+     which is an inline size on that component (not yet tokenised —
+     add --place-thumb-viewer-size: 80px when the front-door panel
+     is built). Authoring surface only — dev-only guarded component. */
+  --place-thumb-editor-size: 72px;
 }
 
 /* INK palette (archive navy — v2 baseline backup).

@@ -56,6 +56,7 @@
  */
 
 import { z } from 'zod'
+import rawPlaces from './place-registry.data.json'
 
 // ---------------------------------------------------------------------------
 // Place schema — matches spec §14 item 1 / §2.1 atom
@@ -101,47 +102,27 @@ export const PlaceSchema = z.object({
 export type Place = z.infer<typeof PlaceSchema>
 
 // ---------------------------------------------------------------------------
-// Seeded L1 registry
+// Seeded L1 registry — loaded from place-registry.data.json
 // ---------------------------------------------------------------------------
+//
+// place-registry.data.json is the runtime write target for coord edits and
+// new places added via the console (Altair writes it; Peat reviews the diff
+// and commits — NOT a production write). The seed entries match the original
+// hand-authored values exactly; provenance is documented in this file's
+// header comment above ("SEEDED FROM").
+//
+// The JSON import is intentionally untyped (the inferred type has level: number,
+// not 1|2). Zod narrows every record via PlaceSchema.safeParse below — if a
+// JSON entry violates the schema the module throws at load time (fail-fast).
 
-const RAW_PLACES: Place[] = [
-  {
-    id: 'bangkok',
-    level: 1,
-    parentId: null,
-    name: 'Bangkok · TH',
-    coord: { lat: 13.7563, lon: 100.5018 }, // article 000-genesis.mdx
-  },
-  {
-    id: 'kyoto',
-    level: 1,
-    parentId: null,
-    name: 'Kyoto · JP',
-    coord: { lat: 35.0116, lon: 135.7681 }, // article 003-architecture-of-taste.mdx
-  },
-  {
-    id: 'chiang-mai',
-    level: 1,
-    parentId: null,
-    name: 'Chiang Mai · TH',
-    coord: { lat: 18.7883, lon: 98.9853 }, // article 002-stride-pause.mdx
-  },
-  {
-    id: 'yirgacheffe',
-    level: 1,
-    parentId: null,
-    name: 'Yirgacheffe · ET',
-    coord: { lat: 6.16, lon: 38.2058 }, // article 001-four-pours.mdx
-  },
-]
-
-// Validate at module load — fails fast if a seed record violates schema.
-// This is the zod schema guarantee for the registry.
-const validated = RAW_PLACES.map((p, i) => {
+// Validate at module load — fails fast if any JSON entry violates schema.
+const validated = (rawPlaces as unknown[]).map((p, i) => {
   const result = PlaceSchema.safeParse(p)
   if (!result.success) {
+    const idHint =
+      p !== null && typeof p === 'object' && 'id' in p ? String((p as Record<string, unknown>).id) : '?'
     throw new Error(
-      `place-registry: invalid place at index ${i} (id=${p.id}): ${JSON.stringify(result.error.issues)}`,
+      `place-registry: invalid place at index ${i} (id=${idHint}): ${JSON.stringify(result.error.issues)}`,
     )
   }
   return result.data
