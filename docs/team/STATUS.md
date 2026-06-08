@@ -13,6 +13,24 @@
 
 ---
 
+## TASK-2026-06-08-CONSOLE-PLACES-CURATION · **SHIP ✓ 2026-06-08** · Algol GREEN + Polaris browser ground-truth · atlas-console arc
+
+scope · Peat's #2 ask ("console links real articles + controls what shows on the globe"). Console **PLACES rail block** + **highlight editor**: curate 1 article + ≤5 ordered photos per place + set/adjust place coord. Latest slice of the atlas-console arc (prior committed: `d4e79b0` DS-foundation · `fecc05f` console front-door + full editor · `e08a297` place-aware globe + film-sim + schema). Chose curation-FIRST over photo-pipeline (**pipeline BLOCKED** — `process-photos` scans `content/photos/<roll>/` for JPEGs, none in repo; needs Peat's source images).
+
+built (workflow `console-places-curation` · `wf_3105d041-5ec` · 6 agents) · Foundation∥ (Procyon registry→`lib/content/place-registry.data.json` [zod loader, API stable] + surgical `lib/content/frontmatter-edit.ts` [body byte-identical, NOT gray-matter] · Betelgeuse +1 token `--place-thumb-editor-size` · Vega `docs/voice/MICROCOPY.md`) → Actions (Altair `lib/server/places/{highlight-core,place-actions}.ts` — `savePlaceHighlights`/`savePlaceCoord`/`createPlace`; **dev-only guard** [`NODE_ENV!=='production'`], zod, path-containment, atomic write, **decoupled authoritative return**, **transactional clear**) → UI (Sirius `components/console/{PlacesRailBlock,PlaceHighlightEditor}.tsx` + ConsoleApp/Rail/page wiring — optimistic-from-return, degraded photos [frame-id+month until pipeline], partial-save §4.1) → QA (Algol six-step SHIP + 54 tests).
+
+write-path · **schema-native** (highlights per-record in MDX frontmatter where `places.ts` + globe already read) · **dev-only local authoring** (Vercel FS read-only; NOT production-publish — deferred). Peat curates → git diff → commit = the publish path.
+
+verify · Algol SHIP + 54 tests (body byte-identical · A→B transactional clear via doctored `.velite` fixture · dev-guard · partial-save · post-save velite build · public byte-identical). **Polaris browser ground-truth (advisor caught COVERAGE-ASYMMETRY — verify the HARDER path you built+claimed, not the easy representative):** article save (string+bool) AND photo save (`highlightRank` number-UNQUOTED, sidecar MDX) both byte-identical on disk via git diff · rail card reflects · 0 console errors · tsc=0. Read the A→B fixture+assertions myself (faithful). Content RESTORED — no curation writes in the commit. Plan: `docs/atlas-console/CURATION-BUILD-PLAN.md`. owner: Polaris-closed · **SHIP**
+
+residual / open ·
+  - **photo pipeline** — BLOCKED on Peat dropping source JPEGs into `content/photos/<roll>/` → `npx tsx scripts/process-photos.ts` → real pixels + film-sim on real photos + photo-highlight thumbnails (currently text-only frame-id+month). owner: **Peat-provides-JPEGs** · block_until: ⟨Peat drops images⟩
+  - **polish (non-blocking)** — "1 articles" → singular · zod `flatten()` deprecated + implicit-any info-tier (incl `WorldlineGlobe` ~1706/2411/2459). owner: Sirius/Procyon · must_close_by: 2026-06-12
+  - **micro-map / region (L2 districts)** — designed-for (spec §6), not built. owner: future · parked-with-reason: "Peat-judgment threshold, post-photos"
+  - **commit** — curation slice on `feat/atlas-console` (this session). push stays Peat's.
+
+---
+
 ## TASK-2026-06-06-CURL-WGET-UNBLOCK · **DONE · Algol GREEN ✓ 2026-06-06** · harness posture change (Peat-directed)
 
 scope · Peat directive ("เอาออกเลย"): remove the curl/wget wholesale block entirely. Trigger = friction fetching a Claude Design bundle (the `console`/Article-Editor main task). 6 enforcement layers mapped (advisor-driven blast-radius scan): permissions.deny (settings.json) · hook wholesale-block · audit-least-agency-config (curl/wget-in-deny assertion) · audit-permissions-nonempty (general fail-open guard) · ~50 fixture assertions · publish-witness.yml "no curl/wget" (trust-root job-purity, INDEPENDENT — left untouched).
