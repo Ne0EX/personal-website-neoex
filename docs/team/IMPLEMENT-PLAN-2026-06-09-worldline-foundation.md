@@ -9,10 +9,12 @@ Source-of-truth = a **writable runtime store** (DB: entries + typed/weighted/pro
 
 ---
 
-## §1 · OPENING MOVE — confirm the stack, then build (recommendations LOCKED; one Peat-call open)
-NOT a separate phase — this is the first ~30–60 min of the Phase-A session: confirm the stack (verify the volatile specifics — pricing/limits — at the source per the grill rule), then build. Schema design (A1) **parallelizes immediately** (store-agnostic).
+## §1 · OPENING MOVE — DECIDE the stack, then build (⚠ NOTHING chosen yet)
+NOT a separate phase — the first part of the Phase-A session: **decide** the stack (verify the volatile specifics — pricing/limits — at the source per the grill rule), then build. Schema design (A1) **parallelizes immediately** (store-agnostic).
 
-**Recommended stack (Polaris — positions taken; confirm or override):**
+**⚠ NOTHING below is decided. The table is Polaris's CANDIDATE recommendations only — Peat has NOT chosen them.** Peat picks / overrides / argues these afresh next session (and may reject them entirely). A confident recommendation is still a guess until Peat decides.
+
+**Polaris candidates (a starting point to argue with — NOT a decision):**
 | layer | recommendation | reason | verify-at-build |
 |---|---|---|---|
 | **Store** | **Turso/libSQL + sqlite-vec** (standalone) | serverless SQLite · edge-readable · vector in-engine · writable-runtime · cheap · Vercel-fit; graph = edge table (fine at personal scale) | runtime-write + vector limits/pricing |
@@ -20,7 +22,7 @@ NOT a separate phase — this is the first ~30–60 min of the Phase-A session: 
 | **Media** | **Cloudflare R2** (S3-compatible · free egress · CDN) + sharp/libvips (HEIC) + a RAW(RAF) decode step | cheapest for 10k–100k photos; Vercel Blob is simpler but pricier at scale | presigned-write + RAW/HEIC decode |
 | **Embeddings** | **OpenAI `text-embedding-3-small`** → the vector store (or a local model to avoid an external API) | cheap semantic edges for the weave + graph-RAG | model dims + cost per re-embed |
 
-**THE ONE OPEN KEYSTONE (Peat's call — dictates the Store row):** does Worldline **share personal-os's substrate** (Peat pilots graph-query there + uses turbovec on Beta → unified context, but couples two systems + must hold the studio/gallery boundary) **or stand alone** (→ Turso/libSQL, as recommended)? **Resolve this first thing next session;** everything else above is locked pending Peat's nod.
+**THE WHOLE STACK IS OPEN.** The keystone that shapes the Store choice: does Worldline **share personal-os's substrate** (Peat pilots graph-query there + uses turbovec on Beta → unified context, but couples two systems + must hold the studio/gallery boundary) **or stand alone**? That is Peat's call and **he has not made it.** Decide the whole stack next session — the candidates above are only a starting point.
 
 **Also (Polaris/Canopus — design, NOT blocking the stack pick):** O5 the files↔store export mechanism + cadence (commit-on-tend vs batch); O6/personal-os↔NETRA boundary (Peat).
 
