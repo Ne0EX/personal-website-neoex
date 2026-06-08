@@ -121,6 +121,7 @@ function articleMetaToArticle(meta: ArticleMeta): Article {
     shareLocation: Boolean(meta.coords),
     worldline_links: [],
     highlightForPlace: false, // FIELD-GAP: preview context has no place highlight
+    draft: false,             // Preview context is always non-draft
   } as Article
 }
 

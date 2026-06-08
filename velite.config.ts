@@ -157,6 +157,20 @@ const articles = defineCollection({
        */
       highlightForPlace: s.boolean().optional().default(false),
 
+      // --- visibility gate (T1 lifecycle — 2026-06-08) ---
+      /**
+       * When true, this entry is hidden from public routes in production.
+       * Default false — existing content is unaffected (non-breaking, additive).
+       *
+       * ORTHOGONAL to `status` (maturity ladder). Do NOT conflate.
+       * In development all entries are visible regardless of this field.
+       * The console/editor always sees all entries.
+       *
+       * Consumer: lib/content/visibility.ts isHiddenFromPublic()
+       * Spec: EDITOR-LIFECYCLE-GAP-AUDIT §"Resolved build decisions" (2026-06-08)
+       */
+      draft: s.boolean().default(false),
+
       // --- worldline-weave (S3) ---
       /**
        * Outgoing inter-entry links. Declared as `to: <kind>/<identifier>`.
@@ -329,6 +343,15 @@ const fiction = defineCollection({
         )
         .max(40, 'divergence_cluster must be 40 chars or fewer')
         .optional(),
+
+      // --- visibility gate (T1 lifecycle — 2026-06-08) ---
+      /**
+       * When true, this fiction entry is hidden from public routes in production.
+       * Default false — existing content is unaffected (non-breaking, additive).
+       * Orthogonal to `status`. The console always sees all entries.
+       * Consumer: lib/content/visibility.ts isHiddenFromPublic()
+       */
+      draft: s.boolean().default(false),
 
       // --- worldline-weave (S3) ---
       /**
@@ -539,6 +562,15 @@ const photoSidecars = defineCollection({
        * Spec: place-aware-globe-spec.md §14 item 4
        */
       highlightRank: s.number().int().min(1).max(5).optional(),
+
+      // --- visibility gate (T1 lifecycle — 2026-06-08) ---
+      /**
+       * When true, this photo sidecar is hidden from public routes in production.
+       * Default false — existing content is unaffected (non-breaking, additive).
+       * Orthogonal to GPS / shareLocation. The console always sees all entries.
+       * Consumer: lib/content/visibility.ts isHiddenFromPublic()
+       */
+      draft: s.boolean().default(false),
 
       // --- worldline-weave (S3) ---
       /**

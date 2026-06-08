@@ -189,6 +189,32 @@ export function ConsoleApp({ initialNodes, initialEdges, initialPlaces }: Consol
     return () => window.removeEventListener('resize', check)
   }, [])
 
+  // ── Post-delete: ?removed=<nodeId> ─────────────────────────────────────────
+  // When EntryEditor deletes an entry it navigates to /console?removed=<nodeId>.
+  // On mount, read the param, remove the node + its edges from state, then clean
+  // the URL with replaceState so the param doesn't persist on refresh.
+  //
+  // Runs once on mount (empty dep array). The editor always navigates with a fresh
+  // page load → ConsoleApp re-mounts → this effect fires exactly once per delete.
+  // edges: also filter dangling edges to match the invariant the server build holds
+  // (addEdge checks both endpoints exist; ConsoleCanvas may not expect orphaned edges).
+  //
+  // window.location.search is read in useEffect (hydration safety rule — not initial render).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const removedId = params.get('removed')
+    if (!removedId) return
+    // Remove the node and any edge that references it.
+    setNodes((ns) => ns.filter((n) => n.id !== removedId))
+    setEdges((es) => es.filter((e) => e.source !== removedId && e.target !== removedId))
+    // Deselect if the removed node was selected.
+    setSelectedId((id) => (id === removedId ? null : id))
+    // Clean the URL — no reload, no history entry.
+    const cleanUrl = window.location.pathname
+    window.history.replaceState(null, '', cleanUrl)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // intentionally mount-only — fires once per navigation (ConsoleApp remounts)
+
   // ── Search-to-fly: first match drives the canvas pan ──
   useEffect(() => {
     if (!query) { setFlyTarget(null); return }

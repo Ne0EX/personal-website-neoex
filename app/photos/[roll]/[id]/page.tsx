@@ -33,6 +33,7 @@ import {
   getPhotoByRollAndId,
   getSidecarsInRoll,
 } from "@/lib/content/photos";
+import { isHiddenFromPublic } from "@/lib/content/visibility";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Static generation — pre-render all known (roll, id) pairs at build time.
@@ -56,7 +57,7 @@ export async function generateMetadata({
   const { roll, id } = await params;
   const photo = await getPhotoByRollAndId(roll, id);
 
-  if (!photo) {
+  if (!photo || isHiddenFromPublic(photo)) {
     return { title: "Photo Not Found · Worldline" };
   }
 
@@ -80,8 +81,8 @@ export default async function PhotoEntryPage({
 
   const photo = await getPhotoByRollAndId(roll, id);
 
-  // 404 when (roll, id) does not resolve.
-  if (!photo) {
+  // 404 when (roll, id) does not resolve OR photo is a draft in production.
+  if (!photo || isHiddenFromPublic(photo)) {
     notFound();
   }
 

@@ -23,6 +23,7 @@
  */
 
 import type { Article, Fiction, PhotoSidecar } from './types'
+import { isHiddenFromPublic } from './visibility'
 
 // ---------------------------------------------------------------------------
 // MiniGlobePin — defined here so Sirius can import from lib/content/archive
@@ -187,9 +188,14 @@ async function loadEntries(): Promise<ArchiveEntry[]> {
   if (_entries) return _entries
 
   const cache = await import('../../.velite')
-  const articles = cache.articles as Article[]
-  const fiction  = cache.fiction  as Fiction[]
-  const sidecars = (cache.photoSidecars as PhotoSidecar[]) ?? []
+  // Filter drafts at source — archive is a public surface.
+  // Draft entries are excluded from the ledger, mini-globe, and pagefind sidecar
+  // in production. In development all entries are visible (isHiddenFromPublic=false).
+  const articles = (cache.articles as Article[]).filter((a) => !isHiddenFromPublic(a))
+  const fiction  = (cache.fiction  as Fiction[]).filter((f) => !isHiddenFromPublic(f))
+  const sidecars = ((cache.photoSidecars as PhotoSidecar[]) ?? []).filter(
+    (s) => !isHiddenFromPublic(s),
+  )
 
   const result: ArchiveEntry[] = []
 

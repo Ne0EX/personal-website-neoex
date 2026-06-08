@@ -4,7 +4,7 @@
  * Photo query helpers.
  *
  * Two collections are served here:
- *   Photo (roll.mdx) — roll-level descriptors, one per roll
+ *   Photo (roll.mdx) — roll-level descriptors, one per roll (no draft field)
  *   PhotoSidecar (DSCF*.mdx) — per-photo records with EXIF + variants from pipeline
  *
  * Privacy rule: getGlobeEligiblePhotos() returns ONLY photos with shareLocation=true
@@ -12,9 +12,17 @@
  * build-step GPS scrub and process-photos.ts's first-pass GPS gate.
  * Algol writes the regression test for this invariant.
  *
+ * Draft visibility (T1 lifecycle — 2026-06-08):
+ *   getPhotoSidecars(), getSidecarsInRoll(), getGlobeEligiblePhotos() filter drafts
+ *   in production (public surfaces).
+ *   getAllPhotoSidecars() returns ALL sidecars including drafts (console only).
+ *   getPhotoById / getPhotoByRollAndId are UNFILTERED — callers apply the guard.
+ *   Note: Photo (roll.mdx) has no draft field — roll visibility is not gated.
+ *
  * Owner: Procyon (α-IDX-03) · TASK-2026-05-15-22 / TASK-2026-05-15-30
  */
 import type { Photo, PhotoSidecar, PhotoPin } from './types'
+import { isHiddenFromPublic } from './visibility'
 
 // ---------------------------------------------------------------------------
 // Roll-level photos (roll.mdx) — unchanged from TASK-22
@@ -57,20 +65,35 @@ async function loadSidecars(): Promise<PhotoSidecar[]> {
   return _sidecars
 }
 
-/** All per-photo sidecar records across all rolls, sorted newest-first by capture date. */
+/**
+ * Public list: all sidecar records visible on the public site, sorted newest-first.
+ * Drafts are excluded in production. Use getAllPhotoSidecars() for console.
+ */
 export async function getPhotoSidecars(): Promise<PhotoSidecar[]> {
+  const sidecars = await loadSidecars()
+  return [...sidecars]
+    .filter((s) => !isHiddenFromPublic(s))
+    .sort((a, b) => b.isoDate.localeCompare(a.isoDate))
+}
+
+/**
+ * Authoring / console view: ALL sidecar records including drafts, newest-first.
+ * Must NOT be used in public routes — bypasses the draft visibility gate.
+ */
+export async function getAllPhotoSidecars(): Promise<PhotoSidecar[]> {
   const sidecars = await loadSidecars()
   return [...sidecars].sort((a, b) => b.isoDate.localeCompare(a.isoDate))
 }
 
 /**
- * All per-photo sidecar records within a specific roll, sorted by id ascending.
+ * Public list: all sidecar records within a specific roll, sorted by id ascending.
+ * Drafts are excluded in production.
  * This gives the contact-sheet order (capture sequence).
  */
 export async function getSidecarsInRoll(roll: string): Promise<PhotoSidecar[]> {
   const sidecars = await loadSidecars()
   return sidecars
-    .filter((s) => s.roll === roll)
+    .filter((s) => s.roll === roll && !isHiddenFromPublic(s))
     .sort((a, b) => a.id.localeCompare(b.id))
 }
 
@@ -216,7 +239,9 @@ export async function getGlobeEligiblePhotos(): Promise<PhotoPin[]> {
   return sidecars
     .filter(
       (s): s is PhotoSidecar & { servedCoords: NonNullable<PhotoSidecar['servedCoords']> } =>
-        s.shareLocation === true && s.servedCoords !== undefined,
+        s.shareLocation === true &&
+        s.servedCoords !== undefined &&
+        !isHiddenFromPublic(s),
     )
     .map((s) => ({
       kind: 'photo' as const,

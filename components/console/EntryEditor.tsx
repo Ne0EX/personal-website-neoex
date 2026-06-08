@@ -71,8 +71,10 @@
 'use client'
 
 import type React from 'react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import type { Article, PhotoSidecar } from '@/lib/content/types'
+import { setEntryDraft, deleteEntry } from '@/lib/server/entries/entry-actions'
 import type {
   ArticleMeta,
   EntryKind,
@@ -602,8 +604,186 @@ const EDITOR_CSS = `
 }
 .st-empty { font-size: 9px; color: var(--ink-faint); font-style: italic; }
 
+/* ── T1 lifecycle controls — DELETE + DRAFT⇄PUBLISH ───────────────────────────
+   Inline on EntryEditor (Contract 9 — console CSS not in globals.css).
+   Type primitive: .t-meta vocabulary (--font-mono, 9px, uppercase, var(--meta-tracking)).
+   Draft badge = two segments: DRAFT (orange) · HIDDEN FROM SITE (ink-dashed). */
+
+/* DELETE confirm row — mirrors ImportZone's inline confirm pattern */
+.ed-lc-delete-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ed-lc-confirm-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ed-lc-confirm-prompt {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: var(--meta-tracking);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+.ed-lc-confirm-clause {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.ed-lc-confirm-action {
+  appearance: none;
+  background: transparent;
+  border: 1px dashed rgba(212, 96, 42, 0.45);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: var(--meta-tracking);
+  text-transform: uppercase;
+  color: var(--accent-orange);
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 120ms ease, color 120ms ease;
+}
+.ed-lc-confirm-action:hover,
+.ed-lc-confirm-action:focus-visible {
+  background: var(--accent-orange);
+  color: var(--paper-bright);
+  outline: none;
+}
+.ed-lc-confirm-action:focus-visible {
+  outline: 1px dashed var(--accent-orange);
+  outline-offset: 2px;
+}
+.ed-lc-confirm-cancel {
+  appearance: none;
+  background: transparent;
+  border: 1px dashed var(--ink-dashed);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: var(--meta-tracking);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+.ed-lc-confirm-cancel:hover,
+.ed-lc-confirm-cancel:focus-visible {
+  border-color: var(--ink-primary);
+  color: var(--ink-primary);
+  outline: none;
+}
+.ed-lc-confirm-cancel:focus-visible {
+  outline: 1px dashed var(--accent-orange);
+  outline-offset: 2px;
+}
+.ed-lc-error {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--accent-orange);
+  white-space: nowrap;
+}
+
+/* DRAFT⇄PUBLISH toggle group */
+.ed-lc-toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ed-lc-toggle {
+  appearance: none;
+  background: transparent;
+  border: 1px dashed var(--ink-dashed);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: var(--meta-tracking);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding: 6px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+.ed-lc-toggle:hover:not(:disabled),
+.ed-lc-toggle:focus-visible:not(:disabled) {
+  border-color: var(--ink-primary);
+  color: var(--ink-primary);
+  outline: none;
+}
+.ed-lc-toggle:focus-visible {
+  outline: 1px dashed var(--accent-orange);
+  outline-offset: 2px;
+}
+.ed-lc-toggle:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+/* published state — filled-ink active */
+.ed-lc-toggle.is-published {
+  background: var(--ink-primary);
+  border-color: var(--ink-primary);
+  color: var(--paper-base);
+}
+.ed-lc-toggle.is-published:hover:not(:disabled),
+.ed-lc-toggle.is-published:focus-visible:not(:disabled) {
+  background: transparent;
+  border-color: var(--accent-orange);
+  color: var(--accent-orange);
+  outline: none;
+}
+.ed-lc-sep {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-faint);
+  user-select: none;
+}
+
+/* DRAFT badge — two-segment: DRAFT (orange) · HIDDEN FROM SITE (ink-dashed)
+   type primitive: .t-meta (--font-mono, 9px, uppercase, var(--meta-tracking)) */
+.ed-lc-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.ed-lc-badge-draft {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: var(--meta-tracking);
+  text-transform: uppercase;
+  color: var(--accent-orange);
+  background: var(--accent-orange-soft);
+  border: 1px solid rgba(212, 96, 42, 0.45);
+  padding: 2px 6px;
+}
+.ed-lc-badge-sep {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--ink-faint);
+  user-select: none;
+}
+.ed-lc-badge-hidden {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: var(--meta-tracking);
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  background: rgb(var(--ink-rgb) / 0.06);
+  border: 1px dashed var(--ink-dashed);
+  padding: 2px 6px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .fr-item, .st-btn, .ed-tb-action { transition: none; }
+  .ed-lc-confirm-action, .ed-lc-confirm-cancel,
+  .ed-lc-toggle { transition: none; }
 }
 @media (pointer: coarse) {
   .st-btn { padding: 12px 14px; }
@@ -633,6 +813,34 @@ const EDITOR_CSS = `
   .ed-kindtab { transition-duration: 0.001ms; }
 }
 `
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Lifecycle copy — verbatim from Vega (α-LUM-07). Do NOT alter strings.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const LC = {
+  delete: {
+    button:         'DELETE ENTRY',
+    prompt:         'ลบถาวร?',
+    clause:         'source removed. recoverable from git.',
+    action:         'CONFIRM DELETE',
+    cancel:         'CANCEL',
+    confirmed:      'entry removed',
+  },
+  publish: {
+    published:      'PUBLISHED',
+    unpublished:    'DRAFT',
+    separator:      '⇄',
+  },
+  draft: {
+    badge:          'DRAFT · HIDDEN FROM SITE',
+    devNote:        'visible on local preview · hidden in production',
+  },
+} as const
+
+// Derived badge segments — split from LC.draft.badge on ' · ' so the displayed
+// text is never separately typed (single source of truth = LC.draft.badge).
+const [LC_BADGE_DRAFT, LC_BADGE_HIDDEN] = LC.draft.badge.split(' · ') as [string, string]
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EntryToolbar — kind switcher + file-num reserve + VIEW + OUTLINE + cross-kind
@@ -668,12 +876,54 @@ interface EntryToolbarProps {
   onFullPreview: () => void
   /** Open the mocked PublishPanel. */
   onPublish:   () => void
+
+  // ── T1 lifecycle controls ────────────────────────────────────────────────
+  /**
+   * True when the editor was opened with a REAL entry (initialDraft !== undefined).
+   * False → SAMPLE_DRAFT fallback; lifecycle controls are hidden.
+   */
+  hasEntry:      boolean
+  /** Current draft/hidden state of the loaded entry. */
+  isHidden:      boolean
+  /** Whether lifecycle actions are in-flight (useTransition pending). */
+  lifecyclePending: boolean
+  /** Error message from the last lifecycle action (null = no error). */
+  lifecycleError: string | null
+  /** Trigger DELETE entry flow (shows inline confirm). */
+  onDeleteStart: () => void
+  /** Cancel the delete confirm. */
+  onDeleteCancel: () => void
+  /** Whether the delete confirm is showing. */
+  isDeleteConfirming: boolean
+  /** Actually execute the delete (called by CONFIRM DELETE button). */
+  onDeleteConfirm: () => void
+  /**
+   * Set the entry's draft/hidden state to an explicit target.
+   * Mirrors the .st-switch pattern (setState('draft') / setState('settled')) —
+   * each segment passes an explicit value, never a blind flip.
+   * target=false → publish (draft=false); target=true → hide (draft=true).
+   */
+  onSetHidden: (target: boolean) => void
 }
 
 function EntryToolbar({
   kind, onKind, fileNum, view, onView, outlineOpen, onOutline,
   hasContent, onReImport, onImport, onFullPreview, onPublish,
+  hasEntry, isHidden, lifecyclePending, lifecycleError,
+  onDeleteStart, onDeleteCancel, isDeleteConfirming, onDeleteConfirm,
+  onSetHidden,
 }: EntryToolbarProps) {
+  // Focus ref — restore focus to DELETE ENTRY trigger when inline confirm is dismissed
+  // (cancel or ESC). Without this, focus falls to <body> when autoFocus CANCEL unmounts.
+  const deleteButtonRef = useRef<HTMLButtonElement>(null)
+
+  const handleDeleteCancel = useCallback(() => {
+    onDeleteCancel()
+    // Restore focus to the trigger button (not body) — a11y best practice for
+    // inline confirm patterns where the cancel removes the focused element.
+    requestAnimationFrame(() => deleteButtonRef.current?.focus())
+  }, [onDeleteCancel])
+
   return (
     <div className="ed-toolbar">
       <div className="ed-tb-left">
@@ -711,9 +961,124 @@ function EntryToolbar({
             ? `FILE ${fileNum}`
             : <span className="ed-tb-file-empty">FILE ···</span>}
         </span>
+
+        {/* DRAFT badge — shown when entry is hidden from prod.
+            Two styled segments: DRAFT (orange) · HIDDEN FROM SITE (ink-dashed).
+            Only visible when there is a real entry AND it is in draft/hidden state. */}
+        {hasEntry && isHidden && (
+          <span
+            className="ed-lc-badge"
+            role="status"
+            title={LC.draft.devNote}
+            aria-label={LC.draft.badge}
+          >
+            <span className="ed-lc-badge-draft">{LC_BADGE_DRAFT}</span>
+            <span className="ed-lc-badge-sep" aria-hidden>·</span>
+            <span className="ed-lc-badge-hidden">{LC_BADGE_HIDDEN}</span>
+          </span>
+        )}
       </div>
 
       <div className="ed-tb-right">
+        {/* T1 lifecycle: DELETE ENTRY + DRAFT⇄PUBLISH — only when a real entry is loaded */}
+        {hasEntry && (
+          <>
+            {/* Error message from last lifecycle action */}
+            {lifecycleError && (
+              <span className="ed-lc-error" role="alert" aria-live="assertive">
+                {lifecycleError}
+              </span>
+            )}
+
+            {/* PUBLISHED⇄DRAFT segmented switch — mirrors .st-switch (DRAFT⇄SETTLED)
+                in FictionStateRail. Both segments are state nouns (not verbs).
+                Highlighted segment = current state (disabled). Clicking the inactive
+                segment switches via onSetHidden(target) — explicit target, never
+                blind flip. Acts on the LOADED ENTRY identity (entryKind/entrySlug
+                from parent), NOT the mutable `kind` view state.
+                Copy: LC.publish.published ('PUBLISHED') / LC.publish.unpublished ('DRAFT').
+                Resolution: Polaris 2026-06-08 — state-noun segments per .st-switch precedent. */}
+            <div className="ed-lc-toggle-group" role="group" aria-label="Published / draft toggle">
+              {/* Left segment — PUBLISHED state: highlighted+disabled when published; clicking sets draft=false */}
+              <button
+                type="button"
+                className={'ed-lc-toggle' + (!isHidden ? ' is-published' : '')}
+                onClick={() => onSetHidden(false)}
+                disabled={lifecyclePending || !isHidden}
+                title="entry is published and visible on site"
+                aria-pressed={!isHidden}
+                aria-label={LC.publish.published + ': entry is visible on site'}
+              >
+                {LC.publish.published}
+              </button>
+              <span className="ed-lc-sep" aria-hidden>{LC.publish.separator}</span>
+              {/* Right segment — DRAFT state: highlighted+disabled when hidden; clicking sets draft=true */}
+              <button
+                type="button"
+                className={'ed-lc-toggle' + (isHidden ? ' is-published' : '')}
+                onClick={() => onSetHidden(true)}
+                disabled={lifecyclePending || isHidden}
+                title={LC.draft.devNote}
+                aria-pressed={isHidden}
+                aria-label={LC.publish.unpublished + ': entry is draft, hidden from site'}
+              >
+                {LC.publish.unpublished}
+              </button>
+            </div>
+
+            {/* DELETE ENTRY — inline confirm (ImportZone "REPLACE CURRENT CONTENT?" pattern).
+                Precedent: ImportZone.tsx confirming state + ESC dismiss. */}
+            <div className="ed-lc-delete-wrap">
+              {isDeleteConfirming ? (
+                // Confirm row — ESC is handled by useEffect in EntryEditor (closes confirm)
+                <div
+                  className="ed-lc-confirm-row"
+                  role="alertdialog"
+                  aria-label="Confirm delete"
+                  aria-live="assertive"
+                >
+                  <span className="ed-lc-confirm-prompt">{LC.delete.prompt}</span>
+                  <span className="ed-lc-confirm-clause">{LC.delete.clause}</span>
+                  <button
+                    type="button"
+                    className="ed-lc-confirm-action"
+                    onClick={onDeleteConfirm}
+                    disabled={lifecyclePending}
+                    aria-label={LC.delete.action}
+                    // Auto-focus the cancel button (safer default); Confirm requires
+                    // explicit intent. The confirm is the destructive action.
+                  >
+                    {lifecyclePending ? '…' : LC.delete.action}
+                  </button>
+                  <button
+                    type="button"
+                    className="ed-lc-confirm-cancel"
+                    onClick={handleDeleteCancel}
+                    disabled={lifecyclePending}
+                    // eslint-disable-next-line jsx-a11y/no-autofocus
+                    autoFocus
+                    aria-label={LC.delete.cancel}
+                  >
+                    {LC.delete.cancel}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  ref={deleteButtonRef}
+                  type="button"
+                  className="ed-tb-action"
+                  onClick={onDeleteStart}
+                  disabled={lifecyclePending}
+                  title={LC.delete.button}
+                  aria-label={LC.delete.button}
+                >
+                  {LC.delete.button}
+                </button>
+              )}
+            </div>
+          </>
+        )}
+
         {/* Outline toggle — orange-active srctoggle atom */}
         <button
           type="button"
@@ -1190,6 +1555,83 @@ export function EntryEditor({
   const [publishOpen, setPublishOpen] = useState<boolean>(false)
   const [publishPhase, setPublishPhase] = useState<PublishPhase>('review')
 
+  // ── T1 lifecycle state ────────────────────────────────────────────────────
+  //
+  // Identity anchors — immutable from mount. The entry's SEMANTIC identity is
+  // the URL params (initialKind, initialDraft.fileNum), NOT the mutable kind-tab
+  // state. Actions ALWAYS use these anchors; the kind-switcher UI is a VIEW mode.
+  //
+  // entrySlug semantics by kind (matches app/console/editor/page.tsx lookupDraft):
+  //   article → draft.fileNum (zero-padded, e.g. "003")
+  //   fiction → slug used as fileNum stand-in (kebab slug)
+  //   photo   → "roll/id" string used as fileNum stand-in
+  //
+  // hasEntry: false = SAMPLE_DRAFT fallback → controls stay hidden.
+  const entryKind: 'article' | 'photo' | 'fiction' = initialKind ?? 'article'
+  const entrySlug: string | undefined = initialDraft?.fileNum
+  const hasEntry: boolean = initialDraft !== undefined
+
+  // isHidden — current draft visibility. Initialized from the velite field.
+  // Photo: sidecar has its own draft field. Other kinds: Article.draft.
+  // Both are typed as boolean by the velite schema (s.boolean().default(false)).
+  const initialIsHidden: boolean = entryKind === 'photo'
+    ? (initialPhoto?.draft ?? false)
+    : (initialDraft?.draft ?? false)
+  const [isHidden, setIsHidden] = useState<boolean>(initialIsHidden)
+
+  // Delete confirm visibility + error.
+  const [isDeleteConfirming, setIsDeleteConfirming] = useState<boolean>(false)
+  const [lifecycleError, setLifecycleError] = useState<string | null>(null)
+
+  // useTransition — wraps async server action calls. `isPending` keeps the
+  // controls disabled while the action is in-flight. React 19 / Next 16:
+  // startTransition(async () => …) correctly marks the transition pending.
+  const [lifecyclePending, startLifecycleTransition] = useTransition()
+
+  // useRouter — navigate after delete.
+  const router = useRouter()
+
+  // deleteEntry handler — called by CONFIRM DELETE button.
+  const onDeleteConfirm = useCallback(() => {
+    if (!hasEntry || !entrySlug) return
+    setLifecycleError(null)
+    startLifecycleTransition(async () => {
+      const result = await deleteEntry({ kind: entryKind, slug: entrySlug })
+      if (!result.ok) {
+        setLifecycleError(result.error.message)
+        setIsDeleteConfirming(false)
+        return
+      }
+      // SUCCESS — reconstruct the ConsoleApp node id and pass via URL param.
+      // Node id format (app/console/page.tsx):
+      //   article → "article-${fileNum}"
+      //   fiction → "fiction-${slug}"
+      //   photo   → "photo-${roll}-${id}"  (slug = "roll/id", replace '/' → '-')
+      const nodeId = entryKind === 'photo'
+        ? `photo-${entrySlug.replace('/', '-')}`
+        : `${entryKind}-${entrySlug}`
+      router.push(`/console?removed=${encodeURIComponent(nodeId)}`)
+    })
+  }, [hasEntry, entryKind, entrySlug, router, startLifecycleTransition])
+
+  // setEntryDraft handler — called by DRAFT⇄PUBLISH segmented switch.
+  // Receives an explicit target boolean (not a blind flip) — mirrors .st-switch pattern.
+  // target=false → publish; target=true → set to draft (hidden from prod).
+  // Dependency array excludes `isHidden` (the target is passed in, not read from closure).
+  const onSetHidden = useCallback((target: boolean) => {
+    if (!hasEntry || !entrySlug) return
+    setLifecycleError(null)
+    startLifecycleTransition(async () => {
+      const result = await setEntryDraft({ kind: entryKind, slug: entrySlug, draft: target })
+      if (!result.ok) {
+        setLifecycleError(result.error.message)
+        return
+      }
+      // Update ONLY from the action's return value (decoupled — no velite refetch).
+      setIsHidden(result.entry.draft)
+    })
+  }, [hasEntry, entryKind, entrySlug, startLifecycleTransition])
+
   // Mutually-exclusive surfaces: opening one closes the other so their ESC
   // handlers never fight and a slide-panel is never stacked under a full overlay.
   const openFullPreview = useCallback(() => {
@@ -1206,6 +1648,21 @@ export function EntryEditor({
     setView((v) => (v === 'source' ? 'split' : v))
     setPublishOpen(true)
   }, [])
+
+  // ESC keyboard handler — dismiss the delete confirm row when it is open.
+  // Mirrors ImportZone's ESC pattern (window.addEventListener in useEffect).
+  // Also clears any lifecycle error on ESC (secondary clean-up, no UX cost).
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (isDeleteConfirming) {
+        setIsDeleteConfirming(false)
+        setLifecycleError(null)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [isDeleteConfirming])
 
   const twoWork = view === 'split'
 
@@ -1427,6 +1884,16 @@ export function EntryEditor({
           onImport={onImportFile}
           onFullPreview={openFullPreview}
           onPublish={openPublish}
+          // ── T1 lifecycle props ──
+          hasEntry={hasEntry}
+          isHidden={isHidden}
+          lifecyclePending={lifecyclePending}
+          lifecycleError={lifecycleError}
+          isDeleteConfirming={isDeleteConfirming}
+          onDeleteStart={() => { setIsDeleteConfirming(true); setLifecycleError(null) }}
+          onDeleteCancel={() => { setIsDeleteConfirming(false); setLifecycleError(null) }}
+          onDeleteConfirm={onDeleteConfirm}
+          onSetHidden={onSetHidden}
         />
 
         {/* ── Pane grid ── */}

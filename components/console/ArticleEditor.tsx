@@ -55,6 +55,7 @@ export const SAMPLE_DRAFT: Article = {
   placeId:       'kyoto',
   highlightForPlace: false,
   worldline_links: [],
+  draft:         false,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

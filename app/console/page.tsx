@@ -36,9 +36,9 @@
  */
 
 import type { Metadata } from 'next'
-import { getArticles }  from '@/lib/content/articles'
-import { getFiction }   from '@/lib/content/fiction'
-import { getPhotos }    from '@/lib/content/photos'
+import { getAllArticles } from '@/lib/content/articles'
+import { getAllFiction }  from '@/lib/content/fiction'
+import { getPhotos }     from '@/lib/content/photos'
 import { getAllPlaces, getPlaceContent } from '@/lib/content/places'
 import { ConsoleApp }   from '@/components/console/ConsoleApp'
 import type { ConsoleNode, ConsoleEdge, PlaceDTO } from '@/components/console/console-types'
@@ -68,9 +68,11 @@ function gridPosition(index: number): { x: number; y: number } {
 export default async function ConsolePage() {
   // Fetch all three collections from velite (build-time cache, no runtime I/O)
   // Also fetch place content for the PLACES rail block + highlight editor seeding.
+  // Console always sees ALL entries including drafts — authoring view.
+  // getAllArticles / getAllFiction bypass the prod draft-visibility gate.
   const [articles, fictions, photos] = await Promise.all([
-    getArticles(),
-    getFiction(),
+    getAllArticles(),
+    getAllFiction(),
     getPhotos(),
   ])
 
@@ -78,8 +80,9 @@ export default async function ConsolePage() {
   // Uses getPlaceContent per place so the DTO carries split article/photo counts,
   // highlights, and picker lists — getPlacesSummary only carries a combined weight.
   const allPlaces = getAllPlaces()
+  // includeHidden=true: console picker must show all content, incl. drafts.
   const placeContents = await Promise.all(
-    allPlaces.map((p) => getPlaceContent(p.id))
+    allPlaces.map((p) => getPlaceContent(p.id, true))
   )
   const initialPlaces: PlaceDTO[] = placeContents
     .filter((c): c is NonNullable<typeof c> => c !== null)

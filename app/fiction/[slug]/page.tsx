@@ -27,6 +27,7 @@ import type { Metadata } from 'next'
 
 import { FictionEntry } from '@/components/FictionEntry'
 import { getFiction, getFictionBySlug } from '@/lib/content'
+import { isHiddenFromPublic } from '@/lib/content/visibility'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Static generation — pre-render all known fiction slugs at build time.
@@ -48,7 +49,7 @@ export async function generateMetadata({
   const { slug } = await params
   const fiction = await getFictionBySlug(slug)
 
-  if (!fiction) {
+  if (!fiction || isHiddenFromPublic(fiction)) {
     return { title: 'Fiction Not Found · Worldline' }
   }
 
@@ -72,8 +73,8 @@ export default async function FictionPage({
 
   const fiction = await getFictionBySlug(slug)
 
-  // 404 when slug does not resolve.
-  if (!fiction) {
+  // 404 when slug does not resolve OR entry is a draft in production.
+  if (!fiction || isHiddenFromPublic(fiction)) {
     notFound()
   }
 

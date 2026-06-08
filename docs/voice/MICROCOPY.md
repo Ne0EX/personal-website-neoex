@@ -65,4 +65,56 @@ source: docs/design/place-aware-globe-spec.md §5.2–5.4, §4.1 · docs/atlas-c
 
 ---
 
+## atlas-console · editor · lifecycle-controls
+
+added: 2026-06-08 · vega α-VOX-08
+source: docs/atlas-console/EDITOR-LIFECYCLE-GAP-AUDIT-2026-06-08.md §Resolved decisions
+surface: console editor toolbar + delete confirm + entry badge
+register notes: all button / badge / toggle labels = Instrument (t-mono uppercase);
+  explanatory sub-lines = NETRA-adjacent (lowercase mono, no particle);
+  bilingual delete confirm (Thai gut-punch / English clause) is a new pattern
+  on this surface — documented here as precedent for console-only (noindex, Peat-only).
+  escalate to Polaris before extending bilingual to any public-facing surface.
+
+### delete controls
+
+| key | string | register |
+|-----|--------|----------|
+| `lifecycle.delete.button` | `DELETE ENTRY` | Instrument — t-mono 9px uppercase, ink-soft at rest / accent-orange on hover |
+| `lifecycle.delete.confirm.prompt` | `ลบถาวร?` | Instrument — t-mono 11px uppercase, accent-orange |
+| `lifecycle.delete.confirm.clause` | `source removed. recoverable from git.` | NETRA-adjacent — lowercase mono 9px, ink-soft; note: "source" = the .mdx file; image variants are NOT deleted |
+| `lifecycle.delete.confirm.action` | `CONFIRM DELETE` | Instrument — t-mono 9px uppercase, accent-orange filled button |
+| `lifecycle.delete.confirm.cancel` | `CANCEL` | Instrument — t-mono 9px uppercase, ink-soft ghost button (matches existing `editor.action.cancel`) |
+| `lifecycle.delete.confirmed` | `entry removed` | NETRA-adjacent — lowercase mono 9px, ink-soft; shown in-context after redirect/rail-update |
+
+### publish/unpublish toggle
+
+| key | string | register |
+|-----|--------|----------|
+| `lifecycle.publish.toggle.published` | `PUBLISHED` | Instrument — t-mono 9px uppercase; active-side of instrument switch (filled-ink); PUBLISH = visible on the live site |
+| `lifecycle.publish.toggle.unpublished` | `UNPUBLISH` | Instrument — t-mono 9px uppercase; inactive-side label; UNPUBLISH = hide from the live site |
+| `lifecycle.publish.toggle.separator` | `⇄` | glyph; flanked by the two state labels; same instrument-switch atom as FICTION `//STATE` toggle |
+
+note on naming: `PUBLISHED` (past participle, state) / `UNPUBLISH` (verb, action) is an asymmetry
+resolved intentionally — the active state reads as a fact ("PUBLISHED"), the inactive action reads as
+an instruction ("UNPUBLISH"). The mirror form `PUBLISHED ⇄ UNPUBLISHED` is too passive; `PUBLISH ⇄
+UNPUBLISH` reads as two actions with no indication of current state. This asymmetry is the instrument-
+register idiom already present in the console: `SAVE DRAFT` (action) vs `COMMIT` (action) — state-then-
+action is the established pattern.
+
+### draft state badge
+
+| key | string | register |
+|-----|--------|----------|
+| `lifecycle.draft.badge` | `DRAFT · HIDDEN FROM SITE` | Instrument — t-mono 9px uppercase, accent-orange; shown when entry.draft=true |
+| `lifecycle.draft.devNote` | `visible on local preview · hidden in production` | NETRA-adjacent — lowercase mono 9px, ink-faint; tooltip or provenance-line sub-text |
+
+note on DRAFT collision: `DRAFT` appears in two axes on fiction entries — this badge (entry-level
+visibility: entry.draft=true) and the fiction chapter maturity state `DRAFT ⇄ SETTLED`. The
+disambiguator is mandatory: this badge ALWAYS carries `· HIDDEN FROM SITE`; the maturity badge
+NEVER does. Sirius and Betelgeuse must ensure both never appear in identical proximity without
+the qualifier. Flagged to Polaris if spatial separation is insufficient.
+
+---
+
 *vega · α-VOX-08 · 2026-06-08*

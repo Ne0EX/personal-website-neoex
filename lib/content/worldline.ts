@@ -25,6 +25,7 @@
  */
 
 import type { WorldlineLink, WorldlineEdge, WorldlineNeighborhood } from './types'
+import { isHiddenFromPublic } from './visibility'
 
 // ---------------------------------------------------------------------------
 // Lazy corpus load — same pattern as articles.ts / fiction.ts / photos.ts
@@ -86,7 +87,13 @@ async function loadCorpus(): Promise<CorpusEntry[]> {
   const entries: CorpusEntry[] = []
 
   // Articles — keyed "article/<fileNum>"
-  for (const a of cache.articles as Array<{ fileNum: string; title: string; date: string; worldline_links?: WorldlineLink[] }>) {
+  // Filter drafts: a draft article must not appear as a neighbor on any public page.
+  // Dropping it from the corpus kills BOTH directions:
+  //   public A → draft B: outgoing link becomes a broken/omitted ref (already warns)
+  //   draft B → public A: draft's incoming edge is never indexed
+  for (const a of (cache.articles as Array<{ fileNum: string; title: string; date: string; draft?: boolean; worldline_links?: WorldlineLink[] }>).filter(
+    (a) => !isHiddenFromPublic(a),
+  )) {
     entries.push({
       key: `article/${a.fileNum}`,
       kind: 'article',
@@ -98,7 +105,9 @@ async function loadCorpus(): Promise<CorpusEntry[]> {
   }
 
   // Fiction — keyed "fiction/<slug>"
-  for (const f of cache.fiction as Array<{ slug: string; title: string; date: string; worldline_links?: WorldlineLink[] }>) {
+  for (const f of (cache.fiction as Array<{ slug: string; title: string; date: string; draft?: boolean; worldline_links?: WorldlineLink[] }>).filter(
+    (f) => !isHiddenFromPublic(f),
+  )) {
     entries.push({
       key: `fiction/${f.slug}`,
       kind: 'fiction',
@@ -111,7 +120,9 @@ async function loadCorpus(): Promise<CorpusEntry[]> {
 
   // PhotoSidecars — keyed "photos/<roll>/<id>"
   // Photos use id as title (no prose title field) and date from sidecar.
-  for (const s of cache.photoSidecars as Array<{ roll: string; id: string; date: string; caption?: string; worldline_links?: WorldlineLink[] }>) {
+  for (const s of (cache.photoSidecars as Array<{ roll: string; id: string; date: string; caption?: string; draft?: boolean; worldline_links?: WorldlineLink[] }>).filter(
+    (s) => !isHiddenFromPublic(s),
+  )) {
     entries.push({
       key: `photos/${s.roll}/${s.id}`,
       kind: 'photo',

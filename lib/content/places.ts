@@ -45,6 +45,7 @@ import {
   derivePhotoPlaceId,
 } from './place-registry'
 import type { Place } from './place-registry'
+import { isHiddenFromPublic } from './visibility'
 
 export type { Place } from './place-registry'
 
@@ -207,19 +208,31 @@ function assertHighlightConstraints(
 /**
  * All enriched articles with their effective placeId resolved.
  * Internal — used by other functions in this module.
+ *
+ * @param includeHidden - When true, includes draft entries (console/authoring).
+ *   Default false — public surfaces exclude drafts in production.
  */
-async function getAllPlacedArticles(): Promise<PlacedArticle[]> {
+async function getAllPlacedArticles(includeHidden = false): Promise<PlacedArticle[]> {
   const articles = await loadArticles()
-  return articles.map(enrichArticle)
+  const visible = includeHidden
+    ? articles
+    : articles.filter((a) => !isHiddenFromPublic(a))
+  return visible.map(enrichArticle)
 }
 
 /**
  * All enriched sidecars with their effective placeId resolved.
  * Internal — used by other functions in this module.
+ *
+ * @param includeHidden - When true, includes draft entries (console/authoring).
+ *   Default false — public surfaces exclude drafts in production.
  */
-async function getAllPlacedSidecars(): Promise<PlacedSidecar[]> {
+async function getAllPlacedSidecars(includeHidden = false): Promise<PlacedSidecar[]> {
   const sidecars = await loadSidecars()
-  return sidecars.map(enrichSidecar)
+  const visible = includeHidden
+    ? sidecars
+    : sidecars.filter((s) => !isHiddenFromPublic(s))
+  return visible.map(enrichSidecar)
 }
 
 /**
@@ -232,11 +245,14 @@ async function getAllPlacedSidecars(): Promise<PlacedSidecar[]> {
  * ring-2 at ≥3, ring-3 at ≥7 content items).
  *
  * Sorted by weight descending (densest places first — globe ordering by interest).
+ *
+ * @param includeHidden - When true, includes drafts in weight/highlight computation
+ *   (console). Default false (public globe, ring density).
  */
-export async function getPlacesSummary(): Promise<PlaceSummary[]> {
+export async function getPlacesSummary(includeHidden = false): Promise<PlaceSummary[]> {
   const [articles, sidecars] = await Promise.all([
-    getAllPlacedArticles(),
-    getAllPlacedSidecars(),
+    getAllPlacedArticles(includeHidden),
+    getAllPlacedSidecars(includeHidden),
   ])
 
   assertHighlightConstraints(articles, sidecars)
@@ -265,14 +281,18 @@ export async function getPlacesSummary(): Promise<PlaceSummary[]> {
  * Content ordering (spec §14 item 5):
  *   Articles: highlight first, then remaining by isoDate descending.
  *   Sidecars: highlight frames first (by rank ascending), then by isoDate descending.
+ *
+ * @param includeHidden - When true, includes draft entries in the returned lists.
+ *   Pass true from the console/editor so the curation pickers show all content.
+ *   Default false (public globe panel).
  */
-export async function getPlaceContent(placeId: string): Promise<PlaceContent | null> {
+export async function getPlaceContent(placeId: string, includeHidden = false): Promise<PlaceContent | null> {
   const place = getPlaceById(placeId)
   if (!place) return null
 
   const [articles, sidecars] = await Promise.all([
-    getAllPlacedArticles(),
-    getAllPlacedSidecars(),
+    getAllPlacedArticles(includeHidden),
+    getAllPlacedSidecars(includeHidden),
   ])
 
   assertHighlightConstraints(articles, sidecars)
@@ -324,14 +344,15 @@ export async function getPlaceContent(placeId: string): Promise<PlaceContent | n
  * Used by: globe front-door panel (first open, before DIG DEEPER).
  *
  * Returns null when the placeId is not in the registry.
+ * Drafts are excluded (public surface — no includeHidden param here).
  */
 export async function getPlaceHighlights(placeId: string): Promise<PlaceHighlights | null> {
   const place = getPlaceById(placeId)
   if (!place) return null
 
   const [articles, sidecars] = await Promise.all([
-    getAllPlacedArticles(),
-    getAllPlacedSidecars(),
+    getAllPlacedArticles(false),
+    getAllPlacedSidecars(false),
   ])
 
   assertHighlightConstraints(articles, sidecars)
@@ -355,9 +376,12 @@ export async function getPlaceHighlights(placeId: string): Promise<PlaceHighligh
  *
  * Used by: highlight editor article picker (typeahead, filters to this place only).
  * Spec §5.3: "search / select from articles at this place".
+ *
+ * @param includeHidden - When true, includes draft entries (console picker).
+ *   Default false (public surface).
  */
-export async function getArticlesAtPlace(placeId: string): Promise<PlacedArticle[]> {
-  const articles = await getAllPlacedArticles()
+export async function getArticlesAtPlace(placeId: string, includeHidden = false): Promise<PlacedArticle[]> {
+  const articles = await getAllPlacedArticles(includeHidden)
   return articles
     .filter((a) => a.effectivePlaceId === placeId)
     .sort((a, b) => b.isoDate.localeCompare(a.isoDate))
@@ -373,9 +397,12 @@ export async function getArticlesAtPlace(placeId: string): Promise<PlacedArticle
  * PRIVACY NOTE: NOT gated on shareLocation. Roll membership (via roll slug) is
  * public information — roll index pages (/photos/<roll>) are public. GPS coords
  * are a separate concern handled by servedCoords in the velite transform.
+ *
+ * @param includeHidden - When true, includes draft entries (console picker).
+ *   Default false (public surface).
  */
-export async function getSidecarsAtPlace(placeId: string): Promise<PlacedSidecar[]> {
-  const sidecars = await getAllPlacedSidecars()
+export async function getSidecarsAtPlace(placeId: string, includeHidden = false): Promise<PlacedSidecar[]> {
+  const sidecars = await getAllPlacedSidecars(includeHidden)
   return sidecars
     .filter((s) => s.effectivePlaceId === placeId)
     .sort((a, b) => {
@@ -391,6 +418,7 @@ export async function getSidecarsAtPlace(placeId: string): Promise<PlacedSidecar
  *          Globe ring density — weight drives ring-2 (≥3) and ring-3 (≥7) visibility.
  *
  * Returns 0 when the placeId is not in the registry.
+ * Drafts are excluded from the public weight (public surface).
  */
 export async function getPlaceWeight(placeId: string): Promise<number> {
   const [articles, sidecars] = await Promise.all([

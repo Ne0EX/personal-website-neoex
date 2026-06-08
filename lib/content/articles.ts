@@ -4,9 +4,16 @@
  * Article query helpers. Build-time safe — all functions return from the
  * velite cache which is generated at build. No runtime I/O.
  *
+ * Draft visibility (T1 lifecycle — 2026-06-08):
+ *   getArticles() filters drafts in production (public surfaces).
+ *   getAllArticles() returns ALL entries including drafts (console/authoring only).
+ *   getArticleByFileNum() is UNFILTERED — the caller (public page) applies
+ *   isHiddenFromPublic() and calls notFound() when appropriate.
+ *
  * Owner: Procyon (α-IDX-03) · TASK-2026-05-15-22
  */
 import type { Article } from './types'
+import { isHiddenFromPublic } from './visibility'
 
 // Import from the velite-generated cache.
 // '.velite' is created by `npm run content:build` or the webpack plugin.
@@ -22,13 +29,32 @@ async function loadArticles(): Promise<Article[]> {
   return _articles
 }
 
-/** All articles, sorted newest-first by isoDate. */
+/**
+ * Public list: all articles visible on the public site, sorted newest-first.
+ * Drafts are excluded in production; visible in development.
+ * Use getAllArticles() for the console / authoring view.
+ */
 export async function getArticles(): Promise<Article[]> {
+  const articles = await loadArticles()
+  return [...articles]
+    .filter((a) => !isHiddenFromPublic(a))
+    .sort((a, b) => b.isoDate.localeCompare(a.isoDate))
+}
+
+/**
+ * Authoring / console view: ALL articles including drafts, sorted newest-first.
+ * Must NOT be used in public routes — this bypasses the draft visibility gate.
+ */
+export async function getAllArticles(): Promise<Article[]> {
   const articles = await loadArticles()
   return [...articles].sort((a, b) => b.isoDate.localeCompare(a.isoDate))
 }
 
-/** Lookup a single article by its zero-padded fileNum (e.g. "003"). */
+/**
+ * Lookup a single article by its zero-padded fileNum (e.g. "003").
+ * UNFILTERED — the caller must apply isHiddenFromPublic() and call notFound()
+ * when the entry is a draft in production. This allows the editor to load drafts.
+ */
 export async function getArticleByFileNum(fileNum: string): Promise<Article | undefined> {
   const articles = await loadArticles()
   return articles.find((a) => a.fileNum === fileNum)

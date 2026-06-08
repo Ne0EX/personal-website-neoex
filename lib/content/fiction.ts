@@ -10,9 +10,15 @@
  * Branching fields added in TASK-2026-05-17-PROCYON-BRANCHING-SCHEMA per
  * 30-worldline-branching.md §13.1 (schema needs) + §3.1 (data model).
  *
+ * Draft visibility (T1 lifecycle — 2026-06-08):
+ *   getFiction() filters drafts in production (public surfaces).
+ *   getAllFiction() returns ALL entries including drafts (console/authoring only).
+ *   getFictionBySlug() is UNFILTERED — the caller applies isHiddenFromPublic().
+ *
  * Owner: Procyon (α-IDX-03) · TASK-2026-05-15-22 / TASK-2026-05-17-PROCYON-BRANCHING-SCHEMA
  */
 import type { Fiction } from './types'
+import { isHiddenFromPublic } from './visibility'
 
 /** Site canonical alpha value. Used for drift computation fallback. */
 const SITE_ALPHA = 1.130426
@@ -26,13 +32,32 @@ async function loadFiction(): Promise<Fiction[]> {
   return _fiction
 }
 
-/** All fiction entries, sorted newest-first. */
+/**
+ * Public list: all fiction entries visible on the public site, sorted newest-first.
+ * Drafts are excluded in production; visible in development.
+ * Use getAllFiction() for the console / authoring view.
+ */
 export async function getFiction(): Promise<Fiction[]> {
+  const fiction = await loadFiction()
+  return [...fiction]
+    .filter((f) => !isHiddenFromPublic(f))
+    .sort((a, b) => b.isoDate.localeCompare(a.isoDate))
+}
+
+/**
+ * Authoring / console view: ALL fiction entries including drafts, sorted newest-first.
+ * Must NOT be used in public routes — bypasses the draft visibility gate.
+ */
+export async function getAllFiction(): Promise<Fiction[]> {
   const fiction = await loadFiction()
   return [...fiction].sort((a, b) => b.isoDate.localeCompare(a.isoDate))
 }
 
-/** Lookup a single fiction entry by slug. */
+/**
+ * Lookup a single fiction entry by slug.
+ * UNFILTERED — the caller must apply isHiddenFromPublic() and call notFound()
+ * when the entry is a draft in production. Allows editor to load drafts.
+ */
 export async function getFictionBySlug(slug: string): Promise<Fiction | undefined> {
   const fiction = await loadFiction()
   return fiction.find((f) => f.slug === slug)
@@ -63,7 +88,8 @@ export async function getFictionBySlug(slug: string): Promise<Fiction | undefine
  * @returns Array of 0–2 Fiction records in ascending divergence-distance order.
  */
 export async function getFictionSiblings(slug: string): Promise<Fiction[]> {
-  const all = await loadFiction()
+  // Use the public-filtered list: draft siblings must not surface on public pages.
+  const all = await getFiction()
   const self = all.find((f) => f.slug === slug)
   if (!self || !self.divergence_cluster) return []
 

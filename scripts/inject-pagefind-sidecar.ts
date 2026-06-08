@@ -89,6 +89,8 @@ interface ArticleRecord {
   status: string
   summary: string
   shareLocation: boolean
+  /** Draft flag — hidden from public pagefind index in production. Default false. */
+  draft?: boolean
   coords?: { lat: number; lon: number; place: string }
   patches?: Array<{ n: number; date: string; note: string }>
 }
@@ -101,6 +103,8 @@ interface FictionRecord {
   domain: string
   tags: string[]
   summary: string
+  /** Draft flag — hidden from public pagefind index in production. Default false. */
+  draft?: boolean
 }
 
 interface PhotoRecord {
@@ -120,6 +124,8 @@ interface PhotoSidecarRecord {
   date: string
   isoDate: string
   shareLocation: boolean
+  /** Draft flag — hidden from public pagefind index in production. Default false. */
+  draft?: boolean
   coords?: { lat: number; lon: number; place: string }
 }
 
@@ -366,10 +372,25 @@ async function main(): Promise<void> {
     fs.readFile(path.join(VELITE_DIR, 'photoSidecars.json'), 'utf-8'),
   ])
 
-  const articles: ArticleRecord[]         = JSON.parse(articlesRaw)
-  const fictions: FictionRecord[]         = JSON.parse(fictionRaw)
-  const _photos: PhotoRecord[]            = JSON.parse(photosRaw)
-  const photoSidecars: PhotoSidecarRecord[] = JSON.parse(sidecarRaw)
+  // Parse and filter drafts before indexing.
+  // This script always runs as a production pipeline step (`next build` then pagefind).
+  // Drafts must not appear in the public search index.
+  const _allArticles: ArticleRecord[]         = JSON.parse(articlesRaw)
+  const _allFictions: FictionRecord[]         = JSON.parse(fictionRaw)
+  const _photos: PhotoRecord[]                = JSON.parse(photosRaw)
+  const _allSidecars: PhotoSidecarRecord[]    = JSON.parse(sidecarRaw)
+
+  const articles: ArticleRecord[]          = _allArticles.filter((a) => !a.draft)
+  const fictions: FictionRecord[]          = _allFictions.filter((f) => !f.draft)
+  const photoSidecars: PhotoSidecarRecord[] = _allSidecars.filter((s) => !s.draft)
+
+  const draftCount =
+    (_allArticles.length - articles.length) +
+    (_allFictions.length - fictions.length) +
+    (_allSidecars.length - photoSidecars.length)
+  if (draftCount > 0) {
+    log(`filtered ${draftCount} draft entries from pagefind index`)
+  }
 
   // Build lookup maps
   const articleByFileNum = new Map(articles.map(a => [a.fileNum, a]))

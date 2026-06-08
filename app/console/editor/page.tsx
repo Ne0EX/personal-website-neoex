@@ -98,6 +98,7 @@ async function lookupDraft(
       patches:        undefined,        // FIELD-GAP: fiction has no patches log
       worldline_links: entry.worldline_links ?? [],
       highlightForPlace: false,         // FIELD-GAP: fiction has no place highlight
+      draft:          entry.draft ?? false,
     }
   }
 
@@ -124,6 +125,7 @@ async function lookupDraft(
       patches:        undefined,          // FIELD-GAP: Photo has no patches log
       worldline_links: [],                // FIELD-GAP: roll-level Photo has no worldline_links
       highlightForPlace: false,           // FIELD-GAP: Photo (roll) has no place highlight
+      draft:          false,              // Photo (roll-level) has no draft field; default false
     }
   }
 

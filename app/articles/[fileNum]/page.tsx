@@ -27,6 +27,7 @@ import type { Metadata } from 'next'
 
 import { ArticleEntry } from '@/components/ArticleEntry'
 import { getArticles, getArticleByFileNum } from '@/lib/content'
+import { isHiddenFromPublic } from '@/lib/content/visibility'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Static generation — pre-render all known article fileNums at build time.
@@ -48,7 +49,7 @@ export async function generateMetadata({
   const { fileNum } = await params
   const article = await getArticleByFileNum(fileNum)
 
-  if (!article) {
+  if (!article || isHiddenFromPublic(article)) {
     return { title: 'Article Not Found · Worldline' }
   }
 
@@ -72,8 +73,8 @@ export default async function ArticlePage({
 
   const article = await getArticleByFileNum(fileNum)
 
-  // 404 when fileNum does not resolve.
-  if (!article) {
+  // 404 when fileNum does not resolve OR entry is a draft in production.
+  if (!article || isHiddenFromPublic(article)) {
     notFound()
   }
 
