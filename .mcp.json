@@ -10,6 +10,14 @@
         "--allowed-origins",
         "http://localhost:*;https://localhost:*;https://api.anthropic.com"
       ]
+    },
+    "codegraph": {
+      "type": "stdio",
+      "command": "codegraph",
+      "args": [
+        "serve",
+        "--mcp"
+      ]
     }
   }
 }
