@@ -71,8 +71,13 @@ matches_applies_to() {
 # Iterate every rail's check script and run it.
 # Each check script returns 0 (pass) / 1 (fail) and prints a one-line summary to stdout.
 # A1.3: a skip on an APPLICABLE rail = FAIL (not silent pass).
+# applies_to scoping applies to executable rails too; absence of --changed-files = everything applicable.
 while IFS=$'\t' read -r rail check; do
   if [[ -x "$check" ]]; then
+    if ! matches_applies_to "$rail"; then
+      echo "  [skip] $rail :: not applicable to changed files" | tee -a "$LOG"
+      continue
+    fi
     if output=$("$check" 2>&1); then
       echo "  [pass] $rail :: $output" | tee -a "$LOG"
     else
