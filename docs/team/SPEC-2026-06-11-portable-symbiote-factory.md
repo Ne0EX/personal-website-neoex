@@ -288,18 +288,18 @@ These never bond. The factory carries **structure**, not soul.
 
 ## 8. Open decisions for Peat (one narrow question at a time)
 
-These are real forks, not a proposal wall. **Decide one at a time, in any order** — each has a
-stated default that holds if Peat says nothing. Polaris will not preview the next question while
-one is open.
+These are real forks, not a proposal wall. The full agenda is enumerated openly here — Peat's
+standing instruction (2026-06-11): always state clearly what ALL the open decisions are. We go
+DEEP on one at a time, in any order — each has a stated default that holds if Peat says nothing.
 
-**Q1 — Where does the canonical kit live when first carved (M1)?**
-Its own standalone git repo (a cleaner mothership, avoids dragging Worldline history) or a subtree
-on `genesis/soul-factory` inside this repo (keeps it under the existing harness + CI that already
-gates compound writes)? This is the same keystone unresolved for the foundation redesign
-(share-substrate vs standalone), and only Peat decides where the canonical engine lives.
-*Default if unsaid:* subtree on `genesis/soul-factory` for M1–M6 (reuses the existing harness/CI
-gate the design already relies on); split to a standalone mothership repo only at the first
-SECOND-host bond, when forking pressure becomes real.
+**Q1 — Where does the canonical kit live when first carved (M1)? — DECIDED (Peat, 2026-06-11)**
+The mothership lives **inside this repo** (subtree on the `genesis/*` lineage, under the existing
+harness + CI that gate compound writes) and is **never merged into `main`** — `main` stays clean
+for deploy, per the standing main-is-web-only policy. Recorded from Peat's own words, not a
+default that lapsed. (This was the same keystone shape as the foundation-redesign substrate
+question — this decision may inform that one but does NOT decide it.)
+*Residual sub-clause still open under default:* whether to split to a standalone mothership repo
+at the first SECOND-host bond, when forking pressure becomes real — revisit when a second host is.
 
 **Q2 — For M1, externalize all engine sensor target-data to host-facts now, or vendor as-is and
 re-derive lazily per host?** `mutating-action.ts` already reads its data from JSON, but `tokens.ts`
