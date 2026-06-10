@@ -288,45 +288,43 @@ These never bond. The factory carries **structure**, not soul.
 
 ## 8. Open decisions for Peat (one narrow question at a time)
 
-These are real forks, not a proposal wall. The full agenda is enumerated openly here — Peat's
-standing instruction (2026-06-11): always state clearly what ALL the open decisions are. We go
-DEEP on one at a time, in any order — each has a stated default that holds if Peat says nothing.
+These were real forks, not a proposal wall. The full agenda is enumerated openly — Peat's
+standing instruction (2026-06-11): always state clearly what ALL the open decisions are.
+**All four are now DECIDED (Peat, 2026-06-11).** The original questions are kept below for
+provenance, with his ruling recorded on each.
 
-**Q1 — Where does the canonical kit live when first carved (M1)? — DECIDED (Peat, 2026-06-11)**
-The mothership lives **inside this repo** (subtree on the `genesis/*` lineage, under the existing
-harness + CI that gate compound writes) and is **never merged into `main`** — `main` stays clean
-for deploy, per the standing main-is-web-only policy. Recorded from Peat's own words, not a
-default that lapsed. (This was the same keystone shape as the foundation-redesign substrate
-question — this decision may inform that one but does NOT decide it.)
-*Residual sub-clause still open under default:* whether to split to a standalone mothership repo
-at the first SECOND-host bond, when forking pressure becomes real — revisit when a second host is.
+**Q1 — Where does the canonical kit live when first carved (M1)? — DECIDED, then REVISED by Peat
+(both 2026-06-11)**
+First ruling: inside this repo, never merged into `main`. **Revised by Peat the same day,
+alongside Q3: the kit splits into its own standalone repo — `symbiote` ("portable trust-machine
+for making your project harness")** — his emphasis verbatim: "ผมย้ำเลย ควรเปิด repo แยกอย่างยิ่ง".
+The M1 carve therefore targets the new repo; this repo remains the FIRST HOST (and the factory's
+birthplace), and `main` here stays web-only regardless. *(Implication for §3 COMPOUND + §7: the
+`symbiote` repo needs its own harness + CI gate for compound writes — it no longer leans on
+`genesis/soul-factory`'s. Repo not yet created as of this record.)*
 
 **Q2 — For M1, externalize all engine sensor target-data to host-facts now, or vendor as-is and
-re-derive lazily per host?** `mutating-action.ts` already reads its data from JSON, but `tokens.ts`
-hardcodes `TOKEN_FILE='app/globals.css'` (C11, verified). A full up-front generalization is clean
-but is real surgery on the verbatim-ported half; lazy per-host re-derivation keeps M1 a copy and
-matches the "rails re-derived per host" theory but leaves hardcoded defaults in the engine. Only
-Peat decides which strategy the factory follows.
-*Default if unsaid:* vendor as-is and re-derive lazily — keep M1 a faithful copy of the proven
-engine; treat target-data externalization as a per-host emit step (consistent with Venom). Flag
-each hardcoded path in the capability-report so it is never a silent cap.
+re-derive lazily per host? — DECIDED (Peat, 2026-06-11): GENERALIZE now.** `mutating-action.ts`
+already reads its data from JSON, but `tokens.ts` hardcodes `TOKEN_FILE='app/globals.css'` (C11,
+verified). M1 performs the engine surgery up front: every sensor reads its target-data from
+host-facts; no hardcoded host defaults ship in the engine. *(Implication for §7: M1 = carve +
+generalize, heavier than the vendored alternative; the vendor-as-is default is superseded.)*
 
 **Q3 — Build the optional `symbiote install <host>` CLI wrapper in M5, or defer until a real second
-host exists?** The judges split: a one-command bond is cleaner operator UX, but a CLI is new code
-with no prior-art run, and `bond.sh <host>` is functionally equivalent. The design treats the CLI
-as optional UX, not a dependency. Only Peat decides whether the wrapper is built in M5 or deferred.
-*Default if unsaid:* defer — ship `bond.sh` as the bonding surface for M1–M6; add the thin wrapper
-only at the first real second-host bond. Avoids speculative machinery in the one-session build.
+host exists? — DECIDED (Peat, 2026-06-11): BUILD it, definitely.** The CLI ships from the
+standalone `symbiote` repo (see Q1 revision) as the operator surface; `bond.sh` remains the inner
+mechanism the CLI drives. The defer-default is superseded.
 
 **Q4 — On a git-no-CI host, is local-detective-only an acceptable terminal trust state, or must the
-factory REFUSE to bond past comprehension until CI exists?** Allowing the bond gives the host
-sensors + guardrails + honest-partition but no forge-resistant anchor (the witness substrate is
-absent, root is self-attested + forgeable by the same agent). Refusing forces CI first. Only Peat
-decides whether the factory accepts or refuses this degraded-root state as terminal.
-*Default if unsaid:* allow the bond with the trust claim explicitly downgraded to
-local-detective-only in the blindness ceiling, and surface "add CI → re-run Stage 7" as the
-upgrade path. Refusing would discard genuine value over a property the ceiling already declares
-missing.
+factory REFUSE to bond past comprehension until CI exists? — DECIDED (Peat, 2026-06-11): neither
+silent-degrade nor refuse — OFFER.** On EVERY install into a project/directory, the bond
+interactively proposes CI to the host owner — do you want CI, and which kind — asked at install
+time, set up for them on accept. Accept → CI exists → Stage 7 forge-resistant trust-root becomes
+available. Decline → a recorded informed choice; the bond proceeds with the blindness ceiling
+explicitly downgraded to local-detective-only and "add CI → re-run Stage 7" surfaced as the
+upgrade path. This is the informed-consent doctrine applied at the seam: the machine must be
+HEARD (the offer), never OBEYED-forced. *(Implication for §3: the bonding protocol gains an
+interactive CI-offer step with an OWNER-SEAM gate.)*
 
 ---
 
