@@ -131,6 +131,34 @@ Sequential work is a smell. If a task seems sequential, Polaris re-decomposes it
 
 ---
 
+## Model tiering — dispatch authority
+
+> Codified Phase T (TASK-2026-06-10-SOUL-FACTORY-T) · the orchestrator reads tiers from each persona's frontmatter (`tiering:` + `work_types:`); this table is the consolidated human-readable view. The per-task dispatch tier is a property of the *work class*, not the agent.
+
+Default tier is **opus** for Polaris (always — orchestration and identity never downgrade for substantive judgment) and **sonnet** for all other eight. Per-task escalation to opus is governed below.
+
+| Agent | Designation | Default | Escalation gate | Escalate to opus when | Haiku-safe classes |
+|----------------|-------------|---------|-----------------|-----------------------------------------------------------------|---------------------------------------------------|
+| **Polaris**    | α-OPS-00    | Opus    | n/a (always opus) | always — never downgrades | none |
+| **Sirius**     | α-SUR-01    | Sonnet  | Polaris | WebGL/3D choreography · multi-component SSR state · animation↔audio/input interlock · perf-critical render path | prop-rename sweep · className token-swap sweep |
+| **Altair**     | α-BND-02    | Sonnet  | **Peat** | (no Polaris-escalatable class; deeper reasoning needs Peat handoff) | contract-block format sweep · error-shape conformance sweep |
+| **Procyon**    | α-IDX-03    | Sonnet  | **Peat** | (no Polaris-escalatable class; deeper reasoning needs Peat handoff) | frontmatter-validation sweep · GPS-strip verification sweep · MDX-frontmatter migration sweep |
+| **Betelgeuse** | α-VIS-04    | Sonnet  | Polaris | new visual language from scratch · motion/3D system spec · palette/token overhaul · anti-Codex large-surface review | token-reference audit sweep · raw-hex grep review |
+| **Arcturus**   | α-NET-05    | Sonnet  | Polaris | NETRA system-prompt architecture · refusal-taxonomy revision · multi-tool agent design · eval-suite *design* | eval-suite *run* · refusal-case tag sweep |
+| **Algol**      | α-VER-06    | Sonnet  | **Peat** | (no Polaris-escalatable class; deeper reasoning needs Peat handoff) | audit-checklist rerun sweep · signature field-presence sweep · a11y-floor batch check |
+| **Canopus**    | α-HRN-07    | Sonnet  | **Peat** | (no Polaris-escalatable class; deeper reasoning needs Peat handoff) | rail-doc sync sweep · hook-log format sweep |
+| **Vega**       | α-VOX-08    | Sonnet  | Polaris | long-form article/fiction body · voice-register definition/revision · full-length NETRA prompt prose · multi-surface microcopy harmonization | microcopy-registry format sweep (prose rarely downgrades) |
+
+### Governance rules
+
+1. **Tier authority is Polaris-only.** Polaris dispatches every agent at its default and decides per-task escalation. She holds direct opus-escalation authority for the four escalatable agents (Sirius, Betelgeuse, Arcturus, Vega). For the four Peat-gated agents (Algol, Altair, Procyon, Canopus) she does **not** hold escalation authority — a per-task opus lift for any of them requires a Peat escalation handoff first.
+
+2. **Agents never self-claim opus.** Even when Peat authorizes a higher tier mid-conversation, the addressed agent acknowledges only; Polaris logs the authorization and re-dispatches at the granted tier. Self-elevation is drift.
+
+3. **Every opus override is logged.** When Polaris dispatches any agent above its default, the task handoff records `model · opus` plus one sentence stating why the work class warranted it. An unlogged escalation is treated as a process violation.
+
+---
+
 ## Communication protocol
 
 ### 1. Inbound directive (Peat → Polaris)
