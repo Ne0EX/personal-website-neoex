@@ -227,6 +227,20 @@ if [[ "$TOOL_NAME" == "Bash" ]]; then
     | sed -E 's/([&]>\/dev\/(null|stdout|stderr))([ \t;|&){}]|$)/\3/g' \
     | sed -E 's/([0-9]?>\/dev\/(null|stdout|stderr))([ \t;|&){}]|$)/\3/g')"
 
+  # FP-2 ROOT-CAUSE: quoted > inside echo/printf arguments is NOT a redirect.
+  # `echo "a -> b"` and `echo 'x > y'` were blocked because CMD_NOREDIR still
+  # contains the quoted span and ` > y` looks like a spaced single-redirect.
+  # FIX: build CMD_REDIRCHECK by additionally stripping double- and single-quoted
+  # spans from CMD_NOREDIR. Used ONLY for single-`>` redirect detection (Pass A and
+  # Pass B below); the `>>` patterns still run against CMD_NOREDIR because the `>>`
+  # operator in `cat k >> "/tmp/evil"` is OUTSIDE the quoted filename span — stripping
+  # `"/tmp/evil"` leaves `cat k >> ` which still has `>>` and is correctly blocked.
+  # MUST-STILL-BLOCK: `echo secret > .env` — the `>` is outside all quotes so
+  # CMD_REDIRCHECK still contains ` > .env` and the redirect pattern fires.
+  CMD_REDIRCHECK="$(printf '%s' "$CMD_NOREDIR" \
+    | sed -E 's/"[^"]*"//g' \
+    | sed -E "s/'[^']*'//g")"
+
   # ---- PHASE 1: Hard structural denies (no allowlist bypass) ----
   # These patterns catch danger regardless of what the "main" command is.
   # A grep allowlist cannot save `echo x >> secrets.txt`.
@@ -298,13 +312,23 @@ if [[ "$TOOL_NAME" == "Bash" ]]; then
   # Uses two passes for clarity:
   #   Pass A: spaced — " > filename"
   #   Pass B: no-space — ">filename" (> immediately followed by [A-Za-z0-9_.~/@'"-])
-  if echo "$CMD_NOREDIR" | grep -qE ' >\s+[A-Za-z0-9_.~/@-]+'; then
+  #
+  # FP-2 ROOT-CAUSE: these checks run against CMD_REDIRCHECK (quoted spans stripped),
+  # NOT CMD_NOREDIR, so that `echo 'x > y'` and `printf '%s\n' 'col1 > col2'` do not
+  # trigger the redirect deny. The `>` inside a quoted string is not a redirect operator.
+  # MUST-STILL-BLOCK: `echo secret > .env` — the `>` is outside quotes so
+  # CMD_REDIRCHECK retains ` > .env` and the pattern fires. Pass B ">filename" also
+  # catches `echo x >file` (no-space form, > outside quotes).
+  # The `>>` patterns above run against CMD_NOREDIR (not CMD_REDIRCHECK) because
+  # `cat k >> "/tmp/evil"` has the `>>` OPERATOR outside quotes; after quote-stripping
+  # the filename, `>>` remains and correctly blocks. Do not move `>>` to CMD_REDIRCHECK.
+  if echo "$CMD_REDIRCHECK" | grep -qE ' >\s+[A-Za-z0-9_.~/@-]+'; then
     block "output-redirection '>' detected — write by redirection is not permitted." "$CMD"
   fi
-  if echo "$CMD_NOREDIR" | grep -qE '>[A-Za-z0-9_.~/@"'"'"'-]'; then
+  if echo "$CMD_REDIRCHECK" | grep -qE '>[A-Za-z0-9_.~/@"'"'"'-]'; then
     block "output-redirection '>' (no-space form) detected — write by redirection is not permitted." "$CMD"
   fi
-  if echo "$CMD_NOREDIR" | grep -qE ">\|\s*\S"; then
+  if echo "$CMD_REDIRCHECK" | grep -qE ">\|\s*\S"; then
     block "output-redirect with pipe '>' detected." "$CMD"
   fi
   # Malformed fd-dup tail: >&N followed by non-separator characters (e.g. 2>&1x).
@@ -360,8 +384,19 @@ if [[ "$TOOL_NAME" == "Bash" ]]; then
   if echo "$CMD" | grep -qiE '\b(bash|sh)\s+-[a-z]*c\s'; then
     block "shell injection pattern 'bash/sh -c' detected." "$CMD"
   fi
+  # FP-3 TENSION NOTE (Phase-0 slice 0.2 investigation): `python3 -c` was listed as a
+  # false-positive candidate because audit scripts in this repo used it. Investigation
+  # shows the real-world read-only python3 uses are already allowlisted:
+  #   - `python3 -m json.tool` (Phase 3 allowlist: ^python3 -m )
+  #   - `python3 scripts/...`  (Phase 3 allowlist: ^python3 scripts/)
+  # The only path that reaches this block is `python3 -c <inline-code>`, which is
+  # genuine arbitrary-code execution and an RCE surface (equivalent to bash -c).
+  # RESOLUTION: block stays as-is (fail-closed default). No weakening without
+  # Peat-seam sign-off. The FP is already mitigated by the allowlist paths above;
+  # any new audit script that previously used python3 -c should be rewritten as
+  # `python3 scripts/<name>.py` to stay allowlisted.
   if echo "$CMD" | grep -qiE '\bpython3?\s+-c\b'; then
-    block "shell injection pattern 'python3 -c' detected." "$CMD"
+    block "shell injection pattern 'python3 -c' detected — inline code execution is not permitted. Use python3 scripts/<name>.py instead." "$CMD"
   fi
   if echo "$CMD" | grep -qiE '\bnode\s+-e\b'; then
     block "shell injection pattern 'node -e' detected." "$CMD"

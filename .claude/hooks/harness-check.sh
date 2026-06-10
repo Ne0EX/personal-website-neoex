@@ -16,6 +16,14 @@ CONFIG=".harness/worldline-harness.config.json"
 LOG_DIR=".claude/hook-logs"
 mkdir -p "$LOG_DIR"
 TASK_ID="${WL_TASK_ID:-adhoc-$(date +%s)}"
+# Export the resolved TASK_ID so child check-scripts that read $WL_TASK_ID or fall
+# back to it (e.g. audit-ground-truth-observed.sh) see a populated value.
+# Without this export, scripts requiring a task_id exit 5 (usage error) producing
+# an artificial FAIL on every run — not a real rail failure.
+# NOTE: positional args are NOT passed to check scripts (output=$("$check" 2>&1))
+# because several rails interpret $1 as something else (TODAY date, --verbose flag,
+# PAGE_URL) and would silently mis-behave. env export is the correct approach.
+export WL_TASK_ID="${TASK_ID}"
 LOG="$LOG_DIR/${TASK_ID}--harness.log"
 
 CHANGED_FILES_ARG=""

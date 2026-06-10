@@ -590,6 +590,54 @@ The `DELETED` sentinel marks a file that was absent from the working tree at bas
 
 ---
 
+## Rail: auto-baseline (Phase 0 · slice 0.1)
+
+**Hook:** `.claude/hooks/auto-baseline.sh`
+**Trigger:** PostToolUse(Write|Edit|MultiEdit) — fires on every file write or edit
+**Wiring:** registered in `.claude/settings.json` PostToolUse · matcher: Write|Edit|MultiEdit (wired separately by Canopus — NOT by this script)
+**Implemented:** 2026-06-10 · slice 0.1 · Canopus
+**Root cause addressed:** agents that skip manual `pre-task.sh <task_id>` never write the baseline file; `sign-work.sh` hits the no-baseline fallback and attributes the full `git diff HEAD` + all untracked files as `files_touched` (observed 437 carry-over files in one incident).
+
+### What it does
+
+Automatically captures the dirty-file baseline at `.claude/hook-logs/<task_id>--baseline.json` on the **first edit** of a task session, using the exact same jq pipeline as `pre-task.sh` lines 71–113. The schema is byte-identical: `sign-work.sh` reads `.files` as a `path→sha256` map, so any schema drift would silently break carry-over filtering.
+
+Three guarantees enforced unconditionally:
+
+| Guarantee | Mechanism |
+|-----------|-----------|
+| **No-op in casual sessions** | If `TASK_ID` (`WL_TASK_ID` or `CLAUDE_TASK_ID`) is empty, exits 0 immediately and writes nothing |
+| **Idempotent** | If `.claude/hook-logs/<task_id>--baseline.json` already exists — whether written by `pre-task.sh` or a prior auto-capture — exits 0 immediately and never overwrites |
+| **Fail-open** | Every fallible op uses `|| true`; a baseline-capture failure never aborts the edit chain (uses `set -uo pipefail`, NOT `-e`) |
+
+### Relationship to pre-task.sh
+
+`pre-task.sh` remains the canonical pre-flight check. When an agent runs it before the first edit, the baseline exists before this hook fires and the idempotency guard keeps the auto-capture from touching it. When an agent skips `pre-task.sh`, this hook fills the gap on the first `Write|Edit|MultiEdit` call — keeping carry-over filtering intact without any manual intervention.
+
+### What gets captured
+
+Identical to `pre-task.sh`:
+- **Tracked dirty files** (`git diff --name-only --diff-filter=AMD HEAD`) — sha256 hash of each existing file; `"DELETED"` sentinel for absent files.
+- **Untracked files** (`git ls-files --others --exclude-standard`) — sha256 hash of each.
+- Merged into `{recorded_at, task_id, agent, files: (tracked + untracked)}`.
+
+### Log
+
+`.claude/hook-logs/<task_id>--auto-baseline.log` — one line per successful or failed capture, recording task_id, agent, file count, and output path.
+
+### How to fix a failure
+
+The hook never blocks. If the baseline file is absent after edits:
+1. Check `.claude/hook-logs/<task_id>--auto-baseline.log` — if a jq error appears, `jq` may not be installed in the hook's execution path.
+2. If the session has no `TASK_ID` in environment, this is expected — casual sessions produce no baseline by design.
+3. Fall back: run `bash .claude/hooks/pre-task.sh <task_id> <agent>` manually before running `sign-work.sh`.
+
+### Non-blocking by design
+
+`set -uo pipefail` without `-e` means a failed sub-command does not abort the script. The idempotency check and the empty-TASK_ID no-op are unconditional. Everything else is wrapped in `|| true`.
+
+---
+
 ## Rail: beta-read-gate (C1)
 
 **Hook:** `.claude/hooks/read-gate-beta.sh`
@@ -2520,6 +2568,111 @@ Options:
    ledger hook fires and records the new hash. The new ledger entry becomes the
    latest reference.
 
+---
+
+## Rail: stale-handoffs (Phase 0 · slice 0.5)
+
+**Check:** `scripts/audit-stale-handoffs.sh`
+**Applies to:** `.claude/signatures/**`
+**Status:** WARN-mode (exits 0 on findings; see Flip-to-Fail condition)
+**Introduced:** 2026-06-10 · Phase 0 / slice 0.5 · Canopus
+**Regression test:** `tests/harness/audit-stale-handoffs.test.sh`
+
+### What it checks
+
+For each signature in `.claude/signatures/*.json`, the script inspects the
+`next_recipient.agent` field. If the named agent has no evidence of pickup
+for that `task_id`, the baton is flagged as **STALE** (dropped handoff).
+
+**Pickup evidence** (any one is sufficient):
+- A signature file `<task_id>--<next_agent_lowercase>.json` exists in `.claude/signatures/`
+- Any signature in `.claude/signatures/` has matching `.task_id` **and** `.agent` equals the named recipient
+
+**Special cases:**
+| Condition | Treatment |
+|-----------|-----------|
+| `next_recipient.agent == "Polaris"` | **Non-stale by assumption.** Polaris is the default terminal recipient; closing the loop via STATUS.md or prose rather than a new per-task signature is normal workflow. This assumption is conserved until the producer ledger is seeded with Polaris closure evidence. |
+| `next_recipient` name not in roster | **UNKNOWN_RECIPIENT** (distinct from STALE). Reported as a separate finding. |
+| Malformed / non-parseable JSON | **PARSE_ISSUE** reported; not silently skipped. |
+
+### RESULT line format
+
+Each finding is a single structured line:
+
+```
+RESULT status=STALE task_id=<T> from_agent=<A> next_recipient=<R> reason=<...>
+RESULT status=UNKNOWN_RECIPIENT task_id=<T> from_agent=<A> next_recipient=<R> reason=<...>
+RESULT status=PARSE_ISSUE file=<f> reason=<...>
+```
+
+### Current posture: WARN-mode
+
+The script exits **0** even when STALE findings exist. This is intentional. A
+STALE baton is not always a quality violation — there may be legitimate
+in-progress tasks or Polaris closures not yet reflected in signatures. The
+WARN-mode lets the pattern accumulate (visible in `harness-check.sh` output and
+hook logs) without blocking agent work.
+
+### Flip-to-Fail condition
+
+Promote to **exit 1 (BLOCK)** once:
+
+1. The producer ledger is seeded and pickup can be determined authoritatively
+   (i.e., Polaris's task-closure pattern is captured in signatures or an
+   alternative pickup signal), **and**
+2. A baseline pass confirms zero legitimate-but-unmatched batons.
+
+To flip: open `scripts/audit-stale-handoffs.sh` and change `WARN_MODE=1` to
+`WARN_MODE=0`. A single-flag change, no other edits needed.
+
+### Wiring proposal (for Peat)
+
+Add to `.harness/worldline-harness.config.json`:
+
+```json
+"stale-handoffs": {
+  "description": "signature next_recipient baton was never picked up — dropped handoff",
+  "check": "scripts/audit-stale-handoffs.sh",
+  "applies_to": [".claude/signatures/**"]
+}
+```
+
+Wire this rail **after** the flip-to-fail conditions (above) are met. Until then,
+run it manually as a standalone audit:
+
+```bash
+bash scripts/audit-stale-handoffs.sh
+```
+
+### How to fix a STALE finding
+
+1. The STALE line names `task_id`, `from_agent`, and `next_recipient`.
+2. If the handoff was genuinely dropped: open a new handoff to `next_recipient`
+   with the original task context and re-initiate the work.
+3. If the recipient already completed the work under a different task_id or via an
+   undocumented channel: create a brief acknowledgment signature for the original
+   task_id so the audit can detect the pickup.
+4. If the STALE is a false positive (e.g., the task was cancelled): document the
+   cancellation in STATUS.md and note it when proposing the flip-to-fail baseline.
+
+### Scope guards
+
+- `.claude/beta/**` is never read, scanned, or touched (same guard as all audit rails).
+- The script is read-only: no writes, no destructive operations.
+
+### Regression test
+
+`tests/harness/audit-stale-handoffs.test.sh` — 7 scenarios:
+1. STALE fixture (T1): no pickup sig → STALE reported, exit 0
+2. PICKED-UP fixture (T2): pickup sig present → NOT stale, exit 0
+3. POLARIS-TERMINAL (T3): next=Polaris → NOT stale (assumption honored), exit 0
+4. UNKNOWN_RECIPIENT (T4): next=Nemesis → UNKNOWN_RECIPIENT (not STALE), exit 0
+5. MALFORMED: non-JSON `.json` → PARSE_ISSUE reported (non-silent), exit 0
+6. FLIP-TO-FAIL: script source contains the flip-to-fail documentation
+7. MUTATION GUARD: the stale/not-stale pair proves pickup logic is load-bearing
+
+Run: `bash tests/harness/audit-stale-handoffs.test.sh`
+
 ### How to fix an UNEXPLAINED fail
 
 The audit emits:
@@ -2557,6 +2710,192 @@ treat exit 5 as a blocking failure until the baseline is seeded.
 | `WL_MEMORY_MD` | Override MEMORY.md path |
 
 All test fixtures use TEMP COPIES per POLICY-NO-INPLACE-MUTATION.
+
+---
+
+## Rail: factory-collector-producer (Phase 0 · slice 0.3)
+
+**Script:** `scripts/factory/ledger-producer.sh`
+**Output stream:** `.harness/audit/factory-events.ndjson`
+**Status:** producer-only, unwired (hook entry emitted in `settings_wiring` slice, not here)
+**Implemented:** 2026-06-10 · TASK-2026-06-10-FACTORY-LEDGER-PRODUCER · Canopus
+
+### What it does
+
+Appends one ndjson line per FACTORY-COLLECTOR event to `.harness/audit/factory-events.ndjson`. The Phase-1 collector (`collect.mjs` / `summarizeTickets()`) reads this stream to reconstruct task activity. This is a **distinct system** from the integrity ledger (`.harness/integrity-ledger.jsonl`); do not confuse the two.
+
+### Observer posture — always exits 0
+
+The producer is purely observational. Any failure in sub-commands (jq, sha256sum, mkdir, append write) is logged and swallowed. A logging producer that blocks work defeats its own purpose. Fail-closed enforcement belongs in the consumer/collector (Phase 1).
+
+`WL_INTEGRITY_WIRED` is intentionally **never set** by this producer. The stream carries no integrity-witness claim. Forge-resistance lives in the witness-ref design (`.harness/WITNESS-REF-DESIGN.md`), which is out of scope for this slice.
+
+### Append-only contract
+
+The producer uses `>>` exclusively. It never truncates the stream file and never rewrites a prior line. This property is load-bearing: the adversary test suite (T2) verifies it by checking that line 1 is byte-identical before and after subsequent appends.
+
+### ndjson schema (conservative superset)
+
+Fixed field order per line:
+
+| Field | Type | Always present | Description |
+|-------|------|----------------|-------------|
+| `ts` | string | yes | ISO-8601 UTC timestamp |
+| `task_id` | string | yes | `$WL_TASK_ID \|\| $CLAUDE_TASK_ID \|\| ""` |
+| `agent` | string | yes | `$WL_AGENT \|\| "unknown"` |
+| `event` | string | yes | caller-supplied event type (e.g. `signed-work`, `task-stop`) |
+| `path` | string | if arg $2 set | file path the event concerns |
+| `sha256` | string | if path + file exists | SHA-256 hex digest of the file at event time |
+
+The collector reads `task_id`, `agent`, `event`, `ts` as primary grouping keys. `path` and `sha256` are supporting evidence. Extra fields are inert to a collector that ignores unknowns — forward-compatible.
+
+### Usage
+
+```bash
+# Direct invocation
+WL_TASK_ID=TASK-2026-06-10-X WL_AGENT=canopus \
+  bash scripts/factory/ledger-producer.sh signed-work .claude/signatures/X.json
+
+# Environment overrides (for tests)
+WL_AUDIT_DIR=/tmp/test-audit  WL_AUDIT_STREAM=test.ndjson \
+  bash scripts/factory/ledger-producer.sh task-start
+```
+
+### Proposed hook placement (settings_wiring slice — NOT in this slice)
+
+The producer should be invoked from two hook points:
+
+| Hook type | Matcher | Proposed command | Rationale |
+|-----------|---------|------------------|-----------|
+| PostToolUse | `Write\|Edit\|MultiEdit` | `bash scripts/factory/ledger-producer.sh hook-called "$file_path"` | Captures every write event with path + sha256 |
+| Stop | (always-on) | `bash scripts/factory/ledger-producer.sh task-stop` | Captures session end; collector uses this as task boundary signal |
+
+The settings_wiring slice emits the actual settings.json diff. This producer slice is complete as-is — adding hook entries here would violate the slice boundary.
+
+### gitignore decision
+
+`.harness/audit/*.ndjson` is gitignored (runtime data; see `.gitignore`). The directory itself is tracked via `.harness/audit/.gitkeep`. This keeps the directory available in fresh clones without committing stream data.
+
+**Reversing this decision:** remove the `.harness/audit/*.ndjson` and `!.harness/audit/.gitkeep` lines from `.gitignore` to commit stream files. This would make the stream part of the committed audit trail (same pattern as `.harness/integrity-ledger.jsonl` when it is committed). Peat decides.
+
+### How to fix common failures
+
+- **Empty stream after producer runs:** check that `jq` is in PATH and `.harness/audit/` is writable. Run `WL_AGENT=test bash scripts/factory/ledger-producer.sh ping` and inspect `.claude/hook-logs/<task_id>--ledger-producer.log`.
+- **Line is not valid JSON:** `jq` failure is logged and the producer exits 0 without writing. Re-run with `set -x` to trace jq invocation.
+- **Directory not created:** `mkdir -p` failure is the one case where the producer exits 0 after logging but writes nothing. Verify parent dir permissions.
+
+### Adversary verification tests (for Phase-1 gating)
+
+1. **DIR CREATION** — fresh clone without `.harness/audit/` → run producer → assert dir exists and `git ls-files .harness/audit/.gitkeep` is non-empty.
+2. **APPEND-ONLY** — invoke 3x with distinct events → assert N lines, each valid JSON, line 1 byte-identical before/after. Mutation: swap `>>` to `>` → test flips (1 line after 3 runs).
+3. **OBSERVER POSTURE** — `chmod 0555` the audit dir → producer still exits 0.
+4. **NO-INTEGRITY-CLAIM** — `grep -L 'WL_INTEGRITY_WIRED=1' scripts/factory/ledger-producer.sh` must emit the filename (pattern absent). `audit-handoff-integrity.sh` run must be unaffected (still exit 3 LEDGER_ABSENT).
+5. **GITIGNORE** — `git check-ignore .harness/audit/test.ndjson` → ignored; `git check-ignore .harness/audit/.gitkeep` → NOT ignored (exit 1).
+
+---
+
+## Rail: signature-completeness (Phase 0 · slice 0.6)
+
+**Check:** `scripts/audit-signature-completeness.sh`
+**Applies to:** `docs/team/STATUS.md`, `.claude/signatures/**`
+**Status:** WARN-mode (exits 0 on gaps; see Flip-to-Fail condition)
+**Introduced:** 2026-06-10 · Phase 0 / slice 0.6 · Canopus
+**Regression test:** `tests/harness/audit-signature-completeness.test.sh`
+
+### What it checks
+
+Every TASK recorded as a level-2 header in `docs/team/STATUS.md` should have at least one corresponding signature in `.claude/signatures/`. This script computes the signed/total ratio and reports gaps. That ratio is the **autonomy-metric denominator** — how many tasks have attributable signed work vs how many the team recorded.
+
+**STATUS.md extraction rule:** only `^## ` (level-2 headers) matching `(TASK|REVISE|MINI)-YYYY-MM-DD-SLUG` are counted. Prose body lines mentioning a task id are never counted. This is anchored by the `^## ` regex so a body mention cannot accidentally become a task entry.
+
+### Matching rule
+
+A STATUS task id is "signed" if any signature file's `.task_id` satisfies one of three rules:
+
+| Rule | Description | Example |
+|------|-------------|---------|
+| EXACT | `sig_task_id == status_task_id` | Both are `TASK-2026-05-29-SOUL-FACTORY` |
+| CONTAINS | `status_task_id` is a substring of `sig_task_id` | STATUS `TASK-2026-05-29-SOUL-FACTORY`, sig `TASK-2026-05-29-SOUL-FACTORY-P0` |
+| STEM | sig `task_id` has a non-TASK type prefix → replace prefix with `TASK-` → derived form equals STATUS id | `REVISE-2026-05-29-SOUL-FACTORY` → `TASK-2026-05-29-SOUL-FACTORY` |
+
+**STEM normalization detail:** known type prefixes (REVISE-/MINI-/EXPLORE-/DEV-PLAN-/FIX-/S1-/SURVEY-/BATCH-AUDIT-/BRAINSTORM-/NETRA-RECON-) are replaced with `TASK-`. Only the type keyword is swapped; the `YYYY-MM-DD-SLUG` is preserved exactly. This handles sub-slice signatures that carry a REVISE- or MINI- prefix but share the same date+slug as the STATUS entry.
+
+**Bias: over-matching is intentional.** A STATUS task that appears signed (possibly by a sub-slice sig) is not raised as a gap. This avoids noisy false gaps that would desensitize the sensor. The bias is the right choice for WARN-mode; tighten it only after promoting to fail-closed.
+
+### DENOMINATOR line (machine-greppable)
+
+Every run emits a stable `DENOMINATOR` line suitable for `grep`:
+
+```
+DENOMINATOR total=<n> signed=<n> gaps=<n>
+```
+
+This line is the autonomy-metric denominator. Tooling that computes signed/total should grep for this pattern and parse the three integer fields.
+
+### GAP severity annotation
+
+Each gap line carries a `severity` field:
+
+| Severity | Meaning |
+|----------|---------|
+| `gap` | Task in STATUS.md with no signature (in-flight or unknown status) |
+| `gap-closed` | Closed/done task with no signature — sharper gap; a completed task should have evidence |
+
+Severity does not affect the exit code in WARN-mode. When promoting to fail-closed, consider escalating `gap-closed` findings first.
+
+### Current posture: WARN-mode
+
+The script exits **0** even when gaps exist. This is intentional. Not every STATUS task has a matching signature — some tasks predate the signature schema, some are administrative entries, some are in-flight and not yet signed. WARN-mode lets the coverage metric accumulate without blocking work.
+
+### Flip-to-Fail condition
+
+Promote to **exit 1 (BLOCK)** once:
+
+1. A full STATUS.md pass confirms zero false gaps (every gap is a genuine missing signature, not a pattern-matching miss).
+2. The matching rule has been validated against the full signature corpus.
+
+To flip: open `scripts/audit-signature-completeness.sh` and change the final `exit 0` to `[[ "$GAPS" -eq 0 ]] || exit 1`. The comment in the script header documents this exactly.
+
+### Environment overrides (tests)
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `WL_STATUS_FILE` | Override path to STATUS.md | `$REPO_DIR/docs/team/STATUS.md` |
+| `WL_SIGNATURES_DIR` | Override path to signatures dir | `$REPO_DIR/.claude/signatures` |
+| `WL_TASK_ID` | Override task id for log file naming | `$CLAUDE_TASK_ID` or session timestamp |
+
+All test fixtures use temp dirs per POLICY-NO-INPLACE-MUTATION — the real STATUS.md and signatures dir are never touched.
+
+### How to fix a gap
+
+1. The GAP line names `task_id` and `status` (in-flight/closed/unknown).
+2. If the task is genuinely unsigned: run `bash .claude/hooks/sign-work.sh <task_id>` once the task's work is complete.
+3. If the task was signed under a different id (e.g., a REVISE- sub-slice): verify the STEM matching rule covers it. If the pattern is new, add it to `NORM_TYPE_PREFIX_PATTERNS` in the script.
+4. If the task is administrative or pre-signature-schema and will never have a sig: document this in STATUS.md and include it in the flip-to-fail baseline review.
+
+### Wiring proposal (WARN-mode → not yet in harness config)
+
+Add to `.harness/worldline-harness.config.json` when promoting to fail-closed:
+
+```json
+"signature-completeness": {
+  "description": "every STATUS task should have >=1 signature — gaps reported; coverage = autonomy denominator",
+  "check": "scripts/audit-signature-completeness.sh",
+  "applies_to": ["docs/team/STATUS.md", ".claude/signatures/**"]
+}
+```
+
+Wire only after the flip-to-fail conditions above are met. Until then, run standalone:
+
+```bash
+bash scripts/audit-signature-completeness.sh
+```
+
+### Scope guards
+
+- `.claude/beta/**` is never read, scanned, or touched.
+- The script is read-only: no writes, no destructive operations.
+- `AUDIT.md` and `SCHEMA.md` inside `.claude/signatures/` are excluded from signature scanning.
 
 ---
 

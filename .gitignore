@@ -130,3 +130,12 @@ content/photos/**
 # per-task visual-diff records (REVIEW.md / manifest.json / snapshots) — regenerable; the soul-atlas gallery stays tracked
 .claude/visual-diffs/*
 !.claude/visual-diffs/soul-atlas
+
+# ─── factory-collector audit stream (Phase 0, 2026-06-10) ───
+# Runtime ndjson streams are collector-input, not source. The dir is tracked
+# via .harness/audit/.gitkeep so fresh clones have the dir; the stream files
+# themselves are gitignored (runtime data). Peat may reverse this choice by
+# removing the lines below (e.g. if the stream should be committed for CI
+# witness purposes alongside the integrity ledger pattern).
+.harness/audit/*.ndjson
+!.harness/audit/.gitkeep

@@ -143,8 +143,14 @@ collect_prototypes() {
     done <<< "$all_files"
 
     # Deduplicate and find index.html in each
+    # Guard: bash 3.2 set -u raises 'unbound variable' on "${array[@]}" when array is empty.
+    # When no prototype paths were touched, deduped is empty and the loop below is a no-op.
     local deduped
-    deduped=$(printf '%s\n' "${proto_dirs[@]}" | sort -u | grep -v '^$' || true)
+    if [[ ${#proto_dirs[@]} -eq 0 ]]; then
+      deduped=""
+    else
+      deduped=$(printf '%s\n' "${proto_dirs[@]}" | sort -u | grep -v '^$' || true)
+    fi
     while IFS= read -r pdir; do
       [[ -z "$pdir" ]] && continue
       local idx="${pdir}/index.html"
@@ -168,7 +174,12 @@ collect_prototypes() {
     done < <(find "$VISUAL_DIFF_ROOT" -path '*/prototype/index.html' -print0 2>/dev/null)
   fi
 
-  printf '%s\n' "${found[@]}"
+  # Guard: bash 3.2 set -u raises 'unbound variable' on "${array[@]}" when array is empty.
+  if [[ ${#found[@]} -eq 0 ]]; then
+    printf ''
+  else
+    printf '%s\n' "${found[@]}"
+  fi
 }
 
 # --- load allowlist patterns ---

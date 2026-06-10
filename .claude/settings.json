@@ -142,6 +142,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/auto-baseline.sh\"",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
             "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/write-protect-beta.sh\"",
             "timeout": 15
           }
@@ -229,6 +239,14 @@
             "type": "command",
             "command": "bash \"${CLAUDE_PROJECT_DIR:-.}/.claude/hooks/beta-timeline-append.sh\"",
             "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -n \"$CLAUDE_TASK_ID\" ] || [ -n \"$WL_TASK_ID\" ]; then bash \"${CLAUDE_PROJECT_DIR:-.}/scripts/factory/ledger-producer.sh\"; fi"
           }
         ]
       }

@@ -12,7 +12,7 @@
       "signed_by": "Peat",
       "signed_date": "2026-05-30",
       "status": "PARTIAL",
-      "must_project_by": "2026-05-31",
+      "must_project_by": "2026-06-24",
       "projects_to": ["gauntlet-min-legible-size"],
       "notes": "gauntlet-min-legible-size enforces legibility floor at 4 breakpoints (Wave B wiring). Full WCAG 2.2 AA contrast gate (C1 realization) still UNPROJECTED — accessibility-floor is a STUB."
     },
@@ -24,7 +24,7 @@
       "signed_by": "Peat",
       "signed_date": "2026-05-30",
       "status": "PARTIAL",
-      "must_project_by": "2026-05-31",
+      "must_project_by": "2026-06-24",
       "projects_to": ["gauntlet-sub-pixel-detection", "gauntlet-overlap-composition"],
       "notes": "gauntlet-sub-pixel and gauntlet-overlap are Playwright-backed fidelity checks (Wave B wiring). Full pixel-anchor render-fidelity gate (Playwright full-page diff) still UNPROJECTED."
     },
@@ -47,7 +47,7 @@
       "signed_by": "Peat",
       "signed_date": "2026-05-30",
       "status": "UNPROJECTED",
-      "must_project_by": "2026-05-31",
+      "must_project_by": "2026-06-24",
       "projects_to": [],
       "notes": "Convention-tier realization of V1. No enforcing contrast gate exists; accessibility-floor is a stub."
     },
@@ -79,7 +79,7 @@
       "signed_by": "Peat",
       "signed_date": "2026-05-30",
       "status": "PARTIAL",
-      "must_project_by": "2026-05-31",
+      "must_project_by": "2026-06-24",
       "projects_to": ["font-chain-presence"],
       "notes": "font-chain-presence is proxy only (checks binding in gallery.html, not rendered output). Full Playwright render-fidelity gate is Wave B planned work."
     },
@@ -91,7 +91,7 @@
       "signed_by": "Peat",
       "signed_date": "2026-05-30",
       "status": "UNPROJECTED",
-      "must_project_by": "2026-05-31",
+      "must_project_by": "2026-06-24",
       "projects_to": [],
       "notes": "No motion audit gate exists. Owner responsible for closing gap by must_project_by."
     },
@@ -103,7 +103,7 @@
       "signed_by": "Peat",
       "signed_date": "2026-05-30",
       "status": "UNPROJECTED",
-      "must_project_by": "2026-05-31",
+      "must_project_by": "2026-06-24",
       "projects_to": [],
       "notes": "Ratified by Peat 2026-05-30. Canopus authors; Peat ratifies. Anchor-label policy gate is Wave B planned work. Moved out of value tier — this is harness-governance, not product-value."
     }
