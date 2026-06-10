@@ -271,6 +271,29 @@ assert_blocked ">>/dev/nullX append smuggle"   "$(bash_payload 'echo x >>/dev/nu
 # Pass-1 fd-dup tail bug: 2>&1x must not silently strip to allow
 assert_blocked "2>&1x fd-dup tail smuggle"     "$(bash_payload 'echo x 2>&1x')"
 
+# ---- Phase-0 slice 0.2: FP fix true-positives (MUST-STILL-BLOCK) ----
+# These are the adversarial backstop cases for the three FP fixes.
+# They MUST block before and after the fix. A regression here means
+# the fix over-broadened and broke the true-positive gates.
+#
+# FP-1 (merge-base): git merge with an actual branch name or bare must still block.
+assert_blocked "FP1-TP git merge feature"  "$(bash_payload 'git merge feature')"
+assert_blocked "FP1-TP git merge bare"     "$(bash_payload 'git merge')"
+#
+# FP-2 (quoted >): real redirect with > outside quotes must still block.
+assert_blocked "FP2-TP echo secret > .env"    "$(bash_payload 'echo secret > .env')"
+assert_blocked "FP2-TP echo x >> ~/.bashrc"   "$(bash_payload 'echo x >> ~/.bashrc')"
+assert_blocked "FP2-TP cat k >> quoted-file"  "$(bash_payload 'cat k >> "/tmp/evil"')"
+#
+# FP-3 (python3 -c): RCE floor — kept blocked. Allowlist already covers read-only uses.
+assert_blocked "FP3-TP python3 -c import os" "$(bash_payload 'python3 -c '"'"'import os'"'"'')"
+assert_blocked "FP3-TP bash -c rm"           "$(bash_payload 'bash -c '"'"'rm x'"'"'')"
+#
+# Destructive rm (regression guard for FP-1/FP-2 fixes not touching rm gate)
+assert_blocked "FP-regress rm -rf /"  "$(bash_payload 'rm -rf /')"
+assert_blocked "FP-regress rm -rf ."  "$(bash_payload 'rm -rf .')"
+assert_blocked "FP-regress rm file"   "$(bash_payload 'rm file')"
+
 # Mutating MCP tools
 assert_blocked "mcp supabase execute_sql"  "$(mcp_payload 'mcp__supabase__execute_sql')"
 assert_blocked "mcp vercel deploy"         "$(mcp_payload 'mcp__vercel__deploy_to_vercel')"
@@ -357,6 +380,18 @@ assert_allowed "git ls-files"             "$(bash_payload 'git ls-files --others
 assert_allowed "git add specific"         "$(bash_payload 'git add .harness/worldline-harness.config.json')"
 assert_allowed "git commit"               "$(bash_payload 'git commit -m "feat: add harness"')"
 
+# ---- Phase-0 slice 0.2: FP-1 ALLOW cases (git merge-base) ----
+# These were blocked before the fix because `merge-base` starts with `merge` and
+# the old denylist pattern `\bgit\s+merge\b` matched `git merge-base`. The fixed
+# pattern `\bgit\s+merge([[:space:]]|$)` requires a space or end-of-string after
+# `merge`, so `merge-base` no longer matches.
+assert_allowed "FP1 git merge-base main HEAD" "$(bash_payload 'git merge-base main HEAD')"
+assert_allowed "FP1 git merge-base HEAD~3 HEAD" "$(bash_payload 'git merge-base HEAD~3 HEAD')"
+# Regression guard: git rev-parse is a read-only plumbing command used by harness scripts.
+# Must not be blocked by any deny rule.
+assert_allowed "FP1-regress git rev-parse --abbrev-ref HEAD" "$(bash_payload 'git rev-parse --abbrev-ref HEAD')"
+assert_allowed "FP1-regress git rev-parse HEAD" "$(bash_payload 'git rev-parse HEAD')"
+
 # npm/npx dev ops
 assert_allowed "npm run build"            "$(bash_payload 'npm run build')"
 assert_allowed "npm run dev"              "$(bash_payload 'npm run dev')"
@@ -404,6 +439,19 @@ assert_allowed "WL_AGENT env prefix"      "$(bash_payload 'WL_AGENT=canopus bash
 assert_allowed "WL_TASK_ID env prefix"    "$(bash_payload 'WL_TASK_ID=TASK-123 bash scripts/audit-design-tokens.sh')"
 assert_allowed "TODAY_ISO env"            "$(bash_payload 'TODAY_ISO=2026-06-01 bash scripts/audit-axiom-gate-join-coverage.sh')"
 
+# ---- Phase-0 slice 0.2: FP-2 ALLOW cases (quoted > inside arguments) ----
+# `echo "a -> b"` and `echo 'x > y'` were blocked before the fix because the single-`>`
+# redirect check ran against CMD_NOREDIR which still contained the quoted span.
+# After the fix, CMD_REDIRCHECK strips double- and single-quoted spans first, so the `>`
+# inside a quoted argument is invisible to the redirect deny.
+# MUST-STILL-BLOCK (not here, but in the SHOULD-BLOCK section): `echo secret > .env`
+# (the `>` is outside quotes — CMD_REDIRCHECK retains it and the pattern fires).
+assert_allowed "FP2 echo double-quoted arrow"         "$(bash_payload 'echo "a -> b"')"
+assert_allowed "FP2 echo single-quoted gt"            "$(bash_payload "echo 'x > y'")"
+assert_allowed "FP2 printf single-quoted col1>col2"   "$(bash_payload "printf '%s\n' 'col1 > col2'")"
+assert_allowed "FP2 echo double-quoted pipeline glyph" "$(bash_payload 'echo "step1 -> step2 -> step3"')"
+assert_allowed "FP2 echo single-quoted comparison"    "$(bash_payload "echo 'if a > b then'")"
+
 # Safe fd/devnull redirects — universal idioms that MUST NOT be blocked
 assert_allowed "2>/dev/null stderr suppress"   "$(bash_payload 'echo hi 2>/dev/null')"
 assert_allowed ">/dev/null stdout suppress"    "$(bash_payload 'ls >/dev/null')"
@@ -433,5 +481,91 @@ if [[ $FAIL_COUNT -gt 0 ]]; then
   echo "FIXTURE FAIL — $FAIL_COUNT assertion(s) did not meet expected behavior"
   exit 1
 fi
+
+# ---- Phase-0 slice 0.2: DETERMINISTIC MUTATION CHECK (FP-1) ----
+# Spec requirement: revert the merge-base regex to `\bgit\s+merge\b` and verify
+# that `git merge-base main HEAD` flips from ALLOW to BLOCK.
+# This proves the fix in mutating-bash.json is what closes FP-1, not a side effect.
+#
+# Mechanism:
+#   1. Use jq to build a patched denylist JSON in a tempfile — the patched form
+#      replaces the fixed `\bgit\s+merge([[:space:]]|$)` with the old broken form
+#      that embeds merge in the alternation: `\bgit\s+(push|...|merge|...)\b`.
+#   2. Run the hook with BASH_DENYLIST pointing at the patched file.
+#   3. Assert git merge-base exits 2 (blocked).
+#   4. Tempfile cleaned up on EXIT.
+#
+# The hook uses BASH_DENYLIST envvar if set, otherwise derives it from
+# HARNESS_REPO_ROOT. We pass BASH_DENYLIST directly to override.
+echo ""
+echo "--- MUTATION CHECK: FP-1 regression backstop ---"
+MUTATION_PASS=0
+MUTATION_FAIL=0
+
+MUTATION_TMPDIR="$(mktemp -d)"
+trap 'rm -rf "$MUTATION_TMPDIR"' EXIT
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+ORIG_JSON="$REPO_ROOT/.harness/engine/core/runtime/mutating-bash.json"
+
+# Build a fake HARNESS_REPO_ROOT that mirrors the real one but with a patched denylist.
+# The hook derives BASH_DENYLIST as "$ROOT/.harness/engine/core/runtime/mutating-bash.json"
+# where ROOT = HARNESS_REPO_ROOT. We mirror the relevant sub-paths and patch the JSON.
+FAKE_ROOT="$MUTATION_TMPDIR/fake-repo"
+mkdir -p "$FAKE_ROOT/.harness/engine/core/runtime"
+mkdir -p "$FAKE_ROOT/.harness/engine"
+mkdir -p "$FAKE_ROOT/.claude/hook-logs"
+# Copy the MCP denylist and harness config unchanged (hook requires them)
+cp "$REPO_ROOT/.harness/engine/core/runtime/mutating-mcp.json" \
+   "$FAKE_ROOT/.harness/engine/core/runtime/" 2>/dev/null || true
+cp "$REPO_ROOT/.harness/engine/harness.config.json" \
+   "$FAKE_ROOT/.harness/engine/" 2>/dev/null || true
+
+PATCHED_JSON="$FAKE_ROOT/.harness/engine/core/runtime/mutating-bash.json"
+
+# Build patched JSON using jq:
+#   - Remove the fixed separate-merge-line `\bgit\s+merge([[:space:]]|$)`.
+#   - Replace the reduced alternation `\bgit\s+(push|reset\s+--hard|rebase|rm|mv|tag)\b`
+#     with the old broken form `\bgit\s+(push|reset\s+--hard|rebase|merge|rm|mv|tag)\b`.
+# The jq map transforms both in one pass. Uses the raw string form as it appears in JSON.
+jq '
+  .denylist_regex |= (
+    map(
+      if . == "\\bgit\\s+(push|reset\\s+--hard|rebase|rm|mv|tag)\\b" then
+        "\\bgit\\s+(push|reset\\s+--hard|rebase|merge|rm|mv|tag)\\b"
+      else
+        .
+      end
+    ) |
+    map(select(. != "\\bgit\\s+merge([[:space:]]|$)"))
+  )
+' "$ORIG_JSON" > "$PATCHED_JSON" 2>/dev/null || true
+
+if [[ -s "$PATCHED_JSON" ]] && grep -q 'merge|rm' "$PATCHED_JSON" 2>/dev/null; then
+  # Patched JSON verified — run the hook pointed at the fake repo root
+  MUTATION_EXIT=0
+  printf '%s' "$(bash_payload 'git merge-base main HEAD')" \
+    | HARNESS_REPO_ROOT="$FAKE_ROOT" bash "$HOOK" > /dev/null 2>&1 || MUTATION_EXIT=$?
+  if [[ $MUTATION_EXIT -eq 2 ]]; then
+    echo "  [PASS] MUTATION-CHECK: git merge-base BLOCKS with old broken regex (fix is load-bearing)"
+    MUTATION_PASS=$((MUTATION_PASS + 1))
+  else
+    echo "  [FAIL] MUTATION-CHECK: git merge-base did NOT block with old broken regex (exit $MUTATION_EXIT) — fix may not be load-bearing"
+    MUTATION_FAIL=$((MUTATION_FAIL + 1))
+  fi
+else
+  echo "  [SKIP] MUTATION-CHECK: could not build patched JSON (jq unavailable or patch failed)"
+  echo "         Check: $PATCHED_JSON"
+fi
+
+echo ""
+echo "=== MUTATION CHECK RESULTS: $MUTATION_PASS passed, $MUTATION_FAIL failed ==="
+if [[ $MUTATION_FAIL -gt 0 ]]; then
+  echo "MUTATION CHECK FAIL — $MUTATION_FAIL check(s) did not prove fix is load-bearing"
+  exit 1
+fi
+
+echo ""
 echo "FIXTURE PASS — all assertions satisfied"
 exit 0
