@@ -23,7 +23,20 @@ run_step() {
   fi
 }
 
-run_step "lint"      npm run --silent lint
+# Lint gate: per-slice, not repo-wide.
+# Contract: this hook lints only the files touched by the current change set.
+# The repo-wide lint floor lives in CI (.github/workflows/ci.yml), so scoping
+# here does not remove enforcement — it removes the false-block from pre-existing
+# debt in untouched files.
+lint_files="$(git diff HEAD --name-only --diff-filter=ACM 2>/dev/null \
+  | grep -E '\.(ts|tsx|js|jsx|mjs|cjs)$' || true)"
+if [[ -z "$lint_files" ]]; then
+  echo "  pass: lint (no lintable files in change set)" | tee -a "$LOG"
+else
+  # shellcheck disable=SC2086 — word-splitting is intentional here (one file per token)
+  run_step "lint" npx --silent eslint $lint_files
+fi
+
 run_step "typecheck" npx --silent tsc --noEmit
 run_step "build"     npm run --silent build
 

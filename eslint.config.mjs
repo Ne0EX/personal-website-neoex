@@ -16,6 +16,9 @@ const eslintConfig = defineConfig([
     // ESLint would otherwise scan and emit errors for:
     ".claude/worktrees/**",
     "worldline-harness/**",
+    // Harness engine + runtime artifacts — gitignored, not part of the
+    // production graph; linting them is a false-red on every harness slice:
+    ".harness/**",
     // Visual-diff capture directories contain vendored minified JS from
     // design tool exports; these are not project source and must not be linted:
     ".claude/visual-diffs/**",
