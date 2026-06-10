@@ -75,6 +75,8 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 - `scripts/migrate-*.ts`
 - `lib/content/**`
 - `docs/data/**`
+- `scripts/factory/collect.mjs`, `scripts/factory/serve.mjs` — factory telemetry collector + local dashboard server (soul-factory Phases 1–2; the hook-side producer `ledger-producer.sh` is Canopus's)
+- `.harness/factory/**` — derived telemetry store (events.ndjson, mapping, build snapshot)
 
 ! Body content of MDX files inside `content/articles/**`, `content/fiction/**` — Vega writes the words; Procyon defines the frontmatter schema
 
@@ -147,6 +149,10 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 - `docs/harness/**`
 - `eslint.config.mjs` — lint gate that `post-edit.sh` depends on; Canopus tunes ignore lists and rule wiring (project lint *rules* themselves are still cross-cutting, but the gate configuration is harness)
 - `.gitignore` (runtime artifact entries — harness section only; non-harness entries remain cross-cutting)
+- `.claude/settings.json` — hook wiring + permissions posture (registered 2026-06-11, TASK-2026-06-10-SOUL-FACTORY-0; permission-WIDENING stays Peat-at-seam per standing rule)
+- `scripts/factory/ledger-producer.sh` — factory telemetry producer (hook-side); the collector (`scripts/factory/collect.mjs`, Phase 1) and dashboard server (`scripts/factory/serve.mjs`, Phase 2) are Procyon's
+- `scripts/test-auto-baseline-fixture.sh` — auto-baseline fixture (interim home; relocation to `tests/harness/` = Algol hygiene backlog)
+- `scripts/validate-settings-json.mjs` — deterministic settings.json backstop (node, no deps)
 
 ! Algol's audit scripts at `scripts/audit-*.ts` themselves — Algol; Canopus only wraps them
 ! Signature payloads in `.claude/signatures/*.json` — agent-generated per their own task; Canopus owns the schema and the writer (`sign-work.sh`), not the individual payloads
