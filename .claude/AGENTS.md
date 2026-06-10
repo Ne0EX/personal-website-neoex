@@ -28,7 +28,7 @@ Tooling note — this team works under both **Claude Code** and **Codex**. Hook 
 
 | Codename       | Designation  | Role                | Model                  | Reports to | Territory anchor                                |
 |----------------|--------------|---------------------|------------------------|------------|-------------------------------------------------|
-| **Polaris**    | α-OPS-00     | Product Manager     | Opus (max thinking)    | Peat       | `.claude/handoffs/from-polaris/`, PRD routing   |
+| **Polaris**    | α-OPS-00     | Product Manager     | Opus (effort: xhigh)   | Peat       | `.claude/handoffs/from-polaris/`, PRD routing   |
 | **Sirius**     | α-SUR-01     | Frontend Engineer   | Sonnet                 | Polaris    | `app/`, `components/` (UI only)                 |
 | **Altair**     | α-BND-02     | Backend Engineer    | Sonnet                 | Polaris    | `app/api/`, route handlers, server actions      |
 | **Procyon**    | α-IDX-03     | Data Engineer       | Sonnet                 | Polaris    | `content/`, `velite.config.*`, build pipelines  |
