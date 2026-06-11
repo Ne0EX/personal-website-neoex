@@ -27,6 +27,9 @@ const eslintConfig = defineConfig([
     // Skills contain vendored/bundled assets (three.module.js etc) and prototype
     // UI kits that are not project source. Same rationale as visual-diffs.
     ".claude/skills/**",
+    // Factory dashboard — vendored tracker prototype (browser-global React UMD,
+    // no bundler); verified by browser tour, not the production lint graph:
+    "tools/factory/**",
     // Exports and template directories may contain generated output:
     ".claude/exports/**",
     ".claude/beta-templates/**",
