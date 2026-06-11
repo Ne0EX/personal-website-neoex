@@ -75,8 +75,11 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 - `scripts/migrate-*.ts`
 - `lib/content/**`
 - `docs/data/**`
-- `scripts/factory/collect.mjs`, `scripts/factory/serve.mjs` — factory telemetry collector + local dashboard server (soul-factory Phases 1–2; the hook-side producer `ledger-producer.sh` is Canopus's)
-- `.harness/factory/**` — derived telemetry store (events.ndjson, mapping, build snapshot)
+- `scripts/factory/collect.mjs`
+- `scripts/factory/serve.mjs`
+- `.harness/factory/**`
+
+> Factory telemetry split (soul-factory Phases 1–2): Procyon owns the collector, the local dashboard server, and the derived store (events.ndjson, mapping, build snapshot); the hook-side producer `scripts/factory/ledger-producer.sh` is Canopus's.
 
 ! Body content of MDX files inside `content/articles/**`, `content/fiction/**` — Vega writes the words; Procyon defines the frontmatter schema
 
