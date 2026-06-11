@@ -303,7 +303,8 @@ birthplace), and `main` here stays web-only regardless. *(Implication for §3 CO
 `symbiote` repo needs its own harness + CI gate for compound writes — it no longer leans on
 `genesis/soul-factory`'s. Repo CREATED 2026-06-11 at `~/codingspace/symbiote`, root commit
 `498841d`: 145 files vendored byte-faithfully from this repo @ `6785e26`, every tree
-diff -r verified; local only, no remote yet.)*
+diff -r verified; remote live at github.com/Ne0EX/symbiote (private), main tracking origin —
+the CI-witness substrate for the factory's own trust-root is now available.)*
 
 **Q2 — For M1, externalize all engine sensor target-data to host-facts now, or vendor as-is and
 re-derive lazily per host? — DECIDED (Peat, 2026-06-11): GENERALIZE now.** `mutating-action.ts`
