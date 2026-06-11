@@ -301,7 +301,9 @@ for making your project harness")** — his emphasis verbatim: "ผมย้ำ�
 The M1 carve therefore targets the new repo; this repo remains the FIRST HOST (and the factory's
 birthplace), and `main` here stays web-only regardless. *(Implication for §3 COMPOUND + §7: the
 `symbiote` repo needs its own harness + CI gate for compound writes — it no longer leans on
-`genesis/soul-factory`'s. Repo not yet created as of this record.)*
+`genesis/soul-factory`'s. Repo CREATED 2026-06-11 at `~/codingspace/symbiote`, root commit
+`498841d`: 145 files vendored byte-faithfully from this repo @ `6785e26`, every tree
+diff -r verified; local only, no remote yet.)*
 
 **Q2 — For M1, externalize all engine sensor target-data to host-facts now, or vendor as-is and
 re-derive lazily per host? — DECIDED (Peat, 2026-06-11): GENERALIZE now.** `mutating-action.ts`
