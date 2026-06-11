@@ -40,6 +40,9 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 - `components/**/*.ts`
 - `**/*.module.css` (co-located with components; Tailwind preferred)
 - `lib/client-state/**` (if/when adopted)
+- `tools/factory/**`
+
+> `tools/factory/**` is the soul-factory dashboard (Phase 2): vendored tracker prototype (React UMD, no bundler) adapted to fetch `.harness/factory/build/dashboard.json`. Team-infra — never merged to main, never deployed. The local server `scripts/factory/serve.mjs` is Procyon's.
 
 ! `app/api/**` — Altair
 ! `app/globals.css` — Betelgeuse
