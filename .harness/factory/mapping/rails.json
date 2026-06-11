@@ -1,0 +1,33 @@
+{
+  "_meta": {
+    "purpose": "rail id -> tracker gate category. Consumed by scripts/factory/collect.mjs to set gate.category on every gate event sourced from a rail (an exit != 0 from .harness/audit/*.ndjson or a harness-check rail fail). Categories are the exact 10 keys of CATEGORIES in ~/Downloads/ai-factory-feature-tracker/factory-data.js (Security, Privacy, Performance, Correctness, Reliability, Scope, Accessibility, Consistency, Observability, Safety). Authored by Procyon from each rail's description+barrier_class in .harness/worldline-harness.config.json; Algol reviews and is the sign-off authority on this table.",
+    "source_of_truth": ".harness/worldline-harness.config.json .rails (21 rail ids as of 2026-06-11)",
+    "category_enum": ["Security", "Privacy", "Performance", "Correctness", "Reliability", "Scope", "Accessibility", "Consistency", "Observability", "Safety"],
+    "fallback_category": "Correctness",
+    "fallback_rule": "Any rail id present in audit ndjson but ABSENT from this table maps to the fallback_category 'Correctness' AND the collector emits a stderr warning 'unmapped rail: <id>' so the table stays complete by review pressure. Never silently drop an unmapped rail.",
+    "review_status": "APPROVED-by-algol 2026-06-11 — 1 correction applied (audit-search-index-completeness: Observability→Correctness); all other 20 mappings confirmed"
+  },
+  "rails": {
+    "territory": { "category": "Scope", "note": "cross-territory edit = an agent acting outside its assigned slice boundary; a scope/ownership violation. HARD-BARRIER." },
+    "design-tokens": { "category": "Consistency", "note": "raw hex outside whitelist = design-system token drift. HARD-BARRIER." },
+    "soul-atom-drift": { "category": "Consistency", "note": "uncited raw appearance literals in the soul-atom gallery = drift from the token source-of-truth. HARD-BARRIER." },
+    "font-chain-presence": { "category": "Consistency", "note": "missing :root font-var binding = silent fallback to serif; a design-system consistency failure (sub-check C1b of soul-atom-drift)." },
+    "voice-discipline": { "category": "Consistency", "note": "NETRA voice-pattern drift in prompts/components. FRICTION-ONLY stub — emits no gate until activated; mapped for completeness." },
+    "html-first-spec-discipline": { "category": "Consistency", "note": "direction-N/README.md must declare soul-baseline/connection-point/continuity/evolution/bet — Rule-4 design-unity continuity. Blocking on soul-baseline; advisory on layout/STATUS hygiene." },
+    "prototype-layer": { "category": "Correctness", "note": "prototype purity (no .ts/.tsx, no Next imports, README present) — structural correctness of the prototype boundary. HARD-BARRIER." },
+    "prototype-runtime": { "category": "Reliability", "note": "prototype must actually load headless without console errors/page-exceptions/network failures — runtime reliability, not just file existence. HARD-BARRIER." },
+    "prototype-production-diff": { "category": "Consistency", "note": "visual drift between Betelgeuse prototype and Sirius production impl. FRICTION-ONLY stub (pixel-diff deferred); mapped for completeness." },
+    "next-16-api": { "category": "Correctness", "note": "deprecated Next.js API usage = forward-correctness defect. FRICTION-ONLY stub; mapped for completeness." },
+    "accessibility-floor": { "category": "Accessibility", "note": "Lighthouse a11y >= 95 for new entry templates. FRICTION-ONLY stub; mapped for completeness." },
+    "gauntlet-min-legible-size": { "category": "Accessibility", "note": "text/icon below legibility floor at 4 breakpoints — a11y legibility. Playwright-backed HARD-BARRIER." },
+    "gauntlet-overlap-composition": { "category": "Correctness", "note": "element renders over a higher-z sibling not in the allowed-overlaps manifest — layout/composition correctness. HARD-BARRIER." },
+    "gauntlet-sub-pixel-detection": { "category": "Correctness", "note": "manifest atom rendering sub-pixel/zero-size while claimed visible — render correctness. HARD-BARRIER." },
+    "axiom-gate-join-coverage": { "category": "Observability", "note": "axiom<->gate bijection coverage; unprojected axioms past must_project_by = RED. This is the harness measuring its own enforcement coverage — an observability/coverage rail. HARD-BARRIER." },
+    "audit-ground-truth-observed": { "category": "Observability", "note": "no DONE for a shipped route without a cryptographically-linked observed screenshot + ack — ground-truth observability gate. HARD-BARRIER." },
+    "audit-search-index-completeness": { "category": "Correctness", "note": "pagefind index must cover every crawlable page; SKIP(exit 3) on missing build, never false-pass — an incomplete index means search returns wrong/missing results, a correctness defect. HARD-BARRIER. (Algol correction 2026-06-11: Observability framing in rail description refers to what the control eliminates, not the failure class; the failure cost is incorrect search output.)" },
+    "single-source": { "category": "Consistency", "note": "a divergent copy that neither byte-matches nor imports the canonical = single-source-of-truth violation. HARD-BARRIER." },
+    "permissions-nonempty": { "category": "Security", "note": "settings.json must carry a non-empty permissions deny block — least-privilege/P3 security gate. HARD-BARRIER." },
+    "least-agency-config": { "category": "Security", "note": "deny rules + blocking PreToolUse hook must be present; fails closed — least-agency security gate. HARD-BARRIER." },
+    "dev-clobber-guard": { "category": "Reliability", "note": "blocks prod build/serve while next dev is alive (clobbered .next served the site unstyled 2026-06-02) — build/serve reliability. HARD-BARRIER." }
+  }
+}
