@@ -384,4 +384,10 @@ fi
 echo "[sign-work] PASS — signed at $SIG_FILE (v2)"
 echo "[sign-work] agent=$AGENT_TC ($AGENT_DESIGNATION) → next=$NEXT_TC ($NEXT_DESIGNATION)"
 echo "[sign-work] self_hash=$SELF_HASH"
+
+# factory telemetry freshness (full rebuild stays the trust anchor — collect.mjs is idempotent)
+if [[ -f "scripts/factory/collect.mjs" ]]; then
+  node scripts/factory/collect.mjs --task "$TASK_ID" >/dev/null 2>&1 || true
+fi
+
 exit 0

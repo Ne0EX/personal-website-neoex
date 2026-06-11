@@ -139,3 +139,13 @@ content/photos/**
 # witness purposes alongside the integrity ledger pattern).
 .harness/audit/*.ndjson
 !.harness/audit/.gitkeep
+
+# ─── factory-collector outputs (Phase 1, 2026-06-11) ───
+# events.ndjson + dashboard.json are derived/runtime artifacts — fully
+# reproducible via `node scripts/factory/collect.mjs`.
+# mapping/rails.json IS tracked (reviewed source; Algol sign-off authority).
+# .gitkeep entries keep both dirs present on fresh clones.
+.harness/factory/events.ndjson
+.harness/factory/build/
+!.harness/factory/.gitkeep
+!.harness/factory/mapping/.gitkeep
