@@ -27,6 +27,7 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 - `docs/team/FILE-OWNERSHIP.md`
 - `docs/team/STATUS.md`
 - `docs/team/POSTMORTEMS/**`
+- `docs/team/RETRO-*.md`
 
 > Polaris never writes outside this list. If her signature shows changes to code or design or content files, that is a P4 violation and a postmortem trigger against Polaris herself.
 
