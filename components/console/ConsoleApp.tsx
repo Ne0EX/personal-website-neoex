@@ -37,7 +37,8 @@
 
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import type { ConsoleNode, ConsoleEdge, ConsoleFormData, NodeKind, PlaceDTO } from './console-types'
 import { KINDS } from './console-types'
 import { ConsoleRail }           from './ConsoleRail'
@@ -45,6 +46,8 @@ import { ConsoleCanvas }         from './ConsoleCanvas'
 import { ConsoleEntryForm }      from './ConsoleEntryForm'
 import { PlacesRailBlock }       from './PlacesRailBlock'
 import { PlaceHighlightEditor }  from './PlaceHighlightEditor'
+// S6: import real store action (createEntry replaces the mocked persist in new-entry flow)
+import { createEntry } from '@/lib/server/store/actions'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CSS — shell, header, body grid, NETRA foot, offline
@@ -145,6 +148,10 @@ interface ConsoleAppProps {
 }
 
 export function ConsoleApp({ initialNodes, initialEdges, initialPlaces }: ConsoleAppProps) {
+  const router = useRouter()
+  // S6: useTransition wraps createEntry so saving state is SSR-safe
+  const [_createPending, startCreateTransition] = useTransition()
+
   // ── Core graph state ──
   const [nodes,      setNodes]     = useState<ConsoleNode[]>(initialNodes)
   const [edges,      setEdges]     = useState<ConsoleEdge[]>(initialEdges)
@@ -258,29 +265,54 @@ export function ConsoleApp({ initialNodes, initialEdges, initialPlaces }: Consol
     setDirty(true)
   }, [])
 
-  // ── Persist (mocked, 240ms per spec) ──
+  // ── Persist — S6: new-entry calls createEntry; edit still optimistically updates ──
+  // Spec §8 pt2: on createEntry ok → router.push to the editor.
+  // Edit path (formMode='edit') is only called by ConsoleEntryForm SAVE DRAFT, which
+  // is a legacy canvas-position / tag update — not the full updateEntry body edit.
+  // The real body editing lives in EntryEditor. We keep the edit path as-is (graph
+  // metadata only — no body) and only replace the new-entry path.
   const persist = useCallback((commit: boolean) => {
-    setSaving(true)
-    setTimeout(() => {
-      if (formMode === 'new' && formData) {
-        const id = nextId()
-        const newNode: ConsoleNode = {
-          ...formData,
-          id,
-          fileId: formData.fileId || id.toUpperCase(),
+    if (formMode === 'new' && formData) {
+      // S6: real createEntry — minimal draft (DL14)
+      setSaving(true)
+      startCreateTransition(async () => {
+        const result = await createEntry({
+          kind:    formData.kind === 'repo' ? 'article' : formData.kind,  // 'repo' not a DB kind
+          title:   formData.title || undefined,
+          date:    formData.date || undefined,
+          domain:  formData.domain || undefined,
+          tags:    formData.tags,
+          summary: formData.summary || undefined,
+        })
+        setSaving(false)
+        if (!result.ok) {
+          // Surface error in dirty flag area (simple string for now)
+          setDirty(false)
+          // Re-open the form with error note — keep the form data intact
+          // The error will appear on the next onField touch; setDirty signal
+          // the form still has work. We could show error more richly but
+          // spec§8 just says "on ok → push"; no error UI spec — show in console.
+          console.error('[ConsoleApp] createEntry failed:', result.error)
+          return
         }
-        setNodes((ns) => [...ns, newNode])
-        setSelectedId(id)
-        setFormMode('edit')
-        setFormData({ ...newNode, tags: [...newNode.tags] })
-      } else if (formData) {
-        setNodes((ns) => ns.map((n) => n.id === formData.id ? { ...n, ...formData } : n))
-      }
-      setSaving(false)
-      setDirty(false)
-      if (commit) setFormOpen(false)
-    }, 240)
-  }, [formMode, formData])
+        const { kind, slug } = result.entry
+        // Navigate to the editor — same URL contract as the canvas node OPEN EDITOR link
+        router.push(`/console/editor?kind=${encodeURIComponent(kind)}&slug=${encodeURIComponent(slug)}`)
+        if (commit) setFormOpen(false)
+      })
+    } else {
+      // Edit path — optimistic update (canvas position / metadata only; body lives in EntryEditor)
+      setSaving(true)
+      setTimeout(() => {
+        if (formData) {
+          setNodes((ns) => ns.map((n) => n.id === formData.id ? { ...n, ...formData } : n))
+        }
+        setSaving(false)
+        setDirty(false)
+        if (commit) setFormOpen(false)
+      }, 240)
+    }
+  }, [formMode, formData, router, startCreateTransition])
 
   // ── Node move ──
   const moveNode = useCallback((id: string, x: number, y: number) => {
@@ -413,8 +445,8 @@ export function ConsoleApp({ initialNodes, initialEdges, initialPlaces }: Consol
           <div className="corner-marks" />
           <div className="ch-left">
             <span className="ch-dot" aria-hidden="true" />
+            {/* S6: removed [ DEV ] badge — auth replaces dev-only guard (DL12/S4) */}
             <span className="ch-title">CONSOLE · WORLDLINE AUTHORING</span>
-            <span className="ch-dev">[ DEV ]</span>
           </div>
           <div className="ch-center">∇ neospirit // worldline 1.130426</div>
           {/* ESC·EXIT: in browser deselects current node / closes form (spec §header) */}

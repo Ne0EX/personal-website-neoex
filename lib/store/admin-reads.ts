@@ -69,6 +69,44 @@ export async function getAllArticles(): Promise<Article[]> {
   return (data as unknown as DbEntryRow[]).map(mapArticle)
 }
 
+/**
+ * Fetch a single article by its fileNum/slug (zero-padded string like "004").
+ * Used by the editor page to load a draft by slug from the DB (not velite).
+ * Returns null when not found.
+ */
+export async function getArticleBySlug(slug: string): Promise<Article | null> {
+  const client = await createSupabaseServerClient()
+  const { data, error } = await client
+    .from('entries')
+    .select(ENTRY_COLS)
+    .eq('kind', 'article')
+    .eq('slug', slug)
+    .maybeSingle()
+
+  if (error) throw new Error(`getArticleBySlug: ${error.message}`)
+  if (!data) return null
+  return mapArticle(data as unknown as DbEntryRow)
+}
+
+/**
+ * Fetch a single fiction entry by slug from the DB (not velite).
+ * Used by the editor page to load a draft.
+ * Returns null when not found.
+ */
+export async function getFictionBySlugAdmin(slug: string): Promise<Fiction | null> {
+  const client = await createSupabaseServerClient()
+  const { data, error } = await client
+    .from('entries')
+    .select(ENTRY_COLS)
+    .eq('kind', 'fiction')
+    .eq('slug', slug)
+    .maybeSingle()
+
+  if (error) throw new Error(`getFictionBySlugAdmin: ${error.message}`)
+  if (!data) return null
+  return mapFiction(data as unknown as DbEntryRow)
+}
+
 // ---------------------------------------------------------------------------
 // Fiction (all, including drafts)
 // ---------------------------------------------------------------------------

@@ -39,9 +39,15 @@
 
 import type { Metadata } from 'next'
 import type { Article, PhotoSidecar } from '@/lib/content/types'
-import { getArticleByFileNum } from '@/lib/content/articles'
-import { getFictionBySlug }    from '@/lib/content/fiction'
-import { getPhotos, getPhotoByRollAndId, getSidecarsInRoll } from '@/lib/content/photos'
+// S6: all lookups switched to admin-reads (Supabase DB, includes drafts + new entries).
+// Velite-backed getArticleByFileNum / getFictionBySlug removed — they can't see
+// entries created via createEntry (store-only; not in velite cache).
+import {
+  getArticleBySlug,
+  getFictionBySlugAdmin,
+  getAllPhotoSidecars,
+} from '@/lib/store/admin-reads'
+import { getPhotoByRollAndId, getSidecarsInRoll } from '@/lib/content/photos'
 import { EntryEditor }         from '@/components/console/EntryEditor'
 import { ConsoleLogin }        from '@/components/console/ConsoleLogin'
 import { createSupabaseServerClient } from '@/lib/store/supabase/server'
@@ -75,14 +81,16 @@ async function lookupDraft(
   if (typeof kind !== 'string' || typeof slug !== 'string' || !slug) return null
 
   if (kind === 'article') {
-    const entry = await getArticleByFileNum(slug)
+    // S6: use admin-reads (DB lookup) so newly-created entries (not yet in velite) resolve.
+    const entry = await getArticleBySlug(slug)
     if (!entry) return null
     // Article maps fully — no field gaps.
     return entry
   }
 
   if (kind === 'fiction') {
-    const entry = await getFictionBySlug(slug)
+    // S6: use admin-reads so new fiction drafts resolve.
+    const entry = await getFictionBySlugAdmin(slug)
     if (!entry) return null
     // Map fiction to Article shape. fiction has: slug, title, date, isoDate, domain,
     // tags, summary, kind, variants, divergence_cluster, worldline_links, originLocus.
@@ -109,30 +117,29 @@ async function lookupDraft(
   }
 
   if (kind === 'photo') {
+    // S6: use admin-reads PhotoSidecars (sidecar-level, with body + draft status)
     // slug format: "roll/id" — matches fileId used in console page node synthesis
-    const photos = await getPhotos()
-    const entry = photos.find((p) => `${p.roll}/${p.id}` === slug)
+    const sidecars = await getAllPhotoSidecars()
+    const entry = sidecars.find((p) => `${p.roll}/${p.id}` === slug)
     if (!entry) return null
-    // FIELD-GAP(Procyon): Photo (roll-level) has no title, domain, tags, or summary.
-    // caption is the closest proxy for title/summary — same fallback the console page uses.
     return {
       kind:           'article',          // ArticlePreview type expects 'article'
       fileNum:        slug,               // Use "roll/id" as display stand-in for fileNum
-      title:          entry.caption ?? entry.roll,  // FIELD-GAP: no title on Photo
+      title:          entry.caption ?? entry.roll,
       date:           entry.date,
       isoDate:        entry.isoDate,
-      domain:         'identity',         // FIELD-GAP: Photo has no domain — safe enum default
-      tags:           [],                 // FIELD-GAP: Photo has no tags field
-      summary:        entry.caption ?? '', // FIELD-GAP: Photo has no summary field
-      status:         'seed',             // FIELD-GAP: Photo has no status field
-      readingTime:    1,                  // FIELD-GAP: Photo has no readingTime field
-      coords:         { lat: 0, lon: 0, place: '' }, // FIELD-GAP: servedCoords on roll-level is optional
-      shareLocation:  false,              // Always suppress in editor context (privacy)
-      patches:        [],                 // FIELD-GAP: Photo has no patches log
-      worldline_links: [],                // FIELD-GAP: roll-level Photo has no worldline_links
-      highlightForPlace: false,           // FIELD-GAP: Photo (roll) has no place highlight
-      draft:          false,              // Photo (roll-level) has no draft field; default false
-      body:           '',                 // FIELD-GAP: roll-level Photo has no body
+      domain:         'identity',
+      tags:           [],
+      summary:        entry.caption ?? '',
+      status:         'seed',
+      readingTime:    1,
+      coords:         { lat: 0, lon: 0, place: '' },
+      shareLocation:  false,
+      patches:        [],
+      worldline_links: entry.worldline_links ?? [],
+      highlightForPlace: false,
+      draft:          entry.draft ?? false,  // S6: real draft status from DB
+      body:           '',                    // photo sidecar body lives in caption / roll body, not entry body
     }
   }
 

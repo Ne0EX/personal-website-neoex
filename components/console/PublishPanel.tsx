@@ -35,7 +35,7 @@
 
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import type {
   EntryKind,
   ArticleMeta,
@@ -66,6 +66,22 @@ interface PublishPanelProps {
   phase: PublishPhase
   onPhaseChange: (p: PublishPhase) => void
   onClose: () => void
+  /**
+   * S6: Real transmit action (setEntryDraft(draft:false)).
+   * When provided, CONFIRM TRANSMISSION calls this instead of the 2s mock timer.
+   * Returns the error message on failure, null on success.
+   */
+  onTransmit?: () => Promise<string | null>
+  /**
+   * S6: The live public URL for the published entry (shown in done phase).
+   * E.g. "/articles/003" or "/photos/2026-05-bangkok/DSCF0002"
+   */
+  publicUrl?: string
+  /**
+   * S6: Deploy hook URL for REINDEX affordance (DL5). When provided, the done
+   * phase shows a REINDEX button that fires a POST to this URL.
+   */
+  reindexHookUrl?: string
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -369,6 +385,9 @@ export function PublishPanel({
   phase,
   onPhaseChange,
   onClose,
+  onTransmit,
+  publicUrl,
+  reindexHookUrl,
 }: PublishPanelProps) {
   // Slide-in: start translated off-screen, then release on mount so the CSS
   // transition runs. `entering` is a one-shot mount flag — NOT a mirror of phase.
@@ -390,16 +409,40 @@ export function PublishPanel({
     return () => clearInterval(tick)
   }, [phase])
 
-  // Mock auto-advance: running → done after MOCK_RUNNING_MS. This component
-  // REQUESTS the transition via onPhaseChange; the caller owns the actual phase.
-  // (issues_for_integrator: if the caller would rather drive the timer, it
-  //  should — to avoid a double request.)
+  // S6: transmit error state (shown on failure in running phase)
+  const [transmitError, setTransmitError] = useState<string | null>(null)
+  const [_transmitPending, startTransmitTransition] = useTransition()
+
+  // S6: REINDEX affordance state
+  const [reindexStatus, setReindexStatus] = useState<'idle' | 'firing' | 'done' | 'error'>('idle')
+
+  // S6: real transmit — when onTransmit provided, call it instead of the mock timer.
+  // Mock auto-advance kept as fallback when onTransmit is not wired (legacy SAMPLE path).
   const onPhaseChangeRef = useRef(onPhaseChange)
   onPhaseChangeRef.current = onPhaseChange
+  const onTransmitRef = useRef(onTransmit)
+  onTransmitRef.current = onTransmit
+
   useEffect(() => {
     if (phase !== 'running') return
-    const id = setTimeout(() => onPhaseChangeRef.current('done'), MOCK_RUNNING_MS)
-    return () => clearTimeout(id)
+    if (onTransmitRef.current) {
+      // Real path: call the store action
+      startTransmitTransition(async () => {
+        const error = await onTransmitRef.current!()
+        if (error) {
+          setTransmitError(error)
+          onPhaseChangeRef.current('review')  // bounce back to review with error
+        } else {
+          setTransmitError(null)
+          onPhaseChangeRef.current('done')
+        }
+      })
+    } else {
+      // Mock fallback (SAMPLE_DRAFT path, no real entry)
+      const id = setTimeout(() => onPhaseChangeRef.current('done'), MOCK_RUNNING_MS)
+      return () => clearTimeout(id)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase])
 
   // ESC closes (contract keyboard map is unconditional — unlike the prototype
@@ -485,11 +528,25 @@ export function PublishPanel({
                   )}
                 </dl>
 
+                {/* S6: transmit error from previous attempt */}
+                {transmitError && (
+                  <div
+                    role="alert"
+                    style={{
+                      fontFamily: 'var(--font-mono)', fontSize: '9px',
+                      letterSpacing: '0.12em', textTransform: 'uppercase',
+                      color: 'var(--accent-orange)', marginBottom: 12,
+                    }}
+                  >
+                    {transmitError}
+                  </div>
+                )}
+
                 <div className="pub-actions">
                   <button
                     type="button"
                     className="pub-btn-primary"
-                    onClick={() => onPhaseChange('running')}
+                    onClick={() => { setTransmitError(null); onPhaseChange('running') }}
                   >
                     CONFIRM TRANSMISSION ▲
                   </button>
@@ -526,6 +583,35 @@ export function PublishPanel({
                 <div className="pub-done-sub">
                   ENTRY <b>{fileNum}</b> SETTLED
                 </div>
+                {/* S6: live public URL — DL11 revalidatePath means it's live now */}
+                {publicUrl && (
+                  <div className="pub-done-sub" style={{ marginTop: 4 }}>
+                    LIVE AT <b>{publicUrl}</b>
+                  </div>
+                )}
+                {/* S6: REINDEX affordance — fires the Vercel Deploy Hook for search
+                    index rebuild (DL5). Optional: shown only when hookUrl is configured. */}
+                {reindexHookUrl && (
+                  <div style={{ marginTop: 10 }}>
+                    <button
+                      type="button"
+                      className="pub-btn-ghost"
+                      disabled={reindexStatus === 'firing' || reindexStatus === 'done'}
+                      onClick={() => {
+                        setReindexStatus('firing')
+                        fetch(reindexHookUrl, { method: 'POST' })
+                          .then(() => setReindexStatus('done'))
+                          .catch(() => setReindexStatus('error'))
+                      }}
+                      title="Trigger a Vercel redeploy so pagefind index includes this entry"
+                    >
+                      {reindexStatus === 'idle'   ? '⇡ REINDEX (deploy)' :
+                       reindexStatus === 'firing' ? 'FIRING…' :
+                       reindexStatus === 'done'   ? 'REINDEX QUEUED' :
+                                                    'REINDEX FAILED'}
+                    </button>
+                  </div>
+                )}
                 <div className="pub-actions" style={{ marginTop: '10px', borderTop: 'none', paddingTop: 0 }}>
                   <button
                     type="button"

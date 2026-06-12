@@ -36,8 +36,8 @@
  */
 
 import type { Metadata } from 'next'
-import { getAllArticles, getAllFiction } from '@/lib/store/admin-reads'
-import { getPhotos }     from '@/lib/content/photos'
+// S6: switch to full admin-reads (all data from store, including photo sidecars + rolls)
+import { getAllArticles, getAllFiction, getAllPhotoSidecars, getAllRolls } from '@/lib/store/admin-reads'
 import { getAllPlaces, getPlaceContent } from '@/lib/content/places'
 import { ConsoleApp }   from '@/components/console/ConsoleApp'
 import { ConsoleLogin } from '@/components/console/ConsoleLogin'
@@ -82,14 +82,13 @@ export default async function ConsolePage() {
     return <ConsoleLogin />
   }
 
-  // Fetch all three collections from velite (build-time cache, no runtime I/O)
-  // Also fetch place content for the PLACES rail block + highlight editor seeding.
-  // Console always sees ALL entries including drafts — authoring view.
-  // getAllArticles / getAllFiction bypass the prod draft-visibility gate.
-  const [articles, fictions, photos] = await Promise.all([
+  // S6: Fetch all collections from the store (admin-reads — includes drafts).
+  // getAllPhotoSidecars gives us the sidecar-level entries (per-photo, with exif + variants).
+  // getAllRolls gives us the roll descriptors for the photo manager.
+  const [articles, fictions, photoSidecars] = await Promise.all([
     getAllArticles(),
     getAllFiction(),
-    getPhotos(),
+    getAllPhotoSidecars(),
   ])
 
   // ── Build place DTOs for the console (server-side; never ships velite internals) ──
@@ -168,19 +167,18 @@ export default async function ConsolePage() {
     })
   }
 
-  for (const p of photos) {
-    // FIELD-GAP(Procyon): Photo velite schema has no title, domain, or summary field.
-    // caption is the closest proxy; domain and summary fall back to empty string.
-    // fileId uses "roll/id" pattern to match the worldline_links format for photos.
+  // S6: PhotoSidecar has roll + id + caption — same field gaps as before
+  // but now from the DB (not velite). fileId = "roll/id" format preserved.
+  for (const p of photoSidecars) {
     nodes.push({
       id:      `photo-${p.roll}-${p.id}`,
       kind:    'photo',
       fileId:  `${p.roll}/${p.id}`,
-      title:   p.caption ?? p.roll,   // FIELD-GAP: no title field on Photo
+      title:   p.caption ?? p.roll,
       date:    p.date,
-      domain:  '',                     // FIELD-GAP: no domain field on Photo
-      tags:    [],                     // FIELD-GAP: no tags field on Photo
-      summary: p.caption ?? '',        // FIELD-GAP: no summary field on Photo
+      domain:  '',
+      tags:    [],
+      summary: p.caption ?? '',
       ...gridPosition(idx++),
     })
   }
@@ -229,10 +227,14 @@ export default async function ConsolePage() {
       if (targetId) addEdge(sourceId, targetId, link.label)
     }
   }
-  // Photos use worldline_links from PhotoSidecar, not roll-level Photo.
-  // Roll-level Photo velite schema does not have worldline_links.
-  // FIELD-GAP(Procyon): Photo worldline_links live on PhotoSidecar, not Photo.
-  // Edges from photos deferred until PhotoSidecar is wired here (Slice 3 scope).
+  // S6: photoSidecars now carry worldline_links from the DB (store sidecar entries)
+  for (const p of photoSidecars) {
+    const sourceId = `photo-${p.roll}-${p.id}`
+    for (const link of p.worldline_links ?? []) {
+      const targetId = resolveToId(link.to)
+      if (targetId) addEdge(sourceId, targetId, link.label)
+    }
+  }
 
   return <ConsoleApp initialNodes={nodes} initialEdges={edges} initialPlaces={initialPlaces} />
 }

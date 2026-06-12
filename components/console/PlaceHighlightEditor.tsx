@@ -49,11 +49,12 @@ import {
   useState, useCallback, useRef, useTransition,
 } from 'react'
 import type { PlaceDTO, PlacePhotoItem } from './console-types'
+// S6: swap to store actions (DL15 — place lifecycle now table-writes, not file-writes)
 import {
   savePlaceHighlights,
   savePlaceCoord,
   createPlace,
-} from '@/lib/server/places/place-actions'
+} from '@/lib/server/store/actions'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Canonical copy (Vega) — place VERBATIM
@@ -596,7 +597,8 @@ export function PlaceHighlightEditor({
         setIsError(true)
         return
       }
-      onSaved(place.id, { coord: result.place.coord })
+      // S6: store action returns flat {lat,lon} — adapt to PlaceDTO coord shape
+      onSaved(place.id, { coord: { lat: result.place.lat, lon: result.place.lon } })
       setStatus('coord saved.')
       setIsError(false)
     })
@@ -620,20 +622,23 @@ export function PlaceHighlightEditor({
     setIsError(false)
 
     startTransition(async () => {
+      // S6: store action uses flat {lat, lon}, not {coord:{lat,lon}}
       const result = await createPlace({
         name: newName.trim(),
-        coord: { lat, lon },
+        lat,
+        lon,
       })
       if (!result.ok) {
         setStatus(result.error.message)
         setIsError(true)
         return
       }
-      // Construct a lean DTO for the new place (no content yet — registry stale until restart)
+      // Construct a lean DTO for the new place (no content yet)
+      // S6: result.place.lat/lon (flat) — adapt to PlaceDTO coord shape
       const newDTO: PlaceDTO = {
         id:           result.place.id,
         name:         result.place.name,
-        coord:        result.place.coord,
+        coord:        { lat: result.place.lat, lon: result.place.lon },
         articleCount: 0,
         photoCount:   0,
         highlights:   { articleHighlight: null, photoHighlights: [] },
@@ -641,7 +646,7 @@ export function PlaceHighlightEditor({
         photoPicks:   [],
       }
       onCreated(newDTO)
-      setStatus('place created. restart dev server to assign highlights.')
+      setStatus('place created.')
       setIsError(false)
     })
   }, [newName, newLat, newLon, onCreated])

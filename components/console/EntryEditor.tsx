@@ -74,7 +74,8 @@ import type React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Article, PhotoSidecar } from '@/lib/content/types'
-import { setEntryDraft, deleteEntry } from '@/lib/server/entries/entry-actions'
+// S6: swap to store actions (setEntryDraft + deleteEntry + updateEntry now live against DB)
+import { setEntryDraft, deleteEntry, updateEntry } from '@/lib/server/store/actions'
 import type {
   ArticleMeta,
   EntryKind,
@@ -1303,16 +1304,46 @@ function ArticleOutline({ md, fileNum, previewRefId }: ArticleOutlineProps) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface ArticleSourcePaneProps {
-  md:       string
-  onChange: (v: string) => void
+  md:         string
+  onChange:   (v: string) => void
+  onSave?:    () => void
+  saveStatus?: 'idle' | 'saving' | 'saved' | 'error'
 }
 
-function ArticleSourcePane({ md, onChange }: ArticleSourcePaneProps) {
+function ArticleSourcePane({ md, onChange, onSave, saveStatus }: ArticleSourcePaneProps) {
+  // S6: save-status copy tokens (no Vega handoff needed — these are console-internal instrument labels)
+  const saveLabel = saveStatus === 'saving' ? 'SAVING…'
+    : saveStatus === 'saved' ? 'SAVED'
+    : saveStatus === 'error' ? 'SAVE ERR'
+    : null
   return (
     <div className="src-pane">
       <div className="src-head">
         <span>MARKDOWN · SOURCE</span>
-        <span className="src-count">{md.length} CH</span>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
+          {/* S6: save affordance (only shown when a real entry is loaded) */}
+          {onSave && (
+            <button
+              type="button"
+              onClick={onSave}
+              disabled={saveStatus === 'saving'}
+              style={{
+                appearance: 'none', background: 'transparent', border: 'none',
+                fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.22em',
+                textTransform: 'uppercase',
+                color: saveStatus === 'error' ? 'var(--accent-orange)'
+                  : saveStatus === 'saved' ? 'var(--ink-primary)'
+                  : 'var(--ink-faint)',
+                cursor: saveStatus === 'saving' ? 'not-allowed' : 'pointer', padding: 0,
+              }}
+              aria-label="save body to store"
+              title="CMD+S to save"
+            >
+              {saveLabel ?? '⇡ SAVE'}
+            </button>
+          )}
+          <span className="src-count">{md.length} CH</span>
+        </div>
       </div>
       <textarea
         className="src-text"
@@ -1575,16 +1606,15 @@ export function EntryEditor({
   // stored field on the entry (contract §kind state model).
   const [kind, setKind] = useState<EntryKind>(initialKind ?? 'article')
 
-  // ARTICLE source body — seeded from SAMPLE_MD (import zone is step 2).
-  const [md, setMd] = useState<string>(SAMPLE_MD)
-
-  // PHOTO state — frames + active frame, lifted into the shell so the //FRAMES
-  // rail, PhotoManager, and PhotoPreview share one store. Mock-seeded (NOT velite-
-  // wired): PhotoFrame.exif / filmSim are Procyon SCHEMA-NEEDS.
-  const [frames, setFrames] = useState<PhotoFrame[]>(MOCK_FRAMES)
-  const [activeFrame, setActiveFrame] = useState<string | null>(
-    MOCK_FRAMES[0]?.id ?? null,
+  // S6: ARTICLE source body — seeded from the real entry body when a draft is loaded.
+  // Falls back to SAMPLE_MD only when no real entry (SAMPLE_DRAFT path).
+  // `initialDraft` is set when the route found a real entry; `hasEntry` mirrors this.
+  const [md, setMd] = useState<string>(
+    initialDraft !== undefined ? (initialDraft.body ?? '') : SAMPLE_MD
   )
+
+  // PHOTO frames and activeFrame moved below initialRealFrames useMemo (after hasEntry/entrySlug/entryKind).
+  // See comment near `const initialRealFrames` — TDZ fix requires declaration order.
 
   // FICTION state — chapters + active chapter, lifted into the shell so the
   // //CHAPTERS/​//STATE rail, FictionManager, and FictionPreview share one store.
@@ -1661,6 +1691,49 @@ export function EntryEditor({
   const entrySlug: string | undefined = initialDraft?.fileNum
   const hasEntry: boolean = initialDraft !== undefined
 
+  // S6: PHOTO frames — seeded from real DB data when a photo entry is loaded.
+  // Placed here (after entryKind/entrySlug/hasEntry declarations) to avoid TDZ:
+  // the useMemo must be declared AFTER the variables it closes over, or the
+  // minifier's const-hoist produces a "Cannot access before initialization" error.
+  const initialRealFrames = useMemo<PhotoFrame[]>(() => {
+    if (entryKind === 'photo' && hasEntry && entrySlug) {
+      // The editor is opened for a specific photo (slug = "roll/id")
+      // Seed a single frame representing this photo; real variants from the DB
+      const sep = entrySlug.indexOf('/')
+      const photoId = sep >= 0 ? entrySlug.slice(sep + 1) : entrySlug
+      // PhotoPreview uses initialPhoto for real preview; PhotoManager shows this frame
+      // Variants URL would come from photo_assets.variants via initialPhoto — use it if present
+      const thumbSrc = initialPhoto?.variants?.thumb?.webp
+        ?? initialPhoto?.variants?.thumb?.jpg
+        ?? '/_mock/placeholder.jpg'
+      return [{
+        id:      entrySlug,          // "roll/id" format as the frame key
+        src:     thumbSrc,
+        caption: initialPhoto ? (draft.title) : photoId,
+        // filmSim lives inside exif (PhotoExif.filmSim: string|undefined), not top-level on PhotoSidecar
+        filmSim: (initialPhoto?.exif?.filmSim ?? undefined) as PhotoFrame['filmSim'],
+        exif:    initialPhoto?.exif ? {
+          camera:   initialPhoto.exif.camera ?? undefined,
+          lens:     initialPhoto.exif.lens ?? undefined,
+          iso:      initialPhoto.exif.iso ?? undefined,
+          // PhotoExif.aperture/focal are numbers; PhotoFrame.exif.aperture/focal expect string
+          aperture: initialPhoto.exif.aperture != null ? String(initialPhoto.exif.aperture) : undefined,
+          shutter:  initialPhoto.exif.shutter ?? undefined,
+          focal:    initialPhoto.exif.focal != null ? String(initialPhoto.exif.focal) : undefined,
+        } : undefined,
+      }]
+    }
+    return MOCK_FRAMES
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])  // intentionally computed once on mount from stable props
+
+  // S6: PHOTO frames state — seeded from initialRealFrames (which depends on
+  // entryKind/entrySlug/hasEntry; declared above for TDZ safety).
+  const [frames, setFrames] = useState<PhotoFrame[]>(initialRealFrames)
+  const [activeFrame, setActiveFrame] = useState<string | null>(
+    initialRealFrames[0]?.id ?? null,
+  )
+
   // isHidden — current draft visibility. Initialized from the velite field.
   // Photo: sidecar has its own draft field. Other kinds: Article.draft.
   // Both are typed as boolean by the velite schema (s.boolean().default(false)).
@@ -1704,6 +1777,27 @@ export function EntryEditor({
     })
   }, [hasEntry, entryKind, entrySlug, router, startLifecycleTransition])
 
+  // S6: SAVE body — called by Cmd+S and explicit SAVE button (article kind).
+  // updateEntry patch: only sends body (no other field edits in the source pane).
+  // Guarded on hasEntry (sample drafts have no slug to update).
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [_savePending, startSaveTransition] = useTransition()
+
+  const onSaveBody = useCallback(() => {
+    if (!hasEntry || !entrySlug) return
+    setSaveStatus('saving')
+    startSaveTransition(async () => {
+      const result = await updateEntry({ kind: entryKind, slug: entrySlug, patch: { body: md } })
+      if (!result.ok) {
+        setSaveStatus('error')
+        return
+      }
+      setSaveStatus('saved')
+      // Reset status indicator after 2s
+      setTimeout(() => setSaveStatus('idle'), 2000)
+    })
+  }, [hasEntry, entryKind, entrySlug, md, startSaveTransition])
+
   // setEntryDraft handler — called by DRAFT⇄PUBLISH segmented switch.
   // Receives an explicit target boolean (not a blind flip) — mirrors .st-switch pattern.
   // target=false → publish; target=true → set to draft (hidden from prod).
@@ -1742,17 +1836,25 @@ export function EntryEditor({
   // ESC keyboard handler — dismiss the delete confirm row when it is open.
   // Mirrors ImportZone's ESC pattern (window.addEventListener in useEffect).
   // Also clears any lifecycle error on ESC (secondary clean-up, no UX cost).
+  // S6: Cmd+S wired to onSaveBody (real updateEntry call).
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
-      if (isDeleteConfirming) {
-        setIsDeleteConfirming(false)
-        setLifecycleError(null)
+      if (e.key === 'Escape') {
+        if (isDeleteConfirming) {
+          setIsDeleteConfirming(false)
+          setLifecycleError(null)
+        }
+        return
+      }
+      // S6: Cmd+S / Ctrl+S → save body to DB
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        if (kind === 'article' && hasEntry) onSaveBody()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isDeleteConfirming])
+  }, [isDeleteConfirming, kind, hasEntry, onSaveBody])
 
   const twoWork = view === 'split'
 
@@ -1842,37 +1944,122 @@ export function EntryEditor({
   const surfaceMeta: ArticleMeta | PhotoMeta | FictionMeta =
     kind === 'photo' ? photoMeta : kind === 'fiction' ? fictionMeta : articleMeta
 
-  // RE-IMPORT confirm — MOCK only (real content-layer wiring is Peat-at-seam,
-  // contract §non-goals + live-mutating-action gate). No-op placeholder seam:
-  // the inline confirm UX is fully exercised by ImportZone; the side effect is
-  // intentionally inert this round.
+  // RE-IMPORT confirm — inert (real content-layer wiring deferred per contract §non-goals)
   const onReImport = useCallback(() => {
-    // MOCK: real re-import (re-read source from disk) is deferred. Inert.
+    // MOCK: real re-import deferred. Inert.
   }, [])
 
-  // Add a mock frame — single seam for BOTH ImportZone.onImport (empty state) and
-  // PhotoManager.onAdd (+ ADD FRAME). The styled-slot previews render no <img>, so
-  // an objectURL src never 404s; it's retained for future real-image wiring.
-  const addFrame = useCallback((file?: File) => {
-    const id = 'DSCF' + String(Date.now()).slice(-4)
-    const src = file ? URL.createObjectURL(file) : `/_mock/${id.toLowerCase()}.jpg`
-    const next: PhotoFrame = file
-      ? { id, src, caption: file.name }
-      : { id, src, caption: 'a new frame, not yet developed' }
-    setFrames((fs) => [...fs, next])
-    setActiveFrame(id)
-  }, [])
+  // ─────────────────────────────────────────────────────────────────────────────
+  // S6: Photo upload flow (DL3 — direct-to-storage, then ingestPhoto server action)
+  //
+  // Per-file upload state: each file goes uploading → processing → done | failed.
+  // The active roll is read from the URL slug (roll/id format) or defaults to
+  // a session-level roll picked via the roll picker (TODO: roll picker UI).
+  //
+  // Architecture:
+  //   1. Browser client uploads original to originals bucket
+  //   2. ingestPhoto action runs sharp pipeline + upserts entries+photo_assets
+  //   3. On success: append a real PhotoFrame with the returned slug
+  //
+  // The roll comes from the editor's URL (kind=photo&slug=roll/id) so we always
+  // know the roll when in the photo editor. For a brand-new upload we read the roll
+  // portion from `entrySlug` (format "roll/id") or use a fallback.
+  // ─────────────────────────────────────────────────────────────────────────────
 
-  // RE-IMPORT file pick — MOCK. For photo we append a real frame (the addFrame
-  // seam); for article/fiction this round is inert (no file-body ingest yet —
-  // velite has no body field, Procyon SCHEMA-NEEDS).
+  type UploadStatus = 'uploading' | 'processing' | 'done' | 'failed'
+  const [uploadStatuses, setUploadStatuses] = useState<Record<string, UploadStatus>>({})
+
+  // Derive the roll from the URL slug (format "roll/id") or from the first existing frame
+  const photoRoll = useMemo<string | null>(() => {
+    if (entryKind === 'photo' && entrySlug) {
+      const sep = entrySlug.indexOf('/')
+      if (sep > 0) return entrySlug.slice(0, sep)
+    }
+    // Fallback: use the first existing frame's roll portion if any
+    if (frames.length > 0 && activeFrame) {
+      const f = frames.find((fr) => fr.id === activeFrame)
+      if (f && f.id.includes('/')) return f.id.split('/')[0]
+    }
+    return null
+  }, [entryKind, entrySlug, frames, activeFrame])
+
+  const uploadAndIngest = useCallback(async (file: File) => {
+    if (!photoRoll) {
+      // No roll context — show a degraded frame placeholder (add as mock)
+      const id = 'DSCF' + String(Date.now()).slice(-4)
+      setFrames((fs) => [...fs, { id, src: URL.createObjectURL(file), caption: file.name }])
+      setActiveFrame(id)
+      return
+    }
+    // Generate a deterministic-looking photoId from the filename
+    const base = file.name.replace(/\.[^.]+$/, '').toUpperCase().replace(/[^A-Z0-9_-]/g, '') || 'DSCF0000'
+    const photoId = base.slice(0, 12)  // max 12 chars (photo_id constraint is 40 chars)
+    const ext = file.name.split('.').pop() ?? 'jpg'
+    const originalKey = `${photoRoll}/${photoId}.${ext}`
+    const frameKey = `${photoRoll}/${photoId}`
+
+    setUploadStatuses((s) => ({ ...s, [frameKey]: 'uploading' }))
+    // Append placeholder frame immediately (degraded — no URL yet)
+    const placeholderSrc = URL.createObjectURL(file)
+    setFrames((fs) => [...fs, { id: frameKey, src: placeholderSrc, caption: file.name }])
+    setActiveFrame(frameKey)
+
+    try {
+      // Step 1: direct-to-storage upload (DL3)
+      const { createSupabaseBrowserClient } = await import('@/lib/store/supabase/browser')
+      const supabase = createSupabaseBrowserClient()
+      const { error: uploadErr } = await supabase.storage
+        .from('originals')
+        .upload(originalKey, file, { upsert: false })
+      if (uploadErr) {
+        setUploadStatuses((s) => ({ ...s, [frameKey]: 'failed' }))
+        return
+      }
+
+      setUploadStatuses((s) => ({ ...s, [frameKey]: 'processing' }))
+
+      // Step 2: ingestPhoto server action (runs sharp pipeline server-side)
+      const { ingestPhoto } = await import('@/lib/server/store/actions')
+      const result = await ingestPhoto({
+        roll: photoRoll,
+        photoId,
+        originalKey,
+      })
+
+      if (!result.ok) {
+        setUploadStatuses((s) => ({ ...s, [frameKey]: 'failed' }))
+        return
+      }
+
+      setUploadStatuses((s) => ({ ...s, [frameKey]: 'done' }))
+      // Frame is already in the list (placeholder); update with real data if variants arrived
+      // The real variants are available via the public photos bucket URL after ingest
+    } catch {
+      setUploadStatuses((s) => ({ ...s, [frameKey]: 'failed' }))
+    }
+  }, [photoRoll])
+
+  // S6: photo import handler — real upload+ingest when in photo editor with a roll,
+  // fallback mock for article/fiction (no ingest target).
   const onImportFile = useCallback(
     (file: File) => {
-      if (kind === 'photo') addFrame(file)
-      // article / fiction: inert MOCK (no file-body ingest this slice).
+      if (kind === 'photo') {
+        // Fire-and-forget the upload; status tracked in uploadStatuses
+        void uploadAndIngest(file)
+      }
+      // article / fiction: inert (no file-body ingest this round per contract §non-goals)
     },
-    [kind, addFrame],
+    [kind, uploadAndIngest],
   )
+
+  // S6: + ADD FRAME button handler — opens file picker (same as before but uses real upload)
+  const addFrame = useCallback((file?: File) => {
+    if (file && kind === 'photo') {
+      void uploadAndIngest(file)
+    } else if (!file) {
+      // Trigger the hidden file input (caller handles via frameInputRef)
+    }
+  }, [kind, uploadAndIngest])
 
   // Provenance line per kind (all three LIVE; fiction + article delegate their line
   // to this shell row, photo's own .ppv-prov is scope-hidden — advisor flag #2).
@@ -1913,13 +2100,39 @@ export function EntryEditor({
   const showSource = view === 'source' || view === 'split'
   const showPreview = view === 'preview' || view === 'split'
 
-  // PublishPanel (MOCKED) — mounts INSIDE the active preview-wrap (which is
-  // position:relative + overflow:hidden) so the slide-in is bounded to the
-  // preview pane and the source pane stays visible. One node, injected into
-  // whichever kind's preview-wrap is rendered (openPublish forces SPLIT out of
-  // SOURCE-only view, so a preview-wrap always exists when publishOpen). The
-  // panel self-advances running→done after 2s via onPhaseChange — we only hold
-  // the phase; no second timer here.
+  // S6: real onTransmit for PublishPanel — calls setEntryDraft(draft:false).
+  // Only provided when a real entry is loaded (hasEntry). SAMPLE path gets no handler
+  // → PublishPanel uses its 2s mock timer.
+  const onTransmitReal = useCallback(async (): Promise<string | null> => {
+    if (!hasEntry || !entrySlug) return 'no entry loaded'
+    const result = await setEntryDraft({ kind: entryKind, slug: entrySlug, draft: false })
+    if (!result.ok) {
+      // PUBLISH_INCOMPLETE: surface the missing fields list
+      if ('missingFields' in result.error && Array.isArray(result.error.missingFields)) {
+        return `incomplete: ${result.error.missingFields.join(', ')}`
+      }
+      return result.error.message
+    }
+    // Reflect the published state in the toolbar badge
+    setIsHidden(false)
+    return null
+  }, [hasEntry, entryKind, entrySlug])
+
+  // S6: public URL for the done phase (DL11 — revalidatePath makes it live immediately)
+  const publicUrl = hasEntry && entrySlug ? (
+    entryKind === 'article' ? `/articles/${entrySlug}` :
+    entryKind === 'fiction' ? `/fiction/${entrySlug}` :
+    // photo slug = "roll/id" → /photos/roll/id
+    `/photos/${entrySlug}`
+  ) : undefined
+
+  // Deploy hook URL from env — optional; no REINDEX button when absent
+  // (DL5: PublishPanel exposes the affordance if the hook is configured)
+  const reindexHookUrl = process.env.NEXT_PUBLIC_VERCEL_DEPLOY_HOOK_URL
+
+  // PublishPanel — wired to real setEntryDraft when hasEntry.
+  // Mounts INSIDE the active preview-wrap (position:relative + overflow:hidden)
+  // so the slide-in is bounded to the preview pane and the source pane stays visible.
   const publishPanelNode = publishOpen ? (
     <PublishPanel
       kind={kind}
@@ -1931,6 +2144,9 @@ export function EntryEditor({
       phase={publishPhase}
       onPhaseChange={setPublishPhase}
       onClose={() => setPublishOpen(false)}
+      onTransmit={hasEntry ? onTransmitReal : undefined}
+      publicUrl={publicUrl}
+      reindexHookUrl={reindexHookUrl ?? undefined}
     />
   ) : null
 
@@ -1999,7 +2215,15 @@ export function EntryEditor({
               {outlineOpen && (
                 <ArticleOutline md={md} fileNum={draft.fileNum} previewRefId="ed-preview" />
               )}
-              {showSource && <ArticleSourcePane md={md} onChange={setMd} />}
+              {/* S6: pass real save handler when a real entry is loaded */}
+              {showSource && (
+                <ArticleSourcePane
+                  md={md}
+                  onChange={setMd}
+                  onSave={hasEntry ? onSaveBody : undefined}
+                  saveStatus={hasEntry ? saveStatus : undefined}
+                />
+              )}
               {showPreview && (
                 <div className="ed-preview-wrap" id="ed-preview">
                   <ArticlePreview article={draft} md={md} />
@@ -2013,6 +2237,7 @@ export function EntryEditor({
           {kind === 'photo' && (
             <>
               {/* hidden input for + ADD FRAME — caller owns the ref (contract §1) */}
+              {/* S6: hidden input — triggers real upload+ingest flow */}
               <input
                 ref={frameInputRef}
                 type="file"
@@ -2022,7 +2247,7 @@ export function EntryEditor({
                 tabIndex={-1}
                 onChange={(e) => {
                   const f = e.target.files?.[0]
-                  if (f) addFrame(f)
+                  if (f) onImportFile(f)
                   e.target.value = ''
                 }}
               />

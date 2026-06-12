@@ -55,18 +55,11 @@ import {
   type SavePlaceHighlightsResult,
 } from './actions-core'
 
-// Re-export input types for consumer convenience
-export type {
-  CreateEntryResult,
-  UpdateEntryResult,
-  SetEntryDraftResult,
-  DeleteEntryResult,
-  CreateRollResult,
-  IngestPhotoResult,
-  CreatePlaceResult,
-  SavePlaceCoordResult,
-  SavePlaceHighlightsResult,
-}
+// NOTE: Result types are NOT re-exported here. 'use server' modules must only
+// export async functions — any export type {} block in a 'use server' file can
+// confuse the Next.js action-proxy bundler (it tries to generate runtime
+// proxies for type-only exports). Import result types directly from
+// './actions-core' if you need them in a non-server context.
 
 /**
  * Create a new content entry as a DRAFT (DL14 — minimal draft is valid).
