@@ -12,19 +12,24 @@
  * This module re-exports them under stable names so consumers are insulated
  * from velite output path changes.
  */
+/**
+ * S3 store-as-source: Article/Fiction/Photo/PhotoSidecar re-pointed at
+ * lib/store/types.ts instead of the velite cache. DL7 — .velite/ is removed
+ * from the build. Consumer import sites (lib/content/*, app/**) are unchanged.
+ */
 import type {
-  Article as VeliteArticle,
-  Fiction as VeliteFiction,
-  Photo as VelitePhoto,
-  PhotoSidecar as VelitePhotoSidecar,
-} from '../../.velite'
+  Article as StoreArticle,
+  Fiction as StoreFiction,
+  Photo as StorePhoto,
+  PhotoSidecar as StorePhotoSidecar,
+} from '../store/types'
 
-export type Article = VeliteArticle
-export type Fiction = VeliteFiction
+export type Article = StoreArticle
+export type Fiction = StoreFiction
 /** Roll-level descriptor record (roll.mdx). One per roll directory. */
-export type Photo = VelitePhoto
+export type Photo = StorePhoto
 /** Per-photo sidecar record (DSCF*.mdx). One per source JPEG with sidecar. */
-export type PhotoSidecar = VelitePhotoSidecar
+export type PhotoSidecar = StorePhotoSidecar
 
 // ---------------------------------------------------------------------------
 // Photo EXIF and variant types — TASK-30

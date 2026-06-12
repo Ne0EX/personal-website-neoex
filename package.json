@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "velite && next build && npm run index:search",
+    "build": "next build && npm run index:search",
     "build:next": "next build",
     "content:build": "velite",
     "index:search": "npx tsx scripts/inject-pagefind-sidecar.ts && pagefind --site .next/server/app --output-path public/pagefind",

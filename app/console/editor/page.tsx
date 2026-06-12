@@ -100,10 +100,11 @@ async function lookupDraft(
       readingTime:    1,                // FIELD-GAP: fiction has no readingTime field
       coords:         { lat: 0, lon: 0, place: '' },  // FIELD-GAP: fiction has no GPS coords
       shareLocation:  false,            // FIELD-GAP: always suppress coords display
-      patches:        undefined,        // FIELD-GAP: fiction has no patches log
+      patches:        [],               // FIELD-GAP: fiction has no patches log
       worldline_links: entry.worldline_links ?? [],
       highlightForPlace: false,         // FIELD-GAP: fiction has no place highlight
       draft:          entry.draft ?? false,
+      body:           entry.body ?? '', // DL4: store body; editor shows md placeholder
     }
   }
 
@@ -127,10 +128,11 @@ async function lookupDraft(
       readingTime:    1,                  // FIELD-GAP: Photo has no readingTime field
       coords:         { lat: 0, lon: 0, place: '' }, // FIELD-GAP: servedCoords on roll-level is optional
       shareLocation:  false,              // Always suppress in editor context (privacy)
-      patches:        undefined,          // FIELD-GAP: Photo has no patches log
+      patches:        [],                 // FIELD-GAP: Photo has no patches log
       worldline_links: [],                // FIELD-GAP: roll-level Photo has no worldline_links
       highlightForPlace: false,           // FIELD-GAP: Photo (roll) has no place highlight
       draft:          false,              // Photo (roll-level) has no draft field; default false
+      body:           '',                 // FIELD-GAP: roll-level Photo has no body
     }
   }
 

@@ -189,13 +189,13 @@ function seedPhotoDraftInCache(roll: string, id: string): void {
 // Content module imports (used in-process for tests with NODE_ENV toggle)
 // ---------------------------------------------------------------------------
 
-import { getArticles, getAllArticles, getArticleByFileNum } from '@/lib/content/articles'
-import { getFiction, getAllFiction, getFictionBySlug } from '@/lib/content/fiction'
+import { getArticles, getArticleByFileNum } from '@/lib/content/articles'
+import { getFiction, getFictionBySlug } from '@/lib/content/fiction'
 import {
   getPhotoSidecars,
   getPhotoByRollAndId,
-  getAllPhotoSidecars,
 } from '@/lib/content/photos'
+import { getAllArticles, getAllFiction, getAllPhotoSidecars } from '@/lib/store/admin-reads'
 import { getPlacesSummary } from '@/lib/content/places'
 
 // ---------------------------------------------------------------------------

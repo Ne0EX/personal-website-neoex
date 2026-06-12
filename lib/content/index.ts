@@ -35,7 +35,6 @@ export type {
 
 export {
   getArticles,
-  getAllArticles,
   getArticleByFileNum,
   getRecentArticles,
   getRelatedArticles,
@@ -47,7 +46,6 @@ export {
 
 export {
   getFiction,
-  getAllFiction,
   getFictionBySlug,
   getFictionSiblings,
 } from './fiction'
@@ -62,13 +60,15 @@ export {
   getPhotosByRoll,
   // Per-photo sidecar records with EXIF + variants (DSCF*.mdx) — TASK-30
   getPhotoSidecars,
-  getAllPhotoSidecars,
   getSidecarsInRoll,
   getPhotoById,
   getRollNavigation,
   // Globe eligibility (privacy-gated)
   getGlobeEligiblePhotos,
 } from './photos'
+// NOTE: getAllArticles/getAllFiction/getAllPhotoSidecars are NOT exported from
+// lib/content (they drag lib/store/supabase/server.ts into client bundles).
+// Import them directly from '@/lib/store/admin-reads' in server-only contexts.
 
 // ---------------------------------------------------------------------------
 // Globe pin aggregate (all content types as typed pin records)

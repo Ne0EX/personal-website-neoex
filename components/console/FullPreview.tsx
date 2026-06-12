@@ -122,7 +122,9 @@ function articleMetaToArticle(meta: ArticleMeta): Article {
     worldline_links: [],
     highlightForPlace: false, // FIELD-GAP: preview context has no place highlight
     draft: false,             // Preview context is always non-draft
-  } as Article
+    patches: [],              // Preview context has no patch log
+    body: '',                 // Preview uses md prop, not DB body
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

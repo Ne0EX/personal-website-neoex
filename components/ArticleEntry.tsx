@@ -39,6 +39,8 @@ import { EntryShell } from '@/components/EntryShell'
 
 interface ArticleEntryProps {
   article: Article
+  /** Optional rendered MDX body (DL4 store-as-source S3). When omitted, falls back to summary placeholder. */
+  body?: React.ReactNode
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -369,7 +371,7 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
 // ArticleEntry — public page component (byte-identical to pre-refactor output)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function ArticleEntry({ article }: ArticleEntryProps) {
+export function ArticleEntry({ article, body }: ArticleEntryProps) {
   const {
     fileNum,
     title,
@@ -381,11 +383,6 @@ export function ArticleEntry({ article }: ArticleEntryProps) {
     coords,
   } = article
 
-  /*
-   * body omitted intentionally — falls back to summary-placeholder.
-   * This preserves the byte-identical public page invariant.
-   * When Procyon wires MDX body, it passes `body` here instead.
-   */
   return (
     <EntryShell
       kind="article"
@@ -399,7 +396,9 @@ export function ArticleEntry({ article }: ArticleEntryProps) {
       coords={coords}
       fileNum={fileNum}
     >
-      <ArticleEntryContent article={article} />
+      {/* DL4: body prop threads the MDX-rendered ReactNode from the store down
+          to ArticleEntryContent. When null/undefined, the summary placeholder renders. */}
+      <ArticleEntryContent article={article} body={body} />
     </EntryShell>
   )
 }

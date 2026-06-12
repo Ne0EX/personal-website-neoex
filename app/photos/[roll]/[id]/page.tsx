@@ -3,19 +3,11 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * Renders a single photo entry at /photos/<roll>/<id>.
  *
- * Route: [roll] × [id] = two dynamic segments.
- * params is a Promise in this Next.js version — must be awaited.
+ * S3 store-as-source: reads from lib/store/reads (anon client).
+ * Draft gate: photo.draft===true → notFound().
+ * Unknown (roll,id): getPhotoByRollAndId returns null → notFound().
  *
- * Static generation: generateStaticParams() returns all (roll, id) pairs
- * from the velite photoSidecars cache so every known sidecar is pre-rendered
- * at build time.
- *
- * 404: notFound() when the (roll, id) pair does not resolve in the cache.
- *
- * Reuses production chrome: PageShell, Nav, MarginaliaHUD, ScrollMeter,
- * CornerMarks — same as homepage. No re-derivation of atoms.
- *
- * Owner: Sirius (α-SUR-01) · TASK-2026-05-30-PHOTO-ENTRY-D3-SHIP
+ * Owner: Sirius (α-SUR-01) · TASK-2026-05-30-PHOTO-ENTRY-D3-SHIP / Procyon S3
  */
 
 import { notFound } from "next/navigation";
@@ -33,12 +25,9 @@ import {
   getPhotoByRollAndId,
   getSidecarsInRoll,
 } from "@/lib/content/photos";
-import { isHiddenFromPublic } from "@/lib/content/visibility";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Static generation — pre-render all known (roll, id) pairs at build time.
-// generateStaticParams docs: node_modules/next/dist/docs/01-app/03-api-reference/
-//   04-functions/generate-static-params.md
 // ─────────────────────────────────────────────────────────────────────────────
 export async function generateStaticParams() {
   const sidecars = await getPhotoSidecars();
@@ -53,11 +42,10 @@ export async function generateMetadata({
 }: {
   params: Promise<{ roll: string; id: string }>;
 }): Promise<Metadata> {
-  // params is a Promise in this Next.js version — await before destructuring.
   const { roll, id } = await params;
   const photo = await getPhotoByRollAndId(roll, id);
 
-  if (!photo || isHiddenFromPublic(photo)) {
+  if (!photo || photo.draft) {
     return { title: "Photo Not Found · Worldline" };
   }
 
@@ -76,36 +64,27 @@ export default async function PhotoEntryPage({
 }: {
   params: Promise<{ roll: string; id: string }>;
 }) {
-  // params is a Promise in this Next.js version — await before destructuring.
   const { roll, id } = await params;
 
   const photo = await getPhotoByRollAndId(roll, id);
 
-  // 404 when (roll, id) does not resolve OR photo is a draft in production.
-  if (!photo || isHiddenFromPublic(photo)) {
+  // notFound() covers: unknown (roll,id), deleted entry, draft in public.
+  if (!photo || photo.draft) {
     notFound();
   }
 
-  // Roll context: sequence index + total for the left-aside readout.
   const rollPhotos = await getSidecarsInRoll(roll);
   const sequenceIndex = rollPhotos.findIndex((s) => s.id === id);
   const rollTotal = rollPhotos.length;
 
   return (
     <PageShell>
-      {/*
-       * Production chrome reuse (SHIP-PLAN §5): PageShell, Nav, MarginaliaHUD,
-       * ScrollMeter, CornerMarks — same as homepage, no re-derivation.
-       * paper-canvas grain, pr-7 for marginalia gutter — matches homepage.
-       */}
       <main className="paper-canvas min-h-screen overflow-hidden pr-7">
         <CornerMarks />
         <ScrollMeter />
         <MarginaliaHUD />
-
         <Nav />
 
-        {/* Skip link — keyboard a11y */}
         <a
           href="#photo-main"
           style={{
@@ -123,7 +102,6 @@ export default async function PhotoEntryPage({
           Skip to photo
         </a>
 
-        {/* PhotoEntry surface — the D3 three-column grid */}
         <div
           data-section="photo-entry"
           style={{ marginTop: "14px", position: "relative" }}
@@ -134,13 +112,6 @@ export default async function PhotoEntryPage({
             rollTotal={rollTotal > 0 ? rollTotal : 1}
           />
 
-          {/*
-           * § worldline section — L2b local-view (S3 worldline-schema + this ship).
-           * Rendered below the photo entry surface. Absent when no links exist.
-           * identifier format for photos: "roll/id" — matches the canonical corpus key
-           * format "photos/<roll>/<id>" minus the "photos/" prefix (see worldline.ts).
-           * title: photo caption as display title (or id when no caption).
-           */}
           <WorldlineLinks
             kind="photo"
             identifier={`${roll}/${id}`}

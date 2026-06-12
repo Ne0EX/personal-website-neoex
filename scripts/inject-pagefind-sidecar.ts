@@ -145,8 +145,7 @@ const logErr = (...args: unknown[]) => console.error('[inject-pagefind-sidecar] 
 // ---------------------------------------------------------------------------
 
 const REPO_ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..')
-const VELITE_DIR = path.join(REPO_ROOT, '.velite')
-const SITE_DIR   = path.join(REPO_ROOT, '.next', 'server', 'app')
+const SITE_DIR  = path.join(REPO_ROOT, '.next', 'server', 'app')
 
 // ---------------------------------------------------------------------------
 // HTML sidecar generation helpers
@@ -188,6 +187,8 @@ function articleSidecar(a: ArticleRecord): string {
     `<span data-pagefind-meta="isoDate">${esc(a.isoDate)}</span>` +
     `<span data-pagefind-sort="isoDate">${esc(a.isoDate)}</span>` +
     `<span data-pagefind-meta="tags">${esc(a.tags.join(', '))}</span>` +
+    // DL1: status in sidecar = maturity value (served from store, not DB publish state)
+    `<span data-pagefind-meta="status">${esc(a.status)}</span>` +
     (coordStr ? `<span data-pagefind-meta="coord">${esc(coordStr)}</span>` : '') +
     `<span data-pagefind-meta="tended-count">${tendedCount}</span>` +
     `<span data-pagefind-meta="tended-last">${esc(tendedLast)}</span>` +
@@ -364,33 +365,97 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  // --- Load velite cache ---
-  const [articlesRaw, fictionRaw, photosRaw, sidecarRaw] = await Promise.all([
-    fs.readFile(path.join(VELITE_DIR, 'articles.json'), 'utf-8'),
-    fs.readFile(path.join(VELITE_DIR, 'fiction.json'), 'utf-8'),
-    fs.readFile(path.join(VELITE_DIR, 'photos.json'), 'utf-8'),
-    fs.readFile(path.join(VELITE_DIR, 'photoSidecars.json'), 'utf-8'),
-  ])
+  // --- Load from Supabase store (DL5/DL7: reads via map.ts-served records, anon client) ---
+  // Anon client uses NEXT_PUBLIC_SUPABASE_URL + NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY from .env.local
+  // RLS returns published rows only — draft filter is enforced by the DB, not here.
+  // DL1 mapping: served status = maturity; served_coords consumed (never raw coords, DL13).
+  // This replaces the old .velite/*.json reads (DL7: velite out of build).
 
-  // Parse and filter drafts before indexing.
-  // This script always runs as a production pipeline step (`next build` then pagefind).
-  // Drafts must not appear in the public search index.
-  const _allArticles: ArticleRecord[]         = JSON.parse(articlesRaw)
-  const _allFictions: FictionRecord[]         = JSON.parse(fictionRaw)
-  const _photos: PhotoRecord[]                = JSON.parse(photosRaw)
-  const _allSidecars: PhotoSidecarRecord[]    = JSON.parse(sidecarRaw)
-
-  const articles: ArticleRecord[]          = _allArticles.filter((a) => !a.draft)
-  const fictions: FictionRecord[]          = _allFictions.filter((f) => !f.draft)
-  const photoSidecars: PhotoSidecarRecord[] = _allSidecars.filter((s) => !s.draft)
-
-  const draftCount =
-    (_allArticles.length - articles.length) +
-    (_allFictions.length - fictions.length) +
-    (_allSidecars.length - photoSidecars.length)
-  if (draftCount > 0) {
-    log(`filtered ${draftCount} draft entries from pagefind index`)
+  // Load .env.local if not already set (local build without Vercel env injection)
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    const envPath = path.join(REPO_ROOT, '.env.local')
+    try {
+      const raw = await fs.readFile(envPath, 'utf-8')
+      for (const line of raw.split('\n')) {
+        const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/)
+        if (m) process.env[m[1]] = m[2].replace(/^['"]|['"]$/g, '')
+      }
+    } catch { /* .env.local absent on Vercel — env already injected */ }
   }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!
+
+  if (!supabaseUrl || !publishableKey) {
+    logErr('NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY not set')
+    process.exit(1)
+  }
+
+  /** Fetch all rows from an entries or rolls query via PostgREST. */
+  async function storeGet(table: string, params: string): Promise<unknown[]> {
+    const url = `${supabaseUrl}/rest/v1/${table}?${params}`
+    const res = await fetch(url, {
+      headers: {
+        apikey: publishableKey,
+        Authorization: `Bearer ${publishableKey}`,
+        Accept: 'application/json',
+      },
+    })
+    if (!res.ok) throw new Error(`store GET ${table}: ${res.status} ${await res.text()}`)
+    return res.json() as Promise<unknown[]>
+  }
+
+  const ENTRY_COLS = [
+    'kind', 'slug', 'status', 'title', 'date', 'iso_date', 'domain', 'tags',
+    'summary', 'served_coords', 'share_location', 'patches', 'worldline_links',
+    'maturity', 'reading_time', 'roll', 'photo_id', 'caption',
+  ].join(',')
+
+  // Anon client, RLS = published only
+  const [rawArticles, rawFiction, rawPhotos] = await Promise.all([
+    storeGet('entries', `select=${ENTRY_COLS}&kind=eq.article&status=eq.published`),
+    storeGet('entries', `select=${ENTRY_COLS}&kind=eq.fiction&status=eq.published`),
+    storeGet('entries', `select=${ENTRY_COLS}&kind=eq.photo&status=eq.published`),
+  ]) as [Record<string, unknown>[], Record<string, unknown>[], Record<string, unknown>[]]
+
+  // DL1 mapping: served status = maturity
+  const articles: ArticleRecord[] = rawArticles.map((r) => ({
+    fileNum: r.slug as string,
+    title: (r.title as string) ?? '',
+    date: r.date as string,
+    isoDate: r.iso_date as string,
+    domain: r.domain as string,
+    tags: (r.tags as string[]) ?? [],
+    status: (r.maturity as string) ?? 'seed',
+    summary: (r.summary as string) ?? '',
+    shareLocation: r.share_location as boolean,
+    // DL13: served_coords is the only coords we expose
+    coords: r.served_coords as ArticleRecord['coords'],
+    patches: (r.patches as ArticleRecord['patches']) ?? [],
+  }))
+
+  const fictions: FictionRecord[] = rawFiction.map((r) => ({
+    slug: r.slug as string,
+    title: (r.title as string) ?? '',
+    date: r.date as string,
+    isoDate: r.iso_date as string,
+    domain: r.domain as string,
+    tags: (r.tags as string[]) ?? [],
+    summary: (r.summary as string) ?? '',
+  }))
+
+  const photoSidecars: PhotoSidecarRecord[] = rawPhotos.map((r) => ({
+    roll: r.roll as string,
+    id: r.photo_id as string,
+    caption: r.caption as string | undefined,
+    date: r.date as string,
+    isoDate: r.iso_date as string,
+    shareLocation: r.share_location as boolean,
+    // DL13: served_coords used for coord display
+    coords: r.served_coords as PhotoSidecarRecord['coords'],
+  }))
+
+  log(`loaded from store: ${articles.length} articles, ${fictions.length} fiction, ${photoSidecars.length} photo sidecars (published only via RLS)`)
 
   // Build lookup maps
   const articleByFileNum = new Map(articles.map(a => [a.fileNum, a]))
@@ -536,7 +601,7 @@ async function main(): Promise<void> {
 
   log(`done — injected: ${injected}, already-present: ${skipped}, unmatched: ${unmatched}`)
   if (unmatched > 0) {
-    logErr(`${unmatched} HTML file(s) could not be matched to velite data — check above`)
+    logErr(`${unmatched} HTML file(s) could not be matched to store data — check above`)
   }
 }
 

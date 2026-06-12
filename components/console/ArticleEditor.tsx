@@ -56,6 +56,8 @@ export const SAMPLE_DRAFT: Article = {
   highlightForPlace: false,
   worldline_links: [],
   draft:         false,
+  patches:       [],
+  body:          '',
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

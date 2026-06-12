@@ -52,9 +52,7 @@ import {
   type ActionError,
 } from '../places/highlight-core'
 import { setFrontmatterField, removeFrontmatterField } from '@/lib/content/frontmatter-edit'
-import { getAllArticles } from '@/lib/content/articles'
-import { getAllFiction } from '@/lib/content/fiction'
-import { getAllPhotoSidecars } from '@/lib/content/photos'
+import { getAllArticles, getAllFiction, getAllPhotoSidecars } from '@/lib/store/admin-reads'
 
 // ---------------------------------------------------------------------------
 // Constants

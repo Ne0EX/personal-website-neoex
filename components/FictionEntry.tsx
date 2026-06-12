@@ -32,12 +32,14 @@ import { EntryShell } from '@/components/EntryShell'
 
 interface FictionEntryProps {
   fiction: Fiction
+  /** Optional rendered MDX body (DL4 store-as-source S3). When omitted, falls back to summary placeholder. */
+  body?: React.ReactNode
 }
 
 /** Site canonical alpha — for drift computation when variant.drift is absent. */
 const SITE_ALPHA = 1.130426
 
-export function FictionEntry({ fiction }: FictionEntryProps) {
+export function FictionEntry({ fiction, body }: FictionEntryProps) {
   const {
     slug,
     title,
@@ -143,12 +145,7 @@ export function FictionEntry({ fiction }: FictionEntryProps) {
         </span>
       </div>
 
-      {/*
-       * Body prose placeholder — summary as lede.
-       * Same pattern as ArticleEntry: summary shown as Cormorant italic pullquote
-       * until MDX body rendering is wired by Procyon.
-       * WAIT(Procyon): MDX body render infrastructure.
-       */}
+      {/* Body region — DL4 store body or summary placeholder */}
       <div
         className="wl-body"
         style={{
@@ -159,20 +156,22 @@ export function FictionEntry({ fiction }: FictionEntryProps) {
           marginBottom: '40px',
         }}
       >
-        <p
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontStyle: 'italic',
-            fontSize: '16px',
-            lineHeight: 1.6,
-            color: 'var(--ink-soft)',
-            borderLeft: '2px solid var(--accent-orange)',
-            paddingLeft: '16px',
-            marginBottom: '24px',
-          }}
-        >
-          {summary}
-        </p>
+        {body ?? (
+          <p
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontStyle: 'italic',
+              fontSize: '16px',
+              lineHeight: 1.6,
+              color: 'var(--ink-soft)',
+              borderLeft: '2px solid var(--accent-orange)',
+              paddingLeft: '16px',
+              marginBottom: '24px',
+            }}
+          >
+            {summary}
+          </p>
+        )}
       </div>
 
       {/* ─────────────────────────────────────────────────────── */}

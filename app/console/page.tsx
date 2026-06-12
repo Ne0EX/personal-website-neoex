@@ -36,8 +36,7 @@
  */
 
 import type { Metadata } from 'next'
-import { getAllArticles } from '@/lib/content/articles'
-import { getAllFiction }  from '@/lib/content/fiction'
+import { getAllArticles, getAllFiction } from '@/lib/store/admin-reads'
 import { getPhotos }     from '@/lib/content/photos'
 import { getAllPlaces, getPlaceContent } from '@/lib/content/places'
 import { ConsoleApp }   from '@/components/console/ConsoleApp'
@@ -96,7 +95,7 @@ export default async function ConsolePage() {
   // ── Build place DTOs for the console (server-side; never ships velite internals) ──
   // Uses getPlaceContent per place so the DTO carries split article/photo counts,
   // highlights, and picker lists — getPlacesSummary only carries a combined weight.
-  const allPlaces = getAllPlaces()
+  const allPlaces = await getAllPlaces()
   // includeHidden=true: console picker must show all content, incl. drafts.
   const placeContents = await Promise.all(
     allPlaces.map((p) => getPlaceContent(p.id, true))
