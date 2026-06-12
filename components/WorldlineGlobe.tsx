@@ -415,6 +415,11 @@ type SceneRefs = {
   nodesGroup: THREE.Group;
   placeObjects: PlaceNodeObject[];
   observerObjects: { node: ArchiveNode; head: THREE.Mesh }[];
+  // NeX fiction hit proxies — invisible spheres co-located with each fiction
+  // glyph ring. Built async alongside nexFictionGlyphs; empty until fiction
+  // data loads. Each mesh carries userData.fictionSlug for click routing.
+  // (fiction-node-click fix — wired to onClick + onHover with occlusion guard.)
+  fictionHitObjects: THREE.Mesh[];
 };
 
 /**
@@ -701,6 +706,11 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
   // the JUMP cycle. Until then nodesGroup carries only the observer glyphs below.
   const placeObjects: PlaceNodeObject[] = [];
 
+  // NeX fiction hit proxies — populated async alongside nexFictionGlyphs.
+  // (fiction-node-click fix: invisible SphereGeometry(0.05) proxies at each
+  // orbital position, raycast registry mirrors placeObjects pattern.)
+  const fictionHitObjects: THREE.Mesh[] = [];
+
   // Observer nodes (α + 012 + 047, not clickable) — SEPARATE LAYER from places
   // (spec §2.3): α co-locates with the Bangkok place-node but stays its own
   // object with its own orange halo; never a place, never clickable.
@@ -787,6 +797,7 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
       nodesGroup,
       placeObjects,
       observerObjects,
+      fictionHitObjects,
     },
     cleanup: () => {
       scene.traverse((o) => {
@@ -847,7 +858,17 @@ export function WorldlineGlobe() {
   useEffect(() => { selectedIdRef.current = selectedId; }, [selectedId]);
   useEffect(() => { digOpenRef.current = digOpen; }, [digOpen]);
   // Collapse the dig expansion whenever the selected place changes/closes.
-  useEffect(() => { setDigOpen(false); }, [selectedId]);
+  // When deselecting (selectedId → null) also clear the hover state so the
+  // NETRA voice line doesn't keep narrating the previously-hovered place.
+  // The next genuine pointermove re-establishes hover if the cursor is on a node.
+  // (fix: netra-stale-voice · α-SUR-01 · wiring-wave1)
+  useEffect(() => {
+    setDigOpen(false);
+    if (selectedId === null) {
+      setHoveredPlace(null);
+      hoveredPlaceIdRef.current = null;
+    }
+  }, [selectedId]);
 
   // Broadcast stratum changes to the module-level globe-store so Nav and
   // other client components can read the current stratum without coupling

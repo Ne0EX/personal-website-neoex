@@ -39,7 +39,10 @@ export function ChapterIndex() {
           return (
             <a
               key={e.fileNum}
-              href={`#entry-${e.fileNum}`}
+              // href was #entry-${e.fileNum} (self-link); changed to real route
+              // matching dig-panel idiom at WorldlineGlobe.tsx:2461
+              // (fix: chapter-index-cards · α-SUR-01 · wiring-wave1)
+              href={`/articles/${e.fileNum}`}
               id={`entry-${e.fileNum}`}
               className={`entry-card opacity-0 group relative cursor-pointer px-7 py-6 transition-colors hover:bg-[rgba(212,96,42,0.04)]
                 ${isRight ? "" : "md:border-r md:border-[var(--ink-hairline)]"}

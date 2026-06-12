@@ -37,10 +37,15 @@ export function MarginaliaHUD() {
 
       // Detect current section: walk known section IDs and pick the topmost
       // one whose top is above the viewport mid-line.
+      // mid was fixed at 40% which could never be crossed by sections 02/03
+      // at max scroll. Now scroll-proportional: at pct=0 → 40%, at pct=1 →
+      // 85% — FOOTER (~567px) becomes current at full scroll, ATTRACTOR
+      // (~423px) wins in the ~90% band. Top-of-page behavior unchanged.
+      // (fix: marginalia-section-label · α-SUR-01 · wiring-wave1)
       const sections = Array.from(
         document.querySelectorAll<HTMLElement>("[data-section]")
       );
-      const mid = window.innerHeight * 0.4;
+      const mid = window.innerHeight * (0.4 + 0.45 * pct);
       let current = "hero";
       for (const s of sections) {
         const r = s.getBoundingClientRect();

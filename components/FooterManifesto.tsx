@@ -55,7 +55,9 @@ export function FooterManifesto() {
         <h4 className="t-meta tracking-[0.3em] mb-3">{"//"} TRANSMIT</h4>
         <ul className="leading-[2] text-[var(--ink-primary)]">
           {[
-            { label: "peat@—", href: "mailto:" },
+            /* address authorized by Peat; visible label stays obfuscated
+               (fix: footer-mailto · α-SUR-01 · wiring-wave1) */
+            { label: "peat@—", href: "mailto:neospiritth@gmail.com" },
             { label: "rss / atom", href: "#" },
             { label: "now page", href: "#" },
             { label: "colophon", href: "#" },
