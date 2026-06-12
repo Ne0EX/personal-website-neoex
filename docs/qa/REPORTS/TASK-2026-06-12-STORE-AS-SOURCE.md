@@ -587,3 +587,116 @@ Evidence:
 **Photo-editor bugfix: PASS.** All three bugs (BUG A/B/C) are fixed as claimed. Feature D correctly deferred. Peat's DSCF0344 draft data untouched (status=draft, exif complete, no mutations during QA). No regressions introduced.
 
 *Algol · α-VER-06 · 2026-06-12 (photo-editor bugfix verify)*
+
+---
+
+## Lens-override verify · 2026-06-12 (round 4)
+
+**Scope:** commits c20d216 (procyon — migration + read-layer), 9c0019a (altair — write-path), 01d72e7 (sirius — UI).
+
+**DSCF0344 exif baseline captured before QA:** `{iso:3200, lens:"XF23mmF2.8 R WR", focal:23, camera:"FUJIFILM X-E5", focal35:35, shutter:"1/100", aperture:11, captureTime:"2026-05-17T10:48:55.000Z"}`
+
+---
+
+### Check 1 — Migration 0007 applied; column exists; anon SELECT grant; DL13 coords NOT selectable
+
+**Verdict: PASS**
+
+Evidence:
+
+- `supabase_migrations.schema_migrations` → version `20260612102529`, name `0007_instrument_overrides` present. Migration applied.
+- `information_schema.columns WHERE table_name='entries' AND column_name='instrument_overrides'` → `data_type=jsonb, is_nullable=YES`. Column exists with correct type.
+- `information_schema.role_column_grants` for anon/entries/SELECT: `instrument_overrides` is in the list (SELECT confirmed). `coords` is NOT in the anon SELECT list (only UPDATE/INSERT/REFERENCES appear for coords, no SELECT). DL13 intact.
+- Anon REST `GET /rest/v1/entries?select=slug,instrument_overrides&status=eq.published&kind=eq.photo` → 4 published photo rows returned, `instrument_overrides: null` for each. Anon column grant functional.
+- Anon REST `GET /rest/v1/entries?select=slug,coords&limit=1` → `{"code":"42501","message":"permission denied for table entries"}`. DL13 gate holds after adding instrument_overrides column.
+
+---
+
+### Check 2 — Read-layer override merge (map.ts applyInstrumentOverrides)
+
+**Verdict: PASS**
+
+Evidence (code verification):
+
+- `lib/store/map.ts` lines 193–211: `applyInstrumentOverrides(rawExif, overrides)` correctly returns `override ?? exif` for each key (lens/camera/iso/aperture/shutter/focal). Spread-conditional pattern: each key is only overridden when the override value is `!== undefined` — absence of a key in the override object does NOT zero the EXIF value.
+- `mapPhotoSidecar` (line 234): `exif: applyInstrumentOverrides(assets?.exif, row.instrument_overrides)` — merged result exposed as served exif.
+- `instrumentOverrides` (line 239): raw overrides exposed separately for the console editor.
+- `photo_assets.exif` column is never written by any code path in actions-core.ts (grep confirms: `instrument_overrides` is written to `entries` table; `photo_assets` update path only writes `exif` and `variants` in the ingest pipeline, never in updateEntryImpl).
+- Browser-verified (see Check 3): after setting `lens=7Artisans 35mm f/1.2`, the `§ INSTRUMENT` panel (right pane, Camera instrument readout) showed `LENS: 7ARTISANS 35MM F/1.2`. After clearing, it showed `XF23MMF2.8 R WR` from EXIF. All other fields (CAMERA/ISO/EXPOSURE/FOCAL) unchanged in both states.
+
+---
+
+### Check 3 — UI editable instrument block; set override → save → reload → persists; DB correct; EXIF unchanged
+
+**Verdict: PASS**
+
+Evidence (Playwright browser verify against localhost:3000, authenticated session, DSCF0344 editor):
+
+**Set override cycle:**
+- Navigated to `/console/editor?kind=photo&slug=2026-05-bangkok%2FDSCF0344`.
+- Instrument block visible: CAMERA/LENS*/ISO/f//1//mm all render as textboxes; EXIF sensor values as placeholders; LENS marked required (*).
+- Filled `Override LENS` with `7Artisans 35mm f/1.2` → clicked `⇡ SAVE`.
+- SQL immediately after: `entries.instrument_overrides = {"lens":"7Artisans 35mm f/1.2"}`. Persisted.
+- `photo_assets.exif` after save: unchanged — `{lens:"XF23mmF2.8 R WR", ...}` byte-identical to baseline. Raw sensor truth invariant holds.
+- Reloaded page: LENS textbox shows `text: 7Artisans 35mm f/1.2` (override value). LENS placeholder also = `7Artisans 35mm f/1.2` (because served exif.lens = override after merge). Camera instrument readout (right pane) shows `LENS: 7ARTISANS 35MM F/1.2`. Persistence confirmed.
+
+**Clear cycle:**
+- Cleared LENS textbox to empty → clicked `⇡ SAVE`.
+- SQL after: `entries.instrument_overrides = null`. Override fully cleared.
+- Reloaded page: LENS textbox empty; LENS placeholder = `XF23mmF2.8 R WR` (EXIF fallback). Camera instrument readout shows `LENS: XF23MMF2.8 R WR`. Fallback confirmed.
+
+**Final DB state (post-QA):** `entries.instrument_overrides = null`; `photo_assets.exif = {iso:3200, lens:"XF23mmF2.8 R WR", focal:23, camera:"FUJIFILM X-E5", focal35:35, shutter:"1/100", aperture:11, captureTime:"2026-05-17T10:48:55.000Z"}` — byte-identical to pre-QA baseline. Peat's row left clean.
+
+---
+
+### Check 4 — Anon REST: instrument_overrides readable on published; coords still refused (DL13)
+
+**Verdict: PASS**
+
+Evidence:
+
+- Anon REST `?select=slug,instrument_overrides&status=eq.published&kind=eq.photo` → 4 rows returned, all `instrument_overrides: null`. Column readable by anon.
+- Anon REST `?select=slug,coords&limit=1` → `{"code":"42501","message":"permission denied for table entries"}`. DL13 intact — adding the new column did NOT widen coords access.
+- Anon REST `?select=slug,status&slug=eq.2026-05-bangkok%2FDSCF0344` → `[]`. Draft DSCF0344 absent from anon reads (RLS draft gate unchanged).
+
+---
+
+### Check 5 — No public-surface HTML diff on a published photo page
+
+**Verdict: PASS**
+
+Evidence:
+
+- Navigated to `/photos/2026-05-bangkok/DSCF0002` (published photo). Page title: "DSCF0002 · 2026-05-bangkok · Worldline · ∇ Neospirit". No console errors. Camera instrument readout renders correctly. No new UI elements from lens-override feature visible on the public surface (the editable instrument block is console-only, inside PhotoManager which is only rendered in the editor route).
+- No new HTML attributes or elements on the public photo page from the lens-override change. The read-layer merge is transparent to existing components — `PhotoEntry` receives the merged exif just as before; no component changes were required on the public surface.
+
+---
+
+### Check 6 — tsc=0; remaining tests green; no new regressions
+
+**Verdict: PASS**
+
+Evidence:
+
+- `npx tsc --noEmit` → exit 0. TSC_EXIT=0.
+- `node --test tests/audit-axiom-gate-join-coverage.test.mjs` → 0 fail.
+- `node --test tests/console-nav-contract.test.mjs` → 0 fail.
+- `node --test tests/soul-atom-drift-audit.test.mjs` → 0 fail.
+- Pre-existing failures (console-gate-contract, worldline-globe-coordinates) documented in round-2 — unaffected by lens-override commits.
+
+---
+
+### Lens-override gate summary
+
+| Check | Verdict | Evidence |
+|---|---|---|
+| 1. Migration 0007 applied; column exists; anon SELECT grant; DL13 coords NOT selectable | PASS | Migration in schema_migrations; jsonb col confirmed; anon SELECT list includes instrument_overrides, excludes coords SELECT; REST 42501 on coords |
+| 2. Read-layer override merge (map.ts) | PASS | applyInstrumentOverrides code verified; override ?? exif per key; photo_assets.exif never written in updateEntryImpl |
+| 3. UI set → save → reload → persists; SQL correct; EXIF byte-identical | PASS | Browser Playwright: set "7Artisans 35mm f/1.2" → DB override confirmed; exif unchanged; reload shows override. Clear → DB null; reload shows EXIF fallback. Final row clean. |
+| 4. Anon REST: instrument_overrides returns; coords still refused; draft hidden | PASS | Published rows return instrument_overrides; coords 42501; DSCF0344 anon returns [] |
+| 5. No public-surface HTML diff | PASS | Published photo page renders normally; no lens-override UI artifacts on public surface |
+| 6. tsc=0; remaining tests green | PASS | exit 0; 3 suites 0 fail |
+
+**Lens-override verify: PASS.** All three owner slices (procyon/altair/sirius) delivered correctly. Raw sensor truth invariant preserved across all operations. DL13 untouched. Peat's DSCF0344 draft left clean.
+
+*Algol · α-VER-06 · 2026-06-12 (lens-override verify)*
