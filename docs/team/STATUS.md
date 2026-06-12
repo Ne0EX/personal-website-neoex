@@ -13,7 +13,9 @@
 
 ---
 
-## TASK-2026-06-10-SOUL-FACTORY · **in-flight (Phase 3 = Peat gate)** · T ✓ 0 ✓ 1 ✓ 2 ✓ 4-first-retro ✓ · automated-soul-factory program · branch `genesis/soul-factory`
+## TASK-2026-06-10-SOUL-FACTORY · **parked-with-reason: Peat paused 2026-06-12, pickup-ready** · T ✓ 0 ✓ 1 ✓ 2 ✓ 4-first-retro ✓ · automated-soul-factory program · branch `genesis/soul-factory`
+
+> **Pickup card (read this first):** all built phases signed+audited+committed; demo `node scripts/factory/serve.mjs` → localhost:4173. Open when resuming: ① Phase 3 OS-lane (allowlist schema in plan, Peat decision) ② ROI baseline-hours opt-in ③ residue debts below keep their own owners+dates (harness debts, independent of the pause) ④ recipe skill `.claude/skills/soul-factory-phase/` ⑤ session log `docs/team/SESSION-LOG-2026-06-11.md`. Phase-3 `block_until: 2026-06-24` stays — at expiry Polaris re-asks rather than assumes.
 
 scope · Peat directive: survey harness+GENESIS and elevate to an **automated soul factory**, binding two incoming systems — Personal-OS (`~/My Personal Space/Ne0EX-life`) + AI Factory tracker (`~/Downloads/ai-factory-feature-tracker`, PRD+React prototype on mock data). Mapping insight: GENESIS artifacts ↔ tracker model ~1:1 (TASK=feature, signature+transcript=agent_run, Algol/rails=gates). Plan (Peat-approved via ExitPlanMode): `~/.claude/plans/harness-genesis-idempotent-coral.md`. Peat decisions: tracker home = in-repo `tools/factory/` (team branch, never main) · backfill w/ `fidelity: backfill-low` flag · OS-lane deferred until Phase-2 verify. Execution mode (Peat): dynamic Workflows + model tiering per work size.
 
