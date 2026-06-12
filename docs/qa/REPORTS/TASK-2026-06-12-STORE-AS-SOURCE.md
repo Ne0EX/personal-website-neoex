@@ -700,3 +700,165 @@ Evidence:
 **Lens-override verify: PASS.** All three owner slices (procyon/altair/sirius) delivered correctly. Raw sensor truth invariant preserved across all operations. DL13 untouched. Peat's DSCF0344 draft left clean.
 
 *Algol · α-VER-06 · 2026-06-12 (lens-override verify)*
+
+---
+
+## Instrument-panel readability verify · 2026-06-12 (round 5)
+
+**Scope:** commit `0566c62` — "fix(console): readable panel + data-honest asset labels (instrument-panel, sirius slice)". Two files changed: `components/PhotoEntry.tsx` (+43/-8), `components/console/PhotoPreview.tsx` (+36/-9).
+
+**Verification method:** chrome-devtools MCP (real Chrome, localhost:3000, authenticated session). No Playwright. All browser checks run against the live dev server + Supabase project `aitqswnbtpexrxqpoiwo`.
+
+---
+
+### Check 1 — DSCF0005 (migrated, published): caption readable; no PENDING; no overlap; preview consistent with public page
+
+**Verdict: PASS**
+
+Evidence:
+
+**Layout geometry at 1280px:**
+- `.ppv-real` clientWidth=534px, scrollWidth=760px, overflowX=auto — scroll host active
+- `.ppv-real-inner` min-width=760px applied, actualWidth=760px — scroll boundary set correctly; the 3-column grid [260·1fr·240] lays out at 760px rather than collapsing the center column to ~0px
+- `.photo-entry-grid` width=760px — three columns have full room
+
+**Caption:**
+- Text: "Action Asia Tour · the poster in its moment of anticipation, before the night." — full sentence, readable
+- Bounding box: top=379, left=1070, right=1202, bottom=462, width=132, height=83 (3 lines × ~27px at 13px Cormorant italic, line-height 1.6 — expected)
+
+**No element overlap with §FILM SIM buttons:**
+- Caption right=1202; §INSTRUMENT aside left=1234 — horizontal gap=32px (the grid's 32px column gap)
+- Caption and film-sim buttons are in separate CSS grid columns — no visual overlap possible regardless of vertical positions
+- Explicit assertion: `horizontalGapCaptionToAside=32`, `noOverlap=true`
+
+**No "PENDING" in the preview pane:**
+- `ppvRealHasPending=false` (the only "PENDING" string in the page body was from the MOCK path frame slot label "image preview pending" in the LEFT RAIL, not the preview pane — confirmed by tree-walker targeted text search)
+- ASSETS label in instrument dl: "PRE-STORE IMPORT" — correct for a migrated entry with exif=null and variants=null
+
+**Placeholder state:**
+- Placeholder text: "PRE-STORE IMPORT · NO ASSET RECORD" — correct state (a) per fix: exif=null AND variants=null
+- `paper-mount-label` ("base") suppressed: `paperMountLabel=undefined` — correct; migrated entries have no filmSim EXIF, so the label carried no meaning
+
+**Preview image src vs public page:**
+- Editor preview: `imgSrc=null` (no `<img>` element — placeholder renders, variants=null for DSCF0005)
+- Public page `/photos/2026-05-bangkok/DSCF0005`: `hasImg=false`, `hasPlaceholder=true`, placeholder text = "PRE-STORE IMPORT · NO ASSET RECORD" — identical state to editor preview. Consistent.
+
+**Caption consistency:**
+- Editor preview caption: "Action Asia Tour · the poster in its moment of anticipation, before the night."
+- Public page caption: "Action Asia Tour · the poster in its moment of anticipation, before the night." — identical
+
+**Instrument override inputs for DSCF0005:**
+- DSCF0005 is published/migrated; console editor exposes override inputs with EXIF placeholders (CAMERA/LENS/ISO/f//1//mm). All inputs empty, `borderLeftColor=rgba(0,0,0,0)` (transparent/dashed = no active override). Editable and functional.
+
+---
+
+### Check 2 — DSCF0344 (new upload, draft): real variant manifest shown; real storage preview renders; EXIF intact; override set+clear leaves row clean
+
+**Verdict: PASS**
+
+Evidence:
+
+**Real image renders:**
+- `imgSrc=https://aitqswnbtpexrxqpoiwo.supabase.co/storage/v1/object/public/photos/2026-05-bangkok/DSCF0344/medium-72f3159c6b.webp`
+- `naturalW=1280, naturalH=1920` — real Supabase CDN image loaded (portrait orientation, 9-variant manifest)
+- a11y tree confirms `uid=5_87 image "Photo DSCF0344 from roll 2026-05-bangkok"` with the correct URL
+
+**ASSETS label:** "THUMB · MEDIUM · FULL" — correct state (c) for a fully-ingested entry with variants present
+
+**EXIF values confirmed intact:**
+- CAMERA: FUJIFILM X-E5
+- LENS: XF23MMF2.8 R WR (raw sensor truth, no override)
+- EXPOSURE: f/11 · 1/100 · ISO 3200
+- FOCAL: 23mm (35eq: 35mm)
+- CAPTURED: 2026-05-17T10:48:55.000Z
+- COORD: NO COORD (no GPS in EXIF, correct)
+
+**No PENDING in ppv-real:** `hasPendingInPpvReal=false` ✓
+
+**Override inputs functional (set + clear cycle):**
+1. Set: LENS override filled with "7Artisans 35mm f/1.2 QA-TEST" via React synthetic events; border turned orange (`rgb(212, 96, 42)` = `--accent-orange`); Save button clicked (uid=5_42 "save instrument overrides")
+2. DB immediately after set: `instrument_overrides={"lens":"7Artisans 35mm f/1.2 QA-TEST"}` — persisted ✓
+3. Instrument panel live update: a11y tree uid=5_93 showed "7ARTISANS 35MM F/1.2 QA-TEST" — override merged into served exif ✓
+4. Clear: LENS input cleared via React synthetic events; Save clicked
+5. DB after clear: `instrument_overrides=null` — fully cleared ✓
+6. Final state: `entries.instrument_overrides=null`; `photo_assets.exif={lens:"XF23mmF2.8 R WR",...}` byte-identical to pre-QA baseline. Peat's row left clean.
+
+**Orange border (intentional "is-overridden" visual):** confirmed present when a value is set (`rgb(212,96,42)`), absent when inputs are empty (`rgba(0,0,0,0)`). Intentional design per task description — kept as-is.
+
+---
+
+### Check 3 — Layout at 1280px and 1920px: bounding-box overlap assertions
+
+**Verdict: PASS WITH NOTE**
+
+Evidence at 1280px (DSCF0005):
+- `horizontalGapCaptionToAside=32px`, `noOverlap=true`
+- PROVIA button: top=428, left=1234. Caption: bottom=462, right=1202. No overlap (separate grid columns, 32px horizontal gap).
+
+Evidence at 1920px (DSCF0005):
+- `.ppv-real` clientWidth=534px at 1920px viewport — same as 1280px. The preview pane is the right half of the split-view editor; its width is determined by the editor layout (fixed left panel), NOT the browser viewport width.
+- `horizontalGapCaptionToAside=32px`, `noOverlap=true` — identical geometry at 1920px.
+- `hasHorizontalScroll=true` at both viewports — the scroll boundary is working at both sizes.
+
+**Note:** At both 1280px and 1920px, `.ppv-real` width=534px because the editor split layout is fixed-column. The 1920px viewport does not widen the preview pane. This is expected behavior — the fix ensures the 3-column grid lays out correctly at 760px inside a 534px scroll host, regardless of viewport width. Screenshots saved for both sizes.
+
+Screenshots:
+- `/Users/neospiritth/codingspace/personal_website/.claude/visual-diffs/TASK-2026-06-12-INSTRUMENT-PANEL/dscf0005-1280px.png`
+- `/Users/neospiritth/codingspace/personal_website/.claude/visual-diffs/TASK-2026-06-12-INSTRUMENT-PANEL/dscf0005-1920px.png`
+- `/Users/neospiritth/codingspace/personal_website/.claude/visual-diffs/TASK-2026-06-12-INSTRUMENT-PANEL/dscf0344-1280px.png`
+- `/Users/neospiritth/codingspace/personal_website/.claude/visual-diffs/TASK-2026-06-12-INSTRUMENT-PANEL/dscf0344-1920px.png`
+- `/Users/neospiritth/codingspace/personal_website/.claude/visual-diffs/TASK-2026-06-12-INSTRUMENT-PANEL/public-dscf0005.png`
+
+---
+
+### Check 4 — Public surfaces: DSCF0005 rendered; DSCF0344 absent from anon REST and public
+
+**Verdict: PASS WITH NOTE ON "UNCHANGED" CLAIM**
+
+Evidence:
+
+**DSCF0344 anon REST probe:** `GET /rest/v1/entries?select=slug,status&slug=eq.2026-05-bangkok%2FDSCF0344` with publishable key → `[]` (RLS hides draft). ✓
+
+**Published photo list:** anon REST returns exactly DSCF0002, DSCF0003, DSCF0004, DSCF0005 — no DSCF0344. ✓
+
+**Public DSCF0005 page HTML verified:**
+- pageTitle: "DSCF0005 · 2026-05-bangkok · Worldline · ∇ Neospirit" ✓
+- No `<img>` element (no variants — placeholder renders) ✓
+- Placeholder text: "PRE-STORE IMPORT · NO ASSET RECORD" ✓
+- Caption: "Action Asia Tour · the poster in its moment of anticipation, before the night." ✓
+- `paper-mount-label`: absent (suppressed for no-filmSim EXIF entry) ✓
+- ASSETS row: "PRE-STORE IMPORT" ✓
+- `hasPending=false` on public page ✓
+- `hasOldLabel=false` (old "VARIANTS PENDING" string absent) ✓
+
+**Note on "unchanged" criterion:** The fix intentionally changed the public placeholder label from "VARIANTS PENDING" (old) to "PRE-STORE IMPORT · NO ASSET RECORD" (new) and suppressed the "base" film-sim label for no-EXIF migrated entries. The ASSETS row in the EXIF dl is new. These are visible changes on the public photo page for migrated entries. They are **intentional correctness improvements** (the task description explicitly lists these as the data-honesty deliverables). The "zero public-surface changes" claim in the commit message refers to the console-specific layout fix, but `PhotoEntry.tsx` is shared between public and console. The public-page changes are the intended behavior — the placeholder and ASSETS row now honestly reflect the data state. No unintended regressions on the public page.
+
+---
+
+### Check 5 — tsc=0; remaining tests green
+
+**Verdict: PASS**
+
+Evidence:
+- `npx tsc --noEmit` → exit 0, no output ✓
+- `node --test tests/audit-axiom-gate-join-coverage.test.mjs` → 0 fail ✓
+- `node --test tests/console-nav-contract.test.mjs` → 0 fail ✓
+- `node --test tests/soul-atom-drift-audit.test.mjs` → 0 fail ✓
+- `node --test tests/harness/font-chain.test.mjs` → 0 fail ✓
+- Pre-existing failures (console-gate-contract, worldline-globe-coordinates) documented in round-2 — unaffected by instrument-panel fix.
+
+---
+
+### Instrument-panel readability gate summary
+
+| Check | Verdict | Evidence |
+|---|---|---|
+| 1. DSCF0005 caption readable; no PENDING; no overlap; preview vs public consistent | PASS | Caption="Action Asia Tour · ..."; ppvRealHasPending=false; horizontalGap=32px; editor and public page identical placeholder/caption |
+| 2. DSCF0344 real variant manifest; real image renders; EXIF intact; override set+clear clean | PASS | imgSrc=Supabase CDN (naturalW=1280); ASSETS="THUMB · MEDIUM · FULL"; set override→DB confirmed; cleared→null; row clean |
+| 3. Layout 1280px and 1920px bounding-box overlap assertions | PASS | noOverlap=true at both viewports; ppv-real-inner min-width=760px enforced; screenshots saved |
+| 4. Public surfaces: DSCF0005 renders; DSCF0344 absent anon | PASS WITH NOTE | anon REST DSCF0344=[] (draft hidden); public DSCF0005 shows new honest labels (intentional change, not unintended regression) |
+| 5. tsc=0; remaining tests green | PASS | exit 0; 4 suites 0 fail |
+
+**Instrument-panel readability verify: PASS.** The `.ppv-real-inner` min-width fix resolves the caption collapse. Data-honest labels are correct for both data states (migrated vs ingested). Override inputs functional (orange border confirmed, set+clear cycle verified, row left clean). No unintended regressions. One note on "unchanged" public page claim: the public `PhotoEntry` placeholder text and ASSETS row did change — these are the intended data-honesty improvements, not unintended side-effects.
+
+*Algol · α-VER-06 · 2026-06-12 (instrument-panel readability verify)*
