@@ -1244,11 +1244,38 @@ export function WorldlineGlobe() {
       ndc.x = ((e.clientX - r.left) / r.width) * 2 - 1;
       ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
       raycaster.setFromCamera(ndc, camera);
-      const hits = raycaster.intersectObjects(refs.placeObjects.map((p) => p.hit), false);
-      if (hits.length > 0) {
-        const placeId = (hits[0].object as THREE.Mesh).userData.placeId as string | undefined;
+
+      // Globe-sphere occlusion guard (globe-through-click fix, ontology §11.6):
+      // A hit proxy is accepted only when it is in front of (or on the surface
+      // of) the globe sphere. Far-side proxies whose distance exceeds the sphere
+      // hit distance by more than the epsilon are rejected — the globe occludes
+      // them. Epsilon 0.06 covers limb-graze cases where the proxy SphereGeometry
+      // (r=0.05 at r≈1.005 surface) still legitimately precedes the sphere hit.
+      const sphereHits = raycaster.intersectObject(refs.globeSphere, false);
+      const sphereDist = sphereHits.length > 0 ? sphereHits[0].distance : Infinity;
+      const isVisible = (proxyDist: number) => proxyDist <= sphereDist + 0.06;
+
+      // Place-node hit proxies.
+      const pinHits = raycaster.intersectObjects(refs.placeObjects.map((p) => p.hit), false);
+      if (pinHits.length > 0 && isVisible(pinHits[0].distance)) {
+        const placeId = (pinHits[0].object as THREE.Mesh).userData.placeId as string | undefined;
         if (placeId) openPlaceRef.current(placeId);
-      } else if (selectedIdRef.current) {
+        return;
+      }
+
+      // Fiction NeX hit proxies (fiction-node-click fix, branching spec §5.2):
+      // Direct click on a NeX orbital node navigates to the fiction jump path —
+      // same camera slerp + activateBranches as NETRA JUMP, factored into
+      // jumpToFictionPin() below.
+      const fictionHits = raycaster.intersectObjects(refs.fictionHitObjects, false);
+      if (fictionHits.length > 0 && isVisible(fictionHits[0].distance)) {
+        const slug = (fictionHits[0].object as THREE.Mesh).userData.fictionSlug as string | undefined;
+        if (slug) jumpToFictionPin(slug);
+        return;
+      }
+
+      // Miss — fall through to deselect (existing behavior).
+      if (selectedIdRef.current) {
         setSelectedId(null);
       }
     };
@@ -1258,15 +1285,31 @@ export function WorldlineGlobe() {
       ndc.y = -((e.clientY - r.top) / r.height) * 2 + 1;
       raycaster.setFromCamera(ndc, camera);
 
-      // Cursor style — place-node hit proxies take priority.
+      // Globe-sphere occlusion guard — hoisted above pin-cursor gate so both
+      // the place-pin glow and fiction-proxy cursor checks can share it.
+      // (globe-through-click fix, ontology §11.6: far-side proxies rejected.)
+      const sphereHits = raycaster.intersectObject(refs.globeSphere, false);
+      const sphereDist = sphereHits.length > 0 ? sphereHits[0].distance : Infinity;
+      const isVisible = (proxyDist: number) => proxyDist <= sphereDist + 0.06;
+
+      // Cursor style — place-node hit proxies take priority; fiction proxies
+      // as fallback. Both gated by occlusion. (fiction-node-click fix: cursor
+      // shows pointer on NeX orbital node hover, matching place-pin behavior.)
       const pinHits = raycaster.intersectObjects(refs.placeObjects.map((p) => p.hit), false);
-      renderer.domElement.style.cursor = pinHits.length > 0 ? "pointer" : "";
+      const pinVisible = pinHits.length > 0 && isVisible(pinHits[0].distance);
+      let fictionHoverVisible = false;
+      if (!pinVisible) {
+        const fHits = raycaster.intersectObjects(refs.fictionHitObjects, false);
+        fictionHoverVisible = fHits.length > 0 && isVisible(fHits[0].distance);
+      }
+      renderer.domElement.style.cursor = pinVisible || fictionHoverVisible ? "pointer" : "";
 
       // Hover ring-1 glow (spec §3.2): hovered, non-selected place → ring-1 0.95.
       // Restore others to base. Selected place is owned by the selection effect
       // (orange) — never overridden here. NETRA hover voice is surfaced via the
       // hover target name set on the React side.
-      const hoveredHit = pinHits.length > 0 ? (pinHits[0].object as THREE.Mesh) : null;
+      // Only apply glow when the pin is not occluded by the globe.
+      const hoveredHit = pinVisible ? (pinHits[0].object as THREE.Mesh) : null;
       const hoveredId = hoveredHit ? (hoveredHit.userData.placeId as string | undefined) : undefined;
       if (hoveredId !== hoveredPlaceIdRef.current) {
         hoveredPlaceIdRef.current = hoveredId ?? null;
@@ -1290,7 +1333,7 @@ export function WorldlineGlobe() {
       // globe group's current Y-rotation to recover earth-fixed lat/lon.
       // A pointer over any overlay (TRIANGULATE, article panel) never reaches
       // the canvas element's pointermove, so the miss path covers that case too.
-      const sphereHits = raycaster.intersectObject(refs.globeSphere, false);
+      // sphereHits already computed above (shared with occlusion guard).
       if (sphereHits.length > 0) {
         const wp = sphereHits[0].point;
         const coord = latLonFromGlobeHit(
@@ -1638,6 +1681,56 @@ export function WorldlineGlobe() {
       };
     };
 
+    /**
+     * Navigate to a NeX fiction node by slug — camera slerp + activateBranches.
+     * Factored out of the NETRA jump handler so direct canvas click (fiction-node-click
+     * fix, branching spec §5.2 trigger table: "node clicked → setSelectedId") and
+     * the NETRA JUMP key can share one path without duplication.
+     *
+     * label/place strings are derived here from the pin to keep both callers DRY.
+     * Do NOT open a place panel — fiction nodes have no place content.
+     */
+    const jumpToFictionPin = (slug: string) => {
+      const pin = fictionPinsRef.current.find((p) => p.slug === slug);
+      const startPos = camera.position.clone();
+      const startLook = currentLook.clone();
+      const t0 = performance.now();
+      const dur = 1100;
+      const pNode = nexOrbitalPosition(pin?.domain ?? "identity", pin?.isoDate ?? "2026-01-01");
+      cameraAnim = (now: number) => {
+        const k = Math.min(1, (now - t0) / dur);
+        const e = easeInOutCubic(k);
+        const { position: dest, look } = cameraTrackNex(pNode, 2.8);
+        // Orbit arc — sweeps around the globe surface rather than chording through.
+        camera.position.copy(slerpCameraPos(startPos, dest, e));
+        currentLook.lerpVectors(startLook, look, e);
+        camera.lookAt(currentLook);
+        if (k >= 1) {
+          cameraAnim = null;
+          // Drift activates after slerp; branches activate BRANCH_ACTIVATE_DELAY_MS later.
+          if (pin) {
+            setTimeout(() => {
+              activateBranches(pin, nexOrbitalPosition(pin.domain, pin.isoDate));
+            }, BRANCH_ACTIVATE_DELAY_MS);
+          }
+        }
+      };
+      // NeX fiction nodes are ORBITAL meaning-coordinates, not surface places
+      // (ontology §4.2). clearNetraLock() nulls the lock AND hides the 3D
+      // surface tracker — the bare `netraLockRef.current = null` used here
+      // before left the PRIOR surface node's tracker visible, riding the globe
+      // auto-rotation as a drifting reticle. nexActiveRef gates the coord HUD
+      // off a real lat/lon so the node never reads as a surveyed place. Order
+      // matters: clearNetraLock resets nexActiveRef to false, so set the flag
+      // AFTER clearing. softTrackCamera is not called (lock null) → camera
+      // holds the slerp orbital landing position.
+      clearNetraLock();
+      nexActiveRef.current = true;
+      const label = slug.replace(/^transmission-/, "t.");
+      const place = `NeX · ${pin?.domain ?? "identity"}`;
+      setNetraTarget(`${label} · ${place}`);
+    };
+
     // NETRA jump — extended for fiction NeX nodes.
     (window as unknown as { __atlasNetraJump?: () => void }).__atlasNetraJump = () => {
       const targets = jumpTargetsRef.current;
@@ -1645,45 +1738,10 @@ export function WorldlineGlobe() {
       jumpIdxRef.current = (jumpIdxRef.current + 1) % targets.length;
       const n = targets[jumpIdxRef.current];
 
-      // Check if this is a NeX fiction node.
+      // Check if this is a NeX fiction node — delegate to the shared jump path.
       const fictionSlug = n.fictionSlug;
       if (fictionSlug) {
-        const pin = fictionPinsRef.current.find((p) => p.slug === fictionSlug);
-        const startPos = camera.position.clone();
-        const startLook = currentLook.clone();
-        const t0 = performance.now();
-        const dur = 1100;
-        const pNode = nexOrbitalPosition(pin?.domain ?? "identity", pin?.isoDate ?? "2026-01-01");
-        cameraAnim = (now: number) => {
-          const k = Math.min(1, (now - t0) / dur);
-          const e = easeInOutCubic(k);
-          const { position: dest, look } = cameraTrackNex(pNode, 2.8);
-          // Orbit arc — sweeps around the globe surface rather than chording through.
-          camera.position.copy(slerpCameraPos(startPos, dest, e));
-          currentLook.lerpVectors(startLook, look, e);
-          camera.lookAt(currentLook);
-          if (k >= 1) {
-            cameraAnim = null;
-            // Drift activates after slerp; branches activate BRANCH_ACTIVATE_DELAY_MS later.
-            if (pin) {
-              setTimeout(() => {
-                activateBranches(pin, nexOrbitalPosition(pin.domain, pin.isoDate));
-              }, BRANCH_ACTIVATE_DELAY_MS);
-            }
-          }
-        };
-        // NeX fiction nodes are ORBITAL meaning-coordinates, not surface places
-        // (ontology §4.2). clearNetraLock() nulls the lock AND hides the 3D
-        // surface tracker — the bare `netraLockRef.current = null` used here
-        // before left the PRIOR surface node's tracker visible, riding the globe
-        // auto-rotation as a drifting reticle. nexActiveRef gates the coord HUD
-        // off a real lat/lon so the node never reads as a surveyed place. Order
-        // matters: clearNetraLock resets nexActiveRef to false, so set the flag
-        // AFTER clearing. softTrackCamera is not called (lock null) → camera
-        // holds the slerp orbital landing position.
-        clearNetraLock();
-        nexActiveRef.current = true;
-        setNetraTarget(`${n.label} · ${n.place}`);
+        jumpToFictionPin(fictionSlug);
         return;
       }
 
@@ -1756,6 +1814,20 @@ export function WorldlineGlobe() {
           ring.rotateY(Math.PI);
           ring.userData.fictionSlug = pin.slug;
           refs.nexFictionGlyphs.add(ring);
+
+          // Invisible hit proxy — same buildPlaceNode pattern (SphereGeometry(0.05),
+          // opacity 0, depthWrite false). Carries fictionSlug for onClick routing.
+          // (fiction-node-click fix: proxies are registered in fictionHitObjects and
+          // raycasted in onClick/onHover with globe-sphere occlusion guard.)
+          const hitProxy = new THREE.Mesh(
+            new THREE.SphereGeometry(0.05, 8, 8),
+            new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0, depthWrite: false })
+          );
+          hitProxy.position.copy(pos);
+          hitProxy.renderOrder = 999;
+          hitProxy.userData.fictionSlug = pin.slug;
+          refs.nexFictionGlyphs.add(hitProxy);
+          refs.fictionHitObjects.push(hitProxy);
         });
 
         // Append fiction targets to jump list — stored separately so the
