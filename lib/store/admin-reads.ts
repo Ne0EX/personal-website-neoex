@@ -32,6 +32,9 @@ const ENTRY_COLS = [
   'patches', 'worldline_links', 'body', 'maturity', 'reading_time', 'origin_locus',
   'variants', 'divergence_cluster', 'roll', 'photo_id', 'caption', 'override_place',
   'highlight_rank',
+  // Authored instrument overrides — public display data, not coords.
+  // Merged onto served exif in map.ts: display value = instrument_overrides.<key> ?? exif.<key>
+  'instrument_overrides',
 ].join(',')
 
 const ASSET_COLS = 'entry_id,exif,variants'

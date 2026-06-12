@@ -16,12 +16,22 @@
  */
 
 import { publicVariantUrl } from './media'
-import type { Article, Fiction, Photo, PhotoSidecar, Place } from './types'
+import type { Article, Fiction, Photo, PhotoSidecar, Place, InstrumentOverrides } from './types'
 import type { PhotoExif, PhotoVariants, WorldlineLink, FictionVariant } from '../content/types'
 
 // ---------------------------------------------------------------------------
 // DB row shapes (raw — what Supabase returns, anon-column-granted subset)
 // ---------------------------------------------------------------------------
+
+/** Authored overrides for instrument fields — lens is required for manual/adapted lenses. */
+export interface DbInstrumentOverrides {
+  lens?: string
+  camera?: string
+  iso?: number
+  aperture?: number
+  shutter?: string
+  focal?: number
+}
 
 export interface DbEntryRow {
   id: string
@@ -52,6 +62,8 @@ export interface DbEntryRow {
   caption: string | null
   override_place: string | null
   highlight_rank: number | null
+  /** Authored instrument overrides — anon-granted (public display data, not coords). */
+  instrument_overrides: DbInstrumentOverrides | null
 }
 
 export interface DbPhotoAssetRow {
@@ -171,8 +183,38 @@ function mapVariants(dbVariants: DbVariantKeys | null | undefined): PhotoVariant
 }
 
 /**
+ * Merges instrument_overrides onto a raw EXIF block.
+ * Contract (Peat 2026-06-12): displayed value = override ?? exif.
+ * photo_assets.exif stays RAW sensor truth — this merge only touches the served record.
+ * filmSim and captureTime are NOT override keys — they pass through from EXIF only.
+ * Returns undefined when both exif and overrides are absent (pipeline not yet run
+ * AND no overrides set — component renders placeholder).
+ */
+function applyInstrumentOverrides(
+  rawExif: PhotoExif | null | undefined,
+  overrides: DbInstrumentOverrides | null | undefined,
+): PhotoExif | undefined {
+  if (!rawExif && !overrides) return undefined
+  const base: PhotoExif = rawExif ?? {}
+  if (!overrides) return base
+  return {
+    ...base,
+    // Override keys: lens, camera, iso, aperture, shutter, focal
+    // Each: override ?? exif — undefined override means fall through to EXIF value
+    ...(overrides.lens      !== undefined && { lens:     overrides.lens }),
+    ...(overrides.camera    !== undefined && { camera:   overrides.camera }),
+    ...(overrides.iso       !== undefined && { iso:      overrides.iso }),
+    ...(overrides.aperture  !== undefined && { aperture: overrides.aperture }),
+    ...(overrides.shutter   !== undefined && { shutter:  overrides.shutter }),
+    ...(overrides.focal     !== undefined && { focal:    overrides.focal }),
+  }
+}
+
+/**
  * Maps a DB entries row (kind='photo') + optional photo_assets to PhotoSidecar.
  * DL13: served_coords consumed (trigger-maintained); raw coords excluded by column grant.
+ * Instrument overrides (lens, camera, iso, aperture, shutter, focal) are merged onto
+ * the served exif — photo_assets.exif is never modified (stays RAW sensor truth).
  */
 export function mapPhotoSidecar(row: DbEntryRow, assets?: DbPhotoAssetRow | null): PhotoSidecar {
   return {
@@ -188,10 +230,13 @@ export function mapPhotoSidecar(row: DbEntryRow, assets?: DbPhotoAssetRow | null
     highlightRank: row.highlight_rank ?? undefined,
     draft: row.status === 'draft',
     worldline_links: row.worldline_links ?? [],
-    exif: assets?.exif ?? undefined,
+    // Override-merged exif: display value = instrument_overrides.<key> ?? exif.<key>
+    exif: applyInstrumentOverrides(assets?.exif, row.instrument_overrides),
     variants: mapVariants(assets?.variants),
     // DL13: served_coords is the only coords anon ever sees
     servedCoords: row.served_coords ?? undefined,
+    // Expose raw overrides for the console editor (read/write independently from EXIF)
+    instrumentOverrides: (row.instrument_overrides as InstrumentOverrides) ?? undefined,
     body: row.body ?? '',
   }
 }

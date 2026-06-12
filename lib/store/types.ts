@@ -130,6 +130,16 @@ export interface Photo {
 // Matches velite PhotoSidecar type
 // ---------------------------------------------------------------------------
 
+/** Authored overrides for instrument display fields. Keys match DB jsonb keys. */
+export interface InstrumentOverrides {
+  lens?: string
+  camera?: string
+  iso?: number
+  aperture?: number
+  shutter?: string
+  focal?: number
+}
+
 export interface PhotoSidecar {
   roll: string
   id: string
@@ -143,7 +153,12 @@ export interface PhotoSidecar {
   highlightRank?: number
   draft: boolean
   worldline_links: WorldlineLink[]
-  /** EXIF from photo_assets — null when pipeline not run yet */
+  /**
+   * Served EXIF — instrument_overrides already merged in by map.ts.
+   * Display value = instrument_overrides.<key> ?? photo_assets.exif.<key>.
+   * photo_assets.exif stays RAW sensor truth; this field is the merged result.
+   * Null when pipeline not run yet AND no overrides set.
+   */
   exif?: PhotoExif
   /** Variants from photo_assets — null when pipeline not run yet */
   variants?: PhotoVariants
@@ -152,6 +167,12 @@ export interface PhotoSidecar {
    * Derived from served_coords column in entries table (trigger-maintained).
    */
   servedCoords?: { lat: number; lon: number; place: string }
+  /**
+   * Raw authored overrides as stored in DB — exposed so the console editor
+   * can read/display/write the override values independently from EXIF.
+   * Null when no overrides have been set.
+   */
+  instrumentOverrides?: InstrumentOverrides
   body: string
 }
 

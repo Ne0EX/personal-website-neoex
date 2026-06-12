@@ -61,6 +61,9 @@ const ENTRY_COLS = [
   'caption',
   'override_place',
   'highlight_rank',
+  // Authored instrument overrides — anon-granted (public display data, not coords).
+  // Merged onto served exif in map.ts: display value = instrument_overrides.<key> ?? exif.<key>
+  'instrument_overrides',
 ].join(',')
 
 /** Anon-readable columns from photo_assets (original_key + source_hash excluded). */
