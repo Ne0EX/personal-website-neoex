@@ -1,0 +1,48 @@
+# Supabase project configuration — Worldline digital garden
+# Project ref: aitqswnbtpexrxqpoiwo · org: ndjbykkvleilybuggdfd · region: ap-southeast-1
+#
+# SPEC: SPEC-2026-06-12-store-as-source-supabase.md §3.2 (DL12)
+# DL12: Single user, signups disabled. This is a versioned record of the intent.
+#
+# APPLY ACTION REQUIRED (Peat-at-seam):
+#   Supabase dashboard → project aitqswnbtpexrxqpoiwo → Authentication → Settings
+#   → "Allow new users to sign up" → DISABLE (toggle off)
+#   This enforces enable_signup=false on the live project.
+#   The service_role key cannot set auth settings; it requires the dashboard or
+#   a personal access token via the Management API at api.supabase.com.
+#
+# This file is committed so the setting survives project re-create/restore
+# without silently reverting to the default (enable_signup = true).
+# A dashboard toggle can silently revert; this config survives as the reference.
+
+project_id = "aitqswnbtpexrxqpoiwo"
+
+[api]
+# PostgREST exposed schemas. Anon only sees public + graphql_public.
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+# DL12: Single-user system. Signups are DISABLED.
+# The only user is the owner (neospiritth@gmail.com), created via scripts/setup-owner.ts.
+# private.owners is the authorization floor — an authenticated non-owner is equivalent to anon.
+site_url = "http://localhost:3000"
+additional_redirect_urls = []
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+enable_signup = false
+# Email confirmations off (owner account is created with email_confirm:true via admin API)
+enable_confirmations = false
+# All OAuth providers disabled — email+password only
+[auth.email]
+enable_signup = false
+double_confirm_changes = false
+enable_confirmations = false
+
+[db]
+port = 5432
+
+[storage]
+file_size_limit = "50MiB"
