@@ -6,7 +6,6 @@
     "dev": "next dev",
     "build": "next build && npm run index:search",
     "build:next": "next build",
-    "content:build": "velite",
     "index:search": "npx tsx scripts/inject-pagefind-sidecar.ts && pagefind --site .next/server/app --output-path public/pagefind",
     "start": "next start",
     "lint": "eslint",

@@ -1,0 +1,67 @@
+# .github/workflows/weekly-rebuild.yml
+# ─────────────────────────────────────────────────────────────────────────────
+# Weekly Vercel deploy-hook trigger
+#
+# Purpose (two problems, one mechanism — spec §11 / DL5):
+#   1. Pagefind search index staleness bound: forces a Vercel rebuild that
+#      regenerates the pagefind index from the live Supabase store. Published
+#      entries become searchable within ≤1 week (DL5) without a manual deploy.
+#   2. Supabase free-tier auto-pause keep-alive: the Vercel build queries
+#      Supabase in generateStaticParams — this API activity prevents the project
+#      from being paused after ~1 week of low traffic (spec §4.4).
+#
+# Schedule: every Monday at 03:00 UTC.
+#
+# Requirements:
+#   1. Vercel project linked + deploy hook created:
+#      Vercel dashboard → Settings → Git → Deploy Hooks
+#      → name='weekly-rebuild', branch='main'
+#   2. Hook URL stored as GitHub repository secret:
+#      GitHub → Settings → Secrets and variables → Actions
+#      → name: VERCEL_DEPLOY_HOOK_URL
+#      → value: the full https://api.vercel.com/v1/integrations/deploy/... URL
+#
+# Status (2026-06-12): DEFERRED — Vercel project not yet linked. This workflow
+#   is committed so it activates automatically once the secret is added.
+#   The cron trigger is inert (curl to an empty secret = no-op) until
+#   VERCEL_DEPLOY_HOOK_URL is set.
+#
+# Owner: Canopus (α-HRN-07) · store-as-source S8
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: Weekly Vercel Rebuild
+
+on:
+  schedule:
+    # Every Monday at 03:00 UTC
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+    # Allow manual trigger from GitHub Actions UI (useful for on-demand reindex)
+
+jobs:
+  trigger-rebuild:
+    name: Trigger Vercel deploy hook
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check hook URL is set
+        run: |
+          if [ -z "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}" ]; then
+            echo "VERCEL_DEPLOY_HOOK_URL secret is not set."
+            echo "Set it in GitHub → Settings → Secrets → Actions."
+            echo "Skipping trigger (no-op)."
+            exit 0
+          fi
+          echo "Hook URL is set. Triggering Vercel rebuild..."
+
+      - name: Trigger Vercel deploy hook
+        if: ${{ secrets.VERCEL_DEPLOY_HOOK_URL != '' }}
+        run: |
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_URL }}")
+          echo "Vercel deploy hook response: HTTP $HTTP_STATUS"
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+            echo "Rebuild triggered successfully."
+          else
+            echo "Unexpected response: $HTTP_STATUS"
+            exit 1
+          fi

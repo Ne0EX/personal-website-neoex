@@ -246,6 +246,18 @@
       "scope_note": "Git worktrees (.claude/worktrees/**) are parallel branch checkouts — branch divergence there is expected and MUST NOT be flagged. Only the main working tree is in scope.",
       "control": "Single-source enforcement — eliminates divergent blob accumulation across prototype, handoff, and visual-diff paths"
     },
+    "secret-leak-guard": {
+      "description": "Scans ALL git-tracked files for SUPABASE_SECRET_KEY env-access patterns and the sb_secret_ key prefix. Asserts that SUPABASE_SECRET_KEY references appear ONLY under scripts/**. Any hit in app/**, lib/**, components/**, or the repo root is a FAIL. Spec §5.4/§11 (store-as-source S8). Comment-only mentions excluded via line-start detection.",
+      "check": "scripts/audit-secret-leak.sh",
+      "applies_to": ["**/*"],
+      "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-secret-leak-guard",
+      "introduced": "store-as-source S8 (2026-06-12)",
+      "spec_ref": "docs/team/SPEC-2026-06-12-store-as-source-supabase.md §5.4 / §11",
+      "control": "Secret containment — ensures SUPABASE_SECRET_KEY never leaks into app runtime bundle or tracked non-script files"
+    },
     "dev-clobber-guard": {
       "description": "Prevents a production build or serve from running while a 'next dev' process is alive. A live 'next dev' writes .next in dev mode; a subsequent 'next build' or 'next start' against the same directory will either clobber the dev artifacts or serve them, breaking production styling. On 2026-06-02 this served the entire site unstyled. Hook: .claude/hooks/dev-clobber-guard.sh (PreToolUse Bash, blocking). Trigger: next build|start, npm run build|start, pnpm/yarn build|start in command position. Check: ps scan for live next dev / next-server.*dev process.",
       "check": ".claude/hooks/dev-clobber-guard.sh",

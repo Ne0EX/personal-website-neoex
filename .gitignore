@@ -149,3 +149,13 @@ content/photos/**
 .harness/factory/build/
 !.harness/factory/.gitkeep
 !.harness/factory/mapping/.gitkeep
+
+# ─── store-as-source S8 (2026-06-12, DL10) ───
+# content/ is now a gitignored export directory. The store (Supabase) is the
+# source of truth. MDX files are written here by scripts/export-mdx.ts for
+# diffable backups only (committed to backup/content branch, never main).
+# Git history of content/** from the pre-store era is preserved intact —
+# `git log -- content/` shows the full MDX history.
+# The redundant per-subdirectory photo-binary rules above (lines 109-111)
+# are superseded by this blanket ignore but are left in place (harmless).
+/content/

@@ -55,6 +55,27 @@
  * Consumed by: lib/content/places.ts
  */
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// FROZEN — DO NOT HAND-EDIT place-registry.data.json
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//
+// As of store-as-source S8 (2026-06-12, DL15), the authoritative place registry
+// has moved to the `public.places` Supabase table (project aitqswnbtpexrxqpoiwo).
+//
+// place-registry.data.json is now MIGRATION INPUT + PRE-STORE HISTORY ONLY:
+//   - It was used as the seed for `scripts/migrate-to-store.ts` (S2).
+//   - It must never be edited by hand again — edits will diverge from the DB.
+//   - New places go through the console UI → `createPlace` store action (§7).
+//   - Coord fixes go through the console → `savePlaceCoord` store action (§7).
+//
+// If you are reading this because you want to add or fix a place:
+//   → Open /console (Peat-authed) → Place panel → Add place / Fix coord.
+//   → The change lands in public.places and is live immediately via RLS + cache.
+//   → Do NOT edit the JSON file.
+//
+// Canopus (α-HRN-07) · store-as-source S8
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 import { z } from 'zod'
 import rawPlaces from './place-registry.data.json'
 
