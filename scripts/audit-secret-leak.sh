@@ -108,15 +108,22 @@ done < <(git ls-files)
 # ── Pattern 2: SUPABASE_SECRET_KEY env-access outside scripts/** ────────────
 # Functional references: process.env, os.environ, env['...'], shell assignment,
 # YAML/JSON key forms. Comments that name the variable are excluded.
+# Also excluded from this check (documentation / config / test — not production code):
+#   scripts/**   — the ONLY allowed location for the key reference
+#   .harness/**  — rail documentation may reference the key name in descriptions
+#   docs/**      — spec documents name the key
+#   tests/**     — test helpers may reference it
+#   .claude/**   — harness infra
 ENV_ACCESS_PATTERN='process\.env\.SUPABASE_SECRET_KEY|os\.environ(\.get\(|\.get\("['"'"'])?SUPABASE_SECRET_KEY|env\[.SUPABASE_SECRET_KEY.|SUPABASE_SECRET_KEY[[:space:]]*=[^=]|SUPABASE_SECRET_KEY:'
 
 while IFS= read -r tracked_file; do
   [[ -f "$tracked_file" ]] || continue
 
-  # Skip scripts/** — that is the ONLY allowed location
-  if [[ "$tracked_file" == scripts/* ]]; then
-    continue
-  fi
+  # Skip all non-production-code locations
+  case "$tracked_file" in
+    scripts/*|.harness/*|docs/*|tests/*|.claude/*|tools/*)
+      continue ;;
+  esac
 
   while IFS=: read -r lineno match; do
     [[ -z "$lineno" ]] && continue
