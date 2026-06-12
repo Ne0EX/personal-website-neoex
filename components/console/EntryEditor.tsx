@@ -497,6 +497,20 @@ const EDITOR_CSS = `
    keeps its line everywhere else, e.g. inside FullPreview). Advisor flag #2. */
 .ed-preview-wrap .ppv-prov { display: none; }
 
+/* ── BUG-C fix: photo preview horizontal overflow ─────────────────────────────
+   PhotoEntry's three-column inline grid [260px · 1fr · 240px] needs ~560px+ of
+   width. In the editor split-view the preview pane is ~half the viewport (~640px
+   on a 1280px screen), which is marginal. The .ed-preview-wrap uses overflow:hidden
+   to clip the PublishPanel slide-in (position:absolute translateX(100%)); that same
+   clip also chops the right PhotoEntry column and causes the visual overlap Peat
+   reported ("instrument หลุดเยอะและยังเป็น fixed อยู่").
+   .is-photo-preview relaxes overflow-x to auto so the horizontal content scrolls
+   inside the pane while the PublishPanel translateX clip still holds via overflow-y.
+   The class is added to the .ed-preview-wrap div only when kind === 'photo'. */
+.ed-preview-wrap.is-photo-preview {
+  overflow-x: auto;
+}
+
 /* ── //FRAMES rail — photo thumbnail strip (NET-NEW in this shell) ─────────────
    PhotoManager punts the strip + drag-reorder to the rail (its docstring). This is
    the rail UI: vertical thumb list, active = orange left-border 2px, click-select,
@@ -2032,12 +2046,18 @@ export function EntryEditor({
       }
 
       setUploadStatuses((s) => ({ ...s, [frameKey]: 'done' }))
-      // Frame is already in the list (placeholder); update with real data if variants arrived
-      // The real variants are available via the public photos bucket URL after ingest
+      // BUG-A fix: navigate to the new entry's editor URL so the page identity
+      // (header FILE slug, right panel photo count, NETRA locus, URL) all reflect
+      // the newly ingested photo. The route will load the real sidecar + EXIF
+      // (via lookupPhotoSidecar admin path) and render the real thumbnail.
+      const newSlug = `${photoRoll}/${photoId}`
+      router.push(
+        `/console/editor?kind=photo&slug=${encodeURIComponent(newSlug)}`
+      )
     } catch {
       setUploadStatuses((s) => ({ ...s, [frameKey]: 'failed' }))
     }
-  }, [photoRoll])
+  }, [photoRoll, router])
 
   // S6: photo import handler — real upload+ingest when in photo editor with a roll,
   // fallback mock for article/fiction (no ingest target).
@@ -2279,13 +2299,18 @@ export function EntryEditor({
                   />
                 ))}
               {showPreview && (
-                <div className="ed-preview-wrap" id="ed-preview">
+                <div
+                  className="ed-preview-wrap is-photo-preview"
+                  id="ed-preview"
+                >
                   {/* REAL preview when the route loaded a velite sidecar (reuses
                       the public <PhotoEntry> + working FilmSimSwitcher). When
                       absent, PhotoPreview falls back to its MOCK styled-slot
                       spread (graceful — no crash). Only ONE [data-photo-entry-root]
                       mounts here; FullPreview's photo path stays MOCK so the
-                      switcher's global querySelector never grabs a hidden root. */}
+                      switcher's global querySelector never grabs a hidden root.
+                      is-photo-preview: BUG-C fix — relaxes overflow-x on the
+                      wrapper so PhotoEntry's wide grid can scroll, not overflow. */}
                   <PhotoPreview
                     meta={photoMeta}
                     frames={frames}

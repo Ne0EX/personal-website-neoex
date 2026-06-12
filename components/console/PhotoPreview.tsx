@@ -186,9 +186,18 @@ const PHOTO_PREVIEW_CSS = `
    to content and lays out with its own (inline + palette.css) responsive grid —
    we only provide a scrolling host so the full instrument fits the preview pane,
    exactly like ArticlePreview's .wlc-preview scroll column. NOT scoped INTO
-   PhotoEntry (no override of its columns); the inline grid wins regardless. */
+   PhotoEntry (no override of its columns); the inline grid wins regardless.
+
+   BUG-C fix: PhotoEntry's three-column grid [260px · 1fr · 240px] requires at
+   least ~560px of fixed-column space. In the editor's half-viewport preview pane
+   the grid collapses and the right (EXIF + film-sim) aside visually overlaps the
+   roll prose column. The fix: overflow-x: auto on the scroll host gives the inner
+   PhotoEntry content room to express its full width while keeping the overflow
+   contained inside the pane (the .ed-preview-wrap parent clips externally).
+   overflow-y keeps the normal vertical scroll for tall content. */
 .ppv-real {
   height: 100%;
+  overflow-x: auto;
   overflow-y: auto;
   background: var(--paper-base);
 }

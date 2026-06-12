@@ -46,8 +46,9 @@ import {
   getArticleBySlug,
   getFictionBySlugAdmin,
   getAllPhotoSidecars,
+  getPhotoByRollAndIdAdmin,
+  getSidecarsInRollAdmin,
 } from '@/lib/store/admin-reads'
-import { getPhotoByRollAndId, getSidecarsInRoll } from '@/lib/content/photos'
 import { EntryEditor }         from '@/components/console/EntryEditor'
 import { ConsoleLogin }        from '@/components/console/ConsoleLogin'
 import { createSupabaseServerClient } from '@/lib/store/supabase/server'
@@ -176,11 +177,16 @@ async function lookupPhotoSidecar(
   const id = slug.slice(sep + 1)
   if (!roll || !id) return null
 
-  const photo = await getPhotoByRollAndId(roll, id)
+  // BUG-B fix: use admin reads (authenticated server client) so DRAFT sidecars
+  // are visible. The anon getPhotoByRollAndId is blocked by RLS for drafts
+  // (entries_read: status='published' OR is_owner()). This page is already
+  // behind the auth gate above, so is_owner() holds for the cookie client.
+  const photo = await getPhotoByRollAndIdAdmin(roll, id)
   if (!photo) return null
 
-  // Roll context — sequence index + total (same derivation as the public route).
-  const rollPhotos = await getSidecarsInRoll(roll)
+  // Roll context — sequence index + total, also using admin reads so draft
+  // photos in the same roll are included in the count.
+  const rollPhotos = await getSidecarsInRollAdmin(roll)
   const sequenceIndex = rollPhotos.findIndex((s) => s.id === id)
   const rollTotal = rollPhotos.length
 

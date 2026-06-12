@@ -141,6 +141,53 @@ export async function getAllPhotoSidecars(): Promise<PhotoSidecar[]> {
   return rows.map((r) => mapPhotoSidecar(r, assets.get(r.id)))
 }
 
+/**
+ * Fetch a single photo sidecar by roll + photo_id — admin (authenticated) client.
+ * Used by the editor's lookupPhotoSidecar so DRAFT entries are visible.
+ * The anon getPhotoByRollAndId is blocked by RLS for drafts (entries_read requires
+ * status='published' OR is_owner()); this admin version uses the cookie server
+ * client which satisfies is_owner() for the authenticated Worldline owner.
+ */
+export async function getPhotoByRollAndIdAdmin(
+  roll: string,
+  id: string,
+): Promise<PhotoSidecar | null> {
+  const client = await createSupabaseServerClient()
+  const { data, error } = await client
+    .from('entries')
+    .select(ENTRY_COLS)
+    .eq('kind', 'photo')
+    .eq('roll', roll)
+    .eq('photo_id', id)
+    .maybeSingle()
+
+  if (error) throw new Error(`getPhotoByRollAndIdAdmin: ${error.message}`)
+  if (!data) return null
+  const row = data as unknown as DbEntryRow
+  const assets = await fetchAssetsAdmin(client, [row.id])
+  return mapPhotoSidecar(row, assets.get(row.id))
+}
+
+/**
+ * All sidecars in a roll — admin (authenticated) client, includes drafts.
+ * Used alongside getPhotoByRollAndIdAdmin for roll-context sequence info in the
+ * editor (sequenceIndex / rollTotal must include draft photos in their count).
+ */
+export async function getSidecarsInRollAdmin(roll: string): Promise<PhotoSidecar[]> {
+  const client = await createSupabaseServerClient()
+  const { data, error } = await client
+    .from('entries')
+    .select(ENTRY_COLS)
+    .eq('kind', 'photo')
+    .eq('roll', roll)
+    .order('photo_id', { ascending: true })
+
+  if (error) throw new Error(`getSidecarsInRollAdmin: ${error.message}`)
+  const rows = data as unknown as DbEntryRow[]
+  const assets = await fetchAssetsAdmin(client, rows.map((r) => r.id))
+  return rows.map((r) => mapPhotoSidecar(r, assets.get(r.id)))
+}
+
 export async function getAllRolls(): Promise<Photo[]> {
   const client = await createSupabaseServerClient()
   const { data, error } = await client
