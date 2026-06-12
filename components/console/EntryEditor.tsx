@@ -74,6 +74,7 @@ import type React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Article, PhotoSidecar } from '@/lib/content/types'
+import type { InstrumentOverrides } from '@/lib/store/types'
 // S6: swap to store actions (setEntryDraft + deleteEntry + updateEntry now live against DB)
 import { setEntryDraft, deleteEntry, updateEntry } from '@/lib/server/store/actions'
 import type {
@@ -1812,6 +1813,46 @@ export function EntryEditor({
     })
   }, [hasEntry, entryKind, entrySlug, md, startSaveTransition])
 
+  // ── Instrument overrides (lens-override wiring, 2026-06-12, Sirius slice) ──
+  //
+  // State: current authored override map for the active photo entry.
+  // Seeded from initialPhoto.instrumentOverrides (the merged-out value from map.ts).
+  // null = no overrides set (all instrument fields fall back to EXIF).
+  // undefined = not loaded (non-photo context; state is irrelevant but typed safely).
+  //
+  // The displayed value in PhotoManager = override ?? exif (exif is already merged
+  // in initialPhoto.exif by map.ts, but we keep overrides separately so the UI
+  // can show the orange affordance and clear individual keys back to EXIF).
+  const [instrumentOverrides, setInstrumentOverrides] = useState<InstrumentOverrides | null>(
+    initialPhoto?.instrumentOverrides ?? null
+  )
+  const [instrumentSaveStatus, setInstrumentSaveStatus] =
+    useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [_instrSavePending, startInstrSaveTransition] = useTransition()
+
+  // onSaveInstrumentOverrides — saves the current instrumentOverrides to the DB.
+  // Called by PhotoManager's SAVE button and the Cmd+S handler (photo kind).
+  // patch.instrumentOverrides = null clears the column (falls back to raw EXIF everywhere).
+  // photo_assets.exif is NEVER touched — raw sensor truth invariant preserved.
+  const onSaveInstrumentOverrides = useCallback(() => {
+    if (!hasEntry || !entrySlug) return
+    setInstrumentSaveStatus('saving')
+    startInstrSaveTransition(async () => {
+      const result = await updateEntry({
+        kind: entryKind,
+        slug: entrySlug,
+        patch: { instrumentOverrides: instrumentOverrides ?? null },
+      })
+      if (!result.ok) {
+        setInstrumentSaveStatus('error')
+        return
+      }
+      setInstrumentSaveStatus('saved')
+      // Reset status indicator after 2s
+      setTimeout(() => setInstrumentSaveStatus('idle'), 2000)
+    })
+  }, [hasEntry, entryKind, entrySlug, instrumentOverrides, startInstrSaveTransition])
+
   // setEntryDraft handler — called by DRAFT⇄PUBLISH segmented switch.
   // Receives an explicit target boolean (not a blind flip) — mirrors .st-switch pattern.
   // target=false → publish; target=true → set to draft (hidden from prod).
@@ -1860,15 +1901,17 @@ export function EntryEditor({
         }
         return
       }
-      // S6: Cmd+S / Ctrl+S → save body to DB
+      // S6: Cmd+S / Ctrl+S → save body to DB (article) or instrument overrides (photo)
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
         e.preventDefault()
         if (kind === 'article' && hasEntry) onSaveBody()
+        // lens-override: photo Cmd+S saves instrument_overrides to DB
+        else if (kind === 'photo' && hasEntry) onSaveInstrumentOverrides()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isDeleteConfirming, kind, hasEntry, onSaveBody])
+  }, [isDeleteConfirming, kind, hasEntry, onSaveBody, onSaveInstrumentOverrides])
 
   const twoWork = view === 'split'
 
@@ -2296,6 +2339,11 @@ export function EntryEditor({
                     setActive={setActiveFrame}
                     onAdd={() => frameInputRef.current?.click()}
                     reading={false}
+                    // lens-override wiring: instrument overrides state + handlers
+                    instrumentOverrides={instrumentOverrides}
+                    onInstrumentOverridesChange={setInstrumentOverrides}
+                    instrumentSaveStatus={hasEntry ? instrumentSaveStatus : undefined}
+                    onInstrumentSave={hasEntry ? onSaveInstrumentOverrides : undefined}
                   />
                 ))}
               {showPreview && (

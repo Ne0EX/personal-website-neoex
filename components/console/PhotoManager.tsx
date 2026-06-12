@@ -12,8 +12,14 @@
  *   2. Film-sim row  — .fsim-chip pills (5 chips). SINGLE-SELECT (filmSim is singular
  *                      in editor-types.ts — NOT the prototype's films:string[] multi).
  *                      is-on = orange filled. .fsim-chip is its OWN atom, NOT .af-pill.
- *   3. EXIF readout  — <dl> grid, mono labels + values. Read-only this slice.
- *                      Label map (contract): CAMERA→camera · LENS→lens · ISO→iso ·
+ *   3. Instrument block — editable EXIF overlay. Display = instrumentOverrides.<key>
+ *                      ?? exif.<key>. LENS is the required field (manual/adapted lenses
+ *                      have no EXIF). Overridden fields show a subtle orange-dot affordance
+ *                      (orange left-border on the row, consistent with the .fr-item active
+ *                      pattern). Clearing a field to empty removes the override and falls
+ *                      back to EXIF. Save is lifted to EntryEditor (Cmd+S / SAVE button
+ *                      on pane header) — matches the article body save pattern.
+ *                      Label map: CAMERA→camera · LENS→lens · ISO→iso ·
  *                      f/→aperture · 1/→shutter · mm→focal.
  *
  * + ADD FRAME button — class .pm-addframe (dashed border, ink-faint, hover ink-primary).
@@ -27,12 +33,8 @@
  *   OUTLINE RAIL, not this source pane. This component does not duplicate it. It
  *   provides a minimal in-pane prev/next selector so the pane works standalone.
  *
- * MOCK DATA: PhotoFrame.exif / filmSim are UNCONFIRMED in the content schema
- *   (Procyon SCHEMA-NEEDS). Frames are NOT wired to velite. No real image files exist
- *   in /public, so the frame display renders a styled placeholder slot (precedent:
- *   .wlc-img-slot) rather than an <img> that would 404. src is kept for future wiring.
- *
  * Owner: Sirius (α-SUR-01) · atlas-console full editor
+ * Instrument overrides wiring: lens-override task 2026-06-12 (Sirius slice).
  * Reference (NOT copied): editor-kinds.jsx PhotoManager@82 (films[] → singular here;
  *   div/span EXIF → <dl><dt><dd> per contract §accessibility).
  */
@@ -41,6 +43,7 @@
 
 import { Fragment, useMemo } from 'react'
 import type { PhotoFrame, FilmSim } from './editor-types'
+import type { InstrumentOverrides } from '@/lib/store/types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Film simulation chips — canonical order (matches FilmSim union in editor-types.ts)
@@ -325,29 +328,103 @@ const PHOTO_MGR_CSS = `
 }
 .fsim-chip:disabled { cursor: default; opacity: 0.7; }
 
-/* ── zone 3 · EXIF readout (<dl> 2-column grid) ────────────────────── */
+/* ── zone 3 · instrument block (editable EXIF overlay) ─────────────── */
+/* Outer section header + save status */
+.pm-instr-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.pm-instr-save {
+  appearance: none;
+  background: transparent;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 0;
+  cursor: pointer;
+  /* default: ink-faint; transitions set per save-status via inline style in JSX */
+}
+.pm-instr-save:focus-visible {
+  outline: 1px dashed var(--accent-orange);
+  outline-offset: 2px;
+}
+
+/* Grid: label col (max-content) · input col (1fr). Border separates from film-sim. */
 .pm-exif {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: 6px 16px;
+  gap: 4px 14px;
   margin: 0;
   border-top: 1px dashed var(--ink-dashed);
   padding-top: 14px;
 }
+/* Label */
 .pm-exif dt {
   font-size: 9px;
   letter-spacing: 0.3em;
   text-transform: uppercase;
   color: var(--ink-faint);
-  align-self: baseline;
+  align-self: center;
+  padding: 4px 0;
 }
+/* Required marker on LENS label — orange asterisk (no tooltip needed; inline copy) */
+.pm-exif dt.is-required::after {
+  content: ' *';
+  color: var(--accent-orange);
+}
+/* dd row: flex container for input + override-dot affordance */
 .pm-exif dd {
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* The editable input — transparent, mono, full-width.
+   Override indicator: left-border orange (2px) when an override is active.
+   Mirrors .fr-item.is-on pattern from the FRAMES rail (orange left-border). */
+.pm-exif-input {
+  flex: 1;
+  min-width: 0;
+  appearance: none;
+  background: transparent;
+  border: 1px dashed var(--ink-hairline);
+  border-left-width: 2px;
+  border-left-color: transparent;
+  font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.05em;
   color: var(--ink-primary);
+  padding: 4px 8px;
+  transition: border-color 100ms ease, background 100ms ease;
 }
-.pm-exif dd.is-empty { color: var(--ink-faint); }
+/* Override active: orange left-border (authored value overrides sensor truth).
+   Consistent with .fr-item.is-on and .ch-item.is-on — orange = active selection. */
+.pm-exif-input.is-overridden {
+  border-left-color: var(--accent-orange);
+  background: rgb(var(--accent-orange-rgb) / 0.04);
+}
+/* Placeholder — EXIF sensor value shown as placeholder (never editable by that path) */
+.pm-exif-input::placeholder {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+.pm-exif-input:focus {
+  outline: none;
+  border-color: var(--ink-dashed);
+  border-left-color: var(--accent-orange);
+  background: rgb(var(--accent-orange-rgb) / 0.02);
+}
+.pm-exif-input:focus.is-overridden {
+  background: rgb(var(--accent-orange-rgb) / 0.06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-exif-input { transition: none; }
+}
 
 /* ── + ADD FRAME (.pm-addframe — local; contract's .ed-btn-ghost N/A yet) ── */
 .pm-addframe {
@@ -400,6 +477,29 @@ export interface PhotoManagerProps {
   setActive: (id: string) => void
   onAdd: () => void // triggers file picker (caller owns the input ref)
   reading: boolean // true = read-only (no add/reorder/delete)
+  // ── Instrument overrides (lens-override wiring, 2026-06-12) ──────────────
+  /**
+   * Current authored overrides for the active photo entry.
+   * Display value = override ?? exif (already merged by map.ts in `frame.exif`,
+   * but we need the raw overrides separately so we can show the affordance
+   * and not lose the EXIF fallback value).
+   * Undefined when no overrides are set (all fields fall back to EXIF).
+   */
+  instrumentOverrides?: InstrumentOverrides | null
+  /**
+   * Called whenever the user edits an instrument field. The caller (EntryEditor)
+   * owns the save action (updateEntry + Cmd+S) — this component only reports
+   * the delta. A null value clears all overrides (falls back to EXIF entirely).
+   */
+  onInstrumentOverridesChange?: (overrides: InstrumentOverrides | null) => void
+  /** Save status from EntryEditor's updateEntry call — drives the SAVE label. */
+  instrumentSaveStatus?: 'idle' | 'saving' | 'saved' | 'error'
+  /**
+   * Called when the user clicks the instrument SAVE button or the entry has
+   * a real slug to save against. If absent, the save affordance is hidden
+   * (sample / no-entry path).
+   */
+  onInstrumentSave?: () => void
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -413,6 +513,10 @@ export function PhotoManager({
   setActive,
   onAdd,
   reading,
+  instrumentOverrides,
+  onInstrumentOverridesChange,
+  instrumentSaveStatus,
+  onInstrumentSave,
 }: PhotoManagerProps) {
   // Resolve active index — default to frames[0] when active is missing
   // (contract state: "active frame missing: default to frames[0]").
@@ -556,20 +660,117 @@ export function PhotoManager({
             </div>
           </div>
 
-          {/* ── zone 3 · EXIF readout (<dl> 2-column, read-only) ── */}
-          <dl className="pm-exif" aria-label="EXIF readout">
-            {EXIF_ROWS.map(({ key, label }) => {
-              const raw = exif[key]
-              const value = raw === undefined || raw === '' ? '—' : String(raw)
-              const empty = raw === undefined || raw === ''
-              return (
-                <Fragment key={key}>
-                  <dt>{label}</dt>
-                  <dd className={empty ? 'is-empty' : undefined}>{value}</dd>
-                </Fragment>
-              )
-            })}
-          </dl>
+          {/* ── zone 3 · instrument block (editable EXIF overlay) ──
+              Display value = instrumentOverrides.<key> ?? exif.<key>.
+              LENS is the required field (manual/adapted lenses have no EXIF).
+              Overridden field: orange left-border on the input (is-overridden).
+              Clearing a field to empty removes the override (falls back to EXIF).
+              Save is deferred to EntryEditor (Cmd+S or SAVE button here) —
+              matches the article body save pattern (mirrors ArticleSourcePane). */}
+          <div>
+            <div className="pm-instr-head">
+              <span className="pm-sect-label" style={{ marginBottom: 0 }}>INSTRUMENT</span>
+              {/* SAVE affordance — only rendered when a real entry is loaded.
+                  Mirrors the SAVE button in ArticleSourcePane. */}
+              {onInstrumentSave && (
+                <button
+                  type="button"
+                  className="pm-instr-save"
+                  onClick={onInstrumentSave}
+                  disabled={instrumentSaveStatus === 'saving'}
+                  style={{
+                    color: instrumentSaveStatus === 'error' ? 'var(--accent-orange)'
+                      : instrumentSaveStatus === 'saved' ? 'var(--ink-primary)'
+                      : 'var(--ink-faint)',
+                    cursor: instrumentSaveStatus === 'saving' ? 'not-allowed' : 'pointer',
+                  }}
+                  aria-label="save instrument overrides"
+                  title="CMD+S to save"
+                >
+                  {instrumentSaveStatus === 'saving' ? 'SAVING…'
+                    : instrumentSaveStatus === 'saved' ? 'SAVED'
+                    : instrumentSaveStatus === 'error' ? 'SAVE ERR'
+                    : '⇡ SAVE'}
+                </button>
+              )}
+            </div>
+            <dl className="pm-exif" aria-label="Instrument fields">
+              {EXIF_ROWS.map(({ key, label }) => {
+                // The active override value for this key (if any)
+                const overrideVal: string | number | undefined =
+                  instrumentOverrides?.[key as keyof InstrumentOverrides]
+
+                // The EXIF sensor value (raw from frame.exif — may be absent)
+                const exifVal = exif[key]
+
+                // isOverridden: an explicit authored value has been set for this key
+                const isOverridden = overrideVal !== undefined && overrideVal !== ''
+
+                // Input shows the override value when set; otherwise empty
+                // (EXIF shown as placeholder so it's visible but not confused with an override)
+                const inputValue = isOverridden ? String(overrideVal) : ''
+
+                // Placeholder: EXIF sensor value (shows what falls back to when no override)
+                const placeholder = exifVal !== undefined && exifVal !== ''
+                  ? String(exifVal)
+                  : '—'
+
+                return (
+                  <Fragment key={key}>
+                    {/* LENS gets is-required styling: asterisk via CSS ::after */}
+                    <dt className={key === 'lens' ? 'is-required' : undefined}>{label}</dt>
+                    <dd>
+                      <input
+                        type="text"
+                        className={'pm-exif-input' + (isOverridden ? ' is-overridden' : '')}
+                        value={inputValue}
+                        placeholder={placeholder}
+                        aria-label={`Override ${label}`}
+                        // aria-required only on LENS (the case-zero field per Peat)
+                        aria-required={key === 'lens' ? true : undefined}
+                        disabled={reading}
+                        onChange={(e) => {
+                          if (!onInstrumentOverridesChange) return
+                          const raw = e.target.value
+                          // Build the new overrides object. Empty string → remove key.
+                          const next: InstrumentOverrides = {
+                            ...(instrumentOverrides ?? {}),
+                          }
+                          if (raw === '') {
+                            // Clear this key — fall back to EXIF
+                            delete next[key as keyof InstrumentOverrides]
+                          } else {
+                            // Numeric keys: iso, aperture, focal — store as numbers.
+                            // Peat authorization: iso/aperture/focal are z.number() in schema.
+                            if (key === 'iso' || key === 'aperture' || key === 'focal') {
+                              const n = parseFloat(raw)
+                              if (!Number.isNaN(n)) {
+                                // TypeScript: cast required because TS doesn't narrow on key
+                                ;(next as Record<string, unknown>)[key] = n
+                              } else {
+                                // Non-numeric input for a numeric field — keep as string
+                                // so the user can type mid-number (e.g. "2."); we'll
+                                // validate at save time. Store temporarily as the raw string.
+                                // The schema's z.number() will reject non-numeric values —
+                                // the save will return INVALID_INPUT which we surface.
+                                ;(next as Record<string, unknown>)[key] = raw
+                              }
+                            } else {
+                              // String keys: lens, camera, shutter
+                              ;(next as Record<string, unknown>)[key] = raw
+                            }
+                          }
+                          // If all keys removed → send null (clear entire overrides column)
+                          const hasAnyKey = Object.values(next).some((v) => v !== undefined)
+                          onInstrumentOverridesChange(hasAnyKey ? next : null)
+                        }}
+                      />
+                    </dd>
+                  </Fragment>
+                )
+              })}
+            </dl>
+          </div>
 
           {/* ── + ADD FRAME (hidden in reading mode) ── */}
           {!reading && (
