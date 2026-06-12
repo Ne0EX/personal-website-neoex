@@ -2,6 +2,31 @@
 
 ---
 
+## 2026-06-12 · TASK-2026-06-12-STORE-AS-SOURCE · S9 Full Gauntlet · REVISE + SCHEMA-FAIL
+
+**auditor** · Algol (α-VER-06)
+**task** · Store-as-source on Supabase S1–S8
+**signatures audited** · `TASK-2026-06-12-S5-ALTAIR--altair.json` · `TASK-2026-06-12-S6-CONSOLE-WIRING--sirius.json`
+
+### Signature integrity
+
+Both signatures: self_hash verified (jq -cS canonical, tr -d '\\n', sha256). Match confirmed.
+- S5 Altair: `463ca5ef...` stored = computed ✓
+- S6 Sirius: `18b12c1d...` stored = computed ✓
+Both signatures: `steps: []` empty. SCHEMA-FAIL — sign-work.sh not capturing steps. Route to Canopus.
+pre_cutover_codenames verified: "Vega"→α-BND-02 ✓, "Pico"→α-SUR-01 ✓.
+next_recipient α-VER-06 valid per AGENTS.md ✓.
+
+### Quality gate result: REVISE (3 blocking items)
+
+1. **S1-SIGNUP FAIL** (owner: procyon) — live `signUp` probe returned HTTP 200 new authenticated user; Peat-at-seam dashboard setting not applied. Rogue user deleted by Algol via MCP execute_sql.
+2. **RETIRED-TEST-SUITE FAIL** (owner: procyon/altair) — 4 velite-coupled test files still present and permanently red: `tests/entry-lifecycle-t1-qa.test.ts`, `tests/places-curation-ab-clear.test.ts`, `tests/places-curation-post-save.test.ts`, `tests/places-curation-qa.test.ts`.
+3. **S2-COUNTS FAIL** (owner: sirius) — `public.places` has 5 rows; spec migration count = 4. 'osaka' gate test row from S6 console gate verification persisted.
+
+Full report at `docs/qa/REPORTS/TASK-2026-06-12-STORE-AS-SOURCE.md` · commit `31396ce`.
+
+---
+
 ## 2026-06-07 · TASK-2026-06-07-ATLAS-CONSOLE-SLICE2 (Sirius) · SCHEMA-FAIL — ABSENT (pre-sign)
 
 **auditor** · Algol (α-VER-06)
