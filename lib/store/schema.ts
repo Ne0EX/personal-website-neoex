@@ -166,6 +166,21 @@ export type CreateEntryInput = z.infer<typeof CreateEntryInputSchema>
 // updateEntry input
 // ---------------------------------------------------------------------------
 
+// instrument_overrides: authored display values for camera instrument fields.
+// Merges over photo_assets.exif at read time (exif = raw sensor truth; never patched).
+// lens is the required manual-lens use-case; all other keys are optional overrides.
+// Pass null to clear the entire overrides object. Pass undefined to leave untouched.
+const InstrumentOverridesSchema = z
+  .object({
+    lens:     z.string().optional(),
+    camera:   z.string().optional(),
+    iso:      z.number().optional(),
+    aperture: z.number().optional(),
+    focal:    z.number().optional(),
+    shutter:  z.string().optional(),
+  })
+  .nullable()
+
 const UpdateFieldsSchema = z.object({
   title: z.string().optional(),
   date: SlugDateSchema.optional(),
@@ -199,6 +214,7 @@ const UpdateFieldsSchema = z.object({
   caption: z.string().nullable().optional(),
   overridePlace: z.string().nullable().optional(),
   highlightRank: z.number().int().min(1).max(5).nullable().optional(),
+  instrumentOverrides: InstrumentOverridesSchema.optional(),
 })
 
 export const UpdateEntryInputSchema = z.object({

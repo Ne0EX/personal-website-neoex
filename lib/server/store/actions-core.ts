@@ -336,6 +336,9 @@ export async function updateEntryImpl(rawInput: unknown): Promise<UpdateEntryRes
   if (patch.caption !== undefined) update['caption'] = patch.caption
   if (patch.overridePlace !== undefined) update['override_place'] = patch.overridePlace
   if (patch.highlightRank !== undefined) update['highlight_rank'] = patch.highlightRank
+  // instrument_overrides: null clears the column; object sets override keys.
+  // photo_assets.exif is NEVER touched here — it stays raw sensor truth (spec §4.3).
+  if (patch.instrumentOverrides !== undefined) update['instrument_overrides'] = patch.instrumentOverrides
 
   if (Object.keys(update).length === 0) {
     return err('EMPTY_PATCH', 'No fields to update')
