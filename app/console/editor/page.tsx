@@ -43,11 +43,16 @@ import { getArticleByFileNum } from '@/lib/content/articles'
 import { getFictionBySlug }    from '@/lib/content/fiction'
 import { getPhotos, getPhotoByRollAndId, getSidecarsInRoll } from '@/lib/content/photos'
 import { EntryEditor }         from '@/components/console/EntryEditor'
+import { ConsoleLogin }        from '@/components/console/ConsoleLogin'
+import { createSupabaseServerClient } from '@/lib/store/supabase/server'
 
 export const metadata: Metadata = {
   title: 'Worldline · Article Editor',
   robots: { index: false, follow: false },
 }
+
+// S4: maxDuration raised per spec §7 (ingestPhoto / sharp on 40MP JPEG needs headroom)
+export const maxDuration = 60
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Entry lookup — returns Article-shaped draft or null (fallback → SAMPLE_DRAFT)
@@ -186,6 +191,14 @@ export default async function ArticleEditorPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
+  // S4: server-side auth gate (defence-in-depth behind proxy.ts choke point).
+  // Identical pattern to app/console/page.tsx — see that file for rationale.
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return <ConsoleLogin />
+  }
+
   // Await the searchParams Promise (Next 15+ App Router requirement).
   // See page.md: "searchParams is a Promise; use async/await to access values."
   const { kind, slug } = await searchParams

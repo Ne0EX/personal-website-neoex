@@ -1,52 +1,125 @@
 // contract
 // --------
-// file     · proxy.ts (Next 16 file convention; successor to middleware.ts)
-// purpose  · console route gate — blocks /console and all sub-routes in production
-//            unless the WORLDLINE_AUTHORING=1 escape hatch is set
+// file     · proxy.ts (Next 16 file convention)
+// purpose  · console route gate — fail-closed session choke point.
+//            REPLACES the WORLDLINE_AUTHORING=1 env flag gate (retired, spec §5.3/§11).
+//
 // matcher  · ['/console', '/console/:path*']
-// method   · any (Next.js proxy intercepts before route rendering)
-// gate     · process.env.NODE_ENV === 'production' && process.env.WORLDLINE_AUTHORING !== '1'
-//            → 404 (NextResponse with status 404, null body — route appears non-existent)
-//            otherwise → NextResponse.next() (pass through)
-// runtime  · nodejs (proxy.ts defaults to nodejs; edge runtime requires middleware.ts
-//            per Next 16 docs §middleware→proxy; since this gate only inspects
-//            process.env the nodejs runtime is sufficient and correct)
-// second layer · lib/server/places/highlight-core.ts#assertDev() refuses write actions
-//               independently of NODE_ENV (not gated by WORLDLINE_AUTHORING), so even
-//               a future protected authoring deploy with the flag set still can't write
-//               (Vercel FS is read-only).
 //
-// MIGRATION NOTE:
-//   Migrated from middleware.ts → proxy.ts per Next 16 deprecation warning:
-//   "The 'middleware' file convention is deprecated. Please use 'proxy' instead."
-//   See node_modules/next/dist/docs/01-app/02-guides/upgrading/version-16.md §`middleware`
-//   to `proxy` and .../03-api-reference/03-file-conventions/proxy.md.
-//   Named export renamed from `middleware` → `proxy`; gate logic is byte-identical.
-//   middleware.ts removed by Polaris via `git clean` (rm is gate-blocked for agents).
+// behavior · (1) @supabase/ssr session-refresh pass: re-reads and rewrites the
+//                auth cookie on every matched request, so token refreshes are
+//                propagated even when the page doesn't do a full reload.
+//            (2) supabase.auth.getUser() — contacts the Supabase Auth server to
+//                validate the session token (not just reads from cookie).
+//                No user → ALL matched paths rewrite to /console (which renders
+//                <ConsoleLogin /> when unauthenticated). The requested sub-route
+//                NEVER executes — the rewrite means the browser's URL does not
+//                change but the server renders the login shell.
+//            (3) User present → NextResponse.next() with the refreshed cookie
+//                set on the response. Defence-in-depth is inside each page/action.
 //
-// Owner: Altair (α-BND-02)
+// fail-closed guarantee · a future console sub-route added without its own
+//   page-level auth check is still unreachable unauthenticated, because the
+//   proxy rewrite to /console (login) fires before any route renders.
+//
+// WORLDLINE_AUTHORING · RETIRED. The env var is no longer read here.
+//   Remove from Vercel env and any docs that reference it (spec §11, S8 task).
+//
+// second layer · app/console/page.tsx + app/console/editor/page.tsx each call
+//   supabase.auth.getUser() independently and render <ConsoleLogin /> if unauthed.
+//   This is defence-in-depth behind the proxy, not the gate itself.
+//
+// third layer  · lib/server/auth.ts assertOwner() is called by every server
+//   action. Final backstop is RLS at the DB.
+//
+// runtime  · nodejs (proxy.ts defaults to nodejs; the @supabase/ssr cookie
+//            operations require the Node.js runtime, not edge, per the need to
+//            read next/headers cookies() — which is Node-only in Next 16).
+//            The `runtime` config option is not valid in proxy files (Next 16
+//            docs: "Setting the runtime config option in Proxy will throw an error").
+//
+// rate-limit · none (console is Peat-only; signups disabled; no public traffic)
+//
+// Owner: Altair (α-BND-02) · store-as-source S4
 // server: altair
 
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 
-export function proxy(_request: NextRequest): NextResponse {
-  if (
-    process.env.NODE_ENV === 'production' &&
-    process.env.WORLDLINE_AUTHORING !== '1'
-  ) {
-    // Return a bare 404 with no body — the route appears non-existent.
-    // NextResponse(null, { status: 404 }) is the canonical proxy-layer 404;
-    // notFound() from next/navigation is RSC/route-handler-only and cannot be
-    // used here.
-    return new NextResponse(null, { status: 404 })
+export async function proxy(request: NextRequest): Promise<NextResponse> {
+  // Build a mutable response that will carry any refreshed auth cookies back
+  // to the browser. We start with next() and potentially replace it with a
+  // rewrite if the user is not authenticated.
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
+
+  // Create a session-refresh-aware client. getAll reads cookies from the
+  // incoming request; setAll writes the refreshed cookies onto the response.
+  // Both are required by @supabase/ssr to avoid "significant and difficult to
+  // debug authentication issues" (documented in createServerClient.d.ts).
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet, headers) {
+          // Step 1: stamp cookies onto the request (so downstream reads see them)
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          )
+          // Step 2: rebuild response with the updated request headers
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          // Step 3: stamp cookies onto the response so the browser receives them
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options)
+          )
+          // Step 4: propagate any cache-control headers the library needs set
+          // (prevents CDN caching of auth responses — see SetAllCookies type)
+          if (headers) {
+            Object.entries(headers).forEach(([key, value]) =>
+              response.headers.set(key, value)
+            )
+          }
+        },
+      },
+    }
+  )
+
+  // getUser() validates the token with the Supabase Auth server.
+  // Never use getSession() for authorization — it reads from cookie only,
+  // is unverified, and can be spoofed. This distinction is load-bearing.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    // No authenticated user — rewrite every matched path to /console.
+    // The browser URL does not change; the server renders ConsoleLogin.
+    // This is the single choke-point: no console sub-route can execute
+    // unauthenticated, regardless of whether its page has its own gate.
+    const loginUrl = new URL('/console', request.url)
+    return NextResponse.rewrite(loginUrl, {
+      request: { headers: request.headers },
+    })
   }
 
-  return NextResponse.next()
+  // Authenticated — return the response with any refreshed cookies set.
+  return response
 }
 
 export const config = {
   // Explicit array covers the bare /console path AND all sub-routes.
-  // /console/:path* alone would be ambiguous for the zero-segment case.
+  // /console/:path* alone would miss the zero-segment /console case.
   matcher: ['/console', '/console/:path*'],
 }
