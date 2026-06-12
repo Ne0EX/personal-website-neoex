@@ -14,6 +14,17 @@
 # This file is committed so the setting survives project re-create/restore
 # without silently reverting to the default (enable_signup = true).
 # A dashboard toggle can silently revert; this config survives as the reference.
+#
+# DB-LEVEL GUARD (applied 2026-06-12, migration 0006_signup_guard):
+#   In addition to the dashboard toggle, a BEFORE INSERT trigger
+#   (trg_owner_signup_guard on auth.users, function public.check_owner_signup)
+#   enforces the single-owner constraint at the database layer. Any INSERT into
+#   auth.users with an email other than neospiritth@gmail.com raises
+#   SQLSTATE 42501 (insufficient_privilege), causing the auth stack to return
+#   HTTP 500 / error_code "unexpected_failure". This guard covers ALL providers
+#   (email, Google OAuth, GitHub OAuth, magic link, etc.) because all providers
+#   ultimately INSERT into auth.users.
+#   See: supabase/migrations/20260612_0006_signup_guard.sql
 
 project_id = "aitqswnbtpexrxqpoiwo"
 
