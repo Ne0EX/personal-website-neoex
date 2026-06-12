@@ -188,18 +188,29 @@ const PHOTO_PREVIEW_CSS = `
    exactly like ArticlePreview's .wlc-preview scroll column. NOT scoped INTO
    PhotoEntry (no override of its columns); the inline grid wins regardless.
 
-   BUG-C fix: PhotoEntry's three-column grid [260px · 1fr · 240px] requires at
-   least ~560px of fixed-column space. In the editor's half-viewport preview pane
-   the grid collapses and the right (EXIF + film-sim) aside visually overlaps the
-   roll prose column. The fix: overflow-x: auto on the scroll host gives the inner
+   BUG-C fix (ORIGINAL): overflow-x: auto on the scroll host gives the inner
    PhotoEntry content room to express its full width while keeping the overflow
    contained inside the pane (the .ed-preview-wrap parent clips externally).
-   overflow-y keeps the normal vertical scroll for tall content. */
+
+   BUG-C EXTENSION (layout-fix 2026-06-12): overflow-x: auto alone is not
+   sufficient — the scroll container shrinks to the pane width and the CSS grid
+   engine still tries to fit the three columns inside it, making 1fr → 0px and
+   collapsing the center column (caption renders one word per line in a ~0px sliver).
+   The correct fix is .ppv-real-inner with min-width: 760px so the CONTENT sets
+   the scroll boundary. The scroll host then overflows naturally and Chrome renders
+   the full 3-column layout before clipping at the pane edge. */
 .ppv-real {
   height: 100%;
   overflow-x: auto;
   overflow-y: auto;
   background: var(--paper-base);
+}
+/* Inner content wrapper — sets the scroll boundary so the 3-column grid
+   [260px · 1fr · 240px] always has room to lay out correctly (BUG-C extension).
+   Min-width = 260 + 240 + gaps(32×2) + padding(32×2) + center min(120px) = 748px;
+   rounded up to 760px for breathing room. */
+.ppv-real-inner {
+  min-width: 760px;
 }
 `
 
@@ -248,12 +259,17 @@ export function PhotoPreview({
     return (
       <>
         <style>{PHOTO_PREVIEW_CSS}</style>
+        {/* .ppv-real-inner sets the scroll boundary so PhotoEntry's 3-column grid
+            [260px · 1fr · 240px] always has room to lay out correctly; .ppv-real
+            clips externally with overflow-x: auto (BUG-C extension 2026-06-12). */}
         <div className="ppv-real">
-          <PhotoEntry
-            photo={photo}
-            sequenceIndex={sequenceIndex}
-            rollTotal={rollTotal}
-          />
+          <div className="ppv-real-inner">
+            <PhotoEntry
+              photo={photo}
+              sequenceIndex={sequenceIndex}
+              rollTotal={rollTotal}
+            />
+          </div>
         </div>
       </>
     )

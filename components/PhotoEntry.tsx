@@ -378,7 +378,14 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
                 style={{ width: "100%", height: "auto", display: "block" }}
               />
             ) : (
-              /* Graceful placeholder — instrument-style, no filler imagery */
+              /* Graceful placeholder — instrument-style, no filler imagery.
+               * Two data states (ground truth 2026-06-12):
+               *   (a) PRE-STORE IMPORT: exif=null AND variants=null — migrated sidecar
+               *       that was never ingested through the pipeline. No asset record exists.
+               *       Honest label: "PRE-STORE IMPORT · NO ASSET RECORD".
+               *   (b) PENDING INGEST: exif is present but variants=null — the original
+               *       was uploaded but the variant pipeline (sharp) has not run yet.
+               *       Honest label: "VARIANTS · PENDING INGEST". */
               <div
                 className="paper-mount-image"
                 role="img"
@@ -414,18 +421,23 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
                     textTransform: "uppercase",
                   }}
                 >
-                  VARIANTS PENDING
+                  {/* (a) migrated pre-store import — no asset record at all */}
+                  {!exif ? "PRE-STORE IMPORT · NO ASSET RECORD" : "VARIANTS · PENDING INGEST"}
                 </span>
               </div>
             )}
 
-            {/* Ambient FILM SIM label at mount footer — --ink-soft 9px 0.22em */}
-            <div
-              className="paper-mount-label"
-              aria-hidden
-            >
-              {filmSimDisplay}
-            </div>
+            {/* Ambient FILM SIM label at mount footer — --ink-soft 9px 0.22em.
+                Suppressed when no EXIF filmSim exists (migrated pre-store imports
+                have no sensor data; showing "base" with no context is misleading). */}
+            {exif?.filmSim && (
+              <div
+                className="paper-mount-label"
+                aria-hidden
+              >
+                {filmSimDisplay}
+              </div>
+            )}
           </figure>
 
           {/* Caption — VOICE register (Cormorant italic) */}
@@ -578,6 +590,19 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
                 <dd style={{ margin: 0, color: "var(--ink-faint)" }}>NO COORD</dd>
               </>
             )}
+
+            {/* Variants status row — data honesty (ground truth 2026-06-12).
+                (a) variants present: show "thumb / medium / full" manifest summary.
+                (b) exif present but no variants: pipeline ran EXIF but not variants yet.
+                (c) no exif and no variants: pre-store import — no asset record at all. */}
+            <dt>ASSETS</dt>
+            <dd style={{ margin: 0, color: variants ? "var(--ink-primary)" : "var(--ink-faint)" }}>
+              {variants
+                ? "THUMB · MEDIUM · FULL"
+                : exif
+                  ? "VARIANTS · PENDING INGEST"
+                  : "PRE-STORE IMPORT"}
+            </dd>
           </dl>
 
           {/* Dashed hairline separator */}
