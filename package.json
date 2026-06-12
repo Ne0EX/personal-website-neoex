@@ -15,7 +15,8 @@
     "harness:audit": "bash scripts/audit-design-tokens.sh && bash scripts/audit-territory.sh && bash scripts/audit-soul-atom-drift.sh && bash scripts/audit-font-chain.sh",
     "harness:barrier-class": "bash scripts/audit-rail-barrier-class.sh",
     "harness:permissions": "bash scripts/audit-permissions-nonempty.sh",
-    "harness:least-agency": "bash scripts/audit-least-agency-config.sh"
+    "harness:least-agency": "bash scripts/audit-least-agency-config.sh",
+    "backup:content": "npx tsx scripts/export-mdx.ts && git add -f content && git commit -m \"backup(content): MDX export $(date +%Y-%m-%dT%H:%M:%S) [backup/content]\" -- content"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.81",
