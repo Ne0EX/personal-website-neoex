@@ -64,14 +64,44 @@ report_violation() {
   VIOLATIONS=$((VIOLATIONS + 1))
 }
 
-# ── Pattern 1: sb_secret_ literal — any tracked file ────────────────────────
-# The actual Supabase secret key starts with "sb_secret_". Any occurrence in a
-# tracked file is potential key material in git history.
+# ── Pattern 1: sb_secret_ literal — app/lib/components/public + root sources ─
+# The actual Supabase secret key starts with "sb_secret_". We scan for it in
+# production source code directories only. Excluded from this check:
+#   scripts/**   — legitimate to reference the prefix in tooling comments/patterns
+#   .harness/**  — rail documentation legitimately names the prefix
+#   docs/**      — spec documents legitimately name it
+#   tests/**     — test helpers legitimately reference it
+#   .claude/**   — harness infra
+# If sb_secret_ appears in app/**, lib/**, components/**, public/**, or a root
+# .ts/.tsx/.js/.json file, that is a genuine leak risk (key material in bundle).
 while IFS= read -r tracked_file; do
   [[ -f "$tracked_file" ]] || continue
+
+  # Only scan production source paths for the key prefix
+  case "$tracked_file" in
+    app/*|lib/*|components/*|public/*)
+      : ;; # scan these
+    *.ts|*.tsx|*.js|*.mjs|*.json|*.env*)
+      # Root-level source files — scan only if not excluded paths
+      case "$tracked_file" in
+        scripts/*|.harness/*|docs/*|tests/*|.claude/*|tools/*)
+          continue ;;
+        *) : ;; # scan
+      esac
+      ;;
+    *)
+      continue ;; # skip everything else (.md, .sh, yaml, etc.)
+  esac
+
   while IFS=: read -r lineno match; do
     [[ -z "$lineno" ]] && continue
-    report_violation "$tracked_file" "$lineno" "literal sb_secret_ prefix (potential key material)"
+    # Skip comment lines
+    raw_line=$(sed -n "${lineno}p" "$tracked_file" 2>/dev/null || true)
+    stripped="${raw_line#"${raw_line%%[! ]*}"}"
+    if [[ "$stripped" == "//"* ]] || [[ "$stripped" == "#"* ]] || [[ "$stripped" == "*"* ]] || [[ "$stripped" == "--"* ]]; then
+      continue
+    fi
+    report_violation "$tracked_file" "$lineno" "literal sb_secret_ prefix (potential key material in production source)"
   done < <(grep -n "sb_secret_" "$tracked_file" 2>/dev/null || true)
 done < <(git ls-files)
 

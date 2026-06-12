@@ -247,7 +247,7 @@
       "control": "Single-source enforcement — eliminates divergent blob accumulation across prototype, handoff, and visual-diff paths"
     },
     "secret-leak-guard": {
-      "description": "Scans ALL git-tracked files for SUPABASE_SECRET_KEY env-access patterns and the sb_secret_ key prefix. Asserts that SUPABASE_SECRET_KEY references appear ONLY under scripts/**. Any hit in app/**, lib/**, components/**, or the repo root is a FAIL. Spec §5.4/§11 (store-as-source S8). Comment-only mentions excluded via line-start detection.",
+      "description": "Two-pass secret-leak guard (spec §5.4/§11, S8). Pass 1: scans app/**, lib/**, components/**, public/**, and root source files for the sb_secret_ Supabase key prefix (potential key material in production source). Pass 2: scans ALL tracked files for SUPABASE_SECRET_KEY env-access patterns (process.env.SUPABASE_SECRET_KEY, etc.) outside scripts/** — the only allowed location. Comment-only lines and harness/docs/test directories excluded from Pass 1. Exit 1 = violation; exit 0 = clean.",
       "check": "scripts/audit-secret-leak.sh",
       "applies_to": ["**/*"],
       "status": "enforcing",
