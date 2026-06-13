@@ -464,13 +464,25 @@ export async function deleteEntryImpl(rawInput: unknown): Promise<DeleteEntryRes
       const roll = slug.slice(0, slashIdx)
       const photoId = slug.slice(slashIdx + 1)
 
-      // Fetch photo_assets to get original_key and variants
+      // Resolve entry_id first (avoid inline nested-await: passing '' as a UUID
+      // causes Postgres 22P02 invalid-uuid error, which aborts the whole delete).
+      const { data: entryIdRow, error: entryIdError } = await supabase
+        .from('entries')
+        .select('id')
+        .eq('kind', 'photo')
+        .eq('slug', slug)
+        .single()
+
+      if (entryIdError || !entryIdRow) {
+        return err('NOT_FOUND', `Entry photo/${slug} not found`)
+      }
+      const entryId = (entryIdRow as { id: string }).id
+
+      // Fetch photo_assets to get original_key
       const { data: assetRow, error: assetError } = await supabase
         .from('photo_assets')
         .select('original_key, variants')
-        .eq('entry_id', (
-          await supabase.from('entries').select('id').eq('kind', 'photo').eq('slug', slug).single()
-        ).data?.id ?? '')
+        .eq('entry_id', entryId)
         .maybeSingle()
 
       if (assetError) {

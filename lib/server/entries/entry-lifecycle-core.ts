@@ -400,11 +400,27 @@ export async function setEntryDraftImpl(rawInput: unknown): Promise<SetEntryDraf
 // ---------------------------------------------------------------------------
 
 /**
- * Implementation of the deleteEntry server action.
+ * Implementation of the deleteEntry server action — FILE-WRITE PATH ONLY.
+ *
+ * @deprecated  This implementation is SUPERSEDED for photo entries.
+ *
+ * The console (EntryEditor.tsx) uses `deleteEntry` from
+ * `lib/server/store/actions.ts` → `deleteEntryImpl` in `actions-core.ts`,
+ * which is the storage-first Supabase path (removes CDN variants + original
+ * from storage buckets, then deletes DB rows). That is the live path.
+ *
+ * This implementation handles ONLY the legacy file-write layer:
+ * it removes the content source .mdx file for article/fiction entries
+ * and is still called via `entry-actions.ts` if any pre-store authoring
+ * tooling invokes it. For photo kind it deletes the sidecar MDX only —
+ * it intentionally does NOT touch storage (storage belongs to the store layer).
+ *
+ * DO NOT add Supabase storage calls here. If you need to fix the storage
+ * cleanup path, fix `lib/server/store/actions-core.ts:deleteEntryImpl`.
  *
  * Removes ONLY the content source .mdx file for the given entry.
  * Does NOT touch:
- *   - public/photos/* variants (outside content/, non-.mdx)
+ *   - Supabase storage variants (photos bucket) — store layer's responsibility
  *   - source JPEG files
  *   - any generated artifact
  *
