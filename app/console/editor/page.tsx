@@ -50,6 +50,7 @@ import {
   getSidecarsInRollAdmin,
   getAllRolls,
 } from '@/lib/store/admin-reads'
+import { getAllPlacesFromStore } from '@/lib/store/reads'
 import { EntryEditor }         from '@/components/console/EntryEditor'
 import { ConsoleLogin }        from '@/components/console/ConsoleLogin'
 import { createSupabaseServerClient } from '@/lib/store/supabase/server'
@@ -234,6 +235,12 @@ export default async function ArticleEditorPage({
     ? await getAllRolls()
     : []
 
+  // Load places for the PLACE assignment dropdown (photo kind: COORD/PLACE controls).
+  // Uses the public anon read (places are public data — not DL13-restricted).
+  const availablePlaces = kind === 'photo'
+    ? await getAllPlacesFromStore()
+    : []
+
   // Seed the editor's top-level kind state from the URL ?kind param. The draft's
   // `.kind` is hardcoded 'article' (ArticlePreview's type constraint); the URL
   // kind param is the semantic kind the console node carries, and it drives the
@@ -251,6 +258,7 @@ export default async function ArticleEditorPage({
       photoSequenceIndex={photoCtx?.sequenceIndex}
       photoRollTotal={photoCtx?.rollTotal}
       availableRolls={availableRolls}
+      availablePlaces={availablePlaces}
     />
   )
 }

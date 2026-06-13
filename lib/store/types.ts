@@ -168,6 +168,12 @@ export interface PhotoSidecar {
    */
   servedCoords?: { lat: number; lon: number; place: string }
   /**
+   * Raw authored coords from entries.coords — owner console read only (DL13).
+   * Only populated by the admin read path (admin-reads.ts selects 'coords').
+   * Undefined in all public reads. Used by the console COORD control.
+   */
+  authoredCoords?: { lat: number; lon: number; place: string }
+  /**
    * Raw authored overrides as stored in DB — exposed so the console editor
    * can read/display/write the override values independently from EXIF.
    * Null when no overrides have been set.

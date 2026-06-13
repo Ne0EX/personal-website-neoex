@@ -37,6 +37,10 @@ const ENTRY_COLS = [
   'instrument_overrides',
   // Authored film-sim override — wins over photo_assets.exif.filmSim when set.
   'film_sim',
+  // Raw authored coords — OWNER CONSOLE ONLY (DL13 gate: anon ENTRY_COLS in reads.ts
+  // excludes this column; admin is authenticated as owner so it may be included here).
+  // Exposed as PhotoSidecar.authoredCoords for the console COORD control.
+  'coords',
 ].join(',')
 
 const ASSET_COLS = 'entry_id,exif,variants'

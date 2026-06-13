@@ -44,7 +44,10 @@ export interface DbEntryRow {
   domain: string | null
   tags: string[]
   summary: string | null
-  // Raw coords NOT included — anon column grant excludes it (DL13)
+  // Raw authored coords — anon column grant EXCLUDES this (DL13). Only present
+  // when the admin read (authenticated owner) explicitly selects it. The anon
+  // client never sees this field; served_coords (below) is the public variant.
+  coords?: { lat: number; lon: number; place: string } | null
   served_coords: { lat: number; lon: number; place: string } | null
   share_location: boolean
   place_id: string | null
@@ -249,6 +252,10 @@ export function mapPhotoSidecar(row: DbEntryRow, assets?: DbPhotoAssetRow | null
     variants: mapVariants(assets?.variants),
     // DL13: served_coords is the only coords anon ever sees
     servedCoords: row.served_coords ?? undefined,
+    // Expose raw authored coords for the owner console editor (admin read only).
+    // The anon read never selects this column (DL13 — raw coords excluded).
+    // When present (admin-reads.ts selects 'coords'), expose for the COORD control.
+    authoredCoords: row.coords ?? undefined,
     // Expose raw overrides for the console editor (read/write independently from EXIF)
     instrumentOverrides: (row.instrument_overrides as InstrumentOverrides) ?? undefined,
     // Authored film-sim override — exposed so console editor can read/set it directly

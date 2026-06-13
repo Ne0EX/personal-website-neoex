@@ -74,7 +74,7 @@ import type React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Article, Photo, PhotoSidecar } from '@/lib/content/types'
-import type { InstrumentOverrides } from '@/lib/store/types'
+import type { InstrumentOverrides, Place } from '@/lib/store/types'
 // S6: swap to store actions (setEntryDraft + deleteEntry + updateEntry now live against DB)
 import { setEntryDraft, deleteEntry, updateEntry } from '@/lib/server/store/actions'
 import type {
@@ -1773,6 +1773,12 @@ interface EntryEditorProps {
    * slug (BUG-1 fix: no-roll silent-mock replaced by a real picker UI).
    */
   availableRolls?: Photo[]
+  /**
+   * All registered places from the DB (loaded server-side). Used by the PLACE
+   * assignment dropdown in the photo editor's COORD block.
+   * Passes only for photo kind (empty for article/fiction).
+   */
+  availablePlaces?: Place[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1786,6 +1792,7 @@ export function EntryEditor({
   photoSequenceIndex = 0,
   photoRollTotal = 1,
   availableRolls = [],
+  availablePlaces = [],
 }: EntryEditorProps = {}) {
   const draft = initialDraft ?? SAMPLE_DRAFT
 
@@ -2025,6 +2032,81 @@ export function EntryEditor({
     })
   }, [hasEntry, entryKind, entrySlug, instrumentOverrides, startInstrSaveTransition])
 
+  // ── Authored coords / place / filmSim (photo-meta-harness, sirius slice) ──
+  //
+  // Three authored fields exposed to the photo editor:
+  //   authoredCoords  — entry.coords (lat/lon/place — raw, owner-only)
+  //   authoredPlaceId — entry.place_id (foreign key into places table)
+  //   authoredFilmSim — entry.film_sim (authored override wins over EXIF filmSim)
+  //
+  // filmSim saves IMMEDIATELY on button click (onSaveFilmSim).
+  // coords + placeId share one SAVE button (onSavePhotoMeta) to avoid double-saving.
+  //
+  // Seeded from initialPhoto on mount; never re-seeded after mount to avoid
+  // overwriting in-flight edits (same pattern as instrumentOverrides above).
+  const [authoredCoords, setAuthoredCoords] = useState<{ lat: number; lon: number; place: string } | null>(
+    initialPhoto?.authoredCoords ?? null
+  )
+  const [authoredPlaceId, setAuthoredPlaceId] = useState<string | null>(
+    initialPhoto?.placeId ?? null
+  )
+  const [authoredFilmSim, setAuthoredFilmSim] = useState<string | null>(
+    initialPhoto?.filmSim ?? null
+  )
+  const [photoMetaSaveStatus, setPhotoMetaSaveStatus] =
+    useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [filmSimSaveStatus, setFilmSimSaveStatus] =
+    useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_photoMetaPending, startPhotoMetaTransition] = useTransition()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_filmSimPending, startFilmSimTransition] = useTransition()
+
+  // onSavePhotoMeta — saves coords + placeId together (SAVE button or Cmd+S).
+  // photo_assets.exif is never touched. DL13 gate is preserved by the DB trigger
+  // (served_coords updates automatically based on share_location).
+  const onSavePhotoMeta = useCallback(() => {
+    if (!hasEntry || !entrySlug) return
+    setPhotoMetaSaveStatus('saving')
+    startPhotoMetaTransition(async () => {
+      const result = await updateEntry({
+        kind: entryKind,
+        slug: entrySlug,
+        patch: {
+          coords: authoredCoords ?? null,
+          placeId: authoredPlaceId ?? null,
+        },
+      })
+      if (!result.ok) {
+        setPhotoMetaSaveStatus('error')
+        return
+      }
+      setPhotoMetaSaveStatus('saved')
+      setTimeout(() => setPhotoMetaSaveStatus('idle'), 2000)
+    })
+  }, [hasEntry, entryKind, entrySlug, authoredCoords, authoredPlaceId, startPhotoMetaTransition])
+
+  // onSaveFilmSim — saves filmSim immediately on button click.
+  // null = clear the authored override (reverts to EXIF filmSim at serve time).
+  const onSaveFilmSim = useCallback((sim: string | null) => {
+    setAuthoredFilmSim(sim)
+    if (!hasEntry || !entrySlug) return
+    setFilmSimSaveStatus('saving')
+    startFilmSimTransition(async () => {
+      const result = await updateEntry({
+        kind: entryKind,
+        slug: entrySlug,
+        patch: { filmSim: sim ?? null },
+      })
+      if (!result.ok) {
+        setFilmSimSaveStatus('error')
+        return
+      }
+      setFilmSimSaveStatus('saved')
+      setTimeout(() => setFilmSimSaveStatus('idle'), 2000)
+    })
+  }, [hasEntry, entryKind, entrySlug, startFilmSimTransition])
+
   // setEntryDraft handler — called by DRAFT⇄PUBLISH segmented switch.
   // Receives an explicit target boolean (not a blind flip) — mirrors .st-switch pattern.
   // target=false → publish; target=true → set to draft (hidden from prod).
@@ -2077,13 +2159,16 @@ export function EntryEditor({
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
         e.preventDefault()
         if (kind === 'article' && hasEntry) onSaveBody()
-        // lens-override: photo Cmd+S saves instrument_overrides to DB
-        else if (kind === 'photo' && hasEntry) onSaveInstrumentOverrides()
+        // photo Cmd+S saves instrument_overrides + coords/placeId to DB
+        else if (kind === 'photo' && hasEntry) {
+          onSaveInstrumentOverrides()
+          onSavePhotoMeta()
+        }
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isDeleteConfirming, kind, hasEntry, onSaveBody, onSaveInstrumentOverrides])
+  }, [isDeleteConfirming, kind, hasEntry, onSaveBody, onSaveInstrumentOverrides, onSavePhotoMeta])
 
   const twoWork = view === 'split'
 
@@ -2660,6 +2745,17 @@ export function EntryEditor({
                       onInstrumentOverridesChange={setInstrumentOverrides}
                       instrumentSaveStatus={hasEntry ? instrumentSaveStatus : undefined}
                       onInstrumentSave={hasEntry ? onSaveInstrumentOverrides : undefined}
+                      // photo-meta-harness: coords / place / filmSim (sirius slice)
+                      authoredCoords={authoredCoords}
+                      onAuthoredCoordsChange={setAuthoredCoords}
+                      authoredPlaceId={authoredPlaceId}
+                      onAuthoredPlaceIdChange={setAuthoredPlaceId}
+                      availablePlaces={availablePlaces}
+                      photoMetaSaveStatus={hasEntry ? photoMetaSaveStatus : undefined}
+                      onPhotoMetaSave={hasEntry ? onSavePhotoMeta : undefined}
+                      authoredFilmSim={authoredFilmSim}
+                      onFilmSimSave={hasEntry ? onSaveFilmSim : undefined}
+                      filmSimSaveStatus={hasEntry ? filmSimSaveStatus : undefined}
                     />
                   </div>
                 )

@@ -43,7 +43,7 @@
 
 import { Fragment, useMemo } from 'react'
 import type { PhotoFrame, FilmSim } from './editor-types'
-import type { InstrumentOverrides } from '@/lib/store/types'
+import type { InstrumentOverrides, Place } from '@/lib/store/types'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Film simulation chips — canonical order (matches FilmSim union in editor-types.ts)
@@ -465,6 +465,79 @@ const PHOTO_MGR_CSS = `
   .fsim-chip { padding: 12px 14px; }
   .pm-addframe { padding: 16px; }
 }
+
+/* ── zone 4 · coord / place block (photo-meta-harness, sirius slice) ───────
+   Shares the .pm-exif grid layout (label col + input col) and .pm-exif-input
+   override idiom (orange left-border = is-overridden, per instrument precedent).
+   Separated from zone 3 by a dashed top border — same separator as zone 3. */
+.pm-coord {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 14px;
+  margin: 0;
+  border-top: 1px dashed var(--ink-dashed);
+  padding-top: 14px;
+}
+.pm-coord dt {
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  align-self: center;
+  padding: 4px 0;
+}
+.pm-coord dd { margin: 0; display: flex; align-items: center; gap: 6px; }
+
+/* Place dropdown — same instrument idiom as .rp-select in EntryEditor */
+.pm-place-select {
+  flex: 1;
+  min-width: 0;
+  appearance: none;
+  background: transparent;
+  border: 1px dashed var(--ink-hairline);
+  border-left-width: 2px;
+  border-left-color: transparent;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--ink-primary);
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: border-color 100ms ease;
+}
+.pm-place-select.is-overridden {
+  border-left-color: var(--accent-orange);
+  background: rgb(var(--accent-orange-rgb) / 0.04);
+}
+.pm-place-select:focus {
+  outline: 1px dashed var(--accent-orange);
+  outline-offset: 2px;
+  border-left-color: var(--accent-orange);
+}
+.pm-place-select:disabled { cursor: default; opacity: 0.6; }
+/* photo-meta SAVE status label — same style as .pm-instr-save */
+.pm-meta-save {
+  appearance: none;
+  background: transparent;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 0;
+  cursor: pointer;
+}
+.pm-meta-save:focus-visible {
+  outline: 1px dashed var(--accent-orange);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-place-select { transition: none; }
+}
+@media (pointer: coarse) {
+  .pm-place-select { padding: 10px 12px; }
+}
 `
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -501,6 +574,36 @@ export interface PhotoManagerProps {
    * (sample / no-entry path).
    */
   onInstrumentSave?: () => void
+  // ── Photo meta: coords / place / filmSim (photo-meta-harness, sirius slice) ──
+  /**
+   * Raw authored coords from entries.coords — owner console only (DL13).
+   * Null = no authored coord set. Undefined = not applicable / not loaded.
+   */
+  authoredCoords?: { lat: number; lon: number; place: string } | null
+  /** Called when the user edits lat or lon. Caller owns the save action. */
+  onAuthoredCoordsChange?: (coords: { lat: number; lon: number; place: string } | null) => void
+  /** Currently assigned place_id from entries. Null = no place assigned. */
+  authoredPlaceId?: string | null
+  /** Called when the user selects a different place. Caller owns the save action. */
+  onAuthoredPlaceIdChange?: (placeId: string | null) => void
+  /** Full places list for the dropdown. Loaded by editor page for photo kind. */
+  availablePlaces?: Place[]
+  /** Save status for coords + place (shared SAVE button). Drives the label. */
+  photoMetaSaveStatus?: 'idle' | 'saving' | 'saved' | 'error'
+  /** Called when the user clicks the photo-meta SAVE button. */
+  onPhotoMetaSave?: () => void
+  /**
+   * Authored filmSim override from entries.film_sim (raw, not merged).
+   * Null = no authored override (display falls back to EXIF filmSim).
+   */
+  authoredFilmSim?: string | null
+  /**
+   * Called immediately when the user clicks a film-sim chip.
+   * Saves entries.film_sim via updateEntry on click — no deferred SAVE button.
+   */
+  onFilmSimSave?: (sim: string | null) => void
+  /** Save status for filmSim. Drives a small status label near the chip row. */
+  filmSimSaveStatus?: 'idle' | 'saving' | 'saved' | 'error'
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -518,6 +621,16 @@ export function PhotoManager({
   onInstrumentOverridesChange,
   instrumentSaveStatus,
   onInstrumentSave,
+  authoredCoords,
+  onAuthoredCoordsChange,
+  authoredPlaceId,
+  onAuthoredPlaceIdChange,
+  availablePlaces = [],
+  photoMetaSaveStatus,
+  onPhotoMetaSave,
+  authoredFilmSim,
+  onFilmSimSave,
+  filmSimSaveStatus,
 }: PhotoManagerProps) {
   // Resolve active index — default to frames[0] when active is missing
   // (contract state: "active frame missing: default to frames[0]").
@@ -564,15 +677,25 @@ export function PhotoManager({
   }
 
   // Single-select film sim (filmSim is singular in editor-types.ts).
+  // Clicking a chip: toggle local frame state AND immediately save to DB via onFilmSimSave.
+  // Active state: authoredFilmSim (DB value) takes precedence when prop is provided;
+  // fallback to frame.filmSim (local frame state) for display when authoredFilmSim is
+  // undefined (no-entry / sample path where onFilmSimSave is absent).
   const setSim = (sim: FilmSim) => {
     if (reading) return
+    // Determine next value: deselect if same, select otherwise
+    const isCurrentlyActive = authoredFilmSim !== undefined
+      ? authoredFilmSim === sim
+      : frame.filmSim === sim
+    const next = isCurrentlyActive ? undefined : sim
+    // Update local frame state (drives frame strip display)
     setFrames(
       frames.map((f) =>
-        f.id === frame.id
-          ? { ...f, filmSim: f.filmSim === sim ? undefined : sim }
-          : f,
+        f.id === frame.id ? { ...f, filmSim: next } : f,
       ),
     )
+    // Immediately persist to DB (photo-meta-harness: filmSim saves on click)
+    if (onFilmSimSave) onFilmSimSave(next ?? null)
   }
 
   const go = (next: number) => {
@@ -639,19 +762,46 @@ export function PhotoManager({
 
           {frame.caption && <p className="pm-caption">{frame.caption}</p>}
 
-          {/* ── zone 2 · film-sim selector (.fsim-chip — single-select) ── */}
+          {/* ── zone 2 · film-sim selector (.fsim-chip — single-select) ──
+              Active state: authoredFilmSim (DB value from entries.film_sim) when prop
+              is provided (real entry loaded); falls back to frame.filmSim (local) on
+              the sample/no-entry path. Clicking saves immediately via onFilmSimSave. */}
           <div>
-            <div className="pm-sect-label">FILM SIM</div>
+            <div className="pm-instr-head">
+              <span className="pm-sect-label" style={{ marginBottom: 0 }}>FILM SIM</span>
+              {/* filmSim status label — shown while saving/after save (no separate SAVE button) */}
+              {onFilmSimSave && filmSimSaveStatus && filmSimSaveStatus !== 'idle' && (
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '8px',
+                    letterSpacing: '0.22em',
+                    textTransform: 'uppercase' as const,
+                    color: filmSimSaveStatus === 'error' ? 'var(--accent-orange)'
+                      : filmSimSaveStatus === 'saved' ? 'var(--ink-primary)'
+                      : 'var(--ink-faint)',
+                  }}
+                  aria-live="polite"
+                >
+                  {filmSimSaveStatus === 'saving' ? 'SAVING…'
+                    : filmSimSaveStatus === 'saved' ? 'SAVED'
+                    : 'SAVE ERR'}
+                </span>
+              )}
+            </div>
             <div className="pm-simrow" role="group" aria-label="Film simulation">
               {FILM_SIMS.map((s) => {
-                const on = frame.filmSim === s
+                // Use authoredFilmSim (DB truth) when available; fallback to frame.filmSim
+                const on = authoredFilmSim !== undefined
+                  ? authoredFilmSim === s
+                  : frame.filmSim === s
                 return (
                   <button
                     key={s}
                     type="button"
                     className={'fsim-chip' + (on ? ' is-on' : '')}
                     aria-pressed={on}
-                    disabled={reading}
+                    disabled={reading || filmSimSaveStatus === 'saving'}
                     onClick={() => setSim(s)}
                   >
                     {s}
@@ -775,6 +925,142 @@ export function PhotoManager({
                 )
               })}
             </dl>
+          </div>
+
+          {/* ── zone 4 · coord + place (photo-meta-harness, sirius slice) ──
+              COORD: lat/lon text inputs. Raw authored coords from entries.coords (DL13
+              owner-only field). EXIF GPS would be a placeholder when available but
+              GPS is stripped during ingest (sharp .rotate() without .withMetadata()),
+              so no placeholder source exists from EXIF — use "—" as default placeholder.
+              PLACE: dropdown from availablePlaces. is-overridden orange left-border
+              when a placeId is set. Shared SAVE button for coords + place (same
+              deferral pattern as instrument overrides). */}
+          <div>
+            <div className="pm-instr-head">
+              <span className="pm-sect-label" style={{ marginBottom: 0 }}>COORD &amp; PLACE</span>
+              {/* Shared SAVE button for coords + place */}
+              {onPhotoMetaSave && (
+                <button
+                  type="button"
+                  className="pm-meta-save"
+                  onClick={onPhotoMetaSave}
+                  disabled={photoMetaSaveStatus === 'saving'}
+                  style={{
+                    color: photoMetaSaveStatus === 'error' ? 'var(--accent-orange)'
+                      : photoMetaSaveStatus === 'saved' ? 'var(--ink-primary)'
+                      : 'var(--ink-faint)',
+                    cursor: photoMetaSaveStatus === 'saving' ? 'not-allowed' : 'pointer',
+                  }}
+                  aria-label="save coord and place"
+                  aria-live="polite"
+                  title="Save authored coordinates and place assignment"
+                >
+                  {photoMetaSaveStatus === 'saving' ? 'SAVING…'
+                    : photoMetaSaveStatus === 'saved' ? 'SAVED'
+                    : photoMetaSaveStatus === 'error' ? 'SAVE ERR'
+                    : '⇡ SAVE'}
+                </button>
+              )}
+            </div>
+            {/* Coord inputs — is-overridden when authoredCoords has a value */}
+            <dl className="pm-coord" aria-label="Authored coordinates">
+              <dt>LAT</dt>
+              <dd>
+                <input
+                  type="text"
+                  className={'pm-exif-input' + (authoredCoords?.lat != null ? ' is-overridden' : '')}
+                  value={authoredCoords?.lat ?? ''}
+                  placeholder="—"
+                  aria-label="Latitude"
+                  disabled={reading}
+                  onChange={(e) => {
+                    if (!onAuthoredCoordsChange) return
+                    const raw = e.target.value.trim()
+                    if (raw === '') {
+                      // Clear lat — if lon is also empty, clear entire coords
+                      const hasLon = authoredCoords?.lon != null
+                      onAuthoredCoordsChange(hasLon
+                        ? { lat: 0, lon: authoredCoords!.lon, place: authoredCoords?.place ?? '' }
+                        : null)
+                    } else {
+                      const n = parseFloat(raw)
+                      if (!Number.isNaN(n)) {
+                        onAuthoredCoordsChange({
+                          lat: n,
+                          lon: authoredCoords?.lon ?? 0,
+                          place: authoredCoords?.place ?? '',
+                        })
+                      }
+                    }
+                  }}
+                />
+              </dd>
+              <dt>LON</dt>
+              <dd>
+                <input
+                  type="text"
+                  className={'pm-exif-input' + (authoredCoords?.lon != null ? ' is-overridden' : '')}
+                  value={authoredCoords?.lon ?? ''}
+                  placeholder="—"
+                  aria-label="Longitude"
+                  disabled={reading}
+                  onChange={(e) => {
+                    if (!onAuthoredCoordsChange) return
+                    const raw = e.target.value.trim()
+                    if (raw === '') {
+                      const hasLat = authoredCoords?.lat != null
+                      onAuthoredCoordsChange(hasLat
+                        ? { lat: authoredCoords!.lat, lon: 0, place: authoredCoords?.place ?? '' }
+                        : null)
+                    } else {
+                      const n = parseFloat(raw)
+                      if (!Number.isNaN(n)) {
+                        onAuthoredCoordsChange({
+                          lat: authoredCoords?.lat ?? 0,
+                          lon: n,
+                          place: authoredCoords?.place ?? '',
+                        })
+                      }
+                    }
+                  }}
+                />
+              </dd>
+              {/* PLACE field: shows the place name for the authored place_id, or override_place */}
+              {authoredCoords?.place && (
+                <>
+                  <dt>PLACE</dt>
+                  <dd>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--ink-soft)' }}>
+                      {authoredCoords.place}
+                    </span>
+                  </dd>
+                </>
+              )}
+            </dl>
+
+            {/* Place assignment dropdown — sets place_id */}
+            {availablePlaces.length > 0 && (
+              <div style={{ marginTop: '8px' }}>
+                <select
+                  className={'pm-place-select' + (authoredPlaceId ? ' is-overridden' : '')}
+                  value={authoredPlaceId ?? ''}
+                  disabled={reading}
+                  aria-label="Assign place"
+                  onChange={(e) => {
+                    if (!onAuthoredPlaceIdChange) return
+                    const val = e.target.value
+                    onAuthoredPlaceIdChange(val === '' ? null : val)
+                  }}
+                >
+                  <option value="">— no place assigned —</option>
+                  {availablePlaces.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* ── + ADD FRAME (hidden in reading mode) ── */}
