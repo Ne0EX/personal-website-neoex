@@ -173,21 +173,11 @@ export function EntryShell({
         <MarginaliaHUD />
         <Nav />
 
-        {/* Skip link — keyboard a11y (spec §accessibility) */}
-        <a
-          href="#entry-main"
-          style={{
-            position: 'absolute',
-            left: '-9999px',
-            zIndex: 100,
-            padding: '4px 8px',
-            background: 'var(--paper-warm)',
-            color: 'var(--ink-primary)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '9px',
-          }}
-          className="focus:left-2 focus:top-2"
-        >
+        {/* Skip link — keyboard a11y (spec §accessibility)
+            wl-skip-link: shared utility class (app/globals.css) that reveals on
+            :focus via CSS specificity — replaces the broken inline left:-9999px
+            pattern where Tailwind focus:left-2 was overridden by inline style. */}
+        <a href="#entry-main" className="wl-skip-link">
           Skip to entry
         </a>
 

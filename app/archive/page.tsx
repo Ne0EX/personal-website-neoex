@@ -130,26 +130,11 @@ export default async function ArchivePage() {
 
       {/*
        * Visually-hidden skip link (§12 accessibility).
-       * The onFocus/onBlur show/hide behaviour is CSS-based using :focus-within
-       * would require a wrapper; instead we use a static CSS class that applies
-       * the "jump to visible" pattern. We keep it simple with inline styles for
-       * SSR compatibility — no event handlers in the RSC.
+       * wl-skip-link: shared utility class (app/globals.css) that reveals on
+       * :focus via CSS — replaces the broken inline left:-9999px pattern.
+       * RSC-safe: pure CSS class, no event handlers.
        */}
-      <a
-        href="#archive-ledger"
-        className="t-mono"
-        style={{
-          position: 'absolute',
-          left: '-9999px',
-          top: 'auto',
-          width: '1px',
-          height: '1px',
-          overflow: 'hidden',
-          fontSize: '9px',
-          letterSpacing: '0.3em',
-          textTransform: 'uppercase',
-        }}
-      >
+      <a href="#archive-ledger" className="wl-skip-link">
         Skip to archive ledger
       </a>
 

@@ -492,10 +492,15 @@ export default function ArchiveMiniGlobeThreeJS({
       reticle.visible = true;
 
       // DRIFT LINE — re-aim the great-circle arc α→node (slerped surface points).
+      // Audit fix (2.G): dispose the old geometry BEFORE creating a new one so
+      // THREE.js never tries to grow an existing attribute buffer (which logs
+      // "buffer too small" when the point count increases). A fresh BufferGeometry
+      // per re-aim avoids the warning and is correct teardown practice.
       const pts = greatCircleArcPoints(
         ALPHA_LAT, ALPHA_LON, pin.lat, pin.lon, 56, 1.01,
       ).map((p) => new THREE.Vector3(p.x, p.y, p.z));
-      driftLine.geometry.setFromPoints(pts);
+      driftLine.geometry.dispose();
+      driftLine.geometry = new THREE.BufferGeometry().setFromPoints(pts);
       driftLine.computeLineDistances();
       driftLine.visible = true;
     };

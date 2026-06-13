@@ -53,7 +53,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import type { ArchiveEntry } from '@/lib/content';
 
@@ -253,10 +253,25 @@ function ArchiveLedgerRow({
 interface ArchiveLedgerProps {
   /**
    * All entries passed from the RSC — pre-fetched, serialized as props.
-   * The ledger filters client-side via URL params for instant interaction
-   * and browser back/forward support.
+   * ArchiveClient pre-filters by activeType before passing visibleEntries here,
+   * so the ledger renders EXACTLY the entries it should show.
    */
   entries: ArchiveEntry[];
+
+  /**
+   * SINGLE SOURCE OF TRUTH for the active type filter. Driven by ArchiveClient
+   * state (not re-derived from useSearchParams here). Used only to:
+   *   1. Drive the "no entries match" vs "no entries surveyed yet" branch.
+   *   2. Route the clear-filter button through the parent's onTypeChange handler.
+   * null = 'all' (no filter active).
+   */
+  activeType?: EntryType | 'all' | null;
+
+  /**
+   * Called when the clear-filter button is clicked. Routes through ArchiveClient
+   * so the URL stays in sync with client state (single source of truth).
+   */
+  onTypeChange?: (next: EntryType | 'all') => void;
 
   /**
    * Callback fired when the active filter changes, so the parent (ArchiveClient)
@@ -278,21 +293,19 @@ interface ArchiveLedgerProps {
 
 export function ArchiveLedger({
   entries,
+  activeType = null,
+  onTypeChange,
   onFilterChange,
   hoveredId = null,
   onRowHover,
 }: ArchiveLedgerProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const activeType = (searchParams.get('type') as EntryType | null) ?? null;
-
-  // ── Filter entries client-side per URL param ──
-  const filtered = useMemo(() => {
-    if (!activeType) return entries;
-    return entries.filter((e) => e.kind === activeType);
-  }, [entries, activeType]);
+  // ArchiveClient pre-filters entries by activeType before passing them here.
+  // The ledger renders exactly what it receives — no secondary filter needed.
+  // We keep `filtered` as an alias for clarity and to preserve onFilterChange.
+  const filtered = entries;
 
   // ── Notify parent of filter change so it can sync MiniGlobe activePins ──
   const prevFilteredRef = useRef<ArchiveEntry[]>([]);
@@ -308,7 +321,7 @@ export function ArchiveLedger({
   const showPagination = filtered.length > PAGINATION_THRESHOLD;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
-  // Reset visible count when filter changes (new filter = fresh page).
+  // Reset visible count when activeType changes (new filter = fresh page).
   const prevActiveTypeRef = useRef(activeType);
   useEffect(() => {
     if (prevActiveTypeRef.current !== activeType) {
@@ -363,6 +376,9 @@ export function ArchiveLedger({
   );
 
   // ── Keyboard shortcut 'f' → focus first filter pill (§12) ──
+  // Audit fix: scope the querySelector to [data-archive-filter-pills] (the pills
+  // wrapper only) so the 'f' key focuses the first TYPE pill, not the NEXT NODE
+  // readout button that precedes the pills in DOM within the wider filter region.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       // Do not intercept when focus is in an input/textarea/select.
@@ -370,7 +386,7 @@ export function ArchiveLedger({
       if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
       if (e.key === 'f') {
         const firstPill = document.querySelector<HTMLElement>(
-          '[data-archive-filter-region] button:not(:disabled)',
+          '[data-archive-filter-pills] button:not(:disabled)',
         );
         firstPill?.focus();
       }
@@ -414,7 +430,17 @@ export function ArchiveLedger({
   }, [hoveredId]);
 
   // ── Empty state ──
+  // Audit fix: the false "// no entries surveyed yet" branch showed while 9 real
+  // entries existed because ArchiveLedger was independently filtering by URL params
+  // (including unvalidated junk ?type= values). Now that ArchiveClient is the single
+  // source of truth and validates ?type= before passing visibleEntries here, this
+  // branch only fires when the FULL corpus is genuinely empty (no entries at all).
   const isEmpty = filtered.length === 0;
+
+  // An active filter means a valid type was set (prop-driven, validated upstream).
+  // The clear button now routes through onTypeChange (parent handler) — not
+  // router.push — so the URL stays in sync with client state.
+  const hasActiveFilter = activeType && activeType !== 'all';
 
   return (
     <div id="archive-ledger" role="main">
@@ -430,13 +456,13 @@ export function ArchiveLedger({
             padding: '40px 0',
           }}
         >
-          {activeType ? (
+          {hasActiveFilter ? (
             <>
               {/* Empty state: instrument-register "comment-as-copy" — spec §11 */}
               <span style={{ color: 'var(--ink-faint)' }}>{'// no entries match this survey.'}{' '}</span>
               <button
                 type="button"
-                onClick={() => router.push(pathname, { scroll: false })}
+                onClick={() => onTypeChange?.('all')}
                 style={{
                   background: 'none',
                   border: 'none',
@@ -461,6 +487,8 @@ export function ArchiveLedger({
               </button>
             </>
           ) : (
+            // Only shown when the corpus is GENUINELY empty (no entries in store).
+            // With 9 real entries, this branch is unreachable.
             <>
               <span style={{ color: 'var(--ink-faint)' }}>{'// no entries surveyed yet.'}{' '}</span>
               <Link

@@ -275,6 +275,45 @@ body {
 }
 
 /* =============================================================
+   Skip link — keyboard a11y utility (audit 2.H + 2.F)
+   Inline `left:-9999px` beats Tailwind `focus:left-2` due to specificity.
+   This class uses CSS :focus-within + :focus-visible so specificity wins.
+   Applied to skip links in EntryShell and /archive page header.
+   The `top`/`left`/`z-index`/`padding` reveal on focus so sighted-keyboard
+   users can see and activate the skip target. `clip` + `clip-path` hide it
+   in non-focus state without removing it from the accessibility tree.
+   ============================================================= */
+.wl-skip-link {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  z-index: 200;
+  padding: 4px 12px;
+  background: var(--paper-warm);
+  color: var(--ink-primary);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border: 1px dashed var(--ink-dashed);
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.wl-skip-link:focus,
+.wl-skip-link:focus-visible {
+  top: 8px;
+  left: 8px;
+  clip: auto;
+  clip-path: none;
+  overflow: visible;
+  outline: 2px dashed var(--accent-orange);
+  outline-offset: 2px;
+}
+
+/* =============================================================
    Survey cursor — native cursor hidden on fine-pointer devices
    ============================================================= */
 .hide-native-cursor,

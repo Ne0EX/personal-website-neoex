@@ -34,7 +34,7 @@
  * Owner: Sirius (α-SUR-01)
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArchiveLedger } from './ArchiveLedger';
 import { ArchiveFilters } from './ArchiveFilters';
@@ -43,6 +43,11 @@ import type { MiniGlobeReadout } from './ArchiveMiniGlobe';
 import { ArchiveGlobeReadout } from './ArchiveGlobeReadout';
 import { getMiniGlobePins } from '@/lib/content';
 import type { ArchiveEntry, MiniGlobePin } from '@/lib/content';
+
+// VALID_ENTRY_TYPES — guard for URL ?type= validation. Any value outside this
+// set (e.g. ?type=junk, ?type=undefined) is coerced to 'all' so the ledger
+// never shows a false "no entries surveyed yet" empty state with real entries.
+const VALID_ENTRY_TYPES = new Set(['article', 'photo', 'fiction']);
 
 type EntryType = 'article' | 'photo' | 'fiction';
 
@@ -59,19 +64,35 @@ export function ArchiveClient({ entries, pins, counts }: ArchiveClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // BUG-1 FIX: activeType is now CLIENT STATE, not read from useSearchParams on
-  // every render. Initialized ONCE from the URL so deep-links (/archive?type=photo)
-  // still work on initial load. Filter changes go through onTypeChange which
-  // calls window.history.replaceState (shallow, no navigation, no remount of the
-  // globe subtree). ArchiveFilters no longer calls router.push.
+  // BUG-1 FIX + AUDIT FIX (single-source-of-truth): activeType is CLIENT STATE.
+  // Initialized ONCE from the URL but validated against VALID_ENTRY_TYPES so a
+  // junk ?type= param (e.g. ?type=undefined) never shows the false "no entries
+  // surveyed yet" empty state while real entries exist.
+  // Filter changes go through handleTypeChange which calls
+  // window.history.replaceState (shallow, no navigation, no remount of the globe
+  // subtree). The URL is the CANONICAL source; resync via useEffect when
+  // searchParams changes externally (e.g. browser-back, external link).
   const [activeType, setActiveType] = useState<EntryType | 'all'>(() => {
-    const param = searchParams.get('type') as EntryType | null;
-    return param ?? 'all';
+    const param = searchParams.get('type');
+    return param && VALID_ENTRY_TYPES.has(param) ? (param as EntryType) : 'all';
   });
 
-  // Called by ArchiveFilters on pill click. Sets state AND syncs the URL without
-  // a full navigation, so /archive?type=photo remains deep-linkable/shareable but
-  // the route does NOT re-render and the globe subtree does NOT remount.
+  // Resync activeType when the URL searchParams change externally (browser-back,
+  // navigation from another route with a ?type= param). This keeps the client
+  // state in lock-step with the URL without requiring a full remount.
+  // setTimeout(0): deferred setState in effect body avoids the cascading-render
+  // lint error (react-hooks/set-state-in-effect) — same pattern as Nav.tsx.
+  useEffect(() => {
+    const param = searchParams.get('type');
+    const next = param && VALID_ENTRY_TYPES.has(param) ? (param as EntryType) : 'all';
+    const t = setTimeout(() => setActiveType(next), 0);
+    return () => clearTimeout(t);
+  }, [searchParams]);
+
+  // Called by ArchiveFilters AND ArchiveLedger's clear-filter button. Sets state
+  // AND syncs the URL without a full navigation, so /archive?type=photo remains
+  // deep-linkable/shareable but the route does NOT re-render and the globe subtree
+  // does NOT remount.
   const handleTypeChange = useCallback(
     (next: EntryType | 'all') => {
       setActiveType(next);
@@ -156,10 +177,14 @@ export function ArchiveClient({ entries, pins, counts }: ArchiveClientProps) {
           globals.css (max 960px — Betelgeuse #4 page-grid rebalance: wider ledger
           so the 3-col survey table has room to align). No inline width.
           NOTE: passes visibleEntries (search + type filtered) rather than the
-          full entries array so the ledger reflects the active search result. */}
+          full entries array so the ledger reflects the active search result.
+          activeType + onTypeChange are the single source of truth for the filter —
+          ArchiveLedger no longer reads useSearchParams independently. */}
       <section className="archive-ledger-col">
         <ArchiveLedger
           entries={visibleEntries}
+          activeType={activeType}
+          onTypeChange={handleTypeChange}
           hoveredId={hoveredId}
           onRowHover={setHoveredId}
         />
@@ -203,8 +228,11 @@ export function ArchiveClient({ entries, pins, counts }: ArchiveClientProps) {
 
         {/* Filter chips — type filter (§4 filter rail).
             BUG-1 FIX: activeType + onTypeChange passed as props so ArchiveFilters
-            reads client state (not useSearchParams) and calls no router.push. */}
-        <div className="archive-filters">
+            reads client state (not useSearchParams) and calls no router.push.
+            data-archive-filter-pills scopes the 'f' keyboard shortcut to THIS
+            pills wrapper only (tighter than the old data-archive-filter-region which
+            wrapped the entire right rail including the NEXT NODE readout button). */}
+        <div className="archive-filters" data-archive-filter-pills>
           <ArchiveFilters
             counts={counts}
             activeType={activeType}

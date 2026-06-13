@@ -26,7 +26,7 @@
  * Owner: Sirius (α-SUR-01) · TASK-2026-05-30-PHOTO-ENTRY-D3-SHIP
  */
 
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 
 type FilmSim = "base" | "classic-chrome" | "acros" | "reala-ace" | "velvia";
 
@@ -48,6 +48,10 @@ export function FilmSimSwitcher() {
   // on rapid back-to-back switches (per SHIP-PLAN §3 + Peat v3 #C).
   const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Audit fix (2.I): track the active sim in state so we can set aria-pressed
+  // correctly on each button. 'base' (Provia) is the initial state.
+  const [activeSim, setActiveSim] = useState<FilmSim>('base');
+
   const applyPalette = useCallback((sim: FilmSim) => {
     const root = document.querySelector<HTMLElement>("[data-photo-entry-root]");
     if (!root) return;
@@ -67,6 +71,7 @@ export function FilmSimSwitcher() {
     if (prefersReduced) {
       root.dataset.palette = sim;
       updateNetraVoice(sim);
+      setActiveSim(sim);
       return;
     }
 
@@ -86,6 +91,7 @@ export function FilmSimSwitcher() {
       fallbackTimerRef.current = null;
       root.dataset.palette = sim;
       updateNetraVoice(sim);
+      setActiveSim(sim);
       document.body.classList.remove("is-palette-switching");
     };
 
@@ -100,6 +106,7 @@ export function FilmSimSwitcher() {
       document.body.removeEventListener("transitionend", onTransitionEnd);
       root.dataset.palette = sim;
       updateNetraVoice(sim);
+      setActiveSim(sim);
       document.body.classList.remove("is-palette-switching");
       fallbackTimerRef.current = null;
     }, 180);
@@ -138,6 +145,9 @@ export function FilmSimSwitcher() {
           key={id}
           type="button"
           aria-label={`Apply ${label} film simulation`}
+          /* Audit fix (2.I): aria-pressed communicates which sim is currently
+             active to screen readers. 'true' on the active sim, 'false' otherwise. */
+          aria-pressed={activeSim === id}
           onClick={() => applyPalette(id)}
           style={{
             appearance: "none",
