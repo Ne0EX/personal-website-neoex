@@ -1278,7 +1278,30 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
       const dx = e.clientX - lastX;
       lastX = e.clientX;
       const sk = stratumRef.current;
-      if (sk === "all" || sk === "nex") {
+      if (sk === "all") {
+        // "all": globe spins in place; camera is centre-aligned so this is orbit-equivalent.
+        clearNetraLock();
+        baseRotY += dx * 0.005;
+        refs.globe.rotation.y = baseRotY;
+      } else if (sk === "nex") {
+        // Fix #3 (NeX orbit): orbit the CAMERA around the globe centre (Y-axis rotation of
+        // the position vector) instead of spinning the globe geometry. This keeps the orbital
+        // shells visually stable and gives a true "swing around the surface" feel.
+        // Per soul rules: camera must orbit the surface (slerp / great-circle), never clip.
+        const angle = dx * 0.005;
+        const cosA = Math.cos(angle);
+        const sinA = Math.sin(angle);
+        const cx = camera.position.x;
+        const cz = camera.position.z;
+        camera.position.x = cx * cosA + cz * sinA;
+        camera.position.z = -cx * sinA + cz * cosA;
+        // Ensure radius floor — orbit rotation preserves radius but float-error can drift.
+        enforceRadiusFloor();
+        camera.lookAt(currentLook);
+      } else if (sk === "neo") {
+        // Fix #2 (Ne0 drag): allow manual drag-rotate in the Ne0 (surface archive) stratum.
+        // clearNetraLock() releases the α soft-track so the user can drag away from Bangkok
+        // (manual override intent) — the camera stops following α and holds wherever it lands.
         clearNetraLock();
         baseRotY += dx * 0.005;
         refs.globe.rotation.y = baseRotY;
@@ -2532,7 +2555,11 @@ function PlaceFrontDoorPanel(props: {
       style={{
         top: 78,
         right: 22,
-        bottom: 22,
+        // Fix #1: panel must not cover the NEXT NODE (⟶) button in atlas-foot.
+        // The footer (atlas-foot-row + atlas-netra-voice) sits at the bottom of the
+        // frame. We anchor the panel above it with bottom: 124 so the full NETRA
+        // console + voice strip remain fully visible and clickable when a panel is open.
+        bottom: 124,
         width: "min(46%, 360px)",
         background: "var(--paper-warm)",
         border: "1px solid var(--ink-primary)",
