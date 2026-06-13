@@ -73,7 +73,7 @@
 import type React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Article, PhotoSidecar } from '@/lib/content/types'
+import type { Article, Photo, PhotoSidecar } from '@/lib/content/types'
 import type { InstrumentOverrides } from '@/lib/store/types'
 // S6: swap to store actions (setEntryDraft + deleteEntry + updateEntry now live against DB)
 import { setEntryDraft, deleteEntry, updateEntry } from '@/lib/server/store/actions'
@@ -873,6 +873,158 @@ const EDITOR_CSS = `
 @media (prefers-reduced-motion: reduce) {
   .ed-kindtab { transition-duration: 0.001ms; }
 }
+
+/* ── Roll picker (BUG-1 fix) — inline instrument panel, no-roll context ─────
+   Appears inside .src-pane above ImportZone when kind=photo and no roll is
+   known from the URL. Terse instrument idiom: dashed hairlines, mono uppercase,
+   no modal/drawer. Three zones:
+     · .rp-head: section label (// ROLL)
+     · .rp-existing: <select> over known rolls  OR  "no rolls yet" fallback
+     · .rp-new: inline new-roll creation form (slug + date + CREATE button)
+     · .rp-error: red-tinted error / block message when upload attempted without roll
+*/
+.rp-wrap {
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-bottom: 1px dashed var(--ink-dashed);
+}
+.rp-head {
+  font-size: 8px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.rp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.rp-label {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  min-width: 60px;
+}
+.rp-select {
+  appearance: none;
+  background: var(--paper-warm);
+  border: 1px dashed var(--ink-dashed);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ink-primary);
+  padding: 6px 10px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 120px;
+}
+.rp-select:focus {
+  outline: 1px dashed var(--accent-orange);
+  outline-offset: 2px;
+}
+.rp-input {
+  appearance: none;
+  background: var(--paper-warm);
+  border: 1px dashed var(--ink-dashed);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ink-primary);
+  padding: 6px 10px;
+  flex: 1;
+  min-width: 120px;
+}
+.rp-input:focus {
+  outline: 1px dashed var(--accent-orange);
+  outline-offset: 2px;
+  background: rgb(var(--accent-orange-rgb) / 0.02);
+}
+.rp-input::placeholder { color: var(--ink-faint); }
+.rp-create-btn {
+  appearance: none;
+  background: transparent;
+  border: 1px dashed var(--ink-dashed);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+.rp-create-btn:hover:not(:disabled),
+.rp-create-btn:focus-visible:not(:disabled) {
+  border-color: var(--accent-orange);
+  color: var(--ink-primary);
+  outline: none;
+}
+.rp-create-btn:focus-visible {
+  outline: 1px dashed var(--accent-orange);
+  outline-offset: 2px;
+}
+.rp-create-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.rp-active {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-orange);
+}
+.rp-error {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-primary);
+  background: rgb(var(--accent-orange-rgb) / 0.08);
+  border: 1px dashed var(--accent-orange);
+  padding: 6px 10px;
+  margin-top: 2px;
+}
+/* Upload status badges (BUG-3 fix) — per-frame inside the FramesRail + error strip */
+.fr-status {
+  flex-shrink: 0;
+  font-size: 7px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 2px 5px;
+  border: 1px solid transparent;
+}
+.fr-status.is-uploading {
+  color: var(--ink-soft);
+  border-color: var(--ink-dashed);
+}
+.fr-status.is-processing {
+  color: var(--accent-orange);
+  border-color: var(--accent-orange);
+}
+.fr-status.is-done { color: var(--ink-faint); }
+.fr-status.is-failed {
+  color: var(--ink-primary);
+  background: rgb(var(--accent-orange-rgb) / 0.1);
+  border-color: var(--accent-orange);
+}
+/* Upload error banner — shown below the frames rail or above import zone */
+.up-error-strip {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-primary);
+  background: rgb(var(--accent-orange-rgb) / 0.08);
+  border-top: 1px dashed var(--accent-orange);
+  padding: 7px 14px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rp-create-btn { transition: none; }
+}
 `
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1381,13 +1533,15 @@ function ArticleSourcePane({ md, onChange, onSave, saveStatus }: ArticleSourcePa
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface FramesRailProps {
-  frames:    PhotoFrame[]
-  active:    string | null
-  setActive: (id: string) => void
-  setFrames: (frames: PhotoFrame[]) => void
+  frames:         PhotoFrame[]
+  active:         string | null
+  setActive:      (id: string) => void
+  setFrames:      (frames: PhotoFrame[]) => void
+  // BUG-3 fix: per-frame upload statuses so progress/errors are visible in the rail
+  uploadStatuses: Record<string, 'uploading' | 'processing' | 'done' | 'failed'>
 }
 
-function FramesRail({ frames, active, setActive, setFrames }: FramesRailProps) {
+function FramesRail({ frames, active, setActive, setFrames, uploadStatuses }: FramesRailProps) {
   const dragIdx = useRef<number | null>(null)
   const [dragging, setDragging] = useState<number | null>(null)
 
@@ -1456,6 +1610,17 @@ function FramesRail({ frames, active, setActive, setFrames }: FramesRailProps) {
                         <span className="fr-sim">{f.filmSim}</span>
                       )}
                     </span>
+                    {/* BUG-3 fix: render per-frame upload status badge */}
+                    {uploadStatuses[f.id] && uploadStatuses[f.id] !== 'done' && (
+                      <span
+                        className={`fr-status is-${uploadStatuses[f.id]}`}
+                        aria-label={`upload status: ${uploadStatuses[f.id]}`}
+                      >
+                        {uploadStatuses[f.id] === 'uploading' ? 'UP' :
+                         uploadStatuses[f.id] === 'processing' ? 'PROC' :
+                         'ERR'}
+                      </span>
+                    )}
                   </button>
                 </li>
               )
@@ -1602,6 +1767,12 @@ interface EntryEditorProps {
   photoSequenceIndex?: number
   /** Total photos in `initialPhoto`'s roll (default 1). */
   photoRollTotal?: number
+  /**
+   * All known rolls from the DB (loaded server-side). Used by the roll picker
+   * so Peat can select an existing roll when opening the editor without a roll
+   * slug (BUG-1 fix: no-roll silent-mock replaced by a real picker UI).
+   */
+  availableRolls?: Photo[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1614,6 +1785,7 @@ export function EntryEditor({
   initialPhoto,
   photoSequenceIndex = 0,
   photoRollTotal = 1,
+  availableRolls = [],
 }: EntryEditorProps = {}) {
   const draft = initialDraft ?? SAMPLE_DRAFT
 
@@ -2026,6 +2198,20 @@ export function EntryEditor({
   type UploadStatus = 'uploading' | 'processing' | 'done' | 'failed'
   const [uploadStatuses, setUploadStatuses] = useState<Record<string, UploadStatus>>({})
 
+  // BUG-1 fix: roll picker state for when the editor opens without a roll/id slug.
+  // `selectedRoll` = the roll chosen in the picker (persists across uploads).
+  // `newRollSlug` / `newRollDate` = inline new-roll creation form fields.
+  // `isCreatingRoll` = true while the createRoll server action is in-flight.
+  const [selectedRoll, setSelectedRoll] = useState<string | null>(null)
+  const [newRollSlug, setNewRollSlug] = useState<string>('')
+  const [newRollDate, setNewRollDate] = useState<string>(
+    // Default to today in YYYY.MM.DD — matches SlugDateSchema format
+    new Date().toISOString().slice(0, 10).replace(/-/g, '.')
+  )
+  const [isCreatingRoll, setIsCreatingRoll] = useState<boolean>(false)
+  // BUG-2 / BUG-3 fix: visible upload error state — surfaced in the photo pane.
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
   // Derive the roll from the URL slug (format "roll/id") or from the first existing frame
   const photoRoll = useMemo<string | null>(() => {
     if (entryKind === 'photo' && entrySlug) {
@@ -2040,20 +2226,23 @@ export function EntryEditor({
     return null
   }, [entryKind, entrySlug, frames, activeFrame])
 
+  // Effective roll: URL-derived first, then picker selection (BUG-1 fix).
+  const effectiveRoll: string | null = photoRoll ?? selectedRoll
+
   const uploadAndIngest = useCallback(async (file: File) => {
-    if (!photoRoll) {
-      // No roll context — show a degraded frame placeholder (add as mock)
-      const id = 'DSCF' + String(Date.now()).slice(-4)
-      setFrames((fs) => [...fs, { id, src: URL.createObjectURL(file), caption: file.name }])
-      setActiveFrame(id)
+    // BUG-1 fix: if still no roll after picker, BLOCK with visible message — never silently mock.
+    if (!effectiveRoll) {
+      setUploadError('pick or create a roll first')
       return
     }
+    setUploadError(null)
+
     // Generate a deterministic-looking photoId from the filename
     const base = file.name.replace(/\.[^.]+$/, '').toUpperCase().replace(/[^A-Z0-9_-]/g, '') || 'DSCF0000'
     const photoId = base.slice(0, 12)  // max 12 chars (photo_id constraint is 40 chars)
     const ext = file.name.split('.').pop() ?? 'jpg'
-    const originalKey = `${photoRoll}/${photoId}.${ext}`
-    const frameKey = `${photoRoll}/${photoId}`
+    const originalKey = `${effectiveRoll}/${photoId}.${ext}`
+    const frameKey = `${effectiveRoll}/${photoId}`
 
     setUploadStatuses((s) => ({ ...s, [frameKey]: 'uploading' }))
     // Append placeholder frame immediately (degraded — no URL yet)
@@ -2069,7 +2258,9 @@ export function EntryEditor({
         .from('originals')
         .upload(originalKey, file, { upsert: false })
       if (uploadErr) {
+        // BUG-2 fix: surface the storage error message (auth expired, RLS, etc.)
         setUploadStatuses((s) => ({ ...s, [frameKey]: 'failed' }))
+        setUploadError(`storage: ${uploadErr.message}`)
         return
       }
 
@@ -2078,13 +2269,15 @@ export function EntryEditor({
       // Step 2: ingestPhoto server action (runs sharp pipeline server-side)
       const { ingestPhoto } = await import('@/lib/server/store/actions')
       const result = await ingestPhoto({
-        roll: photoRoll,
+        roll: effectiveRoll,
         photoId,
         originalKey,
       })
 
       if (!result.ok) {
+        // BUG-2 fix: surface the action error message (sharp fail, DB, RLS, etc.)
         setUploadStatuses((s) => ({ ...s, [frameKey]: 'failed' }))
+        setUploadError(`ingest: ${result.error.message}`)
         return
       }
 
@@ -2093,14 +2286,18 @@ export function EntryEditor({
       // (header FILE slug, right panel photo count, NETRA locus, URL) all reflect
       // the newly ingested photo. The route will load the real sidecar + EXIF
       // (via lookupPhotoSidecar admin path) and render the real thumbnail.
-      const newSlug = `${photoRoll}/${photoId}`
+      const newSlug = `${effectiveRoll}/${photoId}`
       router.push(
         `/console/editor?kind=photo&slug=${encodeURIComponent(newSlug)}`
       )
-    } catch {
+    } catch (err) {
+      // BUG-2 fix: capture and show the thrown error message (never swallow silently)
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[uploadAndIngest] unexpected error:', msg)
       setUploadStatuses((s) => ({ ...s, [frameKey]: 'failed' }))
+      setUploadError(`unexpected: ${msg}`)
     }
-  }, [photoRoll, router])
+  }, [effectiveRoll, router])
 
   // S6: photo import handler — real upload+ingest when in photo editor with a roll,
   // fallback mock for article/fiction (no ingest target).
@@ -2320,32 +2517,153 @@ export function EntryEditor({
                   active={activeFrame}
                   setActive={setActiveFrame}
                   setFrames={setFrames}
+                  uploadStatuses={uploadStatuses}
                 />
               )}
-              {showSource &&
-                (frames.length === 0 ? (
-                  // Empty photo source pane → ImportZone drop target (contract).
+              {showSource && (() => {
+                // BUG-1 fix: Roll picker — shown whenever photoRoll is null (no roll from URL slug).
+                // Appears in BOTH the empty-state and the frames path (MOCK frames are seeded when
+                // no real entry is loaded; the picker must still be visible in that case so Peat can
+                // select a roll before clicking + ADD FRAME).
+                const rollPickerNode = !photoRoll ? (
+                  <div className="rp-wrap" role="group" aria-label="roll selection">
+                    <div className="rp-head">{'// ROLL'}</div>
+
+                    {/* Existing roll selector */}
+                    <div className="rp-row">
+                      <span className="rp-label" id="rp-existing-label">EXISTING</span>
+                      {availableRolls.length > 0 ? (
+                        <select
+                          className="rp-select"
+                          aria-labelledby="rp-existing-label"
+                          value={selectedRoll ?? ''}
+                          onChange={(e) => {
+                            setSelectedRoll(e.target.value || null)
+                            setUploadError(null)
+                          }}
+                        >
+                          <option value="">— pick a roll —</option>
+                          {availableRolls.map((r) => (
+                            <option key={r.roll} value={r.roll}>
+                              {r.roll}{r.caption ? ` · ${r.caption}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="rp-label" style={{ color: 'var(--ink-faint)' }}>no rolls yet</span>
+                      )}
+                    </div>
+
+                    {/* Inline new-roll creation form */}
+                    <div className="rp-row">
+                      <span className="rp-label" id="rp-new-label">NEW</span>
+                      <input
+                        className="rp-input"
+                        type="text"
+                        aria-labelledby="rp-new-label"
+                        placeholder="YYYY-MM-place-slug"
+                        value={newRollSlug}
+                        onChange={(e) => setNewRollSlug(e.target.value)}
+                      />
+                      <input
+                        className="rp-input"
+                        type="text"
+                        aria-label="roll date (YYYY.MM.DD)"
+                        placeholder="YYYY.MM.DD"
+                        value={newRollDate}
+                        onChange={(e) => setNewRollDate(e.target.value)}
+                        style={{ maxWidth: '110px' }}
+                      />
+                      <button
+                        type="button"
+                        className="rp-create-btn"
+                        disabled={isCreatingRoll || !newRollSlug.trim()}
+                        onClick={async () => {
+                          if (!newRollSlug.trim()) return
+                          setIsCreatingRoll(true)
+                          setUploadError(null)
+                          try {
+                            const { createRoll } = await import('@/lib/server/store/actions')
+                            const result = await createRoll({
+                              roll: newRollSlug.trim(),
+                              date: newRollDate.trim(),
+                            })
+                            if (!result.ok) {
+                              setUploadError(`create roll: ${result.error.message}`)
+                            } else {
+                              // Roll created — select it so the next upload uses it
+                              setSelectedRoll(result.roll.roll)
+                              setNewRollSlug('')
+                            }
+                          } catch (e) {
+                            const msg = e instanceof Error ? e.message : String(e)
+                            console.error('[createRoll] unexpected error:', msg)
+                            setUploadError(`create roll: ${msg}`)
+                          } finally {
+                            setIsCreatingRoll(false)
+                          }
+                        }}
+                      >
+                        {isCreatingRoll ? 'CREATING…' : '+ CREATE'}
+                      </button>
+                    </div>
+
+                    {/* Active roll indicator */}
+                    {selectedRoll && (
+                      <div className="rp-row">
+                        <span className="rp-label">ACTIVE</span>
+                        <span className="rp-active">{selectedRoll}</span>
+                      </div>
+                    )}
+
+                    {/* Upload error inside picker (BUG-2/3 fix) */}
+                    {uploadError && (
+                      <div className="rp-error" role="alert" aria-live="polite">
+                        {uploadError}
+                      </div>
+                    )}
+                  </div>
+                ) : null
+
+                // Upload error strip when photoRoll IS set from URL (BUG-2 fix)
+                const urlRollErrorNode = photoRoll && uploadError ? (
+                  <div className="up-error-strip" role="alert" aria-live="polite">
+                    {uploadError}
+                  </div>
+                ) : null
+
+                return frames.length === 0 ? (
+                  // Empty photo source pane → Roll picker + ImportZone drop target.
                   <div className="src-pane">
+                    {rollPickerNode}
+                    {urlRollErrorNode}
                     <ImportZone
                       onImport={(file) => addFrame(file)}
                       hasContent={false}
                     />
                   </div>
                 ) : (
-                  <PhotoManager
-                    frames={frames}
-                    setFrames={setFrames}
-                    active={activeFrame}
-                    setActive={setActiveFrame}
-                    onAdd={() => frameInputRef.current?.click()}
-                    reading={false}
-                    // lens-override wiring: instrument overrides state + handlers
-                    instrumentOverrides={instrumentOverrides}
-                    onInstrumentOverridesChange={setInstrumentOverrides}
-                    instrumentSaveStatus={hasEntry ? instrumentSaveStatus : undefined}
-                    onInstrumentSave={hasEntry ? onSaveInstrumentOverrides : undefined}
-                  />
-                ))}
+                  // Frames present — roll picker (if no URL roll) + error strip + PhotoManager.
+                  // Wrap in flex column so picker/error strip sit above PhotoManager's flex body.
+                  <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                    {rollPickerNode}
+                    {urlRollErrorNode}
+                    <PhotoManager
+                      frames={frames}
+                      setFrames={setFrames}
+                      active={activeFrame}
+                      setActive={setActiveFrame}
+                      onAdd={() => frameInputRef.current?.click()}
+                      reading={false}
+                      // lens-override wiring: instrument overrides state + handlers
+                      instrumentOverrides={instrumentOverrides}
+                      onInstrumentOverridesChange={setInstrumentOverrides}
+                      instrumentSaveStatus={hasEntry ? instrumentSaveStatus : undefined}
+                      onInstrumentSave={hasEntry ? onSaveInstrumentOverrides : undefined}
+                    />
+                  </div>
+                )
+              })()}
               {showPreview && (
                 <div
                   className="ed-preview-wrap is-photo-preview"

@@ -48,6 +48,7 @@ import {
   getAllPhotoSidecars,
   getPhotoByRollAndIdAdmin,
   getSidecarsInRollAdmin,
+  getAllRolls,
 } from '@/lib/store/admin-reads'
 import { EntryEditor }         from '@/components/console/EntryEditor'
 import { ConsoleLogin }        from '@/components/console/ConsoleLogin'
@@ -226,6 +227,13 @@ export default async function ArticleEditorPage({
   // fallback (graceful). Runs server-side; passes a serializable plain object.
   const photoCtx = await lookupPhotoSidecar(kind, slug)
 
+  // Load available rolls for the roll picker (photo kind: needed when editor
+  // opens with no roll/id slug so the picker can list existing rolls).
+  // Always fetched for photo kind — negligible overhead (owner console only).
+  const availableRolls = kind === 'photo'
+    ? await getAllRolls()
+    : []
+
   // Seed the editor's top-level kind state from the URL ?kind param. The draft's
   // `.kind` is hardcoded 'article' (ArticlePreview's type constraint); the URL
   // kind param is the semantic kind the console node carries, and it drives the
@@ -242,6 +250,7 @@ export default async function ArticleEditorPage({
       initialPhoto={photoCtx?.photo}
       photoSequenceIndex={photoCtx?.sequenceIndex}
       photoRollTotal={photoCtx?.rollTotal}
+      availableRolls={availableRolls}
     />
   )
 }
