@@ -646,6 +646,8 @@ export type IngestPhotoResult =
       ok: true
       entry: { kind: string; slug: string; id: string }
       exif: Record<string, unknown> | null
+      /** true when EXIF GPS was found and written to entries.coords automatically */
+      gpsAutoSet: boolean
       variantKeys: {
         thumb: { jpg: string; webp: string; avif: string }
         medium: { jpg: string; webp: string; avif: string }
@@ -705,8 +707,26 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
 
     // --- EXIF extraction ---
     // exifr is a dynamic import (optional dep at runtime, required at ingest time).
-    // Privacy gate (Layer 1): GPS is NEVER included in the exif record unless
-    // shareLocation is explicitly true on the sidecar/entry (spec §4.3, §2.5).
+    //
+    // GPS auto-detect (Layer 1 gate):
+    //   exifr computes decimal latitude/longitude from GPSLatitude+Ref automatically.
+    //   We extract them here and write to entries.coords (owner-authored column).
+    //   The public variant has GPS EXIF stripped by sharp (no .withMetadata()) —
+    //   Layer 1 gate. The DB trigger (served_coords) gates public exposure by
+    //   share_location — Layer 2 gate. These two layers are independent.
+    //   GPS never appears in the photo_assets.exif record (public artifact).
+    //
+    // Film sim auto-detect (DEFERRED — NOT feasible via exifr):
+    //   Fujifilm stores film simulation in a proprietary MakerNote IFD.
+    //   exifr parses Fujifilm MakerNote as a raw byte array (keys 0..N) — it does
+    //   NOT decode the IFD to named tags. FilmMode/FilmSimulation fields are NOT
+    //   available. Investigated 2026-06-13 on DSCF0344.JPG (X-E5):
+    //     makerNote result → object with numeric keys 0..1307, no film-related key.
+    //     explicit pick:['FilmMode','FilmSimulation','Saturation'] → no results.
+    //   Workaround candidates: exiftool (heavy, unsuitable for serverless) or a
+    //   standalone Fujifilm MakerNote IFD parser. DEFERRED pending lightweight
+    //   alternative. Manual film-sim selector (Sirius console) is the current path.
+    //   entries.film_sim (migration 0011) accepts the manual override.
     let rawExif: Record<string, unknown> = {}
     try {
       const exifr = (await import('exifr')).default
@@ -715,15 +735,30 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
           'Make', 'Model', 'LensModel', 'LensMake',
           'FNumber', 'ExposureTime', 'ISO', 'FocalLength', 'FocalLengthIn35mmFormat',
           'DateTimeOriginal',
+          // GPS tags: exifr auto-computes decimal latitude/longitude from these
           'GPSLatitude', 'GPSLongitude', 'GPSLatitudeRef', 'GPSLongitudeRef',
         ],
-        makerNote: true,   // critical for Fuji FilmSimulation fields
+        // makerNote: intentionally false — Fujifilm MakerNote decodes only as an
+        // opaque byte array (not named tags), so including it wastes parse budget
+        // and adds a 1308-key object to memory with no actionable content.
+        // Film sim detection is deferred; see note above.
         mergeOutput: true,
       }) ?? {}
     } catch (exifError) {
       // EXIF extraction failure is non-fatal: proceed with empty exif
       console.warn('[ingestPhoto] EXIF extraction failed (proceeding without):', String(exifError))
     }
+
+    // Extract GPS for auto-coord (owner column). exifr merges decimal lat/lon
+    // as top-level 'latitude'/'longitude' when GPSLatitude+Ref are present.
+    // Validate: both must be finite numbers in valid range.
+    const exifLat = rawExif['latitude'] as number | undefined
+    const exifLon = rawExif['longitude'] as number | undefined
+    const gpsAutoSet =
+      typeof exifLat === 'number' && isFinite(exifLat) &&
+      typeof exifLon === 'number' && isFinite(exifLon) &&
+      exifLat >= -90 && exifLat <= 90 &&
+      exifLon >= -180 && exifLon <= 180
 
     // Build the clean EXIF record — GPS is NEVER included here (Layer 1)
     // regardless of shareLocation. shareLocation affects served_coords (Layer 2,
@@ -815,27 +850,52 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
     let entryId: string
 
     if (existingEntry) {
-      // Update existing row
+      // Existing entry: patch coords from GPS if the entry has no coords yet
+      // and GPS was detected. Never overwrite an existing authored coord.
+      if (gpsAutoSet) {
+        const { data: existingCoords } = await supabase
+          .from('entries')
+          .select('coords')
+          .eq('id', existingEntry.id)
+          .single()
+        const hasCoords = (existingCoords as { coords: unknown } | null)?.coords != null
+        if (!hasCoords) {
+          await supabase
+            .from('entries')
+            .update({ coords: { lat: exifLat, lon: exifLon } })
+            .eq('id', existingEntry.id)
+          // non-fatal: if this update fails the ingest continues; coords can be set manually
+        }
+      }
       entryId = existingEntry.id
     } else {
-      // Insert new draft sidecar
+      // Insert new draft sidecar; include GPS coords if detected
+      const insertPayload: Record<string, unknown> = {
+        kind: 'photo' as const,
+        slug,
+        status: 'draft' as const,
+        roll,
+        photo_id: photoId,
+        date: today,
+        iso_date: dotDateToIso(today),
+        tags: [],
+        body: '',
+        share_location: false,
+        highlight_for_place: false,
+        patches: [],
+        worldline_links: [],
+      }
+
+      // Auto-set coords from EXIF GPS (owner column, raw).
+      // Privacy: share_location defaults to false → served_coords stays null (Layer 2).
+      // The owner can enable share_location separately after reviewing the coord.
+      if (gpsAutoSet) {
+        insertPayload['coords'] = { lat: exifLat, lon: exifLon }
+      }
+
       const { data: newEntry, error: insertError } = await supabase
         .from('entries')
-        .insert({
-          kind: 'photo' as const,
-          slug,
-          status: 'draft' as const,
-          roll,
-          photo_id: photoId,
-          date: today,
-          iso_date: dotDateToIso(today),
-          tags: [],
-          body: '',
-          share_location: false,
-          highlight_for_place: false,
-          patches: [],
-          worldline_links: [],
-        })
+        .insert(insertPayload)
         .select('id')
         .single()
 
@@ -870,6 +930,7 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
       ok: true,
       entry: { kind: 'photo', slug, id: entryId },
       exif: exifRecord as Record<string, unknown>,
+      gpsAutoSet,
       variantKeys: fullVariantKeys,
     }
   } catch (e) {
