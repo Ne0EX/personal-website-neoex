@@ -634,3 +634,144 @@ The `complementary "Camera instrument readout"` widget shows PROVIA as pressed e
 | Note: instrument-readout filmSim chip cosmetic discrepancy | NON-BLOCKING / pre-existing |
 
 All three task items (A/B/C) verified in real Chrome against the live Supabase DB. tsc=0. 67/67 tests pass. Dev server killed.
+
+---
+
+## Simple-upload verify — 2026-06-13
+
+**Auditor:** Algol · α-VER-06
+**Commits verified:** `c530668` (Altair — quickUploadPhoto + resolveDefaultRollSlug), `2c42f04` (Sirius — QuickUploadBar)
+**Port:** 3162 — `next dev -p 3162` (dev mode, per task directive; no `next build`)
+**Branch:** `genesis/store-as-source` HEAD
+**Method:** real Chrome (chrome-devtools MCP), Supabase MCP direct SQL, tsc, ESLint. Nothing trusted from implementing agents.
+**Baseline (pre-QA):** entries=9, places=4, rolls=2, assets=4
+
+---
+
+### Bar 1 · Upload zone visible on console front door
+
+A11y snapshot of `/console` confirmed `region "Quick photo upload"` with `button "Drop photos here or click to pick"` rendered between the console header and the two-pane body. No sign-in required for this view (already authenticated session).
+
+Screenshot: `.claude/qa-screenshots/simple-upload-01-console-initial.png`
+
+**Result: PASS**
+
+---
+
+### Bar 2 · Single photo → published with zero input
+
+Test file: `QA1.JPG` (copy of `DSCF0344.JPG`, 3.4 MB, Fujifilm X-E5 JPEG with embedded EXIF + GPS)
+
+Upload path: `upload_file` on the hidden `input[type="file"]` → storage upload to `originals/quick-uploads/QA1-1781370220298.jpg` → `quickUploadPhoto` server action.
+
+A11y snapshot post-upload:
+- `QA1.JPG` status: `DONE`
+- VIEW link → `/photos/2026-05-snapshots/QA1-1781370220298`
+- EDIT link → `/console/editor?kind=photo&slug=2026-05-snapshots%2FQA1-1781370220298`
+- "SEE THEM →" link → `/photos/2026-05-snapshots`
+
+No metadata entered. No publish gate. Zero required input confirmed.
+
+DB ground truth (Supabase MCP, live):
+- `status=published` · `roll=2026-05-snapshots` · `has_coords=true` (GPS auto-extracted)
+- `film_sim=null` · `place_id=null` — empty, no gate
+- `photo_assets.variants`: 9 variant keys (thumb/medium/full × jpg/avif/webp) present
+
+Public CDN: `GET https://aitqswnbtpexrxqpoiwo.supabase.co/storage/v1/object/public/photos/2026-05-snapshots/QA1-1781370220298/medium-72f3159c6b.webp` → **HTTP 200**
+
+Public page `/photos/2026-05-snapshots/QA1-1781370220298`: a11y tree confirms full render — title, EXIF instrument readout (FUJIFILM X-E5, XF23MMF2.8, F/11 · 1/100 · ISO 3200, captured 2026-05-17), `COORD: NO COORD` (GPS in owner column, `share_location=false` — Layer 2 intact), `ASSETS: THUMB · MEDIUM · FULL`.
+
+Screenshot: `.claude/qa-screenshots/simple-upload-02-single-done.png`, `.claude/qa-screenshots/simple-upload-03-photo-live.png`
+
+**Result: PASS**
+
+---
+
+### Bar 3 · Two files at once → both publish
+
+Two real JPEG files (`QA2A.JPG`, `QA2B.JPG`, 27 KB each — bytes fetched from public CDN of QA1's ingested thumb) dispatched in a single DataTransfer change event via `evaluate_script` to the multi-file input.
+
+A11y snapshot post-upload:
+- `QA2A.JPG` status: `DONE` · VIEW `/photos/2026-06-snapshots/QA2A-1781370501840` · EDIT link
+- `QA2B.JPG` status: `DONE` · VIEW `/photos/2026-06-snapshots/QA2B-1781370501840` · EDIT link
+- "SEE THEM →" → `/photos/2026-06-snapshots` (auto-created roll)
+- Both processed concurrently (QA2A DONE while QA2B still PROC… visible in mid-state snapshot)
+
+DB ground truth: both entries `status=published`, both in `2026-06-snapshots` (no EXIF capture month → current-month fallback). `film_sim=null`, `place_id=null`, `has_coords=false` (no EXIF GPS in thumb bytes).
+
+Failure-mode test: two stub 4-byte JPEG files (`QA_BATCH_A.JPG`, `QA_BATCH_B.JPG`) dispatched in the same batch confirmed both appear in the status list simultaneously and both fail gracefully with `"Unexpected error during ingest"` (sharp rejects truncated bytes). No orphaned DB rows. No crash. No hang. Clear button appears correctly.
+
+Screenshot: `.claude/qa-screenshots/simple-upload-04-two-file-done.png`
+
+**Result: PASS**
+
+---
+
+### Bar 4 · Default roll auto-resolved / auto-created
+
+Two rolls auto-created without any roll-picker interaction:
+
+| Roll | Date | Trigger | Source |
+|---|---|---|---|
+| `2026-05-snapshots` | 2026.05.01 | QA1 upload — EXIF `DateTimeOriginal=2026-05-17T10:48:55Z` → capture month `2026-05` | `resolveDefaultRollSlug` EXIF path |
+| `2026-06-snapshots` | 2026.06.01 | QA2A/QA2B upload — no EXIF GPS in thumb bytes → current-month fallback `2026-06` | `resolveDefaultRollSlug` fallback path |
+
+Both created idempotently (no duplicate-key error on concurrent batch). DB `rolls` table confirmed both present mid-test, deleted at cleanup.
+
+**Result: PASS**
+
+---
+
+### Bar 5 · Empty metadata — no gate blocked publish
+
+`QA1.JPG` published with `film_sim=null`, `place_id=null`, no caption, no title. `status=published` confirmed in DB. The instrument editor opened for the published entry (`/console/editor?kind=photo&slug=2026-06-snapshots%2FQA2A-1781370501840`) showed all COORD/PLACE/FILM SIM controls editable and empty — no blocking required-field markers. The `PUBLISHED` badge was active (no completeness gate for photos per schema:270 — confirmed in `quickUploadPhotoImpl` comment).
+
+**Result: PASS**
+
+---
+
+### Bar 6 · Cleanup — store back to baseline
+
+All 3 QA entries deleted via console UI DELETE ENTRY (storage-first per `deleteEntryImpl` DL9):
+- `2026-05-snapshots/QA1-1781370220298` · deleted
+- `2026-06-snapshots/QA2A-1781370501840` · deleted
+- `2026-06-snapshots/QA2B-1781370501840` · deleted
+
+Both auto-created rolls deleted via Supabase MCP SQL (`DELETE FROM rolls WHERE roll IN ('2026-05-snapshots','2026-06-snapshots')`).
+
+Post-cleanup SQL confirmation:
+
+| Table | Pre-QA | Post-QA | Match |
+|---|---|---|---|
+| entries | 9 | 9 | ✓ |
+| places | 4 | 4 | ✓ |
+| rolls | 2 | 2 | ✓ |
+| photo_assets | 4 | 4 | ✓ |
+
+`DSCF0344.JPG` source file untouched (no entry for it in DB — already cleaned by Altair per task claim). QA test files in `.claude/qa-screenshots/` (staged for upload tooling) are untracked and will not be committed.
+
+**Result: PASS**
+
+---
+
+### Bar 7 · Regression
+
+| Check | Result | Evidence |
+|---|---|---|
+| Instrument editor reachable for quick-uploaded photo | PASS | `/console/editor?kind=photo&slug=2026-06-snapshots%2FQA2A-1781370501840` — all controls (FILM SIM chips, COORD & PLACE, INSTRUMENT override fields) rendered and interactive; status PUBLISHED, DRAFT toggle available |
+| Existing roll/photos surface | PASS | `/photos/2026-05-bangkok` — 3 frames (DSCF0002, DSCF0004, DSCF0005) intact, roll renders at 200 |
+| `tsc --noEmit` | exit 0 | no output (run pre- and post-QA) |
+| No test script (`npm run test` absent) | N/A | repo has no vitest/node:test suite script — confirmed via `npm run` listing; no regression from test tooling |
+| ESLint new errors in changed files | PASS — 0 new | `QuickUploadBar.tsx`, `actions-core.ts`, `actions.ts`: no errors; ConsoleApp.tsx line 220 error is pre-existing (present before `c530668`, confirmed via git history — the simple-upload diff added only import + 1 JSX line) |
+| Console browser errors | 0 | chrome-devtools `list_console_messages` types=["error","warn"] returned no messages after full upload cycle |
+| Dev server killed | PASS | `pkill -f 'next dev -p 3162'` exit 0 |
+
+**Result: PASS**
+
+---
+
+### Simple-upload overall verdict — PASS
+
+All 7 bar items confirmed in real Chrome against the live Supabase DB. The dead-simple upload flow works end-to-end: drop a photo → it's up, zero input required. Two-file concurrent batch confirmed. Auto-roll from EXIF month confirmed (both paths: EXIF hit and fallback). GPS auto-set in owner column, stripped from public view (Layer 2 intact). Instrument editor reachable for enrichment after publish. No regressions. tsc=0. Dev server killed.
+
+One note (non-blocking): the `upload_file` MCP tool processes one file per call (single-file change event). The two-file concurrent test was conducted via `evaluate_script` DataTransfer injection to produce a genuine multi-file FileList in the same `onChange`. This is the correct simulation — it matches the real drag-drop path which populates `e.dataTransfer.files` with all files at once. The picker path (`click to pick → FileList`) would do the same with a native multi-select. The concurrent processing of two files in the same batch was confirmed live.
