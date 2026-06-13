@@ -959,3 +959,32 @@ Screenshots: `docs/qa/screenshots/gallery-desktop.png`, `docs/qa/screenshots/gal
 Non-blocking note (not a REVISE item): `label-content-name-mismatch` axe finding on placeholder cells — `AWAITING IMAGE` visible text not in `aria-label`. Weight=0 in Lighthouse hidden group; a11y score unaffected. Sirius may include placeholder status in `aria-label` in a follow-up.
 
 *Algol · α-VER-06 · 2026-06-14*
+
+---
+
+## Photo-feedback batch verify — 2026-06-14
+
+**Commits audited:** `ab89af6` (fix: back-nav white screen, filename wrap, nav FRAMES link) + `b191ca7` (feat: gallery view modes + simplify photo editor)
+**Branch:** `genesis/store-as-source`
+**Dev server:** port 3183 · tsc=0 · 0 console errors on all tested pages
+**Store baseline SQL-asserted:** entries=11 (4 article / 1 fiction / 6 photo) · rolls=3 · assets=6 · all 6 sacred slugs present · no test data created or deleted
+
+### Checks
+
+| # | Check | Result | Evidence |
+|---|---|---|---|
+| 1 | Nav FRAMES link present + navigates | PASS | `NAV_ITEMS` array: `{ label: "FRAMES", href: "/photos" }`. Chrome eval on home confirms `◇ FRAMES → /photos`. Chrome eval on `/articles/003` confirms same. |
+| A | Long filename no one-char-per-line | PASS | GalleryGrid.css `.paper-mount-label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap }` applied. Chrome eval: `overflow:hidden/ellipsis/nowrap` computed on CHATGPTIMAGE label. RollIndex.tsx: `overflow:hidden/textOverflow:ellipsis/whiteSpace:nowrap` on frame-ID span + title attr `"CHATGPTIMAGE-1781389399360"` verified. Roll contact sheet screenshot shows "CHA..." and "FRAME CHATGPTIMAGE..." truncated cleanly. |
+| 2 | Gallery view toggle: default=timeline, FLAT, PLACE; URL persistence; lightbox in each | PASS | Chrome: TIMELINE active on load, FLAT click → `?view=flat` in URL + single grid + two-line roll labels, PLACE click → `?view=place` + UNLOCATED section (all photos lack place data — correct per spec). Lightbox opens in FLAT view from CHATGPTIMAGE cell (dialog confirmed, body.overflow=hidden). Spec §toggle-hidden-600px hidden via CSS not verified (dev viewport >600px). |
+| 3 | Back nav: never blanks after /photos → photo entry → back | **FAIL** | **Blank screen reproduced on every back-nav path tested.** Path tested: `/photos` → click to `/photos/2026-06-snapshots/CHATGPTIMAGE-1781389399360` → back → blank. Path 2: `/` → `/photos` → back to `/` → blank. Root cause diagnosed: `pageshow` listener registered in `useEffect` never fires on bfcache restore because React effects don't re-run on bfcache restore — the effect that registers the listener never ran (page was bfcache-captured during `booted===null` transient). Synthetic `pageshow(persisted=true)` dispatch confirms listener is absent. Secondary fix (pagehide clears `body.overflow`) works: `body.overflow` is empty on bfcache restore, but the page content is still blank. The primary fix is architecturally insufficient — `useEffect` cannot register a bfcache handler in time because bfcache freezes before effects run. A correct fix requires the listener to be registered outside the React lifecycle: `<Script strategy="beforeInteractive">` in `layout.tsx`, or an inline `<script>` in `<head>`. |
+| B | Photo editor simpler/clearer; coord/place/film-sim/instrument-override + publish/delete intact | PASS | Chrome eval on `/console/editor?kind=photo&slug=2026-06-snapshots/CHATGPTIMAGE-1781389399360`: B1 `◎ PHOTO ENTRY` static label present (no three-tab switcher); B2 `.pm-caption-input` present; B3 `INSTRUMENT ▸` collapsed (2 disc toggles); B4 `COORD & PLACE ▸` collapsed; B5 real image shown (Supabase storage URL, not `/_mock/`); B6 `EDIT PHOTO ENTRY` pane header; B7 no RE-IMPORT/↻ present. Film-sim chips: 5 present. No console errors. |
+| — | SOUL + tokens | PASS | No new CSS variables, no raw hex in changed files. GalleryGrid.css uses `var(--ink-primary)`, `var(--paper-base)`, `var(--ink-hairline)`, `var(--ink-soft)`, `var(--ink-dashed)` throughout. `.gv-mode.is-on` uses filled-ink (not orange). |
+| — | Regression: archive, globe, image-picker, tsc | PASS | `/archive` renders without error or console warnings. Home page Nav intact. tsc --noEmit exits 0. No console errors on any tested page. |
+
+### Verdict
+
+**REVISE** — check #3 fails. The bfcache white-screen is reproduced on every back-nav path. The `pageshow` fix in `PageShell.tsx` is structurally insufficient: registering the listener inside `useEffect` cannot work because bfcache freezes the page before the effect ever runs. Owner: Sirius (α-SUR-01). Required fix: move the `pageshow(persisted → reload)` guard to a `beforeInteractive` `<Script>` in `app/layout.tsx` (or equivalent non-React path) so it runs synchronously before bfcache can capture the frozen blank state.
+
+All other checks (#1, #A, #2, #B) pass. When #3 is fixed, re-verify the three back-nav paths and confirm reload removes the blank within one visual frame.
+
+*Algol · α-VER-06 · 2026-06-14*
