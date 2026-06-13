@@ -1,0 +1,99 @@
+/*
+ * GalleryGrid.css
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Gallery-scoped paper-mount atom rules + responsive overrides.
+ * NOT a CSS module — global selectors required for media query overrides
+ * and paper-mount atom resolution.
+ *
+ * All values resolve to CSS variables from app/globals.css (no raw hex).
+ *
+ * Pattern modeled after: RollIndex.css
+ * Design reference: docs/design/SPEC-2026-06-14-photo-gallery.md
+ *
+ * Owner: Sirius (α-SUR-01) · gallery-view slice
+ */
+
+/* ── Paper-mount atom in gallery cells ─────────────────────────────────────
+   Atom paper-mount: 12px --paper-warm margin + 1px --ink-faint border.
+   12px (not 8px) per gallery spec §atoms-used.
+   The outer .paper-mount div is the atom wrapper.
+   gallery-cell .paper-mount provides the measured photographic frame.
+   ─────────────────────────────────────────────────────────────────────────── */
+.gallery-cell .paper-mount {
+  display: block;
+  padding: 12px;
+  background: var(--paper-warm);
+  box-sizing: border-box;
+  width: 100%;
+  /* transition for inset box-shadow on hover — JS toggles via inline style */
+  transition: box-shadow 120ms ease;
+}
+
+/* Image and placeholder inside gallery paper-mount: 1px ink-faint border */
+.gallery-cell .paper-mount img,
+.gallery-cell .paper-mount .paper-mount-image {
+  display: block;
+  border: 1px solid var(--ink-faint);
+  width: 100%;
+}
+
+/* paper-mount-label inside gallery cell: t-mono 9px ink-soft (per atom spec) */
+.gallery-cell .paper-mount .paper-mount-label {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+/* ── Focus-visible on gallery cells ────────────────────────────────────────
+   2px solid accent-orange, offset 2px (site-wide standard).
+   ─────────────────────────────────────────────────────────────────────────── */
+.gallery-cell:focus-visible {
+  outline: 2px solid var(--accent-orange);
+  outline-offset: 2px;
+}
+
+/* ── ≤600px: collapse mount padding + hide label ────────────────────────────
+   spec §breakpoints: ≤600px → 2 cols, 16px gap, label hidden (too small).
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .gallery-cell .paper-mount {
+    padding: 8px;
+  }
+  .gallery-cell .paper-mount .paper-mount-label {
+    display: none;
+  }
+  #gallery-grid ul {
+    gap: 16px !important;
+  }
+}
+
+/* ── ≤375px: single column override ─────────────────────────────────────────
+   spec §breakpoints: ≤375px → 1 col (minmax(0,1fr)). No horizontal scroll.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 375px) {
+  #gallery-grid ul {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+}
+
+/* ── ≤880px: gap tightens to 20px ───────────────────────────────────────────
+   spec §breakpoints: ≤880px → ~3 cols, 20px gap.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 880px) and (min-width: 601px) {
+  #gallery-grid ul {
+    gap: 20px !important;
+  }
+}
+
+/* ── prefers-reduced-motion: disable all transitions ────────────────────────
+   Backed up by globals.css wildcard rule; explicit here for specificity.
+   ─────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .gallery-cell .paper-mount {
+    transition-duration: 0.001ms !important;
+  }
+}
