@@ -5,14 +5,21 @@
  * grouped by roll, with a keyboard-driven lightbox for fullscreen viewing.
  *
  * Design reference: docs/design/SPEC-2026-06-14-photo-gallery.md (Betelgeuse)
+ * Extends with: docs/design/SPEC-2026-06-14-photo-feedback.md §#2 view modes
  *
  * Layout:
- *   - Sparse instrument page header: PHOTOGRAPHS (left) + {n} FRAMES · {r} ROLLS (right)
+ *   - Page header: PHOTOGRAPHS (left) + view toggle (right, ≥601px)
+ *   - Frame count row below heading when toggle is inline
  *   - Dashed hairline below header
  *   - Roll sections: each with a sparse instrument label + dashed hairline
  *   - Grid: auto-fill minmax(220px,1fr), gap 24px — self-adjusting columns
  *   - Sparse instrument page footer: {n} FRAMES DOCUMENTED · WORLDLINE · 1.130426
  *   - CornerMarks: outer container corner reticles (atom corner-reticle)
+ *
+ * View modes (?view= URL param):
+ *   - timeline (default) — roll groupings, newest roll first
+ *   - flat              — single continuous grid, newest photo first
+ *   - place             — grouped by authoredCoords.place or place_id, UNLOCATED last
  *
  * Data: getPhotoSidecars() — published photos only (RLS-gated).
  * Roll grouping: server-side, newest-roll-first (by latest photo iso_date).
@@ -25,6 +32,9 @@
  *   - Roll label link → /photos/<roll> contact-sheet register
  *   - Triangulate Search (/) → captions, date, roll
  *
+ * searchParams is a Promise in Next 15/16 App Router — awaited per docs/api-reference/
+ * file-conventions/page.md: "searchParams is a Promise; use async/await to access values."
+ *
  * Owner: Sirius (α-SUR-01) · gallery-view slice
  */
 
@@ -33,7 +43,7 @@ import { PageShell } from "@/components/PageShell";
 import { Nav } from "@/components/Nav";
 import { MarginaliaHUD, ScrollMeter } from "@/components/MarginaliaHUD";
 import { CornerMarks } from "@/components/CornerMarks";
-import { GalleryGrid, type GalleryRollGroup } from "@/components/GalleryGrid";
+import { GalleryGrid, type GalleryRollGroup, type GalleryView } from "@/components/GalleryGrid";
 import { getPhotoSidecars } from "@/lib/content/photos";
 import type { PhotoSidecar } from "@/lib/content/types";
 
@@ -94,7 +104,20 @@ function groupByRoll(sidecars: PhotoSidecar[]): GalleryRollGroup[] {
 // ─────────────────────────────────────────────────────────────────────────────
 // Page component
 // ─────────────────────────────────────────────────────────────────────────────
-export default async function PhotosIndexPage() {
+
+interface PhotosPageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
+
+export default async function PhotosIndexPage({ searchParams }: PhotosPageProps) {
+  // Await searchParams (Next 16 App Router — Promise-based per page.md).
+  const params = await searchParams
+  const rawView = Array.isArray(params.view) ? params.view[0] : params.view
+  const view: GalleryView =
+    rawView === "flat" ? "flat"
+    : rawView === "place" ? "place"
+    : "timeline"
+
   const sidecars = await getPhotoSidecars();
 
   const rollGroups = groupByRoll(sidecars);
@@ -130,58 +153,18 @@ export default async function PhotosIndexPage() {
             padding: "0 32px 48px",
           }}
         >
-          {/* ── Page header ── */}
-          {/*
-           * h1 semantically present for screen-reader document outline,
-           * though visually rendered at 9px instrument register (spec §accessibility).
-           * Display is a flex row: PHOTOGRAPHS left + {n} FRAMES · {r} ROLLS right.
-           */}
-          <header
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "baseline",
-              gap: "16px",
-              paddingTop: "16px",
-              paddingBottom: "12px",
-              marginBottom: "32px",
-              borderBottom: "1px dashed var(--ink-dashed)",
-            }}
-          >
-            {/* Left: PHOTOGRAPHS (h1 visually instrument, semantically heading) */}
-            <h1
-              style={{
-                margin: 0,
-                fontFamily: "var(--font-mono)",
-                fontSize: "var(--meta-size)",
-                letterSpacing: "0.3em",
-                textTransform: "uppercase",
-                fontWeight: 400,
-                color: "var(--ink-soft)",
-              }}
-            >
-              PHOTOGRAPHS
-            </h1>
-
-            {/* Right: {n} FRAMES · {r} ROLLS */}
-            <span
-              aria-label={`${totalFrames} frames across ${totalRolls} rolls`}
-              style={{
-                fontFamily: "var(--font-mono)",
-                fontSize: "var(--meta-size)",
-                letterSpacing: "0.3em",
-                textTransform: "uppercase",
-                color: "var(--ink-soft)",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {String(totalFrames).padStart(2, "0")} FRAME{totalFrames !== 1 ? "S" : ""} ·{" "}
-              {String(totalRolls).padStart(2, "0")} ROLL{totalRolls !== 1 ? "S" : ""}
-            </span>
-          </header>
-
-          {/* ── Gallery grid (client island) ── */}
-          <GalleryGrid rollGroups={rollGroups} />
+          {/* ── Gallery grid (client island) — renders its own page header ──
+               GalleryGrid owns the interactive header (toggle + count) so the
+               view toggle lives co-located with the mode state. The server
+               passes the initial view (from ?view= URL param), roll groups,
+               and the raw sidecars (for flat+place modes). */}
+          <GalleryGrid
+            rollGroups={rollGroups}
+            initialView={view}
+            sidecars={sidecars}
+            totalFrames={totalFrames}
+            totalRolls={totalRolls}
+          />
 
           {/* ── Page footer ── */}
           <footer

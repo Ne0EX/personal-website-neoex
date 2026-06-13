@@ -41,7 +41,7 @@
 
 'use client'
 
-import { Fragment, useMemo } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import type { PhotoFrame, FilmSim } from './editor-types'
 import type { InstrumentOverrides, Place } from '@/lib/store/types'
 
@@ -538,6 +538,82 @@ const PHOTO_MGR_CSS = `
 @media (pointer: coarse) {
   .pm-place-select { padding: 10px 12px; }
 }
+
+/* ── B2 · .pm-caption-input (spec #B §Change B2) ─────────────────────────────
+   Caption textarea — Zone 0 (first editable field). VOICE register: Cormorant
+   Garamond italic 13px. Transparent background, dashed bottom border only
+   (no full box). Same transparent-with-dashed-border idiom as .src-text in
+   the article editor. resize:none. 2 rows. */
+.pm-caption-input {
+  width: 100%;
+  min-height: 0;
+  resize: none;
+  border: none;
+  border-bottom: 1px dashed var(--ink-dashed);
+  outline: none;
+  background: transparent;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-primary);
+  padding: 4px 0 6px;
+  transition: border-color 100ms ease;
+  box-sizing: border-box;
+}
+.pm-caption-input::placeholder {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+.pm-caption-input:focus {
+  border-bottom-color: var(--ink-soft);
+  outline: none;
+  background: rgb(var(--accent-orange-rgb) / 0.01);
+}
+.pm-caption-input:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+@media (pointer: coarse) {
+  .pm-caption-input { font-size: 14px; }
+}
+
+/* ── B3/B4 · .pm-disc-toggle (spec #B §Change B3/B4) ────────────────────────
+   Disclosure toggle for INSTRUMENT and COORD & PLACE sections.
+   Inherits .pm-sect-label type style (t-mono 9px ink-faint uppercase).
+   Appends ▸/▾ glyph. button appearance reset. */
+.pm-disc-toggle {
+  appearance: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 100ms ease;
+}
+.pm-disc-toggle:hover,
+.pm-disc-toggle:focus-visible {
+  color: var(--ink-soft);
+  outline: none;
+}
+.pm-disc-toggle:focus-visible {
+  outline: 1px dashed var(--accent-orange);
+  outline-offset: 2px;
+}
+/* expanded state: ink-soft (content is visible, toggle is more prominent) */
+.pm-disc-toggle.is-open {
+  color: var(--ink-soft);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pm-disc-toggle { transition: none; }
+}
 `
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -604,6 +680,21 @@ export interface PhotoManagerProps {
   onFilmSimSave?: (sim: string | null) => void
   /** Save status for filmSim. Drives a small status label near the chip row. */
   filmSimSaveStatus?: 'idle' | 'saving' | 'saved' | 'error'
+
+  // ── B2 · Caption (spec #B §Change B2) ────────────────────────────────────
+  /**
+   * Current caption value from entries (Zone 0 — first editable field).
+   * Renders as a textarea above FILM SIM. Saves on blur via onCaptionSave.
+   * Undefined on non-entry / sample path → caption zone is hidden.
+   */
+  caption?: string | null
+  /**
+   * Called on caption textarea blur with the current value.
+   * Null = caption cleared. Caller (EntryEditor) persists via updateEntry.
+   */
+  onCaptionSave?: (value: string | null) => void
+  /** Save status for caption. Drives status label next to CAPTION header. */
+  captionSaveStatus?: 'idle' | 'saving' | 'saved' | 'error'
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -631,7 +722,17 @@ export function PhotoManager({
   authoredFilmSim,
   onFilmSimSave,
   filmSimSaveStatus,
+  // B2: caption zone
+  caption,
+  onCaptionSave,
+  captionSaveStatus,
 }: PhotoManagerProps) {
+  // B3: INSTRUMENT block disclosure (default collapsed — spec §Change B3)
+  const [instrumentOpen, setInstrumentOpen] = useState<boolean>(false)
+  // B4: COORD & PLACE disclosure (default collapsed — spec §Change B4)
+  const [coordOpen, setCoordOpen] = useState<boolean>(false)
+  // B2: local caption textarea state (controlled; syncs to prop on mount/change)
+  const [captionLocal, setCaptionLocal] = useState<string>(caption ?? '')
   // Resolve active index — default to frames[0] when active is missing
   // (contract state: "active frame missing: default to frames[0]").
   const idx = useMemo(() => {
@@ -642,6 +743,19 @@ export function PhotoManager({
   const frame = frames[idx]
   const total = frames.length
 
+  // B5: detect whether frame.src is a real URL (not a mock path, not absent).
+  // The real src comes from photo_assets.variants.thumb.webp (via initialPhoto
+  // in EntryEditor's initialRealFrames useMemo). Mock paths start with '/_mock/'.
+  const hasMediumSrc = !!(
+    frames.length > 0 &&
+    frame &&
+    frame.src &&
+    !frame.src.startsWith('/_mock/')
+  )
+  // Prefer the medium variant URL when available; fall back to frame.src (thumb)
+  // frame.src was seeded from thumbSrc in EntryEditor's initialRealFrames
+  const realImageSrc: string | null = hasMediumSrc ? frame?.src ?? null : null
+
   // Empty state — source pane shows ImportZone (separate component, owned elsewhere).
   // PhotoManager renders nothing for the empty case; the page-level editor swaps in
   // ImportZone when frames.length === 0. Guard here so the pane is robust standalone.
@@ -651,6 +765,7 @@ export function PhotoManager({
         <style>{PHOTO_MGR_CSS}</style>
         <div className="pm" aria-label="Photo frames editor">
           <div className="pm-head">
+            {/* B6: no entry loaded → keep generic label */}
             <span>FRAMES · OPTICAL TRACE</span>
             <span className="pm-count">00</span>
           </div>
@@ -710,12 +825,60 @@ export function PhotoManager({
       <style>{PHOTO_MGR_CSS}</style>
 
       <div className="pm" aria-label="Photo frames editor">
+        {/* B6: contextual pane header — "EDIT PHOTO ENTRY" when a real entry is loaded
+            (reading=false and frame is from a real entry, not mock data).
+            "FRAMES · OPTICAL TRACE" is the right label for the multi-frame instrument
+            context; "EDIT PHOTO ENTRY" is direct for the single-photo edit path. */}
         <div className="pm-head">
-          <span>FRAMES · OPTICAL TRACE</span>
+          <span>{onCaptionSave ? 'EDIT PHOTO ENTRY' : 'FRAMES · OPTICAL TRACE'}</span>
           <span className="pm-count">{String(total).padStart(2, '0')}</span>
         </div>
 
         <div className="pm-body">
+          {/* ── zone 0 · caption (B2 — first editable field, before film sim) ──
+              Only rendered when onCaptionSave is provided (real entry path).
+              Save on blur. Textarea uses VOICE register (Cormorant italic 13px). */}
+          {onCaptionSave && (
+            <div>
+              <div className="pm-instr-head">
+                <span className="pm-sect-label" style={{ marginBottom: 0 }}>CAPTION</span>
+                {/* Status label right of CAPTION header (matches .pm-instr-save pattern) */}
+                {captionSaveStatus && captionSaveStatus !== 'idle' && (
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '8px',
+                      letterSpacing: '0.22em',
+                      textTransform: 'uppercase' as const,
+                      color: captionSaveStatus === 'error' ? 'var(--accent-orange)'
+                        : captionSaveStatus === 'saved' ? 'var(--ink-primary)'
+                        : 'var(--ink-faint)',
+                    }}
+                    aria-live="polite"
+                  >
+                    {captionSaveStatus === 'saving' ? 'SAVING…'
+                      : captionSaveStatus === 'saved' ? 'SAVED'
+                      : 'SAVE ERR'}
+                  </span>
+                )}
+              </div>
+              <textarea
+                className="pm-caption-input"
+                rows={2}
+                value={captionLocal}
+                disabled={reading}
+                aria-label="Photo caption"
+                autoComplete="off"
+                placeholder="add a caption…"
+                onChange={(e) => setCaptionLocal(e.target.value)}
+                onBlur={() => {
+                  const trimmed = captionLocal.trim()
+                  onCaptionSave(trimmed === '' ? null : trimmed)
+                }}
+              />
+            </div>
+          )}
+
           {/* ── zone 1 · frame strip (selected frame, dashed border, reticles) ── */}
           <div className="pm-frame-wrap">
             {/* film-sim overlay tag (decorative; mirrors PhotoPreview) */}
@@ -724,12 +887,30 @@ export function PhotoManager({
                 {frame.filmSim.toUpperCase()}
               </span>
             )}
-            {/* placeholder slot — no real image file in /public; keyed by frame id */}
-            <div className="pm-frame-slot" aria-hidden>
-              <span className="pm-frame-slot-glyph">◎</span>
-              <span className="pm-frame-slot-id">{frame.id}</span>
-              <span className="pm-frame-slot-note">image preview pending</span>
-            </div>
+            {/* B5: show real image when frame.src is a real URL (not mock).
+                Placeholder slot only when no real image is available.
+                real image fills the frame with object-fit:cover; corner reticles
+                (::before/::after) overlay the image as-is (positioned absolute). */}
+            {realImageSrc ? (
+              <img
+                src={realImageSrc}
+                alt={captionLocal.trim() || `Photo ${frame.id}`}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  display: 'block',
+                  border: '1px dashed var(--ink-dashed)',
+                }}
+              />
+            ) : (
+              /* placeholder slot — no real image file; keyed by frame id */
+              <div className="pm-frame-slot" aria-hidden>
+                <span className="pm-frame-slot-glyph">◎</span>
+                <span className="pm-frame-slot-id">{frame.id}</span>
+                <span className="pm-frame-slot-note">image preview pending</span>
+              </div>
+            )}
           </div>
 
           {/* selector bar — FRAME n / total + prev/next */}
@@ -812,18 +993,24 @@ export function PhotoManager({
           </div>
 
           {/* ── zone 3 · instrument block (editable EXIF overlay) ──
-              Display value = instrumentOverrides.<key> ?? exif.<key>.
-              LENS is the required field (manual/adapted lenses have no EXIF).
-              Overridden field: orange left-border on the input (is-overridden).
-              Clearing a field to empty removes the override (falls back to EXIF).
-              Save is deferred to EntryEditor (Cmd+S or SAVE button here) —
-              matches the article body save pattern (mirrors ArticleSourcePane). */}
+              B3: wrapped in disclosure toggle. Default collapsed.
+              Collapsed state: "INSTRUMENT ▸" button. Expanded: "INSTRUMENT ▾" + full DL.
+              Save button remains inside expanded state only. */}
           <div>
             <div className="pm-instr-head">
-              <span className="pm-sect-label" style={{ marginBottom: 0 }}>INSTRUMENT</span>
-              {/* SAVE affordance — only rendered when a real entry is loaded.
-                  Mirrors the SAVE button in ArticleSourcePane. */}
-              {onInstrumentSave && (
+              {/* B3: disclosure toggle replaces static label */}
+              <button
+                type="button"
+                className={'pm-disc-toggle' + (instrumentOpen ? ' is-open' : '')}
+                aria-expanded={instrumentOpen}
+                aria-controls="pm-instrument-body"
+                aria-label="Toggle instrument fields"
+                onClick={() => setInstrumentOpen((o) => !o)}
+              >
+                INSTRUMENT {instrumentOpen ? '▾' : '▸'}
+              </button>
+              {/* SAVE affordance — only rendered when expanded and a real entry is loaded */}
+              {instrumentOpen && onInstrumentSave && (
                 <button
                   type="button"
                   className="pm-instr-save"
@@ -845,7 +1032,9 @@ export function PhotoManager({
                 </button>
               )}
             </div>
-            <dl className="pm-exif" aria-label="Instrument fields">
+            {/* Expanded content */}
+            {instrumentOpen && (
+            <dl id="pm-instrument-body" className="pm-exif" aria-label="Instrument fields">
               {EXIF_ROWS.map(({ key, label }) => {
                 // The active override value for this key (if any)
                 const overrideVal: string | number | undefined =
@@ -925,9 +1114,12 @@ export function PhotoManager({
                 )
               })}
             </dl>
+            )}
           </div>
 
           {/* ── zone 4 · coord + place (photo-meta-harness, sirius slice) ──
+              B4: wrapped in disclosure toggle. Default collapsed (same pattern as B3).
+              Collapsed: "COORD & PLACE ▸". Expanded: full coord + place block.
               COORD: lat/lon text inputs. Raw authored coords from entries.coords (DL13
               owner-only field). EXIF GPS would be a placeholder when available but
               GPS is stripped during ingest (sharp .rotate() without .withMetadata()),
@@ -937,9 +1129,19 @@ export function PhotoManager({
               deferral pattern as instrument overrides). */}
           <div>
             <div className="pm-instr-head">
-              <span className="pm-sect-label" style={{ marginBottom: 0 }}>COORD &amp; PLACE</span>
-              {/* Shared SAVE button for coords + place */}
-              {onPhotoMetaSave && (
+              {/* B4: disclosure toggle for COORD & PLACE */}
+              <button
+                type="button"
+                className={'pm-disc-toggle' + (coordOpen ? ' is-open' : '')}
+                aria-expanded={coordOpen}
+                aria-controls="pm-coord-body"
+                aria-label="Toggle coordinates and place"
+                onClick={() => setCoordOpen((o) => !o)}
+              >
+                COORD &amp; PLACE {coordOpen ? '▾' : '▸'}
+              </button>
+              {/* Shared SAVE button for coords + place — only when expanded */}
+              {coordOpen && onPhotoMetaSave && (
                 <button
                   type="button"
                   className="pm-meta-save"
@@ -962,8 +1164,10 @@ export function PhotoManager({
                 </button>
               )}
             </div>
-            {/* Coord inputs — is-overridden when authoredCoords has a value */}
-            <dl className="pm-coord" aria-label="Authored coordinates">
+            {/* Expanded content — coord + place inputs */}
+            {coordOpen && (
+            <>
+            <dl id="pm-coord-body" className="pm-coord" aria-label="Authored coordinates">
               <dt>LAT</dt>
               <dd>
                 <input
@@ -1060,6 +1264,8 @@ export function PhotoManager({
                   ))}
                 </select>
               </div>
+            )}
+            </>
             )}
           </div>
 

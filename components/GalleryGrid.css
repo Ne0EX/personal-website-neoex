@@ -103,3 +103,65 @@
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ── .gv-modes — gallery view toggle (spec #2 §control-design) ──────────────
+   Derives from .ed-modes / .st-switch (same visual contract, new prefix).
+   Three segments: TIMELINE · FLAT · PLACE.
+   Active: filled-ink (ink-primary bg, paper-base text). No orange.
+   Hidden at ≤600px — timeline is the only mode on mobile.
+   ─────────────────────────────────────────────────────────────────────────── */
+.gv-modes {
+  display: flex;
+  border: 1px solid var(--ink-hairline);
+  flex-shrink: 0;
+}
+.gv-mode {
+  appearance: none;
+  background: transparent;
+  border: none;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: color 120ms ease;
+  white-space: nowrap;
+}
+.gv-mode + .gv-mode {
+  border-left: 1px solid var(--ink-hairline);
+}
+.gv-mode.is-on {
+  background: var(--ink-primary);
+  color: var(--paper-base);
+}
+.gv-mode:hover:not(.is-on) {
+  color: var(--ink-primary);
+}
+.gv-mode:focus-visible {
+  outline: 1px dashed var(--accent-orange);
+  outline-offset: 2px;
+}
+
+/* flat-mode two-line cell label (spec §FLAT: roll label below frame ID) */
+.paper-mount-label-flat {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.paper-mount-label-flat-id   { color: var(--ink-soft); }
+.paper-mount-label-flat-roll { color: var(--ink-faint); }
+
+/* Hidden at ≤600px — mobile only sees timeline */
+@media (max-width: 600px) {
+  .gv-modes { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gv-mode { transition-duration: 0.001ms !important; }
+}

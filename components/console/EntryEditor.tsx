@@ -1323,24 +1323,46 @@ function EntryToolbar({
       {/* ── ROW 2 — editing surface (kind · outline · view · output actions) ── */}
       <div className="ed-tb-row ed-tb-row-2">
         {/* Kind-switcher tabs — FILLED-INK is-on (canonical DS state, NOT orange).
-            Moved from row-1 (was in .ed-tb-left) — kind is an editing-surface concern,
-            not an identity/lifecycle concern. Glyphs collapse at ≤600px per existing rule. */}
-        <div className="ed-kindtabs" role="tablist" aria-label="Entry kind">
-          {KINDS.map((k) => (
-            <button
-              key={k.id}
-              type="button"
-              role="tab"
-              aria-selected={kind === k.id}
-              aria-label={k.label}
-              className={'ed-kindtab' + (kind === k.id ? ' is-on' : '')}
-              onClick={() => onKind(k.id)}
-            >
-              <span className="ed-kindtab-glyph" aria-hidden>{k.glyph}</span>
-              <span className="ed-kindtab-label">{k.label}</span>
-            </button>
-          ))}
-        </div>
+            B1 (photo-feedback spec): when a real photo entry is loaded (hasEntry &&
+            kind === 'photo'), the three-tab switcher is replaced with a static label
+            "◎ PHOTO ENTRY" — the kind is not ambiguous when editing a real photo.
+            Article and fiction editing (and new-entry path where kind switch is
+            meaningful) retain the full switcher. */}
+        {hasEntry && kind === 'photo' ? (
+          /* B1: static kind identity label — photo edit route */
+          <span
+            role="status"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '9px',
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              color: 'var(--ink-soft)',
+              userSelect: 'none',
+            }}
+            title="editing a photo entry — kind switching not available here"
+          >
+            ◎ PHOTO ENTRY
+          </span>
+        ) : (
+          /* Full kind-switcher — new-entry, article, or fiction path */
+          <div className="ed-kindtabs" role="tablist" aria-label="Entry kind">
+            {KINDS.map((k) => (
+              <button
+                key={k.id}
+                type="button"
+                role="tab"
+                aria-selected={kind === k.id}
+                aria-label={k.label}
+                className={'ed-kindtab' + (kind === k.id ? ' is-on' : '')}
+                onClick={() => onKind(k.id)}
+              >
+                <span className="ed-kindtab-glyph" aria-hidden>{k.glyph}</span>
+                <span className="ed-kindtab-label">{k.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Outline toggle — orange-active srctoggle atom */}
         <button
@@ -1373,8 +1395,12 @@ function EntryToolbar({
           {/* ↻ RE-IMPORT — ImportZone(hasContent) self-renders the toolbar control
               (inline confirm + ESC-cancel built inside). When the editor is empty
               the source pane shows the ImportZone DROP TARGET instead; this control
-              only appears when there IS content to replace. */}
-          {hasContent && (
+              only appears when there IS content to replace.
+              B7 (photo-feedback spec): gate on `kind !== 'photo' || !hasEntry`.
+              For a real photo entry, RE-IMPORT is noise (image is already in storage;
+              re-importing replaces the original — rarely the right action at edit time).
+              The IMPORT action remains available via + ADD FRAME in PhotoManager. */}
+          {hasContent && (kind !== 'photo' || !hasEntry) && (
             <ImportZone
               onImport={onImport}
               hasContent
@@ -2102,6 +2128,43 @@ export function EntryEditor({
       setTimeout(() => setInstrumentSaveStatus('idle'), 2000)
     })
   }, [hasEntry, entryKind, entrySlug, instrumentOverrides, startInstrSaveTransition])
+
+  // ── Caption (B2 — photo-feedback spec §Change B2) ────────────────────────
+  //
+  // Caption is the most natural post-upload edit. It's surfaced as Zone 0 in
+  // PhotoManager (first field, before film sim). Saves on blur via onSaveCaption.
+  // Seeded from the entry's caption field (initialPhoto.caption currently, but
+  // the entry body is the real store — kept in sync via updateEntry).
+  // We use the draft.title as the caption seed when no dedicated caption field
+  // exists on the sidecar (the gallery and lightbox use `caption` from entries).
+  const [authoredCaption, setAuthoredCaption] = useState<string | null>(
+    initialPhoto ? (initialPhoto.caption ?? null) : null
+  )
+  const [captionSaveStatus, setCaptionSaveStatus] =
+    useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_captionPending, startCaptionTransition] = useTransition()
+
+  // onSaveCaption — called on caption blur. Saves to entries.caption via updateEntry.
+  // Null = cleared caption. Guarded on hasEntry.
+  const onSaveCaption = useCallback((value: string | null) => {
+    setAuthoredCaption(value)
+    if (!hasEntry || !entrySlug) return
+    setCaptionSaveStatus('saving')
+    startCaptionTransition(async () => {
+      const result = await updateEntry({
+        kind: entryKind,
+        slug: entrySlug,
+        patch: { caption: value },
+      })
+      if (!result.ok) {
+        setCaptionSaveStatus('error')
+        return
+      }
+      setCaptionSaveStatus('saved')
+      setTimeout(() => setCaptionSaveStatus('idle'), 2000)
+    })
+  }, [hasEntry, entryKind, entrySlug, startCaptionTransition])
 
   // ── Authored coords / place / filmSim (photo-meta-harness, sirius slice) ──
   //
@@ -2846,6 +2909,10 @@ export function EntryEditor({
                       authoredFilmSim={authoredFilmSim}
                       onFilmSimSave={hasEntry ? onSaveFilmSim : undefined}
                       filmSimSaveStatus={hasEntry ? filmSimSaveStatus : undefined}
+                      // B2: caption zone (photo-feedback spec §Change B2)
+                      caption={hasEntry ? authoredCaption : undefined}
+                      onCaptionSave={hasEntry ? onSaveCaption : undefined}
+                      captionSaveStatus={hasEntry ? captionSaveStatus : undefined}
                     />
                   </div>
                 )
