@@ -116,3 +116,102 @@ Recommended close-out order: **B1 + B3** (small frontend fixes, ship the public/
 ---
 
 *Synthesized from: DIMENSION 1 (home/globe), DIMENSION 2 (archive/search), DIMENSION 3 (content/404), SECURITY/RLS/STORAGE/PRIVACY, DIMENSION 5 (code integrity), CONSOLE WRITE-LIFECYCLE, and the adversarial-verify pass over the broken set. 118 findings total.*
+
+---
+
+## QA fix-wave-3 verify
+
+**Auditor:** Algol · α-VER-06
+**Date:** 2026-06-13
+**Port:** 3133 — fresh `next start` prod build (16.2.6), branch `genesis/store-as-source`
+**Commits verified:** `411b9e3` (B1+B3, sirius), `5261258` (B2, altair), `872c018` (B4, procyon)
+**Method:** real Chrome (chrome-devtools MCP), Supabase MCP direct SQL, vitest, tsc. Nothing trusted from the implementing agents.
+
+### B1 · NeX panel leak — PASS
+
+*Owner: sirius · Commit: 411b9e3*
+
+Fix path verified in source: `setSelectedIdRef` useRef added at WorldlineGlobe.tsx ~L996–1003; `setSelectedIdRef.current(null)` called inside `jumpToFictionPin` before `clearNetraLock()` at ~L1793. The ref mirrors the pattern of `openPlaceRef` already in production and is immune to the minifier variable-shadow that caused the original no-op.
+
+Live Chrome proof (port 3133, stratum 1 Ne0):
+- Yirgacheffe panel opened: `aria-hidden="false"`, panel text "PLACE · YIRGACHEFFE · ET · 1 RECORD"
+- NEXT NODE → jumped to `t.001 · NeX · identity`
+- Panel immediately: `aria-hidden="true"` (closed)
+- `B1_PASS: true` returned by in-page React fiber probe
+
+Sub-checks:
+- ESC closes panel: `panelBeforeEsc="false"` → `panelAfterEsc="true"` · PASS
+- Place→place (Kyoto→Yirgacheffe): new place panel opens at each · PASS
+- Zero console errors on home after all interactions · PASS
+
+### B3 · LENS override cannot be cleared — PASS
+
+*Owner: sirius · Commit: 411b9e3*
+
+Fix path verified in source: `PhotoManager.tsx` — `is-required` class removed from LENS `dt` (now empty className `""`), `aria-required` not set (returns `null`), CSS rule `.pm-exif dt.is-required::after` kept inert (`content: ''`).
+
+Live Chrome proof (port 3133, console/editor DSCF0344):
+1. DOM pre-check: `lensDtClass=""`, `lensDtAriaRequired=null`, `lensDtHasIsRequired=false`
+2. Set override "XF35mmF1.4 R" → SAVED → SQL: `instrument_overrides={"lens":"XF35mmF1.4 R"}` ✓
+3. Clear to empty → SAVED → SQL: `instrument_overrides=null` ✓
+4. Reload: LENS input `value=""`, placeholder `"XF23mmF2.8 R WR"` (EXIF fallback) ✓
+5. DSCF0344 left clean: `instrument_overrides=null` in DB ✓
+
+### B2 · Photo delete leaves orphaned CDN storage objects — PASS
+
+*Owner: altair · Commit: 5261258*
+
+**Path reconciliation confirmed:** `EntryEditor.tsx:1944` imports `deleteEntry` from `@/lib/server/store/actions` → `actions.ts:108` delegates to `deleteEntryImpl` in `actions-core.ts`. The deprecated `entry-lifecycle-core.ts:424` `deleteEntryImpl` is not called by any console path. Fix targeted the live path.
+
+**Root cause fixed:** inline nested-await `.eq('entry_id', (await ...single()).data?.id ?? '')` replaced by an explicit two-step fetch: `entry_id` resolved first with a `NOT_FOUND` guard; no empty-string UUID passed to Postgres; 22P02 abort eliminated.
+
+Live script proof (`scripts/test-delete-b2.ts`, run fresh on prod DB, port 3133):
+- Throwaway entry DSCF9999 created in `entries` + `photo_assets` rows; variants copied to storage bucket
+- 9 variant URLs: all HTTP 200 pre-delete ✓
+- `deleteEntryImpl` called via owner auth: 10 storage objects enumerated and removed, storage prefix empty ✓
+- 9 variant URLs: all HTTP 400 post-delete ✓
+- `entries` row: deleted ✓ · `photo_assets` row: deleted ✓
+- **21/21 checks pass / 0 fail**
+
+### B4 · Anon over-wide grants — PASS
+
+*Owner: procyon · Commit: 872c018*
+
+Migration `20260613_0010_pare_grants.sql` verified via Supabase MCP direct SQL against live DB:
+
+**`has_table_privilege` ground truth (not `information_schema` — uses internal catalog):**
+
+| role | table | TRUNCATE | INSERT | UPDATE | DELETE | SELECT |
+|---|---|---|---|---|---|---|
+| anon | entries | false | false | false | false | false |
+| anon | photo_assets | false | false | false | false | false |
+| anon | rolls | false | false | false | false | false |
+| authenticated | entries | false | true | true | true | true |
+| authenticated | photo_assets | false | true | true | true | true |
+
+`information_schema.table_privileges` corroborates: anon holds only `places SELECT` (table-level); authenticated holds INSERT/UPDATE/DELETE/SELECT on all four tables; TRUNCATE/REFERENCES/TRIGGER absent for both.
+
+**`relforcerowsecurity`:** `true` on all four tables (entries, photo_assets, rolls, places). `relrowsecurity=true` on all four. ✓
+
+**DL13 coords gate (verified correct):** anon column-level SELECT on `places` includes `lat` and `lon` (intentional — globe needs them; `places_read` RLS policy `qual=true` permits SELECT for all). The "DL13 block" referred to `entries` table-level SELECT being revoked in a prior migration and replaced by explicit column grants — no `lat`/`lon` columns exist on `entries`. The column-level grants list for anon on `entries` (30 columns) includes no coordinate columns. Gate intact.
+
+**RLS policy audit:** `entries_read` policy `qual=(status='published' OR is_owner())` — anon sees only published rows via REST. `places_read` policy `qual=true` — all places readable (correct, globe needs all pins). Owner write paths (INSERT/UPDATE/DELETE) gated by `is_owner()` throughout.
+
+**anon REST published-read path:** `entries` published rows accessible via anon column-level SELECT (confirmed: 3 published rows visible). `is_alpha` endpoint still returns 200 (places.is_alpha column grant present for anon). ✓
+
+### Regression scan — PASS
+
+| Check | Result |
+|---|---|
+| `tsc --noEmit` | exit 0, no output |
+| `npx vitest run tests/*.mjs` | 16 tests pass, 0 fail; 7 "No test suite found" = documented pre-branch env failures (runner-format mismatch, unchanged) |
+| home `/` console errors | 0 |
+| `/archive` console errors | 0 |
+| `/articles/001` console errors | 0 |
+| attractor-filter (coffee pill) | 1 result, All → 4 results · PASS |
+| NEXT-NODE-alpha (α=1.130426, Bangkok coords) | present on home globe · PASS |
+| DSCF0344 `instrument_overrides` (left clean) | `null` in DB · PASS |
+
+### Wave-3 overall verdict — ALL PASS
+
+B1 (NeX panel leak), B2 (orphaned CDN storage), B3 (LENS clearable), B4 (anon grants pared) all confirmed fixed in real Chrome on port 3133 against the live Supabase DB. No regressions introduced. tsc=0. Tests 16/16 (excluding documented pre-branch env failures).
