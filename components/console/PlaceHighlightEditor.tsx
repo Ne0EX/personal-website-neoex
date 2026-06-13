@@ -78,6 +78,12 @@ const COPY = {
   // Degraded photo distinguisher (Vega): "{frameId} · {YYYY-MM}"
   photoDegradedDistinguisher: (frameId: string, isoDate: string) =>
     `${frameId} · ${isoDate.slice(0, 7)}`,
+  // movable-alpha: α locus section copy (Vega locked — verbatim)
+  alphaLocusLabel:         'α LOCUS',
+  alphaCurrentIndicator:   'CURRENT α',
+  alphaSetAction:          'SET AS α LOCUS',
+  alphaSetting:            'setting α…',
+  alphaSet:                'α set.',
 } as const
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -320,6 +326,27 @@ const EDITOR_CSS = `
 }
 .pe-input:focus { border-color: var(--accent-orange); }
 
+/* movable-alpha: α locus row — reuses pe-label + accent-orange idiom */
+.pe-alpha-row {
+  display: flex; align-items: center; gap: 10px; margin-top: 4px;
+}
+.pe-alpha-indicator {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.3em;
+  text-transform: uppercase; color: var(--accent-orange);
+  display: flex; align-items: center; gap: 5px;
+}
+.pe-alpha-glyph { font-size: 13px; line-height: 1; }
+.pe-alpha-set-btn {
+  appearance: none; background: transparent;
+  border: 1px solid var(--ink-hairline);
+  color: var(--ink-primary); font-family: var(--font-mono); font-size: 8px;
+  letter-spacing: 0.22em; text-transform: uppercase; padding: 6px 12px;
+  cursor: pointer; transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+.pe-alpha-set-btn:hover { border-color: var(--accent-orange); color: var(--accent-orange); }
+.pe-alpha-set-btn:focus-visible { outline: 1px dashed var(--accent-orange); outline-offset: 2px; }
+.pe-alpha-set-btn:disabled { opacity: 0.45; pointer-events: none; }
+
 /* Action bar */
 .place-editor-actions {
   display: flex; align-items: center; gap: 14px; margin-top: 14px;
@@ -359,6 +386,7 @@ const EDITOR_CSS = `
   .pe-photo-picker-item,
   .pe-typeahead-item,
   .place-editor-close,
+  .pe-alpha-set-btn,
   .pe-btn,
   .pe-btn-save { transition-duration: 0.001ms; }
 }
@@ -382,6 +410,10 @@ interface PlaceHighlightEditorProps {
   onSaved:       (placeId: string, updated: Partial<PlaceDTO>) => void
   /** Called after createPlace succeeds so parent adds a new rail card. */
   onCreated:     (newPlace: PlaceDTO) => void
+  /** movable-alpha: designate this place as the α locus. Optional — omit to hide the control. */
+  onSetAlpha?:   (placeId: string) => void
+  /** movable-alpha: true while a setAlpha action is in flight. */
+  alphaChanging?: boolean
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -397,7 +429,7 @@ function getPickedIds(photos: Array<{ roll: string; id: string }>): Set<string> 
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function PlaceHighlightEditor({
-  open, place, onClose, onSaved, onCreated,
+  open, place, onClose, onSaved, onCreated, onSetAlpha, alphaChanging,
 }: PlaceHighlightEditorProps) {
   const isNewPlace = place === null
 
@@ -644,6 +676,8 @@ export function PlaceHighlightEditor({
         highlights:   { articleHighlight: null, photoHighlights: [] },
         articlePicks: [],
         photoPicks:   [],
+        // movable-alpha: new places are never alpha by default
+        isAlpha:      false,
       }
       onCreated(newDTO)
       setStatus('place created.')
@@ -1024,6 +1058,37 @@ export function PlaceHighlightEditor({
                 SAVE COORD
               </button>
             </div>
+
+            {/* movable-alpha: α LOCUS section — shows indicator if current alpha,
+                or SET AS α LOCUS button if not. Reuses pe-label + accent-orange idiom.
+                Only shown when the onSetAlpha callback is provided (owner login). */}
+            {onSetAlpha && (
+              <>
+                <div className="section-rule-dashed" style={{ marginTop: '14px' }} />
+                <div className="pe-label">{COPY.alphaLocusLabel}</div>
+                <div className="pe-alpha-row">
+                  {place.isAlpha ? (
+                    <div
+                      className="pe-alpha-indicator"
+                      aria-label="This place is the current alpha locus"
+                    >
+                      <span className="pe-alpha-glyph" aria-hidden="true">α</span>
+                      {COPY.alphaCurrentIndicator}
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="pe-alpha-set-btn"
+                      disabled={alphaChanging || isPending}
+                      onClick={() => onSetAlpha(place.id)}
+                      aria-label={`Set ${place.name} as the alpha locus`}
+                    >
+                      {COPY.alphaSetAction}
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
 
             {/* Action bar */}
             <div className="place-editor-actions">

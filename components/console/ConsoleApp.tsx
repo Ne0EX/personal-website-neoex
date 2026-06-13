@@ -46,8 +46,9 @@ import { ConsoleCanvas }         from './ConsoleCanvas'
 import { ConsoleEntryForm }      from './ConsoleEntryForm'
 import { PlacesRailBlock }       from './PlacesRailBlock'
 import { PlaceHighlightEditor }  from './PlaceHighlightEditor'
-// S6: import real store action (createEntry replaces the mocked persist in new-entry flow)
-import { createEntry } from '@/lib/server/store/actions'
+// S6: import real store actions (createEntry replaces the mocked persist in new-entry flow)
+// movable-alpha: setAlphaPlace is the α locus assignment action (migration 0009b)
+import { createEntry, setAlphaPlace } from '@/lib/server/store/actions'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CSS — shell, header, body grid, NETRA foot, offline
@@ -168,6 +169,8 @@ export function ConsoleApp({ initialNodes, initialEdges, initialPlaces }: Consol
   // useState initializers re-run → working state reseeds from the current place DTO.
   // This is load-bearing: without it, closing+reopening the same place retains unsaved edits.
   const [editorNonce, setEditorNonce] = useState(0)
+  // movable-alpha: true while the setAlphaPlace action is in flight
+  const [alphaChanging, setAlphaChanging] = useState(false)
 
   // The PlaceDTO currently being edited (derived — no useEffect for derived state)
   const editingPlace = editingPlaceId
@@ -372,6 +375,24 @@ export function ConsoleApp({ initialNodes, initialEdges, initialPlaces }: Consol
     setPlaces((ps) => [...ps, newPlace])
   }, [])
 
+  // movable-alpha: designate a place as the alpha locus.
+  // Calls setAlphaPlace (server action → set_alpha_place SQL + revalidatePath).
+  // Updates local state optimistically so the rail reflects immediately.
+  const handleSetAlpha = useCallback(async (placeId: string) => {
+    setAlphaChanging(true)
+    const result = await setAlphaPlace({ placeId })
+    setAlphaChanging(false)
+    if (!result.ok) {
+      // Non-fatal: log and leave UI unchanged (DB remains the source of truth on next load)
+      console.error('[ConsoleApp] setAlphaPlace failed:', result.error)
+      return
+    }
+    // Flip isAlpha flags: exactly one place is alpha at any time.
+    setPlaces((ps) =>
+      ps.map((p) => ({ ...p, isAlpha: p.id === placeId }))
+    )
+  }, [])
+
   // ── Keyboard: ESC closes form / deselects; Cmd+S saves draft ──
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -481,6 +502,8 @@ export function ConsoleApp({ initialNodes, initialEdges, initialPlaces }: Consol
                 selectedPlaceId={editingPlaceId}
                 onEditPlace={openPlaceEditor}
                 onNewPlace={openNewPlace}
+                onSetAlpha={handleSetAlpha}
+                alphaChanging={alphaChanging}
               />
             }
           />
@@ -533,6 +556,8 @@ export function ConsoleApp({ initialNodes, initialEdges, initialPlaces }: Consol
               onClose={closePlaceEditor}
               onSaved={onPlaceSaved}
               onCreated={onPlaceCreated}
+              onSetAlpha={handleSetAlpha}
+              alphaChanging={alphaChanging}
             />
           </div>
 

@@ -42,6 +42,9 @@ const COPY = {
   highlightArticleOnly:'1 article',
   highlightPhotoPlural: (n: number) => `${n} photos`,
   highlightPhotoSing:  '1 photo',
+  // movable-alpha: alpha locus indicator + CTA copy (Vega locked — verbatim)
+  alphaIndicator:      'α LOCUS',
+  setAlpha:            'SET AS α LOCUS →',
 } as const
 
 function formatCounts(articleCount: number, photoCount: number): string {
@@ -130,6 +133,32 @@ const PLACES_BLOCK_CSS = `
   outline: 1px dashed var(--accent-orange); outline-offset: 2px;
 }
 
+/* movable-alpha: α indicator badge — accent-orange t-meta, same register as
+   place-card-highlight-notset but orange-positive rather than warning. */
+.place-card-alpha {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.3em;
+  text-transform: uppercase; color: var(--accent-orange);
+  display: flex; align-items: center; gap: 5px;
+}
+/* α indicator dot — mirrors the ◉ glyph tradition, scaled down */
+.place-card-alpha-glyph {
+  font-size: 11px; line-height: 1;
+}
+
+/* movable-alpha: SET AS α LOCUS button — same register as place-card-action */
+.place-card-set-alpha {
+  appearance: none; background: none; border: none; padding: 0;
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.3em;
+  text-transform: uppercase; color: var(--ink-faint);
+  cursor: pointer; text-align: left; margin-top: 2px;
+  transition: color 150ms ease;
+}
+.place-card-set-alpha:hover { color: var(--accent-orange); }
+.place-card-set-alpha:focus-visible {
+  outline: 1px dashed var(--accent-orange); outline-offset: 2px;
+}
+.place-card-set-alpha:disabled { opacity: 0.45; pointer-events: none; }
+
 /* + NEW PLACE footer button */
 .places-new-btn {
   width: 100%; appearance: none; background: transparent;
@@ -145,6 +174,7 @@ const PLACES_BLOCK_CSS = `
 
 @media (prefers-reduced-motion: reduce) {
   .place-card-action,
+  .place-card-set-alpha,
   .places-new-btn { transition-duration: 0.001ms; }
 }
 `
@@ -158,6 +188,10 @@ interface PlacesRailBlockProps {
   selectedPlaceId: string | null
   onEditPlace:  (placeId: string) => void
   onNewPlace:   () => void
+  /** movable-alpha: called when the user clicks "SET AS α LOCUS" on a place card. */
+  onSetAlpha?:  (placeId: string) => void
+  /** movable-alpha: true while a setAlpha transition is in flight (disables buttons). */
+  alphaChanging?: boolean
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -165,7 +199,7 @@ interface PlacesRailBlockProps {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function PlacesRailBlock({
-  places, selectedPlaceId, onEditPlace, onNewPlace,
+  places, selectedPlaceId, onEditPlace, onNewPlace, onSetAlpha, alphaChanging,
 }: PlacesRailBlockProps) {
   const count = String(places.length).padStart(3, '0')
 
@@ -195,13 +229,22 @@ export function PlacesRailBlock({
             <article
               key={place.id}
               className="place-card paper-warm-surface"
-              aria-label={`${place.name} — ${place.articleCount} articles, ${place.photoCount} photos`}
+              aria-label={`${place.name} — ${place.articleCount} articles, ${place.photoCount} photos${place.isAlpha ? ' (alpha locus)' : ''}`}
               aria-current={isSelected ? 'true' : undefined}
             >
               {/* ◉ NAME */}
               <div className="place-card-name" aria-hidden="true">
                 {'◉ '}{place.name}
               </div>
+
+              {/* movable-alpha: α indicator — only on the current alpha locus.
+                  Uses accent-orange, same register as highlighted CTAs. */}
+              {place.isAlpha && (
+                <div className="place-card-alpha" aria-label="Current alpha locus">
+                  <span className="place-card-alpha-glyph" aria-hidden="true">α</span>
+                  {COPY.alphaIndicator}
+                </div>
+              )}
 
               {/* N articles · N photos */}
               <div className="place-card-counts">
@@ -232,6 +275,19 @@ export function PlacesRailBlock({
               >
                 {actionLabel}
               </button>
+
+              {/* movable-alpha: SET AS α LOCUS — hidden on the current alpha place */}
+              {!place.isAlpha && onSetAlpha && (
+                <button
+                  type="button"
+                  className="place-card-set-alpha"
+                  disabled={alphaChanging}
+                  onClick={() => onSetAlpha(place.id)}
+                  aria-label={`Set ${place.name} as the alpha locus`}
+                >
+                  {COPY.setAlpha}
+                </button>
+              )}
             </article>
           )
         })}

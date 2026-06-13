@@ -16,7 +16,12 @@ import { WorldlineGlobe } from "./WorldlineGlobe";
  * The title is the "hook word" that enhances the aesthetic without competing
  * with the globe for space. ATLAS is the dominant artifact.
  */
-export function HeroBlock() {
+/** movable-alpha: alpha locus coords passed down from the server page. */
+interface HeroBlockProps {
+  alphaCoord?: { lat: number; lon: number };
+}
+
+export function HeroBlock({ alphaCoord }: HeroBlockProps = {}) {
   const tagRowRef = useRef<HTMLDivElement | null>(null);
   const titleRef = useRef<HTMLHeadingElement | null>(null);
   const subRef = useRef<HTMLParagraphElement | null>(null);
@@ -121,7 +126,8 @@ export function HeroBlock() {
 
       {/* ============= ATLAS — full-width artifact ============= */}
       <div ref={atlasRef} style={{ opacity: 0 }}>
-        <WorldlineGlobe />
+        {/* movable-alpha: server-fetched alpha locus passed to the globe */}
+        <WorldlineGlobe alphaCoord={alphaCoord} />
       </div>
     </section>
   );

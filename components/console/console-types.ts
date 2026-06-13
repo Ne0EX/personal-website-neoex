@@ -102,4 +102,6 @@ export interface PlaceDTO {
   highlights:   PlaceHighlightState  // current saved highlights (seed for editor)
   articlePicks: PlaceArticleItem[]   // articles at this place (for typeahead)
   photoPicks:   PlacePhotoItem[]     // photo frames at this place (for photo picker)
+  /** movable-alpha: true for the one place currently designated as the alpha locus. */
+  isAlpha:      boolean
 }

@@ -105,6 +105,9 @@ export default async function ConsolePage() {
       id:           content.place.id,
       name:         content.place.name,
       coord:        content.place.coord,
+      // movable-alpha: propagate is_alpha from the DB so the console can show
+      // the α indicator and the SET AS α LOCUS control.
+      isAlpha:      content.place.isAlpha,
       articleCount: content.articles.length,
       photoCount:   content.sidecars.length,
       highlights: {

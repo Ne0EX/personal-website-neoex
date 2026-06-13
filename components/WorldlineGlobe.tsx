@@ -252,8 +252,10 @@ type BranchSession = {
   firstDrawCompleteMs: number;  // performance.now() when first tendril draw completed; Infinity if not yet
 };
 
-const ALPHA_LAT = 13.7563;
-const ALPHA_LON = 100.5018;
+// Fallback alpha coords — Bangkok. Used if no prop supplied or DB is unseeded.
+// The data-driven value arrives via WorldlineGlobeProps.alphaCoord (movable-alpha).
+const ALPHA_LAT_FALLBACK = 13.7563;
+const ALPHA_LON_FALLBACK = 100.5018;
 
 const STRATA: Record<StratumKey, Stratum> = {
   all: {
@@ -325,13 +327,14 @@ const STRATA: Record<StratumKey, Stratum> = {
     role: "surface archive · α coordinate centered",
     // Radius raised from 2.05 → 2.7: α is the target, not a wall-fill.
     // 2.05 buried the camera in the surface; 2.7 frames α with the globe visible.
-    camPos: latLonToVec3(ALPHA_LAT, ALPHA_LON, 2.7),
-    look: latLonToVec3(ALPHA_LAT, ALPHA_LON, 1.0),
+    camPos: latLonToVec3(ALPHA_LAT_FALLBACK, ALPHA_LON_FALLBACK, 2.7),
+    look: latLonToVec3(ALPHA_LAT_FALLBACK, ALPHA_LON_FALLBACK, 1.0),
     showField: false,
     showAxis: false,
     showContours: true,
     netra: "Ne0",
-    netraCoord: `${ALPHA_LAT.toFixed(2)}°N, ${ALPHA_LON.toFixed(2)}°E`,
+    // netraCoord overridden at runtime from alphaCoord prop (movable-alpha).
+    netraCoord: `${ALPHA_LAT_FALLBACK.toFixed(2)}°N, ${ALPHA_LON_FALLBACK.toFixed(2)}°E`,
     netraRange: "1.42",
     voice:
       "surface archive · 047 patches anchored. α holds the observer locus; the rest are repaired memories at real coordinates.",
@@ -508,7 +511,7 @@ function buildPlaceNode(summary: PlaceSummary, nodesGroup: THREE.Group): PlaceNo
 // buildSurfaceTextures() so the world map cannot drift between the two globes.
 // Do not re-inline this function here — edit lib/globe-surface.ts.
 
-function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs; cleanup: () => void } {
+function buildScene(alphaLat: number, alphaLon: number): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs; cleanup: () => void } {
   const scene = new THREE.Scene();
   scene.background = null;
 
@@ -712,12 +715,16 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
   const fictionHitObjects: THREE.Mesh[] = [];
 
   // Observer nodes (α + 012 + 047, not clickable) — SEPARATE LAYER from places
-  // (spec §2.3): α co-locates with the Bangkok place-node but stays its own
+  // (spec §2.3): α co-locates with the alpha-locus place-node but stays its own
   // object with its own orange halo; never a place, never clickable.
+  // movable-alpha: the α node position uses alphaLat/alphaLon from the prop (data-driven).
   let alphaRing: THREE.Mesh | null = null;
   const observerObjects: { node: ArchiveNode; head: THREE.Mesh }[] = [];
   for (const n of OBSERVER_NODES) {
-    const v = latLonToVec3(n.coords.lat, n.coords.lon, 1.005);
+    // For the primary α node, override the hardcoded coords with the data-driven alpha locus.
+    const lat = n.primary ? alphaLat : n.coords.lat;
+    const lon = n.primary ? alphaLon : n.coords.lon;
+    const v = latLonToVec3(lat, lon, 1.005);
     const head = new THREE.Mesh(
       new THREE.SphereGeometry(n.primary ? 0.022 : 0.01, 12, 12), // M4 sync: α sphere 0.018→0.022 per spec §5.3 / master gallery canonical
       n.primary ? nodeMatAcc.clone() : nodeMatInk.clone()
@@ -758,7 +765,8 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
   globe.add(netraTracker);
 
   // ─── Worldline arc — α point swooping out into NeX field ───
-  const arcStart = latLonToVec3(ALPHA_LAT, ALPHA_LON, 1.01);
+  // movable-alpha: arc origin uses the data-driven alpha locus (passed as param).
+  const arcStart = latLonToVec3(alphaLat, alphaLon, 1.01);
   const arcMid = arcStart.clone().multiplyScalar(1.35).add(new THREE.Vector3(0.2, 0.15, 0));
   const arcEnd = arcStart.clone().multiplyScalar(1.55).add(new THREE.Vector3(0.4, 0.3, -0.1));
   const arcCurve = new THREE.QuadraticBezierCurve3(arcStart, arcMid, arcEnd);
@@ -812,7 +820,23 @@ function buildScene(): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs;
   };
 }
 
-export function WorldlineGlobe() {
+/** movable-alpha: coords of the current alpha locus. Fetched server-side from
+ * the places table (is_alpha=true). Falls back to Bangkok if omitted. */
+interface WorldlineGlobeProps {
+  alphaCoord?: { lat: number; lon: number };
+}
+
+export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
+  // Resolve effective alpha coords — data-driven from prop, fallback to Bangkok.
+  // movable-alpha: these values replace the former ALPHA_LAT / ALPHA_LON constants.
+  const alphaLat = alphaCoord?.lat ?? ALPHA_LAT_FALLBACK;
+  const alphaLon = alphaCoord?.lon ?? ALPHA_LON_FALLBACK;
+
+  // Stable ref so the once-bound THREE effect closure can read the live alpha
+  // without going stale across renders (the prop won't change after mount, but
+  // the ref pattern is consistent with selectedIdRef / stratumRef).
+  const alphaCoordRef = useRef({ lat: alphaLat, lon: alphaLon });
+
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const [stratum, setStratum] = useState<StratumKey>("all");
@@ -999,7 +1023,9 @@ export function WorldlineGlobe() {
   }, []);
 
   // Jump-to-next-node (NETRA) — cycles through observer + place + fiction nodes.
-  const jumpIdxRef = useRef(0);
+  // movable-alpha: initialised to -1 so the first click increments to 0 (the α
+  // observer node — Bangkok today) rather than 1 (012/Tokyo).
+  const jumpIdxRef = useRef(-1);
   // Extended jump target: optional fictionSlug marks NeX orbital nodes (no
   // real-world coords); optional placeId marks a clickable Ne0 place-node so the
   // JUMP cycle opens its front-door panel (spec §9 keyboard table).
@@ -1019,18 +1045,38 @@ export function WorldlineGlobe() {
   const placeSummariesRef = useRef<PlaceSummary[]>([]);
   const rebuildJumpTargets = useCallback((summaries: PlaceSummary[]) => {
     placeSummariesRef.current = summaries;
+
+    // movable-alpha: find the alpha place summary to derive the observer-α coords.
+    // If no alpha is flagged (unseeded DB), fall back to the hardcoded Bangkok.
+    const alphaSummary = summaries.find((s) => s.isAlpha);
+    const observerAlphaLat = alphaSummary?.place.coord.lat ?? ALPHA_LAT_FALLBACK;
+    const observerAlphaLon = alphaSummary?.place.coord.lon ?? ALPHA_LON_FALLBACK;
+    const observerAlphaPlace = alphaSummary?.place.name ?? OBSERVER_NODES[0].coords.place;
+
     const surface: JumpTarget[] = [
-      ...OBSERVER_NODES.map((n) => ({
+      // Observer α — use the data-driven alpha locus coords (movable-alpha goal: NEXT NODE starts here).
+      {
+        label: OBSERVER_NODES[0].label,
+        place: observerAlphaPlace,
+        coords: { lat: observerAlphaLat, lon: observerAlphaLon },
+      },
+      // Non-alpha observer nodes (012, 047) — still hardcoded (not places).
+      ...OBSERVER_NODES.slice(1).map((n) => ({
         label: n.label,
         place: n.coords.place,
         coords: { lat: n.coords.lat, lon: n.coords.lon },
       })),
-      ...summaries.map((s) => ({
-        label: s.place.name.split(" · ")[0].toUpperCase(),
-        place: s.place.name,
-        coords: { lat: s.place.coord.lat, lon: s.place.coord.lon },
-        placeId: s.place.id,
-      })),
+      // Place nodes — alpha place first, then the rest (weight-sorted from getPlacesSummary).
+      // movable-alpha: ensures NEXT NODE cycle visits the alpha locus FIRST among places.
+      ...summaries
+        .slice()
+        .sort((a, b) => (b.isAlpha ? 1 : 0) - (a.isAlpha ? 1 : 0))
+        .map((s) => ({
+          label: s.place.name.split(" · ")[0].toUpperCase(),
+          place: s.place.name,
+          coords: { lat: s.place.coord.lat, lon: s.place.coord.lon },
+          placeId: s.place.id,
+        })),
     ];
     jumpTargetsRef.current = [...surface, ...fictionJumpTargetsRef.current];
   }, []);
@@ -1083,7 +1129,10 @@ export function WorldlineGlobe() {
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    const { scene, refs, cleanup } = buildScene();
+    // movable-alpha: pass current alpha coords into scene construction so the
+    // observer α ring, the worldline arc, and camera framing all start at the
+    // data-driven locus rather than the former Bangkok hardcode.
+    const { scene, refs, cleanup } = buildScene(alphaCoordRef.current.lat, alphaCoordRef.current.lon);
     sceneRefsRef.current = refs;
 
     const camera = new THREE.PerspectiveCamera(36, 1, 0.01, 100);
@@ -1387,8 +1436,11 @@ export function WorldlineGlobe() {
       // AND resets nexActiveRef, so entering Ne0 can never route through the
       // previously-active node — α is the destination, never a waypoint.
       // All other strata are wide/aggregate views — clear any existing lock.
+      // movable-alpha: read current alpha locus from ref (not the old hardcoded constant).
+      const aLat = alphaCoordRef.current.lat;
+      const aLon = alphaCoordRef.current.lon;
       if (key === "neo") {
-        setNetraLock({ lat: ALPHA_LAT, lon: ALPHA_LON }, 2.7);
+        setNetraLock({ lat: aLat, lon: aLon }, 2.7);
       } else {
         clearNetraLock();
       }
@@ -1416,7 +1468,8 @@ export function WorldlineGlobe() {
         let toPos = endPos;
         let toLook = endLook;
         if (isNeo) {
-          const track = cameraTrack({ lat: ALPHA_LAT, lon: ALPHA_LON }, 2.7);
+          // movable-alpha: use the ref-based alpha locus (not the old constant).
+          const track = cameraTrack({ lat: aLat, lon: aLon }, 2.7);
           toPos = track.position;
           toLook = track.look;
         }
@@ -2123,6 +2176,11 @@ export function WorldlineGlobe() {
       delete (window as unknown as Record<string, unknown>).__atlasApplySelected;
       delete (window as unknown as Record<string, unknown>).__atlasNetraJump;
     };
+    // movable-alpha: rebuildJumpTargets is a useCallback stable across renders;
+    // it is captured once at mount inside the once-bound THREE scene closure and
+    // called only when fiction nodes load. Adding it to deps would tear down the
+    // entire THREE scene on every placeSummaries change — incorrect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Re-apply stratum / selection from React state to scene refs.
@@ -2145,6 +2203,32 @@ export function WorldlineGlobe() {
     if (!refs || placeSummaries.length === 0 || refs.placeObjects.length > 0) return;
     for (const summary of placeSummaries) {
       refs.placeObjects.push(buildPlaceNode(summary, refs.nodesGroup));
+    }
+  }, [placeSummaries]);
+
+  // ─── Relocate α observer ring when alpha place data resolves ───
+  // movable-alpha: if the data-driven alpha place coords differ from the initial
+  // build coords (e.g. the console changed alpha after the page loaded), relocate
+  // the observer α ring and head to the new position. No geometry rebuild needed —
+  // just update .position on the existing THREE objects.
+  useEffect(() => {
+    const refs = sceneRefsRef.current;
+    if (!refs || placeSummaries.length === 0) return;
+    const alphaSummary = placeSummaries.find((s) => s.isAlpha);
+    if (!alphaSummary) return;
+    const { lat, lon } = alphaSummary.place.coord;
+    // Reposition the observer α head (first observerObjects entry — the primary one).
+    const primaryObserver = refs.observerObjects.find((o) => o.node.primary);
+    if (primaryObserver) {
+      const v = latLonToVec3(lat, lon, 1.005);
+      primaryObserver.head.position.copy(v);
+    }
+    // Reposition the alpha halo ring.
+    if (refs.alphaRing) {
+      const v = latLonToVec3(lat, lon, 1.005);
+      refs.alphaRing.position.copy(v.clone().multiplyScalar(1.001));
+      refs.alphaRing.lookAt(0, 0, 0);
+      refs.alphaRing.rotateY(Math.PI);
     }
   }, [placeSummaries]);
 
