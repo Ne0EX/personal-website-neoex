@@ -49,6 +49,8 @@ import { PlaceHighlightEditor }  from './PlaceHighlightEditor'
 // S6: import real store actions (createEntry replaces the mocked persist in new-entry flow)
 // movable-alpha: setAlphaPlace is the α locus assignment action (migration 0009b)
 import { createEntry, setAlphaPlace } from '@/lib/server/store/actions'
+// simple-upload: frictionless photo drop zone on the console front door
+import { QuickUploadBar } from './QuickUploadBar'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CSS — shell, header, body grid, NETRA foot, offline
@@ -482,6 +484,11 @@ export function ConsoleApp({ initialNodes, initialEdges, initialPlaces }: Consol
             [ ESC · EXIT ]
           </button>
         </header>
+
+        {/* ── Quick upload bar — simple-upload track.
+            Peat drops photos here; they publish with zero further input.
+            Lives between header and the two-pane body for maximum visibility. */}
+        <QuickUploadBar />
 
         {/* ── Body — two-pane ── */}
         <div id="console-main" className="console-body" tabIndex={-1}>
