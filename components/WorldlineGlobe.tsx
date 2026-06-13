@@ -996,6 +996,14 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
   // it without going stale. placeContentCacheRef likewise feeds the dedupe check.
   const openPlaceRef = useRef(openPlace);
   useEffect(() => { openPlaceRef.current = openPlace; }, [openPlace]);
+  // setSelectedIdRef — mirrors setSelectedId so the once-bound THREE closure can
+  // call it without hitting a minifier variable-shadow issue. The THREE useEffect
+  // ([] deps) declares local variables T/A/I for THREE.Group objects; without this
+  // ref, the minifier may shadow the outer `setSelectedId` binding with those locals,
+  // making setSelectedId(null) silently no-op inside jumpToFictionPin.
+  // (B1 root-cause fix · qa-fix-wave3 · α-SUR-01)
+  const setSelectedIdRef = useRef(setSelectedId);
+  useEffect(() => { setSelectedIdRef.current = setSelectedId; }, [setSelectedId]);
   const placeContentCacheRef = useRef(placeContentCache);
   useEffect(() => { placeContentCacheRef.current = placeContentCache; }, [placeContentCache]);
 
@@ -1777,6 +1785,16 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
       // matters: clearNetraLock resets nexActiveRef to false, so set the flag
       // AFTER clearing. softTrackCamera is not called (lock null) → camera
       // holds the slerp orbital landing position.
+      //
+      // B1 fix (qa-fix-wave3): dismiss any open PlaceFrontDoorPanel before
+      // entering the NeX orbital view. PlaceFrontDoorPanel renders open={!!selectedId};
+      // this call mirrors the ESC / click-miss / onClose dismissal paths that
+      // jumpToFictionPin bypasses via its caller's early return in __atlasNetraJump.
+      // Use setSelectedIdRef.current instead of direct setSelectedId to avoid the
+      // minifier variable-shadow: the THREE effect declares local T/A/I for THREE.Group
+      // objects; direct `setSelectedId` compiles to the same letter that gets shadowed,
+      // silently calling THREE.Group(null) instead of the React state setter.
+      setSelectedIdRef.current(null);
       clearNetraLock();
       nexActiveRef.current = true;
       const label = slug.replace(/^transmission-/, "t.");

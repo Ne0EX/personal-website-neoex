@@ -371,10 +371,11 @@ const PHOTO_MGR_CSS = `
   align-self: center;
   padding: 4px 0;
 }
-/* Required marker on LENS label — orange asterisk (no tooltip needed; inline copy) */
+/* B3 fix (qa-fix-wave3): .is-required and its asterisk removed — LENS can be
+   cleared to fall back to EXIF. The rule is kept inert here in case the class
+   is reused by a future genuinely-required field. */
 .pm-exif dt.is-required::after {
-  content: ' *';
-  color: var(--accent-orange);
+  content: '';
 }
 /* dd row: flex container for input + override-dot affordance */
 .pm-exif dd {
@@ -717,8 +718,14 @@ export function PhotoManager({
 
                 return (
                   <Fragment key={key}>
-                    {/* LENS gets is-required styling: asterisk via CSS ::after */}
-                    <dt className={key === 'lens' ? 'is-required' : undefined}>{label}</dt>
+                    {/* B3 fix (qa-fix-wave3): is-required class and aria-required
+                        removed from LENS. Clearing the field to empty is a valid
+                        action — it removes instrument_overrides.lens and falls back
+                        to the EXIF value. The required indicator was misleading users
+                        into believing LENS could not be cleared. The clear path
+                        (empty string → delete key → null patch) was already correct
+                        in onChange; only the UI affordance was wrong. */}
+                    <dt>{label}</dt>
                     <dd>
                       <input
                         type="text"
@@ -726,8 +733,6 @@ export function PhotoManager({
                         value={inputValue}
                         placeholder={placeholder}
                         aria-label={`Override ${label}`}
-                        // aria-required only on LENS (the case-zero field per Peat)
-                        aria-required={key === 'lens' ? true : undefined}
                         disabled={reading}
                         onChange={(e) => {
                           if (!onInstrumentOverridesChange) return
