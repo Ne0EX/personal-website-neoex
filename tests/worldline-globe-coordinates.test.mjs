@@ -67,14 +67,38 @@ test("NETRA coordinates stay earth-fixed while the visual globe rotates", () => 
   );
 });
 
-test("WorldlineGlobe reads NETRA coordinates outside the animated globe matrix", () => {
+// Contract update 2026-06-13 (Algol α-VER-06):
+// WorldlineGlobe evolved after this test was written. Coord derivation moved
+// from camera-position inversion (netraCoordFromCameraPosition(camera.position))
+// to DATA-driven sources:
+//   • globe-hit raycasting → latLonFromGlobeHit() for hover coord publication
+//   • place/node/observer records supply lat/lon directly — no camera inversion
+// netraCoordFromCameraPosition still lives in lib/globe-coordinates.ts but is
+// no longer called by WorldlineGlobe. The matrixWorld anti-pattern still does
+// not appear. Test updated to assert the CURRENT source contract.
+test("WorldlineGlobe derives coordinates from data and globe-hit, not camera inversion", () => {
   const source = readFileSync(
     path.resolve(process.cwd(), "components/WorldlineGlobe.tsx"),
     "utf8"
   );
 
-  assert.match(source, /netraCoordFromCameraPosition\(camera\.position\)/);
-  assert.match(source, /globeSurfacePointAtRotation\(coords\.lat, coords\.lon, refs\.globe\.rotation\.y/);
+  // latLonFromGlobeHit is the current raycaster → earth-fixed coord path.
+  // It un-rotates the world-space hit point by globeRotationY — the correct
+  // globe-fixed math replacing the old camera-position inversion.
+  assert.match(source, /latLonFromGlobeHit\(/);
+
+  // globeSurfacePointAtRotation is still the correct way to place ATLAS
+  // tracking markers — it applies the globe's Y-rotation to an earth-fixed
+  // lat/lon, keeping markers anchored to the visual globe surface.
+  assert.match(source, /globeSurfacePointAtRotation\(/);
+
+  // The component must NOT call netraCoordFromCameraPosition(camera.position).
+  // That call inverted camera position to get a surface coord — it does not
+  // account for data-driven placement and was removed in favor of latLonFromGlobeHit.
+  assert.doesNotMatch(source, /netraCoordFromCameraPosition\(camera\.position\)/);
+
+  // matrixWorld access remains prohibited — the correct orbit path is
+  // globe.rotation.y, not matrixWorld inversion.
   assert.doesNotMatch(source, /refs\.globe\.matrixWorld/);
 });
 

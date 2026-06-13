@@ -1,29 +1,33 @@
 /**
  * tests/console-gate-contract.test.mjs
  * ─────────────────────────────────────────────────────────────────────────────
- * Locks in the middleware production gate behavior for /console.
+ * Locks in the proxy.ts production gate behavior for /console.
  *
- * Rationale: prod-build + start + curl is blocked while `next dev` is live
- * (dev-clobber-guard.sh). This unit-level test converts prodGate404 from
- * "statically reasoned" to "exercised against the actual gate logic".
+ * Context: middleware.ts was replaced by proxy.ts on 2026-06-08 (store-as-source
+ * S4, Altair slice). The gate contract changed:
+ *   OLD: NODE_ENV=production && WORLDLINE_AUTHORING !== '1' → 404 (retired)
+ *   NEW: supabase.auth.getUser() — no user → rewrite to /console (login shell);
+ *        user present → NextResponse.next() with refreshed cookies.
+ *
+ * WORLDLINE_AUTHORING env flag is RETIRED per proxy.ts spec §5.3/§11.
+ * The file-level export is `proxy` (not `middleware`), per Next 16 convention.
  *
  * Coverage:
- *   1. NODE_ENV=production, no WORLDLINE_AUTHORING → 404 (gate fires)
- *   2. NODE_ENV=production, WORLDLINE_AUTHORING=1 → pass-through (escape hatch)
- *   3. NODE_ENV=development → pass-through (dev never gated)
- *   4. NODE_ENV=production, WORLDLINE_AUTHORING=0 → 404 (flag not '1')
- *   5. /console/editor → same gate applies (matcher covers sub-routes)
- *   6. matcher is scoped to /console* only — other routes must NOT be affected
- *      by the gate (matcher check; HTTP-level byte-identity covered by Polaris
- *      prod-build-curl)
+ *   0. proxy.ts source integrity — required structural tokens present
+ *   1. Gate is a rewrite-to-login, NOT a 404 response
+ *   2. WORLDLINE_AUTHORING env var is not read in proxy.ts (retired)
+ *   3. getUser() is used (not getSession() — the session-spoofing hazard)
+ *   4. Cookies setAll/getAll pattern is implemented (SSR session-refresh)
+ *   5. matcher covers /console and /console/:path* (unchanged from middleware)
+ *   6. matcher is scoped to /console* only — no catch-all patterns
+ *   7. Gate is NextResponse.rewrite (not throw, not 404, not notFound())
+ *   8. second layer: assertDev() in highlight-core.ts guards on NODE_ENV=production
  *
- * Method: exercises the actual gate function from middleware.ts directly.
- * Mock: lightweight NextRequest/NextResponse shim — never imports next/server
- * (which requires a real Next.js runtime). The gate logic only inspects
- * process.env and calls new NextResponse(null, {status:404}) or NextResponse.next().
- * We shim both to the minimum surface the gate function touches.
+ * Method: reads proxy.ts source directly and asserts structural tokens.
+ * The auth path (supabase.auth.getUser) requires a live Supabase server and
+ * is covered by integration tests, not this unit contract.
  *
- * Owner: Algol (α-VER-06) · atlas-console gate + scroll QA · 2026-06-07
+ * Owner: Algol (α-VER-06) · proxy gate contract · 2026-06-13
  * Run: node --test tests/console-gate-contract.test.mjs
  */
 
@@ -36,103 +40,122 @@ import { fileURLToPath } from 'url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Read the gate logic from middleware.ts source and execute it inline.
-// This avoids needing a full Next.js runtime import.
-// ─────────────────────────────────────────────────────────────────────────────
-
-const middlewareSrc = readFileSync(join(root, 'middleware.ts'), 'utf-8')
-
-/**
- * Applies the gate logic directly (logic lifted verbatim from middleware.ts).
- * Returns { status: 404 } if the gate fires, { status: 200, passThrough: true } otherwise.
- *
- * NODE_ENV is immutable via Object.defineProperty in Node.js, so we test the
- * gate function's boolean logic directly using the same expression — this
- * exercises the exact gate predicate from the source.
- */
-function applyGate(nodeEnv, worldlineAuthoring) {
-  // Gate logic lifted verbatim from middleware.ts — tests the exact predicate
-  if (nodeEnv === 'production' && worldlineAuthoring !== '1') {
-    return { status: 404, passThrough: false }
-  }
-  return { status: 200, passThrough: true }
-}
-
-/**
- * Verify the gate logic in source is syntactically identical to the predicate
- * we exercise in applyGate. Any drift would mean the unit test is testing a
- * different expression than what's deployed.
- */
-function verifyGateSourceIntact() {
-  // The exact condition that must appear in middleware.ts
-  const expectedProd = "process.env.NODE_ENV === 'production'"
-  const expectedFlag = "process.env.WORLDLINE_AUTHORING !== '1'"
-  return (
-    middlewareSrc.includes(expectedProd) &&
-    middlewareSrc.includes(expectedFlag)
-  )
-}
+const proxySrc = readFileSync(join(root, 'proxy.ts'), 'utf-8')
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 0 — source integrity: gate predicate in middleware.ts matches what we test
+// Test 0 — source integrity: proxy.ts has the required structural tokens
 // ─────────────────────────────────────────────────────────────────────────────
-test('gate source: predicate in middleware.ts matches tested expression', () => {
+test('gate source: proxy.ts contains required structural tokens', () => {
+  // The exported function must be named `proxy` (Next 16 file convention)
   assert.ok(
-    verifyGateSourceIntact(),
-    "middleware.ts must contain the exact gate predicates: NODE_ENV==='production' && WORLDLINE_AUTHORING !== '1'",
+    proxySrc.includes('export async function proxy('),
+    'proxy.ts must export an async function named `proxy`',
+  )
+  // Must import from next/server
+  assert.ok(
+    proxySrc.includes("from 'next/server'"),
+    'proxy.ts must import from next/server',
+  )
+  // Must use @supabase/ssr createServerClient
+  assert.ok(
+    proxySrc.includes("from '@supabase/ssr'"),
+    'proxy.ts must import from @supabase/ssr',
   )
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 1 — prod, no flag → 404
+// Test 1 — gate is rewrite-to-login, not a 404
 // ─────────────────────────────────────────────────────────────────────────────
-test('gate: NODE_ENV=production, no WORLDLINE_AUTHORING → 404', () => {
-  const result = applyGate('production', undefined)
-  assert.equal(result.status, 404, 'should return 404 in production with no flag')
-  assert.equal(result.passThrough, false)
+test('gate: unauthenticated path is NextResponse.rewrite to /console, not 404', () => {
+  // The fail-closed guarantee uses a rewrite so the browser URL does not change
+  // but the server renders ConsoleLogin. A 404 would leak route existence.
+  assert.ok(
+    proxySrc.includes('NextResponse.rewrite('),
+    'proxy.ts must use NextResponse.rewrite() for the unauthenticated path',
+  )
+  // The rewrite target must be /console (the login shell)
+  assert.ok(
+    proxySrc.includes("'/console'"),
+    "proxy.ts must rewrite to '/console'",
+  )
+  // Must NOT return a 404 status response as the gate action
+  assert.ok(
+    !proxySrc.includes('new NextResponse(null, { status: 404 })'),
+    'proxy.ts must NOT use new NextResponse(null, { status: 404 }) — gate is rewrite, not 404',
+  )
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 2 — prod + flag=1 → pass-through
+// Test 2 — WORLDLINE_AUTHORING env var is retired
 // ─────────────────────────────────────────────────────────────────────────────
-test('gate: NODE_ENV=production, WORLDLINE_AUTHORING=1 → pass-through', () => {
-  const result = applyGate('production', '1')
-  assert.equal(result.passThrough, true, 'should pass through with authoring flag set')
-  assert.notEqual(result.status, 404)
+test('gate: WORLDLINE_AUTHORING env var is not read in proxy.ts (retired)', () => {
+  // The env flag gate is retired per spec §5.3/§11. Any live read of this var
+  // in the gate logic would mean an un-retired escape hatch.
+  // A comment reference (as documentation) is acceptable — we check for
+  // process.env.WORLDLINE_AUTHORING specifically, not the bare string.
+  const linesWithEnvRead = proxySrc
+    .split('\n')
+    .filter(
+      (line) =>
+        !line.trim().startsWith('//') &&
+        line.includes('process.env.WORLDLINE_AUTHORING'),
+    )
+  assert.equal(
+    linesWithEnvRead.length,
+    0,
+    'proxy.ts must not read process.env.WORLDLINE_AUTHORING — flag is retired per §5.3/§11',
+  )
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 3 — dev → pass-through
+// Test 3 — getUser() is used, not getSession() (session-spoofing guard)
 // ─────────────────────────────────────────────────────────────────────────────
-test('gate: NODE_ENV=development → pass-through (never gated)', () => {
-  const result = applyGate('development', undefined)
-  assert.equal(result.passThrough, true, 'dev should always pass through')
-  assert.notEqual(result.status, 404)
+test('gate: supabase.auth.getUser() is used, not getSession()', () => {
+  assert.ok(
+    proxySrc.includes('supabase.auth.getUser()'),
+    'proxy.ts must call supabase.auth.getUser() — getSession() is unverified and spoofable',
+  )
+  // Active getSession() call (not in a comment) would be a security defect
+  const linesWithGetSession = proxySrc
+    .split('\n')
+    .filter(
+      (line) =>
+        !line.trim().startsWith('//') && line.includes('getSession('),
+    )
+  assert.equal(
+    linesWithGetSession.length,
+    0,
+    'proxy.ts must not call getSession() — it reads from cookie only and can be spoofed',
+  )
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 4 — prod + flag=0 → 404 (flag must be exactly '1')
+// Test 4 — SSR cookie pattern: getAll + setAll implemented
 // ─────────────────────────────────────────────────────────────────────────────
-test('gate: NODE_ENV=production, WORLDLINE_AUTHORING=0 → 404 (not "1")', () => {
-  const result = applyGate('production', '0')
-  assert.equal(result.status, 404, 'flag must be exactly "1" to unlock')
+test('gate: cookies getAll/setAll pattern is implemented for SSR session-refresh', () => {
+  assert.ok(
+    proxySrc.includes('getAll()'),
+    'proxy.ts must implement cookies.getAll() for @supabase/ssr',
+  )
+  assert.ok(
+    proxySrc.includes('setAll('),
+    'proxy.ts must implement cookies.setAll() for @supabase/ssr',
+  )
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Test 5 — matcher structure: covers /console and /console/:path*
 // ─────────────────────────────────────────────────────────────────────────────
 test('matcher: config covers bare /console and sub-routes', () => {
-  // Parse the matcher array from middleware.ts source
-  const match = middlewareSrc.match(/matcher:\s*(\[[\s\S]*?\])/m)
-  assert.ok(match, 'matcher config must be present in middleware.ts')
+  // Parse the matcher array from proxy.ts source
+  const match = proxySrc.match(/matcher:\s*(\[[\s\S]*?\])/m)
+  assert.ok(match, 'matcher config must be present in proxy.ts')
 
   const matcherStr = match[1]
   assert.ok(matcherStr.includes("'/console'"), 'matcher must include bare /console')
   assert.ok(matcherStr.includes("'/console/:path*'"), 'matcher must include /console/:path* for sub-routes')
 
   // Confirm /console/editor would be covered by /console/:path*
-  // (path* matches one or more segments)
   assert.ok(matcherStr.includes(':path*'), 'sub-route glob must use :path* (covers /console/editor, etc.)')
 })
 
@@ -140,12 +163,12 @@ test('matcher: config covers bare /console and sub-routes', () => {
 // Test 6 — matcher does NOT include patterns that would match public routes
 // ─────────────────────────────────────────────────────────────────────────────
 test('matcher: does not match /, /archive, or any non-/console route', () => {
-  const match = middlewareSrc.match(/matcher:\s*(\[[\s\S]*?\])/m)
+  const match = proxySrc.match(/matcher:\s*(\[[\s\S]*?\])/m)
   assert.ok(match)
 
   const matcherStr = match[1]
 
-  // The matcher must not be a catch-all like '/:path*' or '/(.*)'
+  // The matcher must not be a catch-all
   assert.ok(!matcherStr.includes("'/:path*'"), 'must not use catch-all /:path*')
   assert.ok(!matcherStr.includes("'/(.*)'"), 'must not use catch-all /(.*)')
   // Must contain exactly 2 entries (both /console-scoped)
@@ -157,28 +180,24 @@ test('matcher: does not match /, /archive, or any non-/console route', () => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 7 — middleware returns NextResponse, not throw
+// Test 7 — gate uses rewrite/next, never throw
 // ─────────────────────────────────────────────────────────────────────────────
-test('gate logic: gate is a value return (NextResponse 404), not a throw', () => {
-  // The middleware source should use "new NextResponse(null, { status: 404 })"
-  // not throw. notFound() is RSC-only and cannot be used in middleware; the
-  // comment in middleware.ts explains this — its presence in a comment is fine,
-  // but an actual import or call would be a bug.
-  assert.ok(
-    middlewareSrc.includes('new NextResponse(null, { status: 404 })'),
-    'must use new NextResponse(null, { status: 404 }) — not throw',
-  )
+test('gate logic: gate uses NextResponse.rewrite/next (not throw, not notFound())', () => {
   // Must not import from next/navigation (which contains notFound())
   assert.ok(
-    !middlewareSrc.includes("from 'next/navigation'"),
-    'must not import from next/navigation in middleware',
+    !proxySrc.includes("from 'next/navigation'"),
+    'must not import from next/navigation in proxy.ts',
   )
   // Must not call notFound() as a function call (comment references are fine)
-  // Check: no line that calls notFound() outside of a comment
-  const linesWithCall = middlewareSrc
+  const linesWithCall = proxySrc
     .split('\n')
     .filter((line) => !line.trim().startsWith('//') && /notFound\(\)/.test(line))
   assert.equal(linesWithCall.length, 0, 'must not call notFound() outside of a comment')
+  // Must use NextResponse.next() for the authenticated pass-through
+  assert.ok(
+    proxySrc.includes('NextResponse.next('),
+    'proxy.ts must use NextResponse.next() for the authenticated path',
+  )
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
