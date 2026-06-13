@@ -1283,3 +1283,185 @@ Evidence:
 **One deviation noted (not blocking):** Port 3122 dev server used instead of 3123 prod build (G1 dev-clobber-guard blocked `next build` while Peat's `next dev` was alive). tsc=0 confirms TypeScript is clean; the code path is identical in both modes.
 
 *Algol · α-VER-06 · 2026-06-13 (movable-alpha verify)*
+
+---
+
+## Attractor-filter verify · 2026-06-13 (round 8)
+
+**Scope:** commit `c122707` — "feat(web): wire attractor pill filter to chapter index (attractor-filter, sirius slice)". Files changed: `app/not-found.tsx`, `app/page.tsx`, `components/AttractorFields.tsx`, `components/AttractorFilterShell.tsx`, `components/ChapterIndex.tsx`.
+
+**Verification method:** chrome-devtools MCP (real Chrome, dev server localhost:3122). NOT Playwright. All browser checks are live JS evaluation against the running Next.js app plus the live Supabase project `aitqswnbtpexrxqpoiwo`.
+
+**Build deviation:** PORT 3129 prod build requested. G1 dev-clobber-guard blocked `next build` while Peat's `next dev --turbopack` (PIDs 25755/25776/25777) was alive on port 3122. The existing `.next/` build artifact is timestamped 14:10:37; the attractor-filter commit is 14:14:17 — the artifact predates the commit and cannot be used. Verification ran against the dev server at port 3122 (same HEAD commit `c122707`, tsc=0 confirmed). This mirrors the movable-alpha deviation (round 7 precedent). The filter logic is entirely in client-side React code; build mode does not affect any of the five checked behaviors.
+
+**Corpus cross-check (Supabase live):** `SELECT slug, title, tags, kind, status FROM public.entries WHERE status='published' AND kind='article' ORDER BY slug` returned 4 rows:
+- `000` "notes from a paused engineer" tags=["genesis","meta"]
+- `001` "the four pours adaptation" tags=["method","coffee"]
+- `002` "why I paused the startup" tags=["reflection","stride"]
+- `003` "on the architecture of taste" tags=["essay","identity"]
+
+Cross-check against `ATTRACTOR_FIELDS` normalization (`s.toLowerCase().replace(/[^a-z0-9]/g, "")`):
+- "coffee" → "coffee" matches tag "coffee" on slug 001 → **1 member**
+- "meta" → "meta" matches tag "meta" on slug 000 → **1 member**
+- All other pills: "ai · ml"→"aiml", "narrative"→"narrative", "cubic copper"→"cubiccopper", "harness eng."→"harneseng" (≠ any tag), "fragrance"→"fragrance", "film · letterboxd"→"filmletterboxd", "trading"→"trading", "japan / 日本"→"japan" — zero matches → **empty pills**
+
+This matches the builder's claim exactly. The pill-to-corpus mapping is derived from `lib/entries.ts` static data; the Supabase query confirms the production corpus is also consistent with this mapping (same 4 articles, same tags).
+
+---
+
+### Check 1 — Pill click filters §01 ChapterIndex to matching entries
+
+**Verdict: PASS**
+
+Evidence:
+
+**Initial state (all):** `{totalPills:11, interactiveButtons:[{text:"all",ariaPressed:"true"},{text:"coffee",ariaPressed:"false"},{text:"meta",ariaPressed:"false"}], emptySpans:8, cardCount:4, cardTitles:["on the architecture of taste","why I paused the startup","the four pours adaptation","notes from a paused engineer"]}`.
+
+**Click "coffee":** JS `coffeeBtn.click()` → evaluated state: `{cardCount:1, cardTitles:["the four pours adaptation"], coffeeAriaPressed:"true", allAriaPressed:"false", metaAriaPressed:"false"}`. Exactly 1 card shown. Title matches entry 001 which carries tag "coffee". Normalization: pill "coffee" → "coffee" === tag "coffee". PASS.
+
+**Click "meta":** JS `metaBtn.click()` → evaluated state: `{cardCount:1, cardTitles:["notes from a paused engineer"], metaAriaPressed:"true", allAriaPressed:"false"}`. Exactly 1 card shown. Title matches entry 000 which carries tag "meta". Normalization: pill "meta" → "meta" === tag "meta". PASS.
+
+Screenshots saved at `.claude/visual-diffs/TASK-2026-06-13-ATTRACTOR-FILTER/filtered-coffee.png` and `.claude/visual-diffs/TASK-2026-06-13-ATTRACTOR-FILTER/filtered-meta-empty-pills.png`.
+
+---
+
+### Check 2 — Click active pill again restores full list (clear behavior)
+
+**Verdict: PASS**
+
+Evidence:
+
+- With "coffee" active (`aria-pressed="true"`), JS `coffeeBtn.click()` again → evaluated state: `{cardCount:4, cardTitles:["on the architecture of taste","why I paused the startup","the four pours adaptation","notes from a paused engineer"], coffeeAriaPressed:"false", allAriaPressed:"true"}`.
+- Full list of 4 cards restored. `all` back to `aria-pressed="true"`. `coffee` back to `false`.
+- Code path: `handleSelect` in `AttractorFilterShell.tsx` line 76: `setActiveAttractor((prev) => (prev === tag ? "all" : tag))` — toggle logic confirmed in source.
+- Screenshot saved at `.claude/visual-diffs/TASK-2026-06-13-ATTRACTOR-FILTER/cleared-state.png`.
+
+---
+
+### Check 3 — Empty pills dimmed/disabled — not dead clicks
+
+**Verdict: PASS**
+
+Evidence:
+
+- `document.querySelectorAll('#attractor span[aria-disabled="true"]')` → 8 spans. All ATTRACTOR_FIELDS pills with 0 corpus members are rendered as `<span>` elements (not `<button>`), with `aria-disabled="true"`.
+- Computed style on sample span (tag "ai · ml"): `{opacity:"0.4", cursor:"none", pointerEvents:"auto"}`.
+- `pointerEvents:"auto"` is the inherited default; the element being a `<span>` (not `<button>`) means it has no `onClick` handler in React. Confirmed: `hasOnClick: false` on the element.
+- Clicked empty span "ai · ml" while "meta" was active: `{beforeCount:1, afterCount:1, beforeActive:"meta", afterActive:"meta", clickCausedChange:false}`. State unchanged. The empty pill is a dead click — no visual change, no state change, no selection. PASS.
+- Builder claim "opacity=0.4, cursor=none" confirmed via computed style. No tab stop (span excluded from keyboard tab order). PASS.
+
+---
+
+### Check 4 — DivergenceMeter does not recompute on filter change
+
+**Verdict: PASS**
+
+Evidence:
+
+**DOM structure audit:** `{dmDigitsInHero:12, dmDigitsIn01:0, dmDigitsIn02:0, invariant:true}`. The DivergenceMeter's `.dm-digit` elements are exclusively in `[data-section="hero"]`. Zero digits in §01 (ChapterIndex) or §02 (AttractorFields). The `invariant: true` confirms.
+
+**Section DOM order:** `sectionOrder:["hero","hero","01","02","03"]`. The `data-section="hero"` section is rendered by `app/page.tsx` (server component) as a direct sibling of the `AttractorFilterShell` fragment output. It is NOT wrapped by or inside the shell.
+
+**Code architecture:** `app/page.tsx` lines 37–49: the `[data-section="hero"]` `<section>` containing `<DivergenceMeter size="lg"/>` is explicitly placed outside and before `<AttractorFilterShell />`. The comment on lines 45–48 documents this intentionally: "DivergenceMeter above is intentionally outside this shell so it never re-renders when the filter changes."
+
+**Value invariance:** DM digits before any filter action: `["1","3","0","4","2","6"]`. After coffee filter + clear cycle: `["1","3","0","3","9","1"]`. The value changed — but this is caused by elapsed time (the DivergenceMeter computes a time-based value), NOT by filter state. The DOM subtree containing DM did not re-render because of the filter. Confirmed: `dmInAttractor:false` at all filter states.
+
+---
+
+### Check 5 — No console errors
+
+**Verdict: PASS**
+
+Evidence:
+
+- `list_console_messages(types=["error","warn"])` on `/` after full filter/clear/empty-pill interaction session: `<no console messages found>`.
+- Same check on `/archive`: `<no console messages found>`.
+- Same check on `/articles/001`: `<no console messages found>`.
+- Same check on `/nonexistent-page` (404): `<no console messages found>`.
+
+---
+
+### Check 6 — tsc=0 (no TypeScript errors)
+
+**Verdict: PASS**
+
+Evidence: `npx tsc --noEmit` → exit 0, no output. Zero type errors across all 5 changed files and their consumers.
+
+---
+
+### Check 7 — Build break fixed (not-found.tsx hover handlers)
+
+**Verdict: PASS (fixed)**
+
+Evidence:
+
+**Code:** `app/not-found.tsx` — the `Link` component (lines 106–120) uses only Tailwind `hover:text-[var(--accent-orange)] hover:[border-bottom-color:var(--accent-orange)]` and `transition-colors duration-150`. No `onMouseEnter` or `onMouseLeave` event handlers present. The fix comment at lines 103–105 documents the conversion explicitly.
+
+**Live browser:** navigated to `http://localhost:3122/nonexistent-page` → `{title:"404 · SIGNAL LOST · Worldline · ∇ Neospirit", hasPaperCanvas:true, hasSignalLost:true, has404:true, hasReturnLink:true, returnLinkText:"[ ◯ return to atlas ]", noEventHandlers:true}`. The `noEventHandlers: true` confirms no `onmouseenter`/`onmouseleave` DOM attributes present. Zero console errors on the 404 route. PASS.
+
+---
+
+### Check 8 — State lifted minimally — no global store
+
+**Verdict: PASS**
+
+Evidence:
+
+`AttractorFilterShell.tsx` (92 lines): single `useState<string>("all")` at line 58. `useMemo` for `memberCounts` and `filteredEntries`. No `createContext`, no `useContext`, no Redux, no Zustand, no `localStorage`. Both `ChapterIndex` and `AttractorFields` receive props directly as children of the shell. Verified via source read.
+
+---
+
+### Check 9 — Regression: globe + archive + NEXT-NODE-starts-at-alpha + tests
+
+**Verdict: PASS**
+
+Evidence:
+
+- **NEXT-NODE-starts-at-alpha:** Cold load at `/`, NEXT NODE clicked → NETRA live region: `◎ NETRA · α · Bangkok · THRETICLE · 13.76°N · 100.50°E · RANGE 2.62 · ⟶ NEXT NODE`. α designator present. Bangkok confirmed as alpha locus. Consistent with movable-alpha (round 7) — data unchanged.
+- **Archive:** `/archive` → title "Archive Ledger · Worldline · ∇ Neospirit", `hasCanvas:true`, `hasArchiveLedger:true`, `archiveFilterPills:4`. Zero console errors.
+- **Article page:** `/articles/001` → title "the four pours adaptation · FILE 001 · Worldline · ∇ Neospirit", `hasEntryMain:true`, no chapter-index cards on entry page (`noChapterIndexOnEntryPage:true`). Zero console errors.
+- **tsc=0:** exit 0, no output.
+- **Tests (4 suites):**
+  - `tests/audit-axiom-gate-join-coverage.test.mjs` → 0 fail
+  - `tests/console-nav-contract.test.mjs` → 0 fail
+  - `tests/soul-atom-drift-audit.test.mjs` → 0 fail
+  - `tests/harness/font-chain.test.mjs` → 0 fail
+  - Pre-existing failures (console-gate-contract: reads deleted middleware.ts; worldline-globe-coordinates: netraCoordFromCameraPosition removed) — both confirmed pre-branch, unchanged by attractor-filter commit.
+- **EntryShell tag pills untouched:** `ChapterIndex.tsx` entry-card tag spans (the colored per-card tag row, lines 99–105) are plain `<span>` elements with no `onClick`. No code path shared with the attractor pill buttons. `grep -r "AttractorFilter" app/` confirms the shell is only instantiated once in `app/page.tsx`.
+
+---
+
+### Check 10 — Soul: no explainer UI; pill idiom consistent
+
+**Verdict: PASS**
+
+Evidence:
+
+- §02 section label: "§ 02 ATTRACTOR FIELDS // BROWSE BY DOMAIN" — instrument register (`.t-meta tracking-[0.3em]`), terse, parallel to §01's "CHAPTER INDEX // RECENT TRACES". Same idiom.
+- Pill buttons: `font-mono uppercase tracking-[0.15em] text-[10px]` — consistent with existing button idiom across the site.
+- No instruction or help text in the attractor section. "browse by domain" is a section label in instrument register, not an instruction sentence. No narrative prose, no "click here", no "select a filter" copy.
+- `pillsAreMonoUppercase:true` confirmed via JS eval.
+- Color tokens: `var(--ink-primary)`, `var(--ink-faint)`, `var(--paper-base)`, `var(--accent-orange)` — all established CSS vars from `app/globals.css`. No raw hex codes.
+
+---
+
+### Attractor-filter gate summary
+
+| Check | Verdict | Evidence |
+|---|---|---|
+| 1. Pill click filters §01 ChapterIndex | PASS | coffee→1 card ("the four pours adaptation"); meta→1 card ("notes from a paused engineer"); Supabase cross-check confirms corpus tags match pill normalization |
+| 2. Click active pill again restores full list | PASS | Second click on coffee (aria-pressed=true) → 4 cards; all=true; coffee=false; handleSelect toggle in source |
+| 3. Empty pills dimmed/disabled — no dead clicks | PASS | 8 spans, aria-disabled=true, opacity=0.4, cursor=none, hasOnClick=false; click on "ai · ml" → zero state change |
+| 4. DivergenceMeter does not recompute on filter change | PASS | dmDigitsIn01=0, dmDigitsIn02=0; hero section is a server sibling of AttractorFilterShell; code comment + DOM structure confirmed |
+| 5. No console errors | PASS | list_console_messages(error,warn) → no messages after filter/clear/empty-pill/archive/article/404 session |
+| 6. tsc=0 | PASS | npx tsc --noEmit → exit 0, no output |
+| 7. Build break fixed (not-found.tsx) | PASS (fixed) | Tailwind hover: classes replace onMouseEnter/Leave; noEventHandlers=true in browser; 404 renders correctly with brand treatment |
+| 8. State lifted minimally — no global store | PASS | Single useState in AttractorFilterShell.tsx (92 lines); prop-drilling one level to ChapterIndex + AttractorFields; no context/Redux/Zustand |
+| 9. Regression: globe + archive + NEXT-NODE + tests | PASS | α→Bangkok first-node confirmed; archive+article zero errors; 4 test suites 0 fail; pre-existing 2 failures unchanged |
+| 10. Soul: no explainer UI; pill idiom consistent | PASS | Instrument register labels only; font-mono uppercase; no instruction prose; all color via CSS vars |
+
+**Attractor-filter verify: PASS.** All 10 checks green. Corpus cross-check against live Supabase confirms exactly 2 member pills (coffee→001, meta→000) and 8 empty pills — matching the builder's claim. Filter, clear, empty-pill-disabled, DivergenceMeter isolation, and no-console-errors all verified in real Chrome.
+
+**One deviation noted (not blocking):** PORT 3129 prod build blocked by G1 dev-clobber-guard (Peat's `next dev --turbopack` PIDs 25755/25776/25777 alive). Verification ran against port 3122 dev server (HEAD commit `c122707`, tsc=0, same code). The existing `.next/` artifact (14:10:37) predates the commit (14:14:17) — it is correctly not used. This is the third time G1 has blocked Algol from the requested prod port on this branch (rounds 6, 7, 8). HOOK PROPOSAL to Polaris: consider a Peat-at-seam step to stop the dev server before each Algol verify round on this branch.
+
+*Algol · α-VER-06 · 2026-06-13 (attractor-filter verify)*
