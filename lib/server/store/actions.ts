@@ -22,6 +22,9 @@
  *               savePlaceCoord: idempotent
  *               savePlaceHighlights: idempotent (clears then resets)
  *               createRoll: non-idempotent
+ *               quickUploadPhoto: NOT idempotent (second call returns COLLISION
+ *                 for the same originalKey+photoId). Roll creation step IS
+ *                 idempotent (race-safe via 23505 ignore).
  * rate limit  · none (owner-only; RLS is the hard boundary)
  * error shape · {ok:false, error:{code:string, message:string, details?:unknown}}
  *
@@ -45,6 +48,7 @@ import {
   savePlaceCoordImpl,
   savePlaceHighlightsImpl,
   setAlphaPlaceImpl,
+  quickUploadPhotoImpl,
   type CreateEntryResult,
   type UpdateEntryResult,
   type SetEntryDraftResult,
@@ -55,6 +59,7 @@ import {
   type SavePlaceCoordResult,
   type SavePlaceHighlightsResult,
   type SetAlphaPlaceResult,
+  type QuickUploadPhotoResult,
 } from './actions-core'
 
 // NOTE: Result types are NOT re-exported here. 'use server' modules must only
@@ -177,4 +182,39 @@ export async function savePlaceHighlights(input: unknown): Promise<SavePlaceHigh
  */
 export async function setAlphaPlace(input: unknown): Promise<SetAlphaPlaceResult> {
   return setAlphaPlaceImpl(input)
+}
+
+/**
+ * Frictionless quick-ingest: drop a photo file → it appears as published.
+ *
+ * // contract
+ * method      · server action (direct import)
+ * auth        · assertOwner() first
+ * request     · {
+ *                 originalKey: string    — key in originals bucket (caller uploads first)
+ *                 photoId?:    string    — optional; derived from filename if absent
+ *               }
+ * response    · {
+ *                 ok: true,
+ *                 roll: string,          — the auto-resolved YYYY-MM-snapshots roll slug
+ *                 rollCreated: boolean,  — true if the roll was created this call
+ *                 entry: { kind, slug, id, status:'published' },
+ *                 exif: Record<string,unknown>|null,
+ *                 gpsAutoSet: boolean,
+ *                 variantKeys: { thumb, medium, full } × { jpg, webp, avif }
+ *               } | { ok: false, error: { code, message, details? } }
+ * error codes ·
+ *   INVALID_INPUT   — zod validation failed
+ *   COLLISION       — photoId already has variants (pass a unique photoId)
+ *   ROLL_CREATE_FAILED — could not create default roll (non-race DB error)
+ *   PUBLISH_FAILED  — ingest succeeded but status update failed
+ *   DOWNLOAD_FAILED — originals bucket download error
+ *   UPLOAD_FAILED   — photos bucket upload error
+ *   UNEXPECTED      — unhandled throw
+ * idempotency · NOT idempotent (COLLISION on second call with same photoId in same roll).
+ *               Roll creation IS idempotent (safe under concurrent quick-uploads).
+ * rate limit  · none (owner-only)
+ */
+export async function quickUploadPhoto(input: unknown): Promise<QuickUploadPhotoResult> {
+  return quickUploadPhotoImpl(input)
 }

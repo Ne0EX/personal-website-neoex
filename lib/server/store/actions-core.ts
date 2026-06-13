@@ -37,6 +37,7 @@ import { createHash } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { createSupabaseServerClient } from '@/lib/store/supabase/server'
 import { assertOwner } from '@/lib/server/auth'
+import { z } from 'zod'
 import {
   CreateEntryInputSchema,
   UpdateEntryInputSchema,
@@ -1130,5 +1131,244 @@ export async function setAlphaPlaceImpl(rawInput: unknown): Promise<SetAlphaPlac
     return { ok: true, alphaId: data as string }
   } catch (e) {
     return err('UNEXPECTED', 'Unexpected error', String(e))
+  }
+}
+
+// ---------------------------------------------------------------------------
+// resolveDefaultRoll — idempotent "snapshots" roll for quick-ingest
+// ---------------------------------------------------------------------------
+//
+// Design choice: date-based roll `YYYY-MM-snapshots`.
+//   - Uses EXIF capture month from the original image if available.
+//   - Falls back to current calendar month if no EXIF date.
+//   - The roll slug format `YYYY-MM-snapshots` satisfies the DB CHECK
+//     (roll ~ '^\\d{4}-\\d{2}-[a-z0-9-]+$').
+//   - Peat can re-roll later in the instrument editor via updateEntry.
+//
+// The helper does NOT call assertOwner() directly — it is called from
+// quickUploadPhotoImpl which guards auth first. It is not exported as a
+// public server action; only quickUploadPhoto is the public surface.
+//
+// The download of the original here is a lightweight EXIF-only peek.
+// quickUploadPhotoImpl will download again for variant generation.
+// Two downloads of the same owner object is the trade-off for keeping
+// ingestPhotoImpl's signature stable (no captureMonth injection needed).
+
+async function resolveDefaultRollSlug(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  originalKey: string,
+): Promise<string> {
+  // Attempt to read DateTimeOriginal from EXIF to derive capture month.
+  let yearMonth: string | null = null
+
+  try {
+    const { data: downloadData } = await supabase
+      .storage
+      .from('originals')
+      .download(originalKey)
+
+    if (downloadData) {
+      const buf = Buffer.from(await downloadData.arrayBuffer())
+      const exifr = (await import('exifr')).default
+      const rawExif = await exifr.parse(buf, {
+        pick: ['DateTimeOriginal'],
+        mergeOutput: true,
+      }) ?? {}
+
+      const dto = rawExif['DateTimeOriginal']
+      let captureDate: Date | null = null
+
+      if (dto instanceof Date) {
+        captureDate = dto
+      } else if (typeof dto === 'string') {
+        const parsed = new Date(dto)
+        if (!isNaN(parsed.getTime())) captureDate = parsed
+      }
+
+      if (captureDate) {
+        const y = captureDate.getFullYear()
+        const m = String(captureDate.getMonth() + 1).padStart(2, '0')
+        yearMonth = `${y}-${m}`
+      }
+    }
+  } catch {
+    // EXIF peek failure is non-fatal — fall through to current-month
+  }
+
+  if (!yearMonth) {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, '0')
+    yearMonth = `${y}-${m}`
+  }
+
+  return `${yearMonth}-snapshots`
+}
+
+// ---------------------------------------------------------------------------
+// quickUploadPhoto — frictionless file → published, no metadata required
+// ---------------------------------------------------------------------------
+
+export const QuickUploadPhotoInputSchema = z.object({
+  /** Storage key in the `originals` bucket — caller uploads the file first. */
+  originalKey: z.string().min(1),
+  /**
+   * photoId: alphanumeric identifier, max 40 chars. If not provided, a
+   * timestamp-based id is generated from the current date (YYYY-MM-DD format
+   * with a short random suffix to avoid collisions on same-day uploads).
+   */
+  photoId: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{1,40}$/, 'photoId must be alphanumeric 1–40 chars')
+    .optional(),
+})
+
+export type QuickUploadPhotoInput = z.infer<typeof QuickUploadPhotoInputSchema>
+
+export type QuickUploadPhotoResult =
+  | {
+      ok: true
+      roll: string
+      rollCreated: boolean
+      entry: { kind: string; slug: string; id: string; status: string }
+      exif: Record<string, unknown> | null
+      gpsAutoSet: boolean
+      variantKeys: {
+        thumb: { jpg: string; webp: string; avif: string }
+        medium: { jpg: string; webp: string; avif: string }
+        full: { jpg: string; webp: string; avif: string }
+      }
+    }
+  | ActionError
+
+/**
+ * Frictionless quick-ingest: original in storage → published photo entry.
+ *
+ * Steps:
+ *   1. assertOwner
+ *   2. Resolve default roll (YYYY-MM-snapshots from EXIF capture month or now);
+ *      auto-create the roll if it does not exist (idempotent per roll slug).
+ *   3. Derive photoId from originalKey filename if caller omits it.
+ *   4. Call ingestPhotoImpl (EXIF extraction, variant generation, entry upsert).
+ *   5. Set entry status = 'published' immediately (photos have no completeness gate).
+ *   6. revalidatePath
+ *
+ * Privacy: share_location stays false (default); served_coords = null (Layer 2).
+ * GPS is written to entries.coords (owner column) but not exposed publicly
+ * until the owner explicitly enables share_location via the instrument editor.
+ *
+ * The caller may override photoId but never needs to provide a roll — the
+ * auto-default roll is the whole point of this action.
+ *
+ * Idempotency: if the original already has variants (same slug), this action
+ * returns COLLISION (same as ingestPhotoImpl without overwrite:true). The roll
+ * creation step is idempotent (no-op if roll exists).
+ */
+export async function quickUploadPhotoImpl(rawInput: unknown): Promise<QuickUploadPhotoResult> {
+  const auth = await assertOwner()
+  if (!auth.ok) return auth
+
+  const parsed = QuickUploadPhotoInputSchema.safeParse(rawInput)
+  if (!parsed.success) return err('INVALID_INPUT', 'Validation failed', parsed.error.flatten())
+  const { originalKey } = parsed.data
+
+  const supabase = await createSupabaseServerClient()
+
+  try {
+    // --- Step 1: Resolve default roll slug from EXIF capture month ---
+    const rollSlug = await resolveDefaultRollSlug(supabase, originalKey)
+
+    // --- Step 2: Ensure roll exists (idempotent create) ---
+    let rollCreated = false
+    const { data: existingRoll } = await supabase
+      .from('rolls')
+      .select('roll')
+      .eq('roll', rollSlug)
+      .maybeSingle()
+
+    if (!existingRoll) {
+      // Derive a dot-date from the roll's YYYY-MM (first of month)
+      const [ym] = rollSlug.split('-snapshots')
+      const [yyyy, mm] = ym.split('-')
+      const rollDate = `${yyyy}.${mm}.01`
+
+      const { error: rollInsertError } = await supabase
+        .from('rolls')
+        .insert({
+          roll: rollSlug,
+          id: rollSlug,
+          date: rollDate,
+          iso_date: dotDateToIso(rollDate),
+          caption: null,
+          share_location: false,
+          coords: null,
+          body: '',
+        })
+
+      if (rollInsertError) {
+        // If it's a duplicate-key race (concurrent quick-upload), treat as ok
+        if (rollInsertError.code !== '23505') {
+          return err('ROLL_CREATE_FAILED', `Failed to create default roll: ${rollInsertError.message}`, rollInsertError)
+        }
+        // else: concurrent creation won the race, roll exists now — proceed
+      } else {
+        rollCreated = true
+      }
+    }
+
+    // --- Step 3: Derive photoId ---
+    // Use caller-provided photoId if given. Otherwise derive from the
+    // originalKey filename stem (e.g. "DSCF0344.JPG" → "DSCF0344"),
+    // appending today's date prefix to namespace same-filename re-uploads.
+    let photoId = parsed.data.photoId
+    if (!photoId) {
+      const filename = originalKey.split('/').pop() ?? originalKey
+      const stem = filename.replace(/\.[^.]+$/, '').replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 35)
+      // Suffix: today YYYYMMDD to namespace same-filename uploads across days
+      const now = new Date()
+      const suffix = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
+      photoId = `${stem}-${suffix}`.slice(0, 40)
+    }
+
+    // --- Step 4: Ingest (EXIF extraction, variant generation, entry insert) ---
+    const ingestResult = await ingestPhotoImpl({
+      roll: rollSlug,
+      photoId,
+      originalKey,
+      overwrite: false,
+    })
+
+    if (!ingestResult.ok) return ingestResult
+
+    // --- Step 5: Publish immediately (photos have no completeness gate) ---
+    // Direct DB update — no setEntryDraftImpl round-trip needed since photos
+    // return [] from checkPublishCompleteness (schema.ts:269).
+    const { error: publishError } = await supabase
+      .from('entries')
+      .update({ status: 'published' })
+      .eq('id', ingestResult.entry.id)
+      .eq('kind', 'photo')
+
+    if (publishError) {
+      return err(
+        'PUBLISH_FAILED',
+        `Ingest succeeded but publish failed: ${publishError.message}`,
+        { entryId: ingestResult.entry.id, supabaseError: publishError },
+      )
+    }
+
+    revalidatePath('/', 'layout')
+
+    return {
+      ok: true,
+      roll: rollSlug,
+      rollCreated,
+      entry: { ...ingestResult.entry, status: 'published' },
+      exif: ingestResult.exif,
+      gpsAutoSet: ingestResult.gpsAutoSet,
+      variantKeys: ingestResult.variantKeys,
+    }
+  } catch (e) {
+    return err('UNEXPECTED', 'Unexpected error during quick upload', String(e))
   }
 }
