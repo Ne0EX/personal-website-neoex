@@ -47,6 +47,7 @@ import {
   CreatePlaceInputSchema,
   SavePlaceCoordInputSchema,
   SavePlaceHighlightsInputSchema,
+  SetAlphaPlaceInputSchema,
   checkPublishCompleteness,
   type CreateEntryInput,
   type UpdateEntryInput,
@@ -998,6 +999,58 @@ export async function savePlaceHighlightsImpl(rawInput: unknown): Promise<SavePl
 
     revalidatePath('/', 'layout')
     return { ok: true, highlights: result }
+  } catch (e) {
+    return err('UNEXPECTED', 'Unexpected error', String(e))
+  }
+}
+
+// ---------------------------------------------------------------------------
+// setAlphaPlace — designate one place as the alpha locus (movable-alpha)
+// ---------------------------------------------------------------------------
+
+export type SetAlphaPlaceResult =
+  | { ok: true; alphaId: string }
+  | ActionError
+
+/**
+ * Atomically designates one place as the alpha locus.
+ *
+ * Uses a single UPDATE ... SET is_alpha = (id = $1) so every row is written in
+ * the same statement — the partial-unique index on (is_alpha) WHERE is_alpha=true
+ * never sees a transient double-true mid-transaction. No intermediate state exists
+ * where zero or two places are alpha.
+ *
+ * The globe Ne0 stratum camera framing and NEXT NODE cycle consume is_alpha via
+ * getAlphaPlace() (lib/store/reads.ts). After this call resolves, the Next.js
+ * cache is revalidated so the next render picks up the new locus.
+ *
+ * PRD reference: movable-alpha goal (Peat 2026-06-13).
+ */
+export async function setAlphaPlaceImpl(rawInput: unknown): Promise<SetAlphaPlaceResult> {
+  const auth = await assertOwner()
+  if (!auth.ok) return auth
+
+  const parsed = SetAlphaPlaceInputSchema.safeParse(rawInput)
+  if (!parsed.success) return err('INVALID_INPUT', 'Validation failed', parsed.error.flatten())
+  const { placeId } = parsed.data
+
+  const supabase = await createSupabaseServerClient()
+
+  try {
+    // Single-statement path via set_alpha_place SQL function (migration 0009b).
+    // UPDATE places SET is_alpha = (id = p_place_id) — the partial-unique index
+    // (places_one_alpha_idx) evaluates the full table AFTER the statement, so it
+    // sees at most one true and never blocks on a momentary double-true.
+    const { data, error } = await supabase.rpc('set_alpha_place', { p_place_id: placeId })
+
+    if (error) {
+      const msg = error.message ?? ''
+      if (msg.includes('PLACE_NOT_FOUND')) return err('NOT_FOUND', `Place "${placeId}" not found`)
+      return err('DB_ERROR', msg, error)
+    }
+
+    revalidatePath('/', 'layout')
+    return { ok: true, alphaId: data as string }
   } catch (e) {
     return err('UNEXPECTED', 'Unexpected error', String(e))
   }

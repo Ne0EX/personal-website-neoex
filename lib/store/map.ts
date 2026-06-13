@@ -98,6 +98,8 @@ export interface DbPlaceRow {
   name: string
   lat: number
   lon: number
+  /** True for the one alpha-locus place (0009_alpha_locus migration). */
+  is_alpha: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -271,5 +273,6 @@ export function mapPlace(row: DbPlaceRow): Place {
     // DB places table has top-level lat/lon; Place interface uses coord: { lat, lon }
     // to match place-registry.ts zod shape and WorldlineGlobe.tsx consumers.
     coord: { lat: row.lat, lon: row.lon },
+    isAlpha: row.is_alpha,
   }
 }

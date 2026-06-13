@@ -191,4 +191,11 @@ export interface Place {
     lat: number
     lon: number
   }
+  /**
+   * True for the one place designated as the alpha locus (observer's home
+   * coordinate). At most one place is alpha at any time — enforced by the
+   * places_one_alpha_idx partial unique index (migration 0009_alpha_locus).
+   * The globe Ne0 stratum camera framing and NEXT NODE cycle start here.
+   */
+  isAlpha: boolean
 }

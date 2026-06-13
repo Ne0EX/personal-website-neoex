@@ -335,6 +335,21 @@ const PhotoFrameSchema = z.object({
   id: PhotoIdSchema,
 })
 
+// ---------------------------------------------------------------------------
+// setAlphaPlace input
+// ---------------------------------------------------------------------------
+
+/**
+ * Designates one place as the alpha locus (observer home coordinate).
+ * The server action sets is_alpha=true on the target and false on all others
+ * in a single UPDATE so the partial-unique index never trips mid-transaction.
+ */
+export const SetAlphaPlaceInputSchema = z.object({
+  placeId: z.string().regex(/^[a-z0-9-]+$/, 'placeId must be kebab-case'),
+})
+
+export type SetAlphaPlaceInput = z.infer<typeof SetAlphaPlaceInputSchema>
+
 export const SavePlaceHighlightsInputSchema = z.object({
   placeId: z.string().regex(/^[a-z0-9-]+$/),
   articleSlug: ArticleSlugSchema.nullable(),

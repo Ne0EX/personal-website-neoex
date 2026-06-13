@@ -18,7 +18,9 @@
 import type { Article, PhotoSidecar } from './types'
 import { getArticles } from './articles'
 import { getPhotoSidecars } from './photos'
-import { getAllPlacesFromStore } from '../store/reads'
+import { getAllPlacesFromStore, getAlphaPlace } from '../store/reads'
+
+export { getAlphaPlace }
 import {
   deriveArticlePlaceId,
   derivePhotoPlaceId,
@@ -58,6 +60,8 @@ export type PlaceSummary = {
   place: Place
   weight: number
   hasHighlights: boolean
+  /** True for the one place designated as the alpha locus. Mirrors place.isAlpha. */
+  isAlpha: boolean
 }
 
 // ---------------------------------------------------------------------------
@@ -124,7 +128,7 @@ export async function getPlacesSummary(includeHidden = false): Promise<PlaceSumm
       placeArticles.some((a) => a.highlightForPlace) ||
       placeSidecars.some((s) => s.highlightRank != null)
 
-    return { place, weight, hasHighlights }
+    return { place, weight, hasHighlights, isAlpha: place.isAlpha }
   }).sort((a, b) => b.weight - a.weight)
 }
 

@@ -395,7 +395,7 @@ export async function getPhotosByRoll(roll: string): Promise<Photo[]> {
 // Places
 // ---------------------------------------------------------------------------
 
-const PLACE_COLS = 'id,level,parent_id,name,lat,lon'
+const PLACE_COLS = 'id,level,parent_id,name,lat,lon,is_alpha'
 
 /** All registered L1 places. */
 export async function getAllPlacesFromStore(): Promise<Place[]> {
@@ -406,4 +406,38 @@ export async function getAllPlacesFromStore(): Promise<Place[]> {
 
   if (error) throw new Error(`getAllPlacesFromStore: ${error.message}`)
   return (data as unknown as DbPlaceRow[]).map(mapPlace)
+}
+
+/**
+ * Returns the place currently designated as the alpha locus (is_alpha = true).
+ *
+ * The alpha locus is the globe's observer home coordinate — the Ne0 stratum
+ * camera framing and NEXT NODE cycle start here. At most one place is alpha at
+ * any time (enforced by places_one_alpha_idx partial unique index).
+ *
+ * Falls back to the Bangkok hard-coordinates if no place is flagged alpha (safe
+ * default preserving existing behaviour during any accidental de-seeded state).
+ */
+export async function getAlphaPlace(): Promise<Place> {
+  const { data, error } = await anonClient
+    .from('places')
+    .select(PLACE_COLS)
+    .eq('is_alpha', true)
+    .maybeSingle()
+
+  if (error) throw new Error(`getAlphaPlace: ${error.message}`)
+
+  if (data) return mapPlace(data as unknown as DbPlaceRow)
+
+  // Safe fallback: Bangkok — matches the historical hardcoded ALPHA_LAT/ALPHA_LON.
+  // This path should never be reached in a correctly seeded DB, but prevents a
+  // globe crash during any transient un-seeded state.
+  return {
+    id: 'bangkok',
+    level: 1,
+    parentId: null,
+    name: 'Bangkok · TH',
+    coord: { lat: 13.7563, lon: 100.5018 },
+    isAlpha: true,
+  }
 }

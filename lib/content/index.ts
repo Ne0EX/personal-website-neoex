@@ -130,6 +130,8 @@ export {
   // Filtered lists for highlight editor (console curation)
   getArticlesAtPlace,
   getSidecarsAtPlace,
+  // Alpha locus — the one place that is the globe's observer home coordinate
+  getAlphaPlace,
 } from './places'
 
 // ---------------------------------------------------------------------------

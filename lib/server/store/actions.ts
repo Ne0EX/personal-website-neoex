@@ -44,6 +44,7 @@ import {
   createPlaceImpl,
   savePlaceCoordImpl,
   savePlaceHighlightsImpl,
+  setAlphaPlaceImpl,
   type CreateEntryResult,
   type UpdateEntryResult,
   type SetEntryDraftResult,
@@ -53,6 +54,7 @@ import {
   type CreatePlaceResult,
   type SavePlaceCoordResult,
   type SavePlaceHighlightsResult,
+  type SetAlphaPlaceResult,
 } from './actions-core'
 
 // NOTE: Result types are NOT re-exported here. 'use server' modules must only
@@ -158,4 +160,21 @@ export async function savePlaceCoord(input: unknown): Promise<SavePlaceCoordResu
  */
 export async function savePlaceHighlights(input: unknown): Promise<SavePlaceHighlightsResult> {
   return savePlaceHighlightsImpl(input)
+}
+
+/**
+ * Designate one place as the alpha locus (observer home coordinate).
+ *
+ * Uses the set_alpha_place SQL function (migration 0009b) which issues a single
+ * UPDATE places SET is_alpha = (id = p_place_id) — the partial-unique index
+ * (places_one_alpha_idx) sees at most one true per transaction, never blocking
+ * on a momentary double-true.
+ *
+ * After this action resolves the globe's Ne0 stratum camera framing and NEXT NODE
+ * cycle start from the new locus on the next render (revalidatePath clears cache).
+ *
+ * @param input.placeId — kebab-case place id (must exist in places table)
+ */
+export async function setAlphaPlace(input: unknown): Promise<SetAlphaPlaceResult> {
+  return setAlphaPlaceImpl(input)
 }
