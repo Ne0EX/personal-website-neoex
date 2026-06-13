@@ -6,59 +6,59 @@ import { BootSequence } from "./BootSequence";
 const STORAGE_KEY = "wl:boot-seen";
 
 /**
- * PageShell — runs the boot sequence on first visit, gates content reveal.
- * Subsequent navigations within the session skip boot.
+ * BootOverlay — client-only overlay that shows the BootSequence on a genuine
+ * first session visit and disappears once done.
  *
- * bfcache fix (#3, 2026-06-14):
- *   Next.js App Router pages restored from the browser's back-forward cache
- *   (bfcache) do NOT re-run React effects — the client tree is frozen at the
- *   state it had when the user navigated away. If PageShell was rendering its
- *   blank `booted === null` placeholder (briefly, during first hydration), that
- *   blank div is what bfcache captures and restores — producing a white page
- *   on back-nav.
+ * Architecture note (bfcache-fix #3, 2026-06-14):
+ *   The previous approach gated CHILDREN behind a `booted === null` blank
+ *   placeholder. bfcache captures the page as-frozen when the user navigates
+ *   away. If the blank placeholder was on screen at freeze time, back-nav
+ *   restores the blank → white page.
  *
- *   Fix: attach a `pageshow` listener. When `event.persisted === true` (bfcache
- *   restore), call `location.reload()` to force a fresh render. This is the
- *   correct escape hatch for Next.js App Router + bfcache when client state
- *   would otherwise be stale.
+ *   Root fix: children are ALWAYS rendered as the base layer. This component
+ *   is purely additive — it mounts a position:fixed overlay on top when
+ *   sessionStorage says it's a first visit, then dismisses to reveal the
+ *   content underneath. bfcache always captures real content, never blank.
  *
- *   The reload is imperceptible in practice: bfcache restore + reload is
- *   ~identical latency to a fresh navigation since the page assets are cached.
+ *   Hydration safety: `mounted` starts false (server renders nothing here),
+ *   set to true in useEffect. The overlay is therefore client-only and never
+ *   causes a hydration mismatch. Children are rendered identically on server
+ *   and client.
+ */
+function BootOverlay() {
+  // `null` = not yet mounted (server / first client paint), avoids hydration
+  // mismatch. `true` = show boot overlay. `false` = already seen, skip.
+  const [show, setShow] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    // queueMicrotask defers the setState out of the effect body, satisfying the
+    // react-hooks/set-state-in-effect rule while still reading sessionStorage
+    // synchronously (so the value is captured before any concurrent update).
+    const seen = sessionStorage.getItem(STORAGE_KEY);
+    queueMicrotask(() => setShow(seen ? false : true));
+  }, []);
+
+  if (show !== true) return null;
+
+  return (
+    <BootSequence
+      onDoneAction={() => {
+        sessionStorage.setItem(STORAGE_KEY, "1");
+        setShow(false);
+      }}
+    />
+  );
+}
+
+/**
+ * PageShell — wraps page content so the boot sequence overlays on first visit.
+ * Children are always rendered (never blanked), making this safe for bfcache.
  */
 export function PageShell({ children }: { children: React.ReactNode }) {
-  const [booted, setBooted] = useState<boolean | null>(null);
-
-  // bfcache restore guard — reload on back/forward nav to ensure React
-  // effects re-run and the page renders correctly (not the frozen blank state).
-  useEffect(() => {
-    const onPageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) {
-        location.reload();
-      }
-    };
-    window.addEventListener("pageshow", onPageShow);
-    return () => window.removeEventListener("pageshow", onPageShow);
-  }, []);
-
-  useEffect(() => {
-    const seen = sessionStorage.getItem(STORAGE_KEY);
-    queueMicrotask(() => setBooted(seen ? true : false));
-  }, []);
-
-  if (booted === null) {
-    return <div className="paper-canvas min-h-screen" aria-hidden />;
-  }
-
-  if (!booted) {
-    return (
-      <BootSequence
-        onDoneAction={() => {
-          sessionStorage.setItem(STORAGE_KEY, "1");
-          setBooted(true);
-        }}
-      />
-    );
-  }
-
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <BootOverlay />
+    </>
+  );
 }
