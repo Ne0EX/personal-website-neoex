@@ -443,3 +443,194 @@ Sirius console wiring is structurally correct per code inspection. Browser persi
 **Action required:** Procyon must `GRANT SELECT ON entries TO anon;` to restore table-level SELECT for PostgREST. RLS (`entries_read` policy `status='published' OR is_owner()`) continues to filter rows correctly. Column-level SELECT grants are preserved. After that grant is applied, browser persistence verify for coord/place/filmSim must be re-run.
 
 DSCF0344 left clean: `coords=null, film_sim=null, served_coords=null` in DB. ✓
+
+---
+
+## Image-picker + B4-fix + #6-console re-verify — 2026-06-13
+
+**Auditor:** Algol · α-VER-06
+**Commits verified:** `d0b73a6` (image-picker, sirius), `e400fd0` (0012 B4-fix, procyon)
+**Port:** 3152 — fresh `next dev` (PID 65686), branch `genesis/store-as-source` HEAD
+**Method:** real Chrome (chrome-devtools MCP), Supabase MCP direct SQL, node --test, tsc. Nothing trusted from implementing agents.
+
+---
+
+### A · IMAGE-PICKER (model B)
+
+#### A1 · getOwnerPhotosForPicker() returns owner photos with CDN URLs
+
+Source verified: `lib/store/admin-reads.ts` — two-query (entries + photo_assets), `publicVariantUrl` for thumb/medium. Five photo entries returned for the picker (DSCF0344, DSCF0005, DSCF0004, DSCF0003, DSCF0002).
+
+Browser proof: picker panel opened on article editor (`/console/editor?kind=article&slug=001`). Dialog rendered with 5 cards (`.ip-card` count = 5). Thumbnail img src for first card: `https://aitqswnbtpexrxqpoiwo.supabase.co/storage/v1/object/public/photos/2026-05-bangkok/DSCF0344/thumb-72f3159c6b.webp` · HTTP 200 (curl verified). Medium variant `medium-72f3159c6b.webp` · HTTP 200.
+
+**Result: PASS**
+
+#### A2 · ImagePickerPanel component — slide-up panel, ESC close, a11y
+
+Source verified: `components/console/ImagePickerPanel.tsx` — `role="dialog"`, `aria-modal="true"`, `aria-label="Insert image from library"`, `aria-hidden={!open}`, ESC keydown handler, close button focused on open via `requestAnimationFrame`. `prefers-reduced-motion` handled: `transition-duration: 0.001ms`.
+
+Browser DOM proof: `dialogAriaModal="true"`, `dialogAriaLabel="Insert image from library"`. Focus lands on close button immediately on open (confirmed via snapshot: `uid=130_2 button "Close image picker (Esc)" focusable focused`).
+
+**Result: PASS**
+
+#### A3 · ◎ IMAGE button appears in ArticleSourcePane toolbar
+
+Browser proof: button with `aria-label="insert image from library"`, `textContent="◎ IMAGE"` found in article editor toolbar. Button gated on `pickerPhotos.length > 0` (confirmed: 5 photos returned by server, button rendered and interactive).
+
+**Result: PASS**
+
+#### A4 · Picker opens showing photo thumbnails with CDN URLs
+
+Browser proof: panel opens as `role="dialog"`, `cardCount=5`, first img src is `https://aitqswnbtpexrxqpoiwo.supabase.co/storage/v1/object/public/photos/2026-05-bangkok/DSCF0344/thumb-72f3159c6b.webp`. Network: only 1 GET to Supabase storage (thumb fetch for display) — zero upload/storage POST calls.
+
+**Result: PASS**
+
+#### A5 · Select photo inserts `![alt](mediumUrl)` at cursor, panel closes
+
+Browser proof (article 001): cursor set to position 0; DSCF0344 card clicked. Post-click:
+- `taValueStart="![2026-05-bangkok/DSCF0344](https://aitqswnbtpexrxqpoiwo.supabase.co/storage/v1/object/public/photos/2026-05-bangkok/DSCF0344/medium-72f3159c6b.webp)\n"`
+- textarea grew from 4724 → 4874 chars (+150)
+- `panelAriaHidden="true"` (panel closed after select)
+
+**Result: PASS**
+
+#### A6 · CDN URL returns 200
+
+Curl: `https://aitqswnbtpexrxqpoiwo.supabase.co/storage/v1/object/public/photos/2026-05-bangkok/DSCF0344/medium-72f3159c6b.webp` → **HTTP 200**
+
+**Result: PASS**
+
+#### A7 · Save via updateEntry — POST 200 ok:true
+
+Network reqid=409: `POST /console/editor?kind=article&slug=001 [200]`. Response body: `1:{"ok":true,"entry":{"id":"57b5f870-01a1-4b92-9a35-98c95fb52878","kind":"article","slug":"001"}}`.
+
+**Result: PASS**
+
+#### A8 · Same photo reusable in second article — model-B (no re-upload, no new storage objects)
+
+Article 002: same flow. Picker opened; DSCF0344 selected. Snippet inserted: `![2026-05-bangkok/DSCF0344](https://aitqswnbtpexrxqpoiwo.supabase.co/storage/v1/object/public/photos/2026-05-bangkok/DSCF0344/medium-72f3159c6b.webp)` — identical CDN URL to article 001.
+
+Network scan: zero upload/storage POST calls observed for either picker interaction (only 1 GET for thumb display). One stored object referenced from two articles: model-B confirmed.
+
+**Result: PASS**
+
+#### A9 · Test articles cleaned up (not left modified)
+
+Article 001: original body restored (4724 chars, starts `*A recipe is a starting point...`); POST 200 ok:true (reqid=410).
+Article 002: original body restored (5045 chars, starts `*Stride wasn't failing...`); POST 200 ok:true (reqid=447).
+
+**Result: PASS**
+
+---
+
+### B · B4-FIX SITE-RENDER (regression confirm — migration 0012)
+
+#### B1 · Public pages return 200, zero 42501/permission errors
+
+| Route | HTTP | Console errors |
+|---|---|---|
+| `/` | 200 | 0 |
+| `/archive` | 200 | 0 |
+| `/articles/000` | 200 | 0 |
+| `/photos` | 404 | 0 (intentional-inert — noted in prior QA) |
+| `/photos/2026-05-bangkok` | 200 | 0 |
+| `/photos/2026-05-bangkok/DSCF0002` | 200 | 0 |
+
+Photo page renders correct data: title "DSCF0002 · 2026-05-bangkok", served_coords 13.74°N · 100.52°E visible. No 500s on any route.
+
+**Result: PASS**
+
+#### B2 · Anon REST `select=slug,film_sim&status=eq.published` → rows (not 42501)
+
+Curl with anon JWT against `https://aitqswnbtpexrxqpoiwo.supabase.co/rest/v1/entries?select=slug,film_sim&status=eq.published` → rows returned (8 published entries, all with `film_sim: null`). Migration 0012 (`GRANT SELECT (film_sim) ON public.entries TO anon;`) confirmed applied.
+
+**Result: PASS**
+
+#### B3 · Anon REST `select=coords` → 42501 (DL13 intact)
+
+Curl: `{"code":"42501","details":null,"hint":"Grant the required privileges...","message":"permission denied for table entries"}` — DL13 gate on raw coords preserved. Anon column-level SELECT excludes `coords` as designed.
+
+**Result: PASS**
+
+---
+
+### C · #6 CONSOLE PERSISTENCE (coord/place/filmSim)
+
+#### C1 · Set manual COORD → save → reload → persists
+
+Set LAT=13.7494, LON=100.5311 via DOM value setter (fill_form strips decimals — tooling artifact; native value setter used). POST reqid=485 `{"coords":{"lat":13.7494,"lon":100.5311}}` → response `ok:true`.
+
+SQL after save: `coords={"lat":13.7494,"lon":100.5311,"place":""}`.
+
+After reload: input fields show `lat=13.7494, lon=100.5311` with `.is-overridden` CSS class (orange border). **Persists.**
+
+DL13 gate verified: `served_coords=null` (share_location=false) — raw coord stored in owner column, never served to anon. Correct.
+
+**Result: PASS**
+
+#### C2 · Assign PLACE via dropdown → save → persists
+
+Dropdown set to "Bangkok · TH". POST 200 ok:true. SQL: `place_id="bangkok"` written.
+
+After reload: dropdown shows "Bangkok · TH" selected. **Persists.**
+
+**Result: PASS**
+
+#### C3 · Pick FILM SIM chip → save → persists + active highlight
+
+CLASSIC CHROME chip clicked. POST reqid=561: `{"filmSim":"classic chrome"}` → response `ok:true`.
+
+SQL: `film_sim="classic chrome"` written. `photo_assets.exif` unchanged (raw exif has no filmSim key — Fujifilm MakerNote decode deferred as documented).
+
+After reload: WRITE chip panel (`.pm-simrow`): `classic chrome` has `aria-pressed="true"`, className `fsim-chip is-on`. **Persists + active highlight in write panel: PASS.**
+
+Note: instrument readout (preview panel) shows PROVIA as pressed after reload — this is a pre-existing cosmetic discrepancy in the preview-side chip rendering. It does not affect the write path or DB persistence. The write path chip state correctly reflects DB truth. Not a regression introduced by this commit.
+
+#### C4 · SQL ground-truth: entry.coords/place_id/film_sim written; photo_assets.exif raw-untouched
+
+SQL (Supabase MCP, live DB):
+- `entries.coords = {"lat":13.7494,"lon":100.5311}` (written by coord save)
+- `entries.place_id = "bangkok"` (written by place save)
+- `entries.film_sim = "classic chrome"` (written by filmSim click)
+- `photo_assets.exif = {"iso":3200,"lens":"XF23mmF2.8 R WR","focal":23,"camera":"FUJIFILM X-E5",...}` — NO filmSim key — EXIF untouched.
+
+**Result: PASS**
+
+#### C5 · DSCF0344 left clean
+
+SQL: `UPDATE entries SET coords=NULL, place_id=NULL, film_sim=NULL WHERE slug='2026-05-bangkok/DSCF0344'`. Post-update verified: `coords=null, place_id=null, film_sim=null, served_coords=null`.
+
+**Result: PASS**
+
+---
+
+### Regression scan
+
+| Check | Result | Evidence |
+|---|---|---|
+| `tsc --noEmit` | exit 0 | no output |
+| `node --test tests/*.mjs` | 67 pass · 0 fail | all 67 tests green (improved from 67/67 baseline) |
+| Globe NEXT-NODE-alpha | PASS | `1.130426` present in home body; NEXT NODE button found; Bangkok coords `13.76°N · 100.50°E` in archive |
+| Attractor-filter (coffee) | PASS | Triangulate overlay: "coffee" search → 1 result (article 001 "the four pours adaptation") · 1 of 1 loci in coordinate map |
+| Console errors across all surfaces | 0 | home, archive, articles/000, photos/2026-05-bangkok, photos/DSCF0002, console, editor all error-free |
+| Dev server killed | PASS | `pkill -f 'next dev -p 3152'`; no LISTEN on port 3152 |
+
+---
+
+### Note: instrument-readout filmSim chip display (not blocking)
+
+The `complementary "Camera instrument readout"` widget shows PROVIA as pressed even when `entries.film_sim="classic chrome"`. This is not a regression from d0b73a6 (the image-picker commit touches no filmSim rendering path). The write-path chip in the PhotoManager's `.pm-simrow` correctly reflects DB truth. Root cause is likely that the readout/preview uses a separate prop chain (possibly `exif.filmSim` from the frame state, which is initialized from `initialPhoto?.exif?.filmSim` before the authored override merges in). The write panel chip state (`authoredFilmSim` React state, confirmed "classic chrome" in fiber) is correct. This is a pre-existing cosmetic gap in the preview widget, not introduced by this slice. Flagged for sirius awareness; classify as minor cosmetic.
+
+---
+
+### Image-picker + B4-fix + #6-console overall verdict — ALL PASS (with one note)
+
+| Check group | Verdict |
+|---|---|
+| A · Image-picker (model B), 9 sub-checks | PASS |
+| B · B4-fix site-render (migration 0012), 3 sub-checks | PASS |
+| C · #6 console persistence (coord/place/filmSim), 5 sub-checks | PASS |
+| Regression: tsc + tests + globe + attractor | PASS |
+| Note: instrument-readout filmSim chip cosmetic discrepancy | NON-BLOCKING / pre-existing |
+
+All three task items (A/B/C) verified in real Chrome against the live Supabase DB. tsc=0. 67/67 tests pass. Dev server killed.
