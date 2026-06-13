@@ -131,7 +131,7 @@ export function GalleryLightbox({
     return () => document.removeEventListener("keydown", handleKey);
   }, [photo, handleClose, navigate]);
 
-  // ── Focus management ─────────────────────────────────────────────────────
+  // ── Focus management + scroll lock ──────────────────────────────────────
   const prevPhotoIdRef = useRef<string | null>(null);
   useEffect(() => {
     if (photo && !prevPhotoIdRef.current) {
@@ -149,8 +149,25 @@ export function GalleryLightbox({
     prevPhotoIdRef.current = photo?.id ?? null;
   }, [photo, originCellId]);
 
-  // Cleanup scroll lock on unmount
+  // Cleanup scroll lock on unmount (component teardown)
   useEffect(() => () => { document.body.style.overflow = ""; }, []);
+
+  // ── bfcache guard: clear body.overflow before page enters the cache ──────
+  // Without this, navigating away via [⇋ OPEN ENTRY] while the lightbox is
+  // open leaves body.overflow="hidden" in the page state captured by bfcache.
+  // When the user hits browser Back, the page restores with overflow:hidden and
+  // renders blank (white screen on back — fix #3, 2026-06-14).
+  //
+  // pagehide fires just before the page is unloaded or entered into bfcache.
+  // We clear overflow on pagehide unconditionally so the restored page
+  // is always scrollable regardless of lightbox state at navigation time.
+  useEffect(() => {
+    const onPageHide = () => {
+      document.body.style.overflow = "";
+    };
+    window.addEventListener("pagehide", onPageHide);
+    return () => window.removeEventListener("pagehide", onPageHide);
+  }, []);
 
   if (!mounted || !photo) return null;
 

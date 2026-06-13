@@ -37,7 +37,10 @@
   width: 100%;
 }
 
-/* paper-mount-label inside gallery cell: t-mono 9px ink-soft (per atom spec) */
+/* paper-mount-label inside gallery cell: t-mono 9px ink-soft (per atom spec).
+   overflow:hidden + text-overflow:ellipsis prevents long filenames (CHATGPTIMAGE-...)
+   from wrapping. title attr on the parent <a> exposes the full ID to pointer users.
+   Fix #A (2026-06-14). */
 .gallery-cell .paper-mount .paper-mount-label {
   margin-top: 8px;
   font-family: var(--font-mono);
@@ -45,6 +48,9 @@
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── Focus-visible on gallery cells ────────────────────────────────────────

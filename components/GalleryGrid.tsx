@@ -224,6 +224,7 @@ export function GalleryGrid({ rollGroups }: GalleryGridProps) {
                             href={`/photos/${roll}/${photo.id}`}
                             className="gallery-cell"
                             aria-label={ariaLabel}
+                            title={photo.id}
                             data-no-image={!hasImage ? "true" : undefined}
                             onClick={(e) => {
                               // Placeholder cells: navigate to entry directly (no lightbox)

@@ -17,9 +17,13 @@ import { useStratumKey, type StratumKey } from "@/lib/client-state/globe-store";
 // pathname === '/archive' but Nav never mounts on /archive (the archive page
 // renders its own OBSERVATORY header without Nav). The isArchive/active-state
 // logic is dead wherever Nav mounts. Removing it — no behaviour change, cleaner code.
+// FRAMES → /photos added per feedback #1 (2026-06-14): visitors had no discoverable
+// route to the photo gallery. Placed between TRACES and ARCHIVE so it sits in the
+// natural reading-depth sequence: identity → film traces → archive → contact.
 const NAV_ITEMS = [
   { label: "INDEX",     href: "/#hero"    },
   { label: "TRACES",    href: "/#index"   },
+  { label: "FRAMES",    href: "/photos"   },
   { label: "ARCHIVE",   href: "/archive"  },
   { label: "TRANSMIT",  href: "/#transmit"},
 ];

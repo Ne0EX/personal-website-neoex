@@ -258,15 +258,24 @@ export function RollIndex({ roll, contacts }: RollIndexProps) {
                       minWidth: 0,
                     }}
                   >
-                    {/* Frame ID — Special Elite 18px (value role) */}
+                    {/* Frame ID — Special Elite 18px (value role).
+                        overflow:hidden + text-overflow:ellipsis + white-space:nowrap
+                        prevents long filenames (CHATGPTIMAGE-...) from wrapping one
+                        char per line in the 60px column. title attr exposes full ID
+                        to pointer users. (Fix #A, 2026-06-14) */}
                     <span
+                      title={id}
                       style={{
                         fontFamily: 'var(--font-type)',
                         fontSize: '18px',
                         letterSpacing: '0.04em',
                         color: 'var(--ink-primary)',
                         lineHeight: 1,
-                        wordBreak: 'break-all',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        display: 'block',
+                        maxWidth: '100%',
                       }}
                     >
                       {id}
@@ -357,6 +366,8 @@ export function RollIndex({ roll, contacts }: RollIndexProps) {
                           gap: '6px',
                         }}
                       >
+                        {/* Placeholder ID — truncated to avoid overflow in mount thumbnail.
+                            Full ID exposed on the outer strip link aria-label + title. */}
                         <span
                           style={{
                             fontFamily: 'var(--font-mono)',
@@ -364,6 +375,12 @@ export function RollIndex({ roll, contacts }: RollIndexProps) {
                             letterSpacing: '0.22em',
                             textTransform: 'uppercase',
                             color: 'var(--ink-faint)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            maxWidth: '90%',
+                            display: 'block',
+                            textAlign: 'center',
                           }}
                         >
                           {id}
@@ -371,9 +388,12 @@ export function RollIndex({ roll, contacts }: RollIndexProps) {
                       </div>
                     )}
 
-                    {/* Mount label: FRAME {id} in t-meta 9px --ink-soft */}
+                    {/* Mount label: FRAME {id} in t-meta 9px --ink-soft.
+                        Truncated with ellipsis to prevent long IDs from
+                        overflowing the 160px mount column. (Fix #A, 2026-06-14) */}
                     <div
                       aria-hidden
+                      title={`FRAME ${id}`}
                       style={{
                         fontFamily: 'var(--font-mono)',
                         fontSize: 'var(--meta-size)',
@@ -382,6 +402,9 @@ export function RollIndex({ roll, contacts }: RollIndexProps) {
                         color: 'var(--ink-soft)',
                         marginTop: '6px',
                         lineHeight: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
                       }}
                     >
                       FRAME {id}
