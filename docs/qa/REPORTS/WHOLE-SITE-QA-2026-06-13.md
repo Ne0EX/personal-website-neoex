@@ -215,3 +215,78 @@ Migration `20260613_0010_pare_grants.sql` verified via Supabase MCP direct SQL a
 ### Wave-3 overall verdict — ALL PASS
 
 B1 (NeX panel leak), B2 (orphaned CDN storage), B3 (LENS clearable), B4 (anon grants pared) all confirmed fixed in real Chrome on port 3133 against the live Supabase DB. No regressions introduced. tsc=0. Tests 16/16 (excluding documented pre-branch env failures).
+
+---
+
+## Globe-interaction verify — 2026-06-13
+
+**Commit:** `6f7a217` — `fix(globe): panel clears NEXT NODE, Ne0 drag unlocked, NeX orbits camera`
+**Port:** 3136 (fresh prod build — `next build` clean, all routes emitted)
+**Branch:** `genesis/store-as-source`
+**Verified by:** Algol (α-VER-06)
+
+### Fix #1 — PlaceFrontDoorPanel does not occlude NEXT NODE button
+
+Source confirmed: `bottom: 124px` in working tree at `components/WorldlineGlobe.tsx:2562` (was `bottom: 22`).
+
+Runtime (real Chrome, prod build, place panel open on Bangkok node):
+- Panel rendered: `translateX(0px)`, `opacity: 1`, `aria-hidden: false`
+- Panel bottom: 879px · NEXT NODE btn top: 908px · **gap = 29px · overlap = false**
+- NEXT NODE `pointer-events: auto`; `document.elementFromPoint` at button center returns the button itself (not occluded)
+- Clicking NEXT NODE while panel open cycles to next node — NETRA voice changes: **functional confirmed**
+
+Verdict: **PASS**
+
+### Fix #2 — Ne0 stratum allows horizontal drag-rotate
+
+Source confirmed: `else if (sk === "neo")` branch at `components/WorldlineGlobe.tsx:1301–1308`.
+Branch calls `clearNetraLock()` + `baseRotY += dx * 0.005` + `refs.globe.rotation.y = baseRotY`.
+
+Runtime (Ne0 stratum, drag 300px right):
+- Live NETRA hover coordinate at fixed screen point before drag: `23.21°N · 140.25°E`
+- Same screen point after drag: `23.21°N · 52.92°E` (longitude shifted ~87° west — globe rotated east relative to stationary camera)
+- Latitude unchanged: camera did not move vertically
+- Longitude delta (140.25 − 52.92 = 87.3°) matches `300px × 0.005 rad/px × (180/π) ≈ 86°`
+
+Verdict: **PASS**
+
+### Fix #3 — NeX stratum camera orbits back and forth, no drift-to-point
+
+Source confirmed: `else if (sk === "nex")` camera-orbit branch at `components/WorldlineGlobe.tsx:1286–1300`.
+Rotates `camera.position.(x,z)` by `dx * 0.005` rad via cos/sin; `enforceRadiusFloor()` called after each step.
+
+Runtime (NeX stratum):
+- ORBIT before 300px right drag: `24°` · after drag: `110°` · delta = **86°** (matches `300 × 0.005 rad = 1.5 rad ≈ 86°`)
+- ORBIT after 300px LEFT drag from 110°: `24°` — symmetric, no drift-lock
+- Camera stays at radius ~5.59 (enforceRadiusFloor: MIN_CAM_R = 1.08); no clip-through geometrically confirmed (orbit rotation preserves vector length; float-error guarded by enforceRadiusFloor)
+
+Verdict: **PASS**
+
+### NeON — drag intentionally blocked (regression check)
+
+Drag 300px right in NeON stratum → ORBIT stays `0°` (polar axis framing unchanged). Polar axis lock preserved.
+
+Verdict: **PASS (no regression)**
+
+### FULL — globe auto-spin + drag retained (regression check)
+
+Drag 300px right in FULL stratum → live hover coord at fixed screen point: `18.24°N · 32.35°E` → `18.24°N · 60.29°W` (~92° shift). Globe still rotates on drag.
+
+Verdict: **PASS (no regression)**
+
+### Regression scan
+
+| Check | Result | Evidence |
+|---|---|---|
+| `tsc --noEmit` | exit 0 | no output |
+| Lint new violations | 0 new | 3 pre-existing errors identical on parent commit (confirmed via `git checkout HEAD~1 -- components/WorldlineGlobe.tsx + eslint`) |
+| `node --test tests/*.mjs` | 57 pass · 2 fail | 2 failures = documented pre-branch pair (`console-gate-contract` + `worldline-globe-coordinates`) — unchanged |
+| Console errors | 0 app errors | 1 error × 8 occurrences = `setPointerCapture NotFoundError` — test-harness-only (synthetic pointerId not registered with browser; real mouse input unaffected) |
+| NEXT-NODE starts at Bangkok (α) | PASS | First NEXT NODE in FULL and Ne0 scans reticle to `13.76°N · 100.50°E` (Bangkok GPS) |
+| Attractor filter (coffee pill) | PASS | COFFEE filter → 1 article visible (FILE-001, "the four pours adaptation"); ALL → 4 articles |
+| Place node + dig | PASS | Bangkok panel opens with `PLACE · BANGKOK · TH · 4 RECORDS` + DIG DEEPER button |
+| No explainer UI | PASS | No tutorial/explainer DOM elements found |
+
+### Globe-interaction verdict — ALL PASS
+
+Fixes #1, #2, #3 verified in real Chrome on production build. NeON + FULL strata unaffected. Zero application console errors. tsc=0. Tests at documented baseline (57 pass / 2 pre-branch-red).
