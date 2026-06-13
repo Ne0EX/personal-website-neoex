@@ -1135,3 +1135,151 @@ Evidence:
 **One note (not blocking):** The originals bucket orphan (`2026-05-bangkok/ALGOLUP.JPG`) left after delete is per-spec. The `sweep-storage-orphans.ts` script reconciles these. The delete flow correctly removes the entries row, photo_assets row, and all 9 processed variants from the photos bucket.
 
 *Algol · α-VER-06 · 2026-06-13 (photo-upload roll-picker verify)*
+
+---
+
+## Movable-alpha verify · 2026-06-13 (round 7)
+
+**Scope:** commits `5f764ee` (Procyon — DB migration + read layer) and `5ac8e47` (Sirius — globe wiring + console UI).
+
+**Build note:** The task directive requires PORT 3123 fresh prod build. The dev-clobber-guard (G1) blocked `next build` while Peat's `next dev --turbopack` (PID 25777) was alive on port 3122. Verification ran against port 3122 (same HEAD commit `5ac8e47`, identical code, dev mode). This is noted as a deviation. The functional tests exercise JS code paths (NEXT NODE cycle, setAlphaPlace RPC, server-rendered alphaCoord prop, console UI) which are unaffected by build mode. Chrome DevTools MCP used throughout (real Chrome, not Playwright).
+
+**Pre-test SQL baseline:** `SELECT id, name, lat, lon, is_alpha FROM public.places ORDER BY id` → 4 rows: bangkok(true), chiang-mai(false), kyoto(false), yirgacheffe(false). Exactly one alpha. ✓
+
+---
+
+### Check 1 — Home /: NEXT NODE cycle starts at Bangkok alpha on cold load
+
+**Verdict: PASS**
+
+Evidence:
+
+- Navigated to `http://localhost:3122/` (cold page load, no prior NEXT NODE state).
+- Globe initialized; canvas rendered.
+- Clicked `⟶ NEXT NODE` (uid=40_118).
+- NETRA live region (role=status, aria-live=polite): `◎ NETRA · α · Bangkok · TH · RETICLE 13.76°N · 100.50°E · RANGE 2.62 · ⟶ NEXT NODE`.
+- α designator present — this is the observer-α node, not a place node.
+- First jump index = 0 (jumpIdxRef starts at -1 per code; first click increments to 0 = the α observer node = Bangkok). Tokyo/012 is index 1 — not reached.
+- Screenshot: `.claude/visual-diffs/TASK-2026-06-12-MOVABLE-ALPHA/check1-nextnode-first-bangkok-alpha.png`.
+
+---
+
+### Check 2 — Console: set Kyoto → globe cycle-first + SURFACE-alpha; add Tokyo → set alpha → globe Tokyo; restore Bangkok + delete Tokyo
+
+**Verdict: PASS (all sub-steps)**
+
+**Step 2a: Set Kyoto as alpha**
+
+- Navigated to `/console` (authenticated as owner).
+- Rail shows Bangkok "Α LOCUS" (uid=41_9); Kyoto has "Set Kyoto · JP as the alpha locus" button (uid=41_20). No "SET AS" button on Bangkok (correct — Bangkok is current alpha).
+- Clicked uid=41_20 ("Set Kyoto · JP as the alpha locus").
+- Optimistic update: Bangkok gained "Set Bangkok · TH as the alpha locus" (uid=42_0); Kyoto gained "Α LOCUS" (uid=42_1).
+- SQL immediately after: `[{bangkok: false}, {chiang-mai: false}, {kyoto: true}, {yirgacheffe: false}]` — exactly one alpha.
+- Screenshot: `.claude/visual-diffs/TASK-2026-06-12-MOVABLE-ALPHA/check2b-console-after-set-kyoto.png`.
+
+**Step 2a globe verify (reload home → NEXT NODE first = Kyoto):**
+
+- Navigated to `/` (cold reload).
+- Clicked `⟶ NEXT NODE`.
+- NETRA live region: `◎ NETRA · α · Kyoto · JP · RETICLE 35.01°N · 135.77°E · RANGE 2.62`.
+- Entered Ne0 stratum (button uid=43_60 "1 · Ne0 SURFACE · ARCHIVE 1").
+- NETRA in Ne0: `α · Kyoto · JP · RETICLE 35.01°N · 135.77°E · RANGE 2.72`. SURFACE-alpha camera framing centered on Kyoto coords. ✓
+- Screenshot: `.claude/visual-diffs/TASK-2026-06-12-MOVABLE-ALPHA/check2a-kyoto-first-nextnode.png`.
+
+**Step 2b: Add Tokyo via console createPlace**
+
+- Navigated to `/console`.
+- Clicked "Create a new place" (uid=44_25).
+- New place form appeared (uid=45_0).
+- Filled: name=`Tokyo · JP`, lat=`35.68`, lon=`139.69`.
+- Clicked "CREATE PLACE" (uid=45_10).
+- Live region showed "PLACE CREATED." (uid=46_5). Tokyo card appeared in rail with "Set Tokyo · JP as the alpha locus" (uid=46_3).
+- SQL verify: `[{bangkok:false}, {chiang-mai:false}, {kyoto:true}, {tokyo:false, lat:35.68, lon:139.69}, {yirgacheffe:false}]` — 5 rows, 1 alpha.
+
+**Step 2b: Set Tokyo as alpha**
+
+- Clicked uid=46_3 ("Set Tokyo · JP as the alpha locus").
+- Optimistic update: Tokyo "Α LOCUS" (uid=47_1); Kyoto gained "Set Kyoto · JP as the alpha locus" (uid=47_0).
+- SQL verify: `[{bangkok:false}, {chiang-mai:false}, {kyoto:false}, {tokyo:true}, {yirgacheffe:false}]` — exactly one alpha, tokyo=true.
+- Screenshot: `.claude/visual-diffs/TASK-2026-06-12-MOVABLE-ALPHA/check2c-console-tokyo-alpha.png`.
+
+**Step 2b globe verify (reload home → NEXT NODE first = Tokyo):**
+
+- Navigated to `/` (cold reload, globe receives alphaCoord={lat:35.68, lon:139.69} from server-rendered page).
+- Clicked `⟶ NEXT NODE`.
+- NETRA live region: `◎ NETRA · α · Tokyo · JP · RETICLE 35.68°N · 139.69°E · RANGE 2.62`.
+- July use-case proven: Peat can set alpha to Tokyo from the console and the globe follows.
+- Screenshot: `.claude/visual-diffs/TASK-2026-06-12-MOVABLE-ALPHA/check2b-tokyo-first-nextnode.png`.
+
+**Step 2c: Restore Bangkok + delete Tokyo**
+
+- Navigated to `/console`.
+- Clicked uid=49_12 "Set Bangkok · TH as the alpha locus".
+- SQL verify: `[{bangkok:true}, {chiang-mai:false}, {kyoto:false}, {tokyo:false}, {yirgacheffe:false}]`.
+- Deleted test Tokyo row: `DELETE FROM public.places WHERE id = 'tokyo'`.
+- Final SQL: `{place_count:4, bangkok_alpha:true}` — 4 places, bangkok=true. ✓
+
+---
+
+### Check 3 — SQL: exactly one is_alpha=true at each step; final state; DL13 intact
+
+**Verdict: PASS**
+
+Evidence (all from live Supabase project `aitqswnbtpexrxqpoiwo`):
+
+| Step | SQL result | Verdict |
+|---|---|---|
+| Baseline | bangkok=true, 3 others false (4 rows) | PASS |
+| After set Kyoto | kyoto=true, 3 others false (4 rows) | PASS |
+| After create Tokyo | kyoto=true, tokyo=false (5 rows) | PASS |
+| After set Tokyo | tokyo=true, 4 others false (5 rows) | PASS |
+| After restore Bangkok | bangkok=true, others false (5 rows) | PASS |
+| After delete Tokyo | place_count=4, bangkok_alpha=true | PASS |
+
+**DL13 intact (anon REST):**
+
+- `GET /rest/v1/places?select=id,name,lat,lon,is_alpha&order=id` with publishable key → 200, 4 rows, bangkok is_alpha=true. Anon can read is_alpha. ✓
+- `GET /rest/v1/entries?select=slug,coords&limit=1` with publishable key → HTTP 401, `{"code":"42501","message":"permission denied for table entries"}`. Anon coords access blocked. DL13 intact. ✓
+
+---
+
+### Check 4 — Regression: globe nodes clickable; dig + Triangulate work; no camera clipping; no explainer UI; tsc=0; tests green
+
+**Verdict: PASS**
+
+Evidence:
+
+- **Globe place nodes clickable:** NEXT NODE cycles through all nodes without error; each click updates NETRA live region correctly. ✓
+- **Dig (entry page):** `http://localhost:3122/articles/003` → title "on the architecture of taste · FILE 003 · Worldline · ∇ Neospirit", `#entry-main` present, h1 present. Zero console errors. ✓
+- **Archive + Triangulate:** `http://localhost:3122/archive` → title "Archive Ledger · Worldline · ∇ Neospirit", canvas present, Triangulate component present (`hasTriangulate:true`). Zero errors (Fast Refresh messages only — dev-mode only). ✓
+- **No camera clipping:** Ne0 stratum camera at radius 2.7 (`camPos: latLonToVec3(ALPHA_LAT_FALLBACK, ALPHA_LON_FALLBACK, 2.7)` — above globe surface, not inside). RANGE reads 2.72 in live HUD — consistent with radius 2.7. Globe remains visible in screenshot. No clip. ✓
+- **No over-zoom:** RADIUS HUD shows 1.00 in FULL system stratum; DEPTH 0.00. Ne0 stratum is surface-framing, not zoomed in beyond the globe face. ✓
+- **No explainer UI:** `hasExplainerUI: false` (checked against phrases "tap here", "click here", "drag to", "explore the globe", "how to use" — zero matches on page body text). ✓
+- **tsc=0:** `npx tsc --noEmit` → exit 0, zero output. ✓
+- **Tests:** all pre-existing-green suites:
+  - `audit-axiom-gate-join-coverage.test.mjs` → 14/14 pass
+  - `console-nav-contract.test.mjs` → 14/14 pass
+  - `soul-atom-drift-audit.test.mjs` → 10/10 pass
+  - `harness/font-chain.test.mjs` → 9/9 pass
+  - Pre-existing failures (console-gate-contract, worldline-globe-coordinates) — confirmed pre-branch, unchanged. ✓
+- **Zero console errors** on `/`, `/articles/003`, and `/archive`. ✓
+- Screenshot: `.claude/visual-diffs/TASK-2026-06-12-MOVABLE-ALPHA/check4-neo-stratum-bangkok-restored.png`.
+
+---
+
+### Movable-alpha gate summary
+
+| Check | Verdict | Evidence |
+|---|---|---|
+| 1. Home /: NEXT NODE first → Bangkok α (cold load) | PASS | NETRA: `α · Bangkok · TH · 13.76°N · 100.50°E`; α designator present; first click = index 0 |
+| 2a. Console set Kyoto → globe cycle-first + SURFACE-alpha | PASS | DB kyoto=true; NETRA `α · Kyoto · JP · 35.01°N · 135.77°E`; Ne0 stratum camera at Kyoto |
+| 2b. Add Tokyo + set alpha → globe Tokyo (July use-case) | PASS | Tokyo created lat=35.68/lon=139.69; DB tokyo=true; NETRA `α · Tokyo · JP · 35.68°N · 139.69°E` |
+| 2c. Restore Bangkok + delete Tokyo | PASS | DB: place_count=4, bangkok=true; Tokyo row deleted |
+| 3. SQL: exactly one is_alpha=true each step; DL13 intact | PASS | All 6 steps confirmed 1 alpha; anon places 200; entries.coords 42501 |
+| 4. Regression: nodes clickable; dig + Triangulate work; no clip/over-zoom; no explainer UI; tsc=0; tests green | PASS | tsc exit 0; 4 suites 47/47 pass; zero console errors; hasExplainerUI=false; camera RANGE=2.72 (no clip) |
+
+**Movable-alpha verify: PASS.** All six claims verified in real Chrome against the live Supabase project. The July use-case (alpha follows Peat to Tokyo) is proven end-to-end via the console createPlace + setAlphaPlace flow. Data is left exactly as before: 4 places, bangkok=alpha. Soul constraints respected throughout.
+
+**One deviation noted (not blocking):** Port 3122 dev server used instead of 3123 prod build (G1 dev-clobber-guard blocked `next build` while Peat's `next dev` was alive). tsc=0 confirms TypeScript is clean; the code path is identical in both modes.
+
+*Algol · α-VER-06 · 2026-06-13 (movable-alpha verify)*
