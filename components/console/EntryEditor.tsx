@@ -90,6 +90,8 @@ import type {
 } from '@/components/console/editor-types'
 import { ArticlePreview } from '@/components/console/ArticlePreview'
 import { SAMPLE_DRAFT, SAMPLE_MD } from '@/components/console/ArticleEditor'
+import { ImagePickerPanel } from '@/components/console/ImagePickerPanel'
+import type { PhotoPickerItem } from '@/lib/store/admin-reads'
 import { PhotoManager, MOCK_FRAMES } from '@/components/console/PhotoManager'
 import { PhotoPreview } from '@/components/console/PhotoPreview'
 import {
@@ -1471,23 +1473,45 @@ function ArticleOutline({ md, fileNum, previewRefId }: ArticleOutlineProps) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface ArticleSourcePaneProps {
-  md:         string
-  onChange:   (v: string) => void
-  onSave?:    () => void
-  saveStatus?: 'idle' | 'saving' | 'saved' | 'error'
+  md:            string
+  onChange:      (v: string) => void
+  onSave?:       () => void
+  saveStatus?:   'idle' | 'saving' | 'saved' | 'error'
+  /** Ref forwarded from the parent so it can read cursor position for image insert. */
+  textareaRef?:  React.RefObject<HTMLTextAreaElement | null>
+  /** Called when the ◎ IMAGE button is clicked — parent opens the image picker. */
+  onOpenPicker?: () => void
+  /** True while the image picker panel is open (drives the button's is-on state). */
+  pickerOpen?:   boolean
 }
 
-function ArticleSourcePane({ md, onChange, onSave, saveStatus }: ArticleSourcePaneProps) {
+function ArticleSourcePane({
+  md, onChange, onSave, saveStatus,
+  textareaRef, onOpenPicker, pickerOpen,
+}: ArticleSourcePaneProps) {
   // S6: save-status copy tokens (no Vega handoff needed — these are console-internal instrument labels)
   const saveLabel = saveStatus === 'saving' ? 'SAVING…'
     : saveStatus === 'saved' ? 'SAVED'
     : saveStatus === 'error' ? 'SAVE ERR'
     : null
   return (
-    <div className="src-pane">
+    <div className="src-pane" style={{ position: 'relative' }}>
       <div className="src-head">
         <span>MARKDOWN · SOURCE</span>
         <div style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
+          {/* ◎ IMAGE — opens image picker panel (article kind, model B) */}
+          {onOpenPicker && (
+            <button
+              type="button"
+              onClick={onOpenPicker}
+              className={'ed-srctoggle' + (pickerOpen ? ' is-on' : '')}
+              aria-pressed={!!pickerOpen}
+              aria-label="insert image from library"
+              title="insert image from photo library"
+            >
+              ◎ IMAGE
+            </button>
+          )}
           {/* S6: save affordance (only shown when a real entry is loaded) */}
           {onSave && (
             <button
@@ -1513,6 +1537,7 @@ function ArticleSourcePane({ md, onChange, onSave, saveStatus }: ArticleSourcePa
         </div>
       </div>
       <textarea
+        ref={textareaRef ?? undefined}
         className="src-text"
         value={md}
         spellCheck={false}
@@ -1779,6 +1804,12 @@ interface EntryEditorProps {
    * Passes only for photo kind (empty for article/fiction).
    */
   availablePlaces?: Place[]
+  /**
+   * Owner's full photo library with public CDN thumbnail URLs (model B image picker).
+   * Loaded server-side when kind=article; empty otherwise (no picker for photo/fiction).
+   * Each item carries slug / roll / photoId / caption / thumbUrl / mediumUrl.
+   */
+  pickerPhotos?: PhotoPickerItem[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1793,6 +1824,7 @@ export function EntryEditor({
   photoRollTotal = 1,
   availableRolls = [],
   availablePlaces = [],
+  pickerPhotos = [],
 }: EntryEditorProps = {}) {
   const draft = initialDraft ?? SAMPLE_DRAFT
 
@@ -1970,6 +2002,45 @@ export function EntryEditor({
       router.push(`/console?removed=${encodeURIComponent(nodeId)}`)
     })
   }, [hasEntry, entryKind, entrySlug, router, startLifecycleTransition])
+
+  // ── Image picker (model B — reuse, no re-upload) ─────────────────────────
+  // pickerOpen: whether the ImagePickerPanel slide-up is visible.
+  // textareaRef: forwarded to ArticleSourcePane so we can read cursor position.
+  // insertAtCursor: splices the MDX snippet at selectionStart, restores cursor.
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // insertAtCursor — inserts `snippet` at the textarea's current cursor position.
+  // Works by: read selectionStart, splice into `md`, call setMd, then
+  // use requestAnimationFrame to restore the cursor so React doesn't reset it.
+  // Hydration safe: reads DOM only inside a callback (never during render).
+  const insertAtCursor = useCallback((snippet: string) => {
+    const ta = textareaRef.current
+    if (!ta) {
+      // Fallback: append at end when ref is unavailable
+      setMd((prev) => prev + '\n' + snippet + '\n')
+      return
+    }
+    // Read cursor position from DOM BEFORE the setState call changes the value.
+    const pos = ta.selectionStart
+    const currentValue = ta.value
+    const before = currentValue.slice(0, pos)
+    const after  = currentValue.slice(pos)
+    const needsLeadingNl  = before.length > 0 && !before.endsWith('\n')
+    const needsTrailingNl = after.length  > 0 && !after.startsWith('\n')
+    const inserted = (needsLeadingNl ? '\n' : '') + snippet + (needsTrailingNl ? '\n' : '')
+    setMd(before + inserted + after)
+    // After React re-renders the textarea with the new value, restore the cursor
+    // to just after the inserted snippet (including any prefix newline we added).
+    const newPos = pos + inserted.length
+    requestAnimationFrame(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus()
+        textareaRef.current.setSelectionRange(newPos, newPos)
+      }
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // setMd is a stable setter; textareaRef.current is read at call time
 
   // S6: SAVE body — called by Cmd+S and explicit SAVE button (article kind).
   // updateEntry patch: only sends body (no other field edits in the source pane).
@@ -2560,14 +2631,33 @@ export function EntryEditor({
               {outlineOpen && (
                 <ArticleOutline md={md} fileNum={draft.fileNum} previewRefId="ed-preview" />
               )}
-              {/* S6: pass real save handler when a real entry is loaded */}
+              {/* S6: pass real save handler when a real entry is loaded.
+                  Image picker (model B): ◎ IMAGE button opens ImagePickerPanel.
+                  textareaRef enables cursor-aware insert (insertAtCursor).
+                  Wrapper div: position:relative + min-height:0 so ImagePickerPanel
+                  (position:absolute inset:0) is bounded to this column (not the
+                  whole editor) — mirrors the PublishPanel host pattern. */}
               {showSource && (
-                <ArticleSourcePane
-                  md={md}
-                  onChange={setMd}
-                  onSave={hasEntry ? onSaveBody : undefined}
-                  saveStatus={hasEntry ? saveStatus : undefined}
-                />
+                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+                  <ArticleSourcePane
+                    md={md}
+                    onChange={setMd}
+                    onSave={hasEntry ? onSaveBody : undefined}
+                    saveStatus={hasEntry ? saveStatus : undefined}
+                    textareaRef={textareaRef}
+                    onOpenPicker={pickerPhotos.length > 0 ? () => setPickerOpen(true) : undefined}
+                    pickerOpen={pickerOpen}
+                  />
+                  {/* ImagePickerPanel mounts in the same position:relative column so
+                      it slides up covering only the source pane (not the toolbar or
+                      preview pane). Same containment strategy as PublishPanel. */}
+                  <ImagePickerPanel
+                    open={pickerOpen}
+                    photos={pickerPhotos}
+                    onSelect={insertAtCursor}
+                    onClose={() => setPickerOpen(false)}
+                  />
+                </div>
               )}
               {showPreview && (
                 <div className="ed-preview-wrap" id="ed-preview">

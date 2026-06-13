@@ -11,6 +11,7 @@
  */
 
 import { createSupabaseServerClient } from './supabase/server'
+import { publicVariantUrl } from './media'
 import {
   mapArticle,
   mapFiction,
@@ -206,4 +207,82 @@ export async function getAllRolls(): Promise<Photo[]> {
 
   if (error) throw new Error(`getAllRolls: ${error.message}`)
   return (data as unknown as DbRollRow[]).map(mapRoll)
+}
+
+// ---------------------------------------------------------------------------
+// Image picker — model B (reuse; no re-upload)
+// ---------------------------------------------------------------------------
+
+/**
+ * One photo item for the article body image picker.
+ * Carries enough data to render a thumbnail grid and produce the MDX insert.
+ */
+export interface PhotoPickerItem {
+  /** "roll/photoId" — used as the human-readable label and MDX alt text fallback */
+  slug: string
+  /** roll slug, e.g. "2026-05-bangkok" */
+  roll: string
+  /** photo_id, e.g. "DSCF0003" */
+  photoId: string
+  /** display caption (may be null for uncaptioned frames) */
+  caption: string | null
+  /** public CDN URL for the thumb-size webp variant; null when pipeline not run yet */
+  thumbUrl: string | null
+  /** public CDN URL for the medium-size webp variant; null when pipeline not run yet */
+  mediumUrl: string | null
+}
+
+/**
+ * Load all owner photos with thumbnail URLs for the article body image picker.
+ * Returns published AND draft entries (admin read — authenticated owner only).
+ * Photos without variants (pipeline not run) are included with null URLs so
+ * the picker can display a degraded placeholder rather than hiding them.
+ *
+ * Used by: app/console/editor/page.tsx (server) → passed to EntryEditor →
+ * ArticleSourcePane → ImagePickerPanel (client).
+ *
+ * Owner: Sirius (α-SUR-01) · image-picker model-B
+ */
+export async function getOwnerPhotosForPicker(): Promise<PhotoPickerItem[]> {
+  const client = await createSupabaseServerClient()
+
+  // Fetch photo entries (slug = "roll/photoId" format, caption from entries)
+  const { data: entries, error: entryError } = await client
+    .from('entries')
+    .select('id,roll,photo_id,caption')
+    .eq('kind', 'photo')
+    .order('iso_date', { ascending: false })
+
+  if (entryError) throw new Error(`getOwnerPhotosForPicker entries: ${entryError.message}`)
+  if (!entries || entries.length === 0) return []
+
+  const rows = entries as unknown as Array<{ id: string; roll: string; photo_id: string; caption: string | null }>
+
+  // Fetch photo_assets variants in one round-trip
+  const entryIds = rows.map((r) => r.id)
+  const { data: assets, error: assetError } = await client
+    .from('photo_assets')
+    .select('entry_id,variants')
+    .in('entry_id', entryIds)
+
+  if (assetError) throw new Error(`getOwnerPhotosForPicker assets: ${assetError.message}`)
+
+  // Build a lookup map: entryId → variants
+  type VariantRow = { entry_id: string; variants: { thumb?: { webp: string }; medium?: { webp: string } } | null }
+  const variantMap = new Map<string, VariantRow['variants']>()
+  for (const row of (assets ?? []) as unknown as VariantRow[]) {
+    variantMap.set(row.entry_id, row.variants)
+  }
+
+  return rows.map((r) => {
+    const variants = variantMap.get(r.id)
+    return {
+      slug:      `${r.roll}/${r.photo_id}`,
+      roll:      r.roll,
+      photoId:   r.photo_id,
+      caption:   r.caption ?? null,
+      thumbUrl:  variants?.thumb?.webp  ? publicVariantUrl(variants.thumb.webp)  : null,
+      mediumUrl: variants?.medium?.webp ? publicVariantUrl(variants.medium.webp) : null,
+    }
+  })
 }

@@ -49,6 +49,7 @@ import {
   getPhotoByRollAndIdAdmin,
   getSidecarsInRollAdmin,
   getAllRolls,
+  getOwnerPhotosForPicker,
 } from '@/lib/store/admin-reads'
 import { getAllPlacesFromStore } from '@/lib/store/reads'
 import { EntryEditor }         from '@/components/console/EntryEditor'
@@ -241,6 +242,13 @@ export default async function ArticleEditorPage({
     ? await getAllPlacesFromStore()
     : []
 
+  // Load photo library for the article body image picker (model B — reuse, no re-upload).
+  // Only needed for article kind; empty for photo/fiction (those editors have no body picker).
+  // Authenticated owner read: includes draft photos so the full library is browseable.
+  const pickerPhotos = kind === 'article' || kind === undefined
+    ? await getOwnerPhotosForPicker()
+    : []
+
   // Seed the editor's top-level kind state from the URL ?kind param. The draft's
   // `.kind` is hardcoded 'article' (ArticlePreview's type constraint); the URL
   // kind param is the semantic kind the console node carries, and it drives the
@@ -259,6 +267,7 @@ export default async function ArticleEditorPage({
       photoRollTotal={photoCtx?.rollTotal}
       availableRolls={availableRolls}
       availablePlaces={availablePlaces}
+      pickerPhotos={pickerPhotos}
     />
   )
 }
