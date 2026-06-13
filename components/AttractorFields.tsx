@@ -1,11 +1,35 @@
 "use client";
 
-import { useState } from "react";
+/**
+ * AttractorFields.tsx
+ * ─────────────────────
+ * §02 pill strip — browse-by-domain attractor filter.
+ *
+ * Props contract (lifted state — see AttractorFilterShell.tsx):
+ *   activeAttractor  — currently selected pill (or "all")
+ *   onSelect         — callback; shell handles toggle (click active → "all")
+ *   memberCounts     — map of pill label → count of matching RECENT_ENTRIES
+ *
+ * Empty-pill treatment (soul-consistent):
+ *   Pills with memberCounts[tag] === 0 are rendered dimmed (opacity-40)
+ *   and non-interactive, signalling there is no corpus yet for that field.
+ *   They do NOT trigger a selection or change visual state on hover.
+ *   As Peat writes + tags more entries, pills populate automatically.
+ *
+ * "all" always has count === entries.length and is never empty.
+ *
+ * Owner: Sirius (α-SUR-01) · attractor-filter slice
+ */
+
 import { ATTRACTOR_FIELDS } from "@/lib/entries";
 
-export function AttractorFields() {
-  const [active, setActive] = useState<string>("all");
+interface Props {
+  activeAttractor: string;
+  onSelect: (tag: string) => void;
+  memberCounts: Record<string, number>;
+}
 
+export function AttractorFields({ activeAttractor, onSelect, memberCounts }: Props) {
   return (
     <section
       id="attractor"
@@ -20,12 +44,36 @@ export function AttractorFields() {
 
       <div className="flex flex-wrap gap-2">
         {ATTRACTOR_FIELDS.map((tag) => {
-          const isActive = tag === active;
+          const isActive = tag === activeAttractor;
+          const isEmpty = (memberCounts[tag] ?? 0) === 0;
+
+          if (isEmpty) {
+            // Dim + disable: no pointer, no focus, purely decorative.
+            // Rendered as <span> (not <button>) so it is correctly excluded
+            // from keyboard tab order and screen-reader button role.
+            return (
+              <span
+                key={tag}
+                aria-disabled="true"
+                title={`${tag} — no entries yet`}
+                className="px-3 py-1.5 font-mono uppercase tracking-[0.15em] text-[10px] border
+                  border-[var(--ink-faint)] opacity-40 cursor-not-allowed select-none"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  color: "var(--ink-faint)",
+                }}
+              >
+                {tag}
+              </span>
+            );
+          }
+
           return (
             <button
               key={tag}
               type="button"
-              onClick={() => setActive(tag)}
+              onClick={() => onSelect(tag)}
+              aria-pressed={isActive}
               className={`px-3 py-1.5 font-mono uppercase tracking-[0.15em] text-[10px] border transition-colors
                 ${
                   isActive

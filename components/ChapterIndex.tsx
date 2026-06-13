@@ -1,17 +1,47 @@
 "use client";
 
+/**
+ * ChapterIndex.tsx
+ * ──────────────────
+ * §01 filtered entry list — recent traces.
+ *
+ * Props contract (lifted state — see AttractorFilterShell.tsx):
+ *   entries          — filtered subset of RECENT_ENTRIES (or full list when activeAttractor="all")
+ *   activeAttractor  — used as the useEffect dependency to re-trigger stagger animation
+ *                      whenever the filter changes. The value itself is not rendered.
+ *
+ * Border logic note:
+ *   The original code computed `lastTwo` and `isRight` off RECENT_ENTRIES (always 4 entries).
+ *   After filtering, the set may be 1–4 items, so we recompute off entries.length.
+ *   "lastTwo" means: the last row of cards should NOT have a bottom border. With a 2-col
+ *   grid: the last two items form the last row. Single-entry filter → last-one is last row.
+ *
+ * Owner: Sirius (α-SUR-01) · attractor-filter slice
+ */
+
 import { useEffect, useRef } from "react";
 import { animate, stagger } from "animejs";
-import { RECENT_ENTRIES } from "@/lib/entries";
+import { type Entry } from "@/lib/entries";
 
-export function ChapterIndex() {
+interface Props {
+  entries: Entry[];
+  /** Active attractor pill label — used as animation trigger only. */
+  activeAttractor: string;
+}
+
+export function ChapterIndex({ entries, activeAttractor }: Props) {
   const gridRef = useRef<HTMLDivElement | null>(null);
 
+  // Re-run stagger animation whenever the filter changes (activeAttractor dep).
+  // Also runs on initial mount (empty-dep behavior is preserved by always including
+  // activeAttractor in the dep array — first run is "all", subsequent are filtered).
+  // Respects prefers-reduced-motion; skips animation if user prefers none.
   useEffect(() => {
     if (!gridRef.current) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduce) return;
 
+    // Cards start opacity-0 via className; animate them in after filter renders.
     const cards = Array.from(
       gridRef.current.querySelectorAll<HTMLElement>(".entry-card")
     );
@@ -22,7 +52,7 @@ export function ChapterIndex() {
       delay: stagger(110),
       ease: "outCubic",
     });
-  }, []);
+  }, [activeAttractor]);
 
   return (
     <section
@@ -33,8 +63,10 @@ export function ChapterIndex() {
       <SectionLabel num="01" label="CHAPTER INDEX // RECENT TRACES" />
 
       <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2">
-        {RECENT_ENTRIES.map((e, i) => {
-          const lastTwo = i >= RECENT_ENTRIES.length - 2;
+        {entries.map((e, i) => {
+          // Recompute border suppression from filtered length, not total count.
+          // "lastRow" = the last two items in a 2-col grid don't need bottom border.
+          const lastTwo = i >= entries.length - 2;
           const isRight = i % 2 === 1;
           return (
             <a

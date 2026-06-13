@@ -100,11 +100,13 @@ export default function NotFound() {
         </div>
 
         {/* Route home — the single exit path */}
+        {/* hover state via CSS (server component — no event handlers allowed):
+            converted from onMouseEnter/onMouseLeave to Tailwind hover classes.
+            fix: not-found hover handlers · α-SUR-01 · attractor-filter */}
         <Link
           href="/"
-          className="t-mono"
+          className="t-mono inline-block transition-colors duration-150 hover:text-[var(--accent-orange)] hover:[border-bottom-color:var(--accent-orange)]"
           style={{
-            display: 'inline-block',
             fontSize: '9px',
             letterSpacing: '0.3em',
             textTransform: 'uppercase',
@@ -112,19 +114,6 @@ export default function NotFound() {
             textDecoration: 'none',
             borderBottom: '1px dashed var(--ink-dashed)',
             paddingBottom: '2px',
-            transition: 'color 150ms ease, border-color 150ms ease',
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLAnchorElement).style.color =
-              'var(--accent-orange)';
-            (e.currentTarget as HTMLAnchorElement).style.borderColor =
-              'var(--accent-orange)';
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLAnchorElement).style.color =
-              'var(--ink-soft)';
-            (e.currentTarget as HTMLAnchorElement).style.borderColor =
-              'var(--ink-dashed)';
           }}
         >
           [ ◯ return to atlas ]

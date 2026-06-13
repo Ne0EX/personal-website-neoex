@@ -1,8 +1,10 @@
 import { CornerMarks } from "@/components/CornerMarks";
 import { Nav } from "@/components/Nav";
 import { HeroBlock } from "@/components/HeroBlock";
-import { ChapterIndex } from "@/components/ChapterIndex";
-import { AttractorFields } from "@/components/AttractorFields";
+// attractor-filter: ChapterIndex + AttractorFields are now wired via
+// AttractorFilterShell (lifted activeAttractor state). The shell renders both.
+// DivergenceMeter stays here (server section) so it NEVER recomputes on filter.
+import { AttractorFilterShell } from "@/components/AttractorFilterShell";
 import { FooterManifesto } from "@/components/FooterManifesto";
 import { DivergenceMeter } from "@/components/DivergenceMeter";
 import { PageShell } from "@/components/PageShell";
@@ -40,8 +42,11 @@ export default async function Home() {
           <DivergenceMeter size="lg" />
         </section>
 
-        <ChapterIndex />
-        <AttractorFields />
+        {/* attractor-filter: shell holds the shared activeAttractor state;
+            renders §01 ChapterIndex (filtered) + §02 AttractorFields (pills).
+            DivergenceMeter above is intentionally outside this shell so it
+            never re-renders when the filter changes. */}
+        <AttractorFilterShell />
         <FooterManifesto />
       </main>
     </PageShell>
