@@ -290,3 +290,156 @@ Verdict: **PASS (no regression)**
 ### Globe-interaction verdict — ALL PASS
 
 Fixes #1, #2, #3 verified in real Chrome on production build. NeON + FULL strata unaffected. Zero application console errors. tsc=0. Tests at documented baseline (57 pass / 2 pre-branch-red).
+
+---
+
+## Photo-metadata + harness-debt verify — 2026-06-13
+
+**Commits audited:** `4672959` (Canopus DEBT-1+DEBT-2), `91c7a14` (Algol DEBT-3), `6a99a0d` (Procyon schema), `9cf6a24` (Altair ingest), `0c276d3` (Sirius console)
+**Port attempted:** 3138 — dev server, branch `genesis/store-as-source` HEAD
+**Verified by:** Algol (α-VER-06)
+**Method:** code inspection, regression test scripts, `node --test tests/*.mjs`, tsc, Supabase MCP direct SQL, real Chrome (chrome-devtools MCP). Nothing trusted from implementing agents.
+
+---
+
+### HARNESS DEBT-1 · sign-work.sh fail-closed on empty steps — PASS
+
+**Owner:** Canopus · `4672959`
+
+Source: `.claude/hooks/sign-work.sh` lines 296–320. The fix introduces a two-source resolution (WL_STEPS env var priority 1, `${TASK_ID}--steps.log` priority 2), then validates non-empty via `WL_REQUIRE_STEPS` guard (default=1 = fail-closed). Empty steps → exit 8, no signature written. WL_REQUIRE_STEPS=0 = backout lever (WARNING-only).
+
+Regression test `tests/harness/sign-work-steps-validation.test.sh` run fresh:
+- CASE-BLOCK: no steps source → exit 8 · SCHEMA-FAIL + BLOCKED messages · no sig file written · **PASS**
+- CASE-WL_STEPS: WL_STEPS env → exit 0 · signature produced · steps non-empty (2 steps) · **PASS**
+- CASE-BACKOUT: WL_REQUIRE_STEPS=0 → exit 0 · WARNING present · **PASS**
+
+**Result: 9/9 assertions · PASS**
+
+---
+
+### HARNESS DEBT-2 · Edit/Write gate-config path protection — PASS
+
+**Owner:** Canopus · `4672959`
+
+Source: `.claude/hooks/gate-config-write-guard.sh`. Hook fires on PreToolUse for Edit|Write|NotebookEdit|MultiEdit. Protected paths: `.harness/engine/**` and `.claude/hooks/**`. Peat-at-seam bypass: WL_GATE_CONFIG_SEAM=1. Wired in `.claude/settings.json` as PreToolUse hook.
+
+Live probe (hook invoked directly with simulated payloads):
+- Edit to `.harness/engine/core/runtime/mutating-bash.json`, no seam flag → exit 2 · BLOCKED message · **PASS**
+- Edit to `app/somefile.tsx` → exit 0 · allowed · **PASS**
+- Edit to `.claude/settings.json` (not under .claude/hooks/) → exit 0 · allowed · **PASS**
+- Edit to mutating-bash.json WITH WL_GATE_CONFIG_SEAM=1 → exit 0 · SEAM OPEN message · **PASS**
+- NotebookEdit to `.harness/engine/core/runtime/test.json` → exit 2 · BLOCKED · **PASS**
+
+Regression test `tests/harness/gate-config-write-guard.test.sh` run fresh: **9/9 PASS**
+
+---
+
+### HARNESS DEBT-3 · stale test files updated — PASS
+
+**Owner:** Algol · `91c7a14`
+
+`node --test tests/*.mjs` run fresh:
+- `tests/console-gate-contract.test.mjs` — 18 tests PASS (was 2 pre-branch-red)
+- `tests/worldline-globe-coordinates.test.mjs` — 4 tests PASS (was pre-branch-red)
+- All other tests: 45 PASS
+
+**Total: 67/67 · 0 fail · PASS**
+
+---
+
+### SCHEMA · filmSim column + full stack wiring — PASS
+
+**Owner:** Procyon · `6a99a0d`
+
+DB state (Supabase MCP direct SQL):
+- Migration `0011_photo_film_sim_override` applied (version 20260613121139) ✓
+- `entries.film_sim` column exists, type=text, nullable ✓
+- `entries.coords` (jsonb), `entries.place_id` (text), `entries.served_coords` (jsonb) all present ✓
+
+Code stack verified:
+- `lib/store/schema.ts`: `filmSim: z.string().nullable().optional()` in UpdateFieldsSchema ✓
+- `lib/server/store/actions-core.ts:346`: `if (patch.filmSim !== undefined) update['film_sim'] = patch.filmSim` ✓
+- `lib/store/types.ts`: `DbEntryRow.film_sim: string | null` ✓
+- `lib/store/map.ts:208`: `applyInstrumentOverrides` accepts `authoredFilmSim` param; `authoredFilmSim` wins over EXIF filmSim when non-null ✓
+- `lib/store/map.ts:251`: `exif: applyInstrumentOverrides(assets?.exif, row.instrument_overrides, row.film_sim)` ✓
+- `lib/store/map.ts:262`: `filmSim: row.film_sim ?? undefined` in PhotoSidecar ✓
+- `lib/store/reads.ts`: anon ENTRY_COLS does NOT include `film_sim` (correct — owner-only) ✓
+- `lib/store/admin-reads.ts:39`: `'film_sim'` in admin ENTRY_COLS ✓
+
+DL13 trigger verified: `set_served_coords()` trigger on INSERT/UPDATE. When `share_location=false`, `served_coords=null` regardless of `coords` value. Raw `coords` stored only in the owner column. SQL: DSCF0344 has `coords=null, served_coords=null, share_location=false` — clean. Existing entries with `share_location=true` show `served_coords` rounded to 2 decimal places (13.74/100.52 from raw 13.7494/100.5311). ✓
+
+**Result: PASS**
+
+---
+
+### INGEST · GPS auto-extract from EXIF — PASS (code); film-sim auto-detect DEFERRED (by design)
+
+**Owner:** Altair · `9cf6a24`
+
+GPS extraction code path (`lib/server/store/actions-core.ts:732–893`):
+- `exifr.parse()` with explicit GPS tag picks (GPSLatitude, GPSLongitude, GPSLatitudeRef, GPSLongitudeRef) ✓
+- exifr auto-computes decimal `latitude`/`longitude` from those tags ✓
+- Validity guard: `typeof exifLat === 'number' && isFinite(exifLat) && range check` ✓
+- On new photo INSERT: `insertPayload['coords'] = { lat: exifLat, lon: exifLon }` ✓
+- On existing entry with no coord: patches `coords` via UPDATE ✓
+- `gpsAutoSet` flag returned in IngestPhotoResult ✓
+
+Sharp pipeline: `.rotate()` called WITHOUT `.withMetadata()` — GPS stripped from all public variants. Multiple comments in code confirm this is intentional and checked. ✓
+
+Film-sim auto-detect: `makerNote: intentionally false` comment at line 741. Fujifilm MakerNote decodes as numeric-key byte array (keys 0..1307), not named tags. `readFujiFilmSim()` helper exists for EXIF-accessible values (falls back to `FilmMode`, `Fujifilm.FilmMode`) but won't find MakerNote-only values. Altair's verdict: DEFERRED pending a Fujifilm MakerNote IFD parser. This is an honest assessment — not a gap.
+
+SQL: DSCF0344 (`slug='2026-05-bangkok/DSCF0344'`) has `coords=null, film_sim=null` — temp row lifecycle was verified and cleaned, left as found. ✓
+
+**Result: PASS**
+
+---
+
+### CONSOLE WIRING · coord/place/filmSim controls — CODE PASS; BROWSER BLOCKED by regression B4-revisit
+
+**Owner:** Sirius · `0c276d3`
+
+Code inspection (components/console/PhotoManager.tsx, EntryEditor.tsx, app/console/editor/page.tsx):
+- `authoredCoords` prop wired through EntryEditor → PhotoManager (28 occurrences in PhotoManager) ✓
+- `onFilmSimSave` callback wired; clicking a chip calls `updateEntry({ patch: { filmSim } })` ✓
+- `onAuthoredPlaceIdChange` wired; shared SAVE button calls `updateEntry({ patch: { coords, placeId } })` ✓
+- `is-overridden` orange border applied when `authoredCoords.lat != null` (coord inputs) ✓
+- `authoredFilmSim` prop accepted; active chip state reflects DB truth (admin-reads `film_sim`) ✓
+- `admin-reads.ts:43`: `'coords'` added to admin ENTRY_COLS with DL13 annotation; anon ENTRY_COLS in `reads.ts` still excludes `coords` ✓
+- tsc=0 ✓
+
+**Browser persistence verify — BLOCKED.**
+Dev server at port 3138 (current HEAD) returns HTTP 500 on ALL routes including `/console/editor`. Root cause: migration `0010_pare_grants` (`872c018`, Procyon) revoked anon table-level SELECT on `entries`. `reads.ts` `anonClient` uses the Supabase REST/PostgREST path which requires table-level SELECT to build any query, even for column-enumerated calls. `RootLayout` calls `getArchiveEntries()` → `getPhotoSidecars()` → anon PostgREST → permission denied → 500. Every route is blocked. This is a **regression introduced by migration 0010** that was not caught by the B4 PASS verdict. The prior B4 verify checked `has_table_privilege('anon','public.entries','SELECT')=false` via `execute_sql` (postgres superuser — bypasses PostgREST) and verified "entries published rows accessible" via the same direct-SQL path. It did NOT test the actual PostgREST/REST API path that `anonClient` uses at runtime.
+
+**B4 REGRESSION (NEW FINDING):** `anonClient` cannot query `entries` via PostgREST after migration 0010. Fix: `GRANT SELECT ON entries TO anon;` (table-level, with RLS filtering to published rows). Column-level SELECT grants alone are insufficient for PostgREST.
+
+Sirius console wiring is structurally correct per code inspection. Browser persistence (set coord/place/filmSim → saves → reload → persists) CANNOT be verified until the B4 regression is fixed. Marking as **DEFERRED — requires B4 fix + re-verify**.
+
+---
+
+### tsc + test suite regression scan
+
+| Check | Result |
+|---|---|
+| `npx tsc --noEmit` | exit 0 · no output |
+| `node --test tests/*.mjs` | 67/67 pass · 0 fail |
+| `npm run build` | FAIL — `getPhotoSidecars/getArticles/getFiction: permission denied for table entries` (pre-existing, same error at git HEAD~5 baseline; caused by migration 0010 applied to remote DB — see B4 regression above) |
+
+---
+
+### Overall verdict — REVISE (one item)
+
+| Batch item | Verdict |
+|---|---|
+| DEBT-1 sign-work steps fail-closed | PASS |
+| DEBT-2 Edit/Write gate-config protection | PASS |
+| DEBT-3 stale test files | PASS |
+| Schema: filmSim column + stack wiring | PASS |
+| Ingest: GPS auto-extract + sharp GPS strip | PASS |
+| Film-sim auto-detect | DEFERRED (by design; Altair verdict accepted) |
+| Console wiring: code layer | PASS |
+| Console wiring: browser persistence | DEFERRED pending B4 regression fix |
+| **B4 regression (new):** migration 0010 breaks PostgREST anon on entries | **REVISE → Procyon** |
+
+**Action required:** Procyon must `GRANT SELECT ON entries TO anon;` to restore table-level SELECT for PostgREST. RLS (`entries_read` policy `status='published' OR is_owner()`) continues to filter rows correctly. Column-level SELECT grants are preserved. After that grant is applied, browser persistence verify for coord/place/filmSim must be re-run.
+
+DSCF0344 left clean: `coords=null, film_sim=null, served_coords=null` in DB. ✓
