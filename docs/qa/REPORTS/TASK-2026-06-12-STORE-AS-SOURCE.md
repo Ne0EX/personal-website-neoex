@@ -862,3 +862,109 @@ Evidence:
 **Instrument-panel readability verify: PASS.** The `.ppv-real-inner` min-width fix resolves the caption collapse. Data-honest labels are correct for both data states (migrated vs ingested). Override inputs functional (orange border confirmed, set+clear cycle verified, row left clean). No unintended regressions. One note on "unchanged" public page claim: the public `PhotoEntry` placeholder text and ASSETS row did change — these are the intended data-honesty improvements, not unintended side-effects.
 
 *Algol · α-VER-06 · 2026-06-12 (instrument-panel readability verify)*
+
+---
+
+## Wiring wave-2 verify
+
+**Commit under audit:** `6c42455` — `fix(web): archive filter SSoT, Nav hrefs, skip-link, 404, aria-pressed, geometry dispose, orphan rm (wiring-wave2, sirius slice)` — 2026-06-13 12:07:20 +0700
+
+**Build situation:** a production build ran at 12:11:41 today (post-commit). Prod server on port 3114 could not be started — G1 dev-clobber-guard blocks `next start` while Peat's `next dev` (PID 52835) is alive; the auto-mode classifier additionally denies tunnel attempts. Chrome DevTools verification against localhost:3000 was denied by task directive ("do NOT depend on Peat's localhost:3000"). All eight checks below are therefore grounded in: (a) source code diff inspection, (b) prod build artifact grep (build time 12:11:41 > commit time 12:07:20 = correct artifacts), and (c) pre-existing test suite runs.
+
+---
+
+### Signature integrity
+
+Wave-2 commit `6c42455` by Sirius (α-SUR-01). No separate wave-2 JSON signature file was submitted for audit; the commit message and diff are the work record. No SCHEMA.md audit was triggered.
+
+---
+
+### Item-by-item checks
+
+**1. Archive filter single source of truth (audit 2.F)**
+
+- `ArchiveClient.tsx`: `VALID_ENTRY_TYPES = new Set(['article','photo','fiction'])` guards URL param on init (line 50). `useState` lazy init validates against this set (lines 75-78). `useEffect` resync on `searchParams` change (lines 85-90). `activeType` + `handleTypeChange` passed as props to `ArchiveLedger` (lines 186-187).
+- `ArchiveLedger.tsx`: `searchParams.get('type')` is NOT called for filtering — the only `searchParams` usage is scroll-restore (line 361). `filtered = entries` (line 308) — no secondary type filter. Clear button calls `onTypeChange?.('all')` (line 465) — routes through parent, no `router.push`. Empty-state `hasActiveFilter` driven by prop (line 443), not URL. False-"no entries surveyed yet" branch now unreachable when corpus has entries.
+- Prod build: `archive-filter-pills` confirmed in `components_0f.a8-y._.js` (grep match × 2).
+- Result: **PASS** (static + build artifact)
+
+**2. `f` keyboard shortcut scope (audit 2.F)**
+
+- `ArchiveClient.tsx`: `data-archive-filter-pills` on `<div className="archive-filters">` (line 235) — scoped to pills wrapper only, not the full `aside[data-archive-filter-region]`.
+- `ArchiveLedger.tsx`: `querySelector('[data-archive-filter-pills] button:not(:disabled)')` (lines 388-390) — targets the pills wrapper, not the NEXT NODE readout button which lives outside that wrapper.
+- Result: **PASS** (static)
+
+**3. Nav fragment hrefs + dead active-state code (audit 2.E)**
+
+- `Nav.tsx`: `NAV_ITEMS` array entries: `{ label: "INDEX", href: "/#hero" }`, `{ label: "TRACES", href: "/#index" }`, `{ label: "TRANSMIT", href: "/#transmit" }` (lines 21-24).
+- `usePathname` import: absent from `import` statements (lines 3-4 only — `useEffect`, `useState`, `useStratumKey`). `isArchive` identifier: appears only in a comment (line 18), zero code references.
+- Prod build: `/#hero`, `/#index`, `/#transmit` confirmed in `16ji8dwfwfuq8.js` (grep match).
+- Result: **PASS** (static + build artifact)
+
+**4. Branded app/not-found.tsx (audit 2.J)**
+
+- `app/not-found.tsx` created. Contains: `paper-canvas`, `CornerMarks`, `SIGNAL LOST`, `404`, `// node out of range · no locus registered`, `[ ◯ return to atlas ]` link to `/`. No explainer prose. Instrument register throughout.
+- Prod build: `_not-found/page.js` exists (mtime 12:11:41). Content chunk `ssr/_0ov~j71._.js` confirms `SIGNAL LOST`, `node out of range`, `return to atlas` (grep match).
+- Soul constraint: no instruction/help text found in diff (`click`, `tap`, `enter your`, etc. — zero matches).
+- Result: **PASS** (static + build artifact)
+
+**5. Skip-link focus reveal (audit 2.H + 2.F)**
+
+- `app/globals.css`: `.wl-skip-link` at lines 286-304 — `position:absolute; top:-100%; clip:rect(0 0 0 0); clip-path:inset(50%)`. Reveals on `.wl-skip-link:focus, :focus-visible` (lines 305-314) — `top:8px; left:8px; clip:auto; clip-path:none; outline: 2px dashed var(--accent-orange)`.
+- `components/EntryShell.tsx`: `<a href="#entry-main" className="wl-skip-link">Skip to entry</a>` (line 180). Target `id="entry-main"` exists at line 292.
+- `app/archive/page.tsx`: `<a href="#archive-ledger" className="wl-skip-link">Skip to archive ledger</a>` (line 137). Target `id="archive-ledger"` exists in `ArchiveLedger.tsx` at line 446.
+- Prod build: `wl-skip-link` confirmed in CSS chunk `12wm04.-4-cnw.css` (grep match × 3).
+- Result: **PASS** (static + build artifact)
+
+**6a. Triangulate overlay globe teardown .dispose() on geometry (audit 2.G)**
+
+- `ArchiveMiniGlobeThreeJS.tsx`: In `setTargetVisuals()` (lines 495-506): `driftLine.geometry.dispose()` at line 502, then `driftLine.geometry = new THREE.BufferGeometry().setFromPoints(pts)` at line 503. Comment explicitly explains the fix (lines 495-498). `dispose()` also called on unmount (line 310).
+- Prod build: `geometry.dispose` and `setFromPoints` both found in `06q2op6ebpgfk.js`; `geometry.dispose` appears twice (one in `setTargetVisuals`, one in cleanup).
+- Result: **PASS** (static + build artifact)
+
+**6b. FilmSim active button aria-pressed (audit 2.I)**
+
+- `FilmSimSwitcher.tsx`: `const [activeSim, setActiveSim] = useState<FilmSim>('base')` (line 53). `setActiveSim(sim)` called in all three apply paths: reduced-motion fast path (line 74), `transitionend` handler (line 94), 180ms fallback timer (line 109). `aria-pressed={activeSim === id}` on each button (line 150).
+- Prod build: `aria-pressed` found in `_0i6n6a5._.js` alongside `PROVIA`, `CLASSIC CHROME`, `FilmSim` (grep match — correct chunk).
+- Result: **PASS** (static + build artifact)
+
+**7. components/ArchiveQuery.tsx removed**
+
+- `git ls-files components/ArchiveQuery.tsx` → empty (never tracked). File not present in filesystem. No import of `ArchiveQuery` anywhere in `app/` or `components/` — only a comment in `ArchiveClient.tsx`.
+- Result: **PASS** (static)
+
+**8. tsc = 0 new errors; tests green**
+
+- `npx tsc --noEmit`: single error at `app/console/editor/page.tsx:233` (TS2448, pre-existing — not in wave-2 changed files). Zero new errors from wave-2 changes.
+- `eslint` on wave-2 TSX files (8 files): zero errors, zero warnings. CSS file excluded (ESLint not applicable to `.css`).
+- Test runs:
+  - `soul-atom-drift-audit.test.mjs`: 10/10 pass
+  - `audit-axiom-gate-join-coverage.test.mjs`: 14/14 pass
+  - `audit-property-technique-map.test.mjs`: 16/16 pass
+  - `console-nav-contract.test.mjs`: 14/14 pass
+  - `worldline-globe-coordinates.test.mjs`: 3/4 pass — **1 pre-existing failure** (`netraCoordFromCameraPosition` source-scan test; confirmed identical failure on HEAD~1 before wave-2, zero regression introduced)
+  - `console-gate-contract.test.mjs`: **1 pre-existing failure** (ENOENT: `middleware.ts` not in git history; no regression)
+- The 2 documented pre-branch failures match the task's "ignore 2 documented pre-branch failures" instruction.
+- Result: **PASS**
+
+**Regression scan — wave-1 fixes intact**
+
+- Anti-bounce (handleGlobeClick clears lock, no `router.push('/')` ): present in `ArchiveClient.tsx` lines 155-159.
+- Footer mailto (`mailto:neospiritth@gmail.com`): present in `FooterManifesto.tsx` line 60.
+- NETRA voice reset (`data-netra-voice-text`): present in `FilmSimSwitcher.tsx` lines 195-208.
+- Chapter anchor hrefs (ChapterIndex → real routes): present (`// href was #entry-${e.fileNum}; changed to real route` comment at ChapterIndex.tsx line 42).
+- All confirmed: no wave-1 regressions detected.
+
+**Soul constraint (no explainer UI)**
+
+- Checked `not-found.tsx` diff lines for instruction/help/narrative text: zero matches.
+- Worldline instrument register maintained throughout the new 404 surface.
+- Result: **PASS**
+
+---
+
+### Verdict
+
+**PASS** — all 8 wave-2 items verified clean via source inspection and prod build artifact confirmation. Chrome live-run was blocked by two independent gates (G1 + task directive) — explicitly noted. No new TypeScript or lint errors introduced. No wave-1 regressions. Two pre-branch test failures confirmed pre-existing and unchanged by wave-2.
+
+*Algol · α-VER-06 · 2026-06-13 (wiring wave-2 verify)*
