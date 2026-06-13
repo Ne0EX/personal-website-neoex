@@ -173,6 +173,13 @@ export interface PhotoSidecar {
    * Null when no overrides have been set.
    */
   instrumentOverrides?: InstrumentOverrides
+  /**
+   * Authored film-simulation override (entries.film_sim).
+   * When set, wins over photo_assets.exif.filmSim in the served exif block.
+   * Undefined when no override is set (exif.filmSim from sensor is used instead).
+   * Exposed so the console editor can read/set it independently from EXIF.
+   */
+  filmSim?: string
   body: string
 }
 

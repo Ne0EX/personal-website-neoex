@@ -215,6 +215,10 @@ const UpdateFieldsSchema = z.object({
   overridePlace: z.string().nullable().optional(),
   highlightRank: z.number().int().min(1).max(5).nullable().optional(),
   instrumentOverrides: InstrumentOverridesSchema.optional(),
+  // Authored film-sim override for photo entries.
+  // null clears the override (reverts to photo_assets.exif.filmSim).
+  // Accepted string values match the FILM SIM button set in FilmSimSwitcher.
+  filmSim: z.string().nullable().optional(),
 })
 
 export const UpdateEntryInputSchema = z.object({

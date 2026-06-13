@@ -64,6 +64,8 @@ const ENTRY_COLS = [
   // Authored instrument overrides — anon-granted (public display data, not coords).
   // Merged onto served exif in map.ts: display value = instrument_overrides.<key> ?? exif.<key>
   'instrument_overrides',
+  // Authored film-sim override — wins over photo_assets.exif.filmSim when set.
+  'film_sim',
 ].join(',')
 
 /** Anon-readable columns from photo_assets (original_key + source_hash excluded). */

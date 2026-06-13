@@ -340,6 +340,10 @@ export async function updateEntryImpl(rawInput: unknown): Promise<UpdateEntryRes
   // instrument_overrides: null clears the column; object sets override keys.
   // photo_assets.exif is NEVER touched here — it stays raw sensor truth (spec §4.3).
   if (patch.instrumentOverrides !== undefined) update['instrument_overrides'] = patch.instrumentOverrides
+  // film_sim: authored override for photo entries.
+  // null clears the override (reverts to photo_assets.exif.filmSim at read time).
+  // photo_assets.exif is NEVER touched — this only writes entries.film_sim.
+  if (patch.filmSim !== undefined) update['film_sim'] = patch.filmSim
 
   if (Object.keys(update).length === 0) {
     return err('EMPTY_PATCH', 'No fields to update')

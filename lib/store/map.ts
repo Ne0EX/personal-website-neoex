@@ -64,6 +64,12 @@ export interface DbEntryRow {
   highlight_rank: number | null
   /** Authored instrument overrides — anon-granted (public display data, not coords). */
   instrument_overrides: DbInstrumentOverrides | null
+  /**
+   * Authored film-sim override for photo entries.
+   * NULL = fall back to photo_assets.exif.filmSim.
+   * Set via updateEntry patch; never derived from sensor EXIF.
+   */
+  film_sim: string | null
 }
 
 export interface DbPhotoAssetRow {
@@ -185,31 +191,35 @@ function mapVariants(dbVariants: DbVariantKeys | null | undefined): PhotoVariant
 }
 
 /**
- * Merges instrument_overrides onto a raw EXIF block.
+ * Merges instrument_overrides and authored film_sim override onto a raw EXIF block.
  * Contract (Peat 2026-06-12): displayed value = override ?? exif.
  * photo_assets.exif stays RAW sensor truth — this merge only touches the served record.
- * filmSim and captureTime are NOT override keys — they pass through from EXIF only.
+ * captureTime is NOT an override key — it passes through from EXIF only.
+ * filmSim: authored entry.film_sim wins over EXIF filmSim when set (passed in separately).
  * Returns undefined when both exif and overrides are absent (pipeline not yet run
  * AND no overrides set — component renders placeholder).
  */
 function applyInstrumentOverrides(
   rawExif: PhotoExif | null | undefined,
   overrides: DbInstrumentOverrides | null | undefined,
+  authoredFilmSim?: string | null,
 ): PhotoExif | undefined {
-  if (!rawExif && !overrides) return undefined
+  if (!rawExif && !overrides && !authoredFilmSim) return undefined
   const base: PhotoExif = rawExif ?? {}
-  if (!overrides) return base
-  return {
-    ...base,
+  const merged: PhotoExif = { ...base }
+  if (overrides) {
     // Override keys: lens, camera, iso, aperture, shutter, focal
     // Each: override ?? exif — undefined override means fall through to EXIF value
-    ...(overrides.lens      !== undefined && { lens:     overrides.lens }),
-    ...(overrides.camera    !== undefined && { camera:   overrides.camera }),
-    ...(overrides.iso       !== undefined && { iso:      overrides.iso }),
-    ...(overrides.aperture  !== undefined && { aperture: overrides.aperture }),
-    ...(overrides.shutter   !== undefined && { shutter:  overrides.shutter }),
-    ...(overrides.focal     !== undefined && { focal:    overrides.focal }),
+    if (overrides.lens      !== undefined) merged.lens     = overrides.lens
+    if (overrides.camera    !== undefined) merged.camera   = overrides.camera
+    if (overrides.iso       !== undefined) merged.iso      = overrides.iso
+    if (overrides.aperture  !== undefined) merged.aperture = overrides.aperture
+    if (overrides.shutter   !== undefined) merged.shutter  = overrides.shutter
+    if (overrides.focal     !== undefined) merged.focal    = overrides.focal
   }
+  // filmSim: authored entry.film_sim wins over EXIF filmSim (null clears to EXIF)
+  if (authoredFilmSim != null) merged.filmSim = authoredFilmSim
+  return merged
 }
 
 /**
@@ -217,6 +227,7 @@ function applyInstrumentOverrides(
  * DL13: served_coords consumed (trigger-maintained); raw coords excluded by column grant.
  * Instrument overrides (lens, camera, iso, aperture, shutter, focal) are merged onto
  * the served exif — photo_assets.exif is never modified (stays RAW sensor truth).
+ * filmSim override: entry.film_sim wins over EXIF filmSim when set.
  */
 export function mapPhotoSidecar(row: DbEntryRow, assets?: DbPhotoAssetRow | null): PhotoSidecar {
   return {
@@ -233,12 +244,15 @@ export function mapPhotoSidecar(row: DbEntryRow, assets?: DbPhotoAssetRow | null
     draft: row.status === 'draft',
     worldline_links: row.worldline_links ?? [],
     // Override-merged exif: display value = instrument_overrides.<key> ?? exif.<key>
-    exif: applyInstrumentOverrides(assets?.exif, row.instrument_overrides),
+    // filmSim: entry.film_sim overrides exif.filmSim when set (null = fall back to EXIF)
+    exif: applyInstrumentOverrides(assets?.exif, row.instrument_overrides, row.film_sim),
     variants: mapVariants(assets?.variants),
     // DL13: served_coords is the only coords anon ever sees
     servedCoords: row.served_coords ?? undefined,
     // Expose raw overrides for the console editor (read/write independently from EXIF)
     instrumentOverrides: (row.instrument_overrides as InstrumentOverrides) ?? undefined,
+    // Authored film-sim override — exposed so console editor can read/set it directly
+    filmSim: row.film_sim ?? undefined,
     body: row.body ?? '',
   }
 }
