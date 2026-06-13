@@ -261,8 +261,65 @@ else
 fi
 
 # 5. Steps log
+#
+# SCHEMA-FAIL-STEPS FIX (DEBT-1 2026-06-13):
+#
+# Prior behaviour: if no steps log existed, STEPS defaulted to "[]" with only an
+# advisory NOTE to stderr. This was fail-OPEN: a fully automated sign-work
+# invocation with no steps log produced a valid-looking signature with steps:[]
+# even though SCHEMA.md requires non-empty steps as an audit trail.
+#
+# New behaviour (fail-closed, default):
+#   Sources (in priority order):
+#     1. WL_STEPS env var — newline-delimited list of step strings (highest priority;
+#        allows programmatic callers to inject steps without a log file).
+#     2. ${TASK_ID}--steps.log file — the standard path written during work.
+#   If neither source produces at least one non-empty step, the sign is BLOCKED
+#   unless WL_REQUIRE_STEPS=0 is explicitly set (the back-out lever).
+#
+# Back-out lever: set WL_REQUIRE_STEPS=0 to downgrade the block to a WARNING.
+#   WL_REQUIRE_STEPS=0 bash .claude/hooks/sign-work.sh <task_id>
+#   Default is "1" (fail-closed). Only override for doc-only or migration tasks
+#   where steps are not applicable. Document the override in the summary.
+#
+# REVERT COMMAND:
+#   WL_REQUIRE_STEPS=0 bash .claude/hooks/sign-work.sh <task_id>
+#
+# Existing signatures with steps:[] are immutable (self_hash is computed over the
+# payload-as-signed). This fix applies only to new signatures produced go-forward.
+
 STEPS="[]"
-[[ -f "$STEPS_LOG" ]] && STEPS=$(jq -R . < "$STEPS_LOG" | jq -s .)
+
+# Priority 1: WL_STEPS env var (newline-delimited step strings)
+if [[ -n "${WL_STEPS:-}" ]]; then
+  STEPS=$(printf '%s\n' "$WL_STEPS" | grep -v '^[[:space:]]*$' | jq -R . | jq -s .)
+  echo "[sign-work] steps sourced from WL_STEPS env var ($(echo "$STEPS" | jq 'length') step(s))" >&2
+# Priority 2: steps log file
+elif [[ -f "$STEPS_LOG" ]]; then
+  STEPS=$(grep -v '^[[:space:]]*$' "$STEPS_LOG" | jq -R . | jq -s . 2>/dev/null || echo "[]")
+  echo "[sign-work] steps sourced from $STEPS_LOG ($(echo "$STEPS" | jq 'length') step(s))" >&2
+fi
+
+# Validate steps non-empty (fail-closed by default)
+_STEPS_COUNT=$(echo "$STEPS" | jq 'length')
+if [[ "$_STEPS_COUNT" -eq 0 ]]; then
+  echo "sign-work: SCHEMA-FAIL — steps is empty." >&2
+  echo "  SCHEMA.md requires non-empty steps: short imperative audit-trail lines." >&2
+  echo "  Two ways to supply steps:" >&2
+  echo "    a) Write step notes (one per line) to: .claude/hook-logs/${TASK_ID}--steps.log" >&2
+  echo "       during work; sign-work.sh reads the file at sign time." >&2
+  echo "    b) Set WL_STEPS before calling sign-work.sh:" >&2
+  echo "       WL_STEPS='read SCHEMA.md\nwrote hooks\nran sign-work.sh' \\" >&2
+  echo "         bash .claude/hooks/sign-work.sh $TASK_ID" >&2
+  echo "  Back-out lever (downgrades to WARNING):" >&2
+  echo "    WL_REQUIRE_STEPS=0 bash .claude/hooks/sign-work.sh $TASK_ID" >&2
+  if [[ "${WL_REQUIRE_STEPS:-1}" != "0" ]]; then
+    echo "sign-work: BLOCKED — WL_REQUIRE_STEPS is unset or 1 (fail-closed). Provide steps before signing." >&2
+    exit 8
+  else
+    echo "sign-work: WL_REQUIRE_STEPS=0 — downgrading steps-empty block to WARNING. steps:[] will be recorded." >&2
+  fi
+fi
 
 # 6. Free-form fields from env
 SUMMARY="${WL_SUMMARY:-no summary provided}"
@@ -305,12 +362,6 @@ if [[ "$_SUMMARY_OK" == "false" ]]; then
     echo "sign-work: BLOCKED — WL_REQUIRE_SUMMARY=1 is set; summary is required before signing." >&2
     exit 5
   fi
-fi
-
-# Steps quality note (advisory only; does not block)
-if [[ "$STEPS" == "[]" ]]; then
-  echo "sign-work: NOTE — steps log is empty (no ${TASK_ID}--steps.log found)." >&2
-  echo "  Write step notes to .claude/hook-logs/${TASK_ID}--steps.log during work." >&2
 fi
 
 # 7. Build payload (no self_hash yet). pre_cutover_codename is string-or-null.
