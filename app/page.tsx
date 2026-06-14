@@ -16,11 +16,29 @@ import { MarginaliaHUD, ScrollMeter } from "@/components/MarginaliaHUD";
 // no client-side fetch needed. revalidatePath in setAlphaPlace clears the cache.
 import { getAlphaPlace } from "@/lib/store/reads";
 
-export default async function Home() {
+// CW-10 · tag pill /?tag= routing (ux-journey, α-SUR-01, 2026-06-14)
+// Tag links on entry pages link to /?tag=essay etc. The homepage now reads the
+// `tag` searchParam and passes it as `initialTag` to AttractorFilterShell.
+// Note: reading searchParams forces dynamic rendering on this route — acceptable
+// since the page already hits the DB (getAlphaPlace). Does NOT affect the
+// attractor-filter state-machine; the shell uses it only as initial state.
+// Source: node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/page.md
+interface HomeSearchParams {
+  tag?: string;
+}
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<HomeSearchParams>;
+}) {
+  const resolvedParams = await searchParams;
   // movable-alpha: resolve alpha locus server-side so the globe starts at the
   // correct position without a client round-trip or layout shift.
   const alphaPlace = await getAlphaPlace();
   const alphaCoord = { lat: alphaPlace.coord.lat, lon: alphaPlace.coord.lon };
+  // CW-10: pass tag from URL to the filter shell as its initial state.
+  const initialTag = resolvedParams.tag ?? "all";
 
   return (
     <PageShell>
@@ -46,7 +64,7 @@ export default async function Home() {
             renders §01 ChapterIndex (filtered) + §02 AttractorFields (pills).
             DivergenceMeter above is intentionally outside this shell so it
             never re-renders when the filter changes. */}
-        <AttractorFilterShell />
+        <AttractorFilterShell initialTag={initialTag} />
         <FooterManifesto />
       </main>
     </PageShell>

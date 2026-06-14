@@ -1268,15 +1268,52 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
       currentLook.set(nextLook.x, nextLook.y, nextLook.z);
       camera.lookAt(currentLook);
     };
+    // CW-11 · Globe pointer capture mobile scroll fix (ux-journey, α-SUR-01, 2026-06-14)
+    // setPointerCapture in pointerdown swallows all touch events including vertical
+    // scroll. A finger on the 324×380px canvas cannot scroll the page past it.
+    // Fix: track the initial touch direction. If the gesture is predominantly vertical
+    // (|deltaY| > |deltaX| with threshold ~8px), release pointer capture so the page
+    // can scroll. For touch pointers, delay capture until we know the direction.
+    let captureId: number | null = null;
+    let startX = 0;
+    let startY = 0;
+    let captureDecided = false;
+
     const onDown = (e: PointerEvent) => {
       dragging = true;
       lastX = e.clientX;
-      renderer.domElement.setPointerCapture(e.pointerId);
+      startX = e.clientX;
+      startY = e.clientY;
+      captureDecided = false;
+      captureId = e.pointerId;
+      // For mouse, capture immediately (no vertical scroll conflict).
+      // For touch, defer until direction is known in onMoveDrag.
+      if (e.pointerType !== "touch") {
+        renderer.domElement.setPointerCapture(e.pointerId);
+        captureDecided = true;
+      }
     };
     const onMoveDrag = (e: PointerEvent) => {
       if (!dragging) return;
       const dx = e.clientX - lastX;
       lastX = e.clientX;
+
+      // CW-11 touch direction guard: decide capture on first meaningful move.
+      if (!captureDecided && e.pointerType === "touch" && captureId !== null) {
+        const totalDx = Math.abs(e.clientX - startX);
+        const totalDy = Math.abs(e.clientY - startY);
+        if (totalDx < 4 && totalDy < 4) return; // below threshold — wait
+        captureDecided = true;
+        if (totalDy > totalDx) {
+          // Vertical swipe — release so page scrolls; kill the drag
+          dragging = false;
+          try { renderer.domElement.releasePointerCapture(captureId); } catch {}
+          captureId = null;
+          return;
+        }
+        // Horizontal swipe — capture to enable globe rotation
+        try { renderer.domElement.setPointerCapture(e.pointerId); } catch {}
+      }
       const sk = stratumRef.current;
       if (sk === "all") {
         // "all": globe spins in place; camera is centre-aligned so this is orbit-equivalent.
@@ -2459,9 +2496,13 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
               <span>RETICLE</span><b ref={netraCoordRef}>0.00°N · 0.00°E</b>
               <span>RANGE</span><b ref={netraRangeRef}>2.50</b>
             </span>
+            {/* CW-15 · NEXT NODE touch target (ux-journey, α-SUR-01, 2026-06-14)
+                Was 94×24px. minHeight:44px + display:flex + alignItems:center → ≥44px.
+                Visual label and class unchanged. */}
             <button
               className="jump"
               type="button"
+              style={{ minHeight: "44px", display: "flex", alignItems: "center" }}
               onClick={() => {
                 const fn = (window as unknown as { __atlasNetraJump?: () => void }).__atlasNetraJump;
                 if (fn) fn();
@@ -2574,10 +2615,14 @@ function PlaceFrontDoorPanel(props: {
         pointerEvents: open ? "auto" : "none",
       }}
     >
+      {/* CW-15 · ESC button touch target (ux-journey, α-SUR-01, 2026-06-14)
+          Was 44×17px. minHeight:44px + display:flex + alignItems:center → ≥44px.
+          Visual label and class unchanged. */}
       <button
         type="button"
         onClick={onClose}
         className="absolute top-2 right-3 t-mono text-[11px] tracking-[0.2em] text-[var(--ink-soft)] hover:text-[var(--accent-orange)] transition-colors"
+        style={{ minHeight: "44px", display: "flex", alignItems: "center" }}
         aria-label="Close place panel"
       >
         ✕ ESC

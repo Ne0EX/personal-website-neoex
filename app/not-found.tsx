@@ -103,9 +103,12 @@ export default function NotFound() {
         {/* hover state via CSS (server component — no event handlers allowed):
             converted from onMouseEnter/onMouseLeave to Tailwind hover classes.
             fix: not-found hover handlers · α-SUR-01 · attractor-filter */}
+        {/* CW-02 · touch target: was 170×17px, only exit from 404 on mobile.
+            Added paddingBlock: 14px → ~45px tap zone. Visual unchanged at desktop.
+            ux-journey · α-SUR-01 · 2026-06-14 */}
         <Link
           href="/"
-          className="t-mono inline-block transition-colors duration-150 hover:text-[var(--accent-orange)] hover:[border-bottom-color:var(--accent-orange)]"
+          className="t-mono transition-colors duration-150 hover:text-[var(--accent-orange)] hover:[border-bottom-color:var(--accent-orange)]"
           style={{
             fontSize: '9px',
             letterSpacing: '0.3em',
@@ -114,6 +117,9 @@ export default function NotFound() {
             textDecoration: 'none',
             borderBottom: '1px dashed var(--ink-dashed)',
             paddingBottom: '2px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            minHeight: '44px',
           }}
         >
           [ ◯ return to atlas ]

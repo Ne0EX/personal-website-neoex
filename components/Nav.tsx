@@ -147,8 +147,15 @@ export function Nav() {
   return (
     <div className="nav-shell relative z-[3] section-rule">
       <div className="nav-id t-meta">
+        {/*
+         * CW-05 · first name added to nav-id strip (ux-journey, α-SUR-01, 2026-06-14)
+         * No visitor-name or person name appeared anywhere on the homepage. Added
+         * "· Peat" to the existing instrument row — same t-meta-accent class,
+         * no new element, no new register. Resolves the top identity gap for both
+         * the first-time visitor and the recruiter (spec §2.2 §TIER-1).
+         */}
         <div>
-          <span className="t-meta-accent">∇ NEOSPIRIT {"//"} WORLDLINE 1.130426</span>
+          <span className="t-meta-accent">∇ NEOSPIRIT {"//"} WORLDLINE 1.130426 · Peat</span>
         </div>
         <div className="mt-1.5 text-[var(--ink-soft)]">
           EST. 2026 — BANGKOK / THAILAND

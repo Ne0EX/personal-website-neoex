@@ -54,8 +54,18 @@ function buildMemberCounts(entries: Entry[]): Record<string, number> {
   return counts;
 }
 
-export function AttractorFilterShell() {
-  const [activeAttractor, setActiveAttractor] = useState<string>("all");
+interface AttractorFilterShellProps {
+  /**
+   * CW-10 · initial active filter from /?tag= URL param (ux-journey, α-SUR-01).
+   * Tag links on entry pages link to /?tag=essay etc. The server page reads
+   * `searchParams.tag` and passes it here so the filter is pre-set on arrival.
+   * Falls back to "all" (the default state) when no param is present.
+   */
+  initialTag?: string;
+}
+
+export function AttractorFilterShell({ initialTag = "all" }: AttractorFilterShellProps) {
+  const [activeAttractor, setActiveAttractor] = useState<string>(initialTag);
 
   // memberCounts never changes across the page lifetime (entries are static
   // build-time data) — compute once.

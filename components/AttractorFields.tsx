@@ -69,6 +69,12 @@ export function AttractorFields({ activeAttractor, onSelect, memberCounts }: Pro
           }
 
           return (
+            /*
+             * CW-16 · attractor pill touch target (ux-journey, α-SUR-01, 2026-06-14)
+             * Active pills (ALL, coffee, meta) were 29px tall on mobile — below 44px min.
+             * minHeight:44px + display:flex + alignItems:center → ≥44px tap zone.
+             * py-1.5 padding kept for visual rhythm; overridden by minHeight on mobile.
+             */
             <button
               key={tag}
               type="button"
@@ -84,6 +90,9 @@ export function AttractorFields({ activeAttractor, onSelect, memberCounts }: Pro
                 fontFamily: "var(--font-mono)",
                 color: isActive ? "var(--paper-base)" : "var(--ink-primary)",
                 fontWeight: isActive ? 500 : 400,
+                minHeight: "44px",
+                display: "flex",
+                alignItems: "center",
               }}
               onMouseEnter={(e) => {
                 if (!isActive) e.currentTarget.style.color = "var(--accent-orange)";

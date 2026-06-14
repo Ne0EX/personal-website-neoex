@@ -430,6 +430,11 @@ export function GalleryGrid({
                         }}
                       >
                         <span>ROLL ·</span>
+                        {/*
+                         * CW-12 · roll header touch target (ux-journey, α-SUR-01, 2026-06-14)
+                         * Was 14px tall — the primary drill-down on /photos, un-tappable on mobile.
+                         * display:flex + minHeight:44px brings tap zone to 44px. Visual unchanged.
+                         */}
                         <a
                           href={`/photos/${roll}`}
                           style={{
@@ -438,6 +443,9 @@ export function GalleryGrid({
                             letterSpacing: "0.22em",
                             fontFamily: "var(--font-mono)",
                             fontSize: "var(--meta-size)",
+                            display: "flex",
+                            alignItems: "center",
+                            minHeight: "44px",
                           }}
                           aria-label={`View roll ${roll}`}
                         >

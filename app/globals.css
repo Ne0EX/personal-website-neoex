@@ -643,6 +643,22 @@ body {
   gap: 16px;
 }
 
+/* CW-01 · /archive mobile overflow fix (ux-journey, α-SUR-01, 2026-06-14)
+   The two-column archive grid has no mobile breakpoint. The 340px rail escapes
+   a 390px viewport → 46px overflow, page unusable. Collapse to single column at
+   ≤768px: rail stacks above the ledger. sticky top released (no useful effect
+   in a one-column flow). */
+@media (max-width: 768px) {
+  .archive-body {
+    grid-template-columns: 1fr;
+    column-gap: 0;
+    padding: 20px 18px 48px;
+  }
+  .archive-body > .archive-rail-col {
+    position: static;
+  }
+}
+
 /* ── #3 READ-TIER CONTRAST LIFT — READOUT + FILTER ──
    Peat finds the readout (RETICLE/DRIFT/BEARING/STRATUM/COORD/α + NEXT NODE)
    and the filter (§ FILTER / TYPE / ALL ART PHO FIC) hard to read. Lift the
@@ -1521,6 +1537,16 @@ body {
   letter-spacing: 0.2em;
   align-items: center;
   white-space: nowrap;
+}
+/* CW-04 · Nav link touch targets (ux-journey, α-SUR-01, 2026-06-14)
+   All five nav links were 14px tall with 0px padding-block — below the 44px
+   minimum. Adding padding-block 15px brings the tap zone to ~44px. Invisible
+   at desktop (the links already have sufficient height in the nav-shell grid).
+   align-items:center keeps the glyph vertically centred. */
+.nav-links a {
+  display: inline-flex;
+  align-items: center;
+  padding-block: 15px;
 }
 .nav-clock {
   text-align: right;

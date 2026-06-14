@@ -99,6 +99,33 @@ function shortId(entry: ArchiveEntry): string {
   return `FC·${head}`;
 }
 
+// ─── Display helpers ─────────────────────────────────────────────────────────
+
+/**
+ * CW-09 · Machine-slug masking (ux-journey, α-SUR-01, 2026-06-14)
+ *
+ * When a photo's caption is absent, its title falls back to the raw sidecar id
+ * (archive.ts line 166: `title: s.caption ?? s.id`). Machine-generated IDs like
+ * "CHATGPTIMAGE-1781389399360" are all-caps, contain only word chars + dashes,
+ * and have a numeric timestamp suffix — visible to every visitor in the ledger.
+ *
+ * This helper detects the pattern and returns a cleaner display label:
+ *   "CHATGPTIMAGE-1781389399360" → "[ photo — untitled ]"
+ * The canonical slug is not changed; only the rendered label is masked.
+ *
+ * Pattern: string is all uppercase letters + digits + dashes/underscores, no
+ * spaces, and has a digit-run of ≥8 chars in the trailing segment (numeric
+ * timestamp or file-counter). False positives (e.g. "DSCF0344") are caught by
+ * the >10-digit length guard.
+ */
+function humanTitle(title: string, kind: 'article' | 'photo' | 'fiction'): string {
+  if (kind !== 'photo') return title;
+  // Machine slug: no spaces, all-upper alphanumeric+dash, trailing ≥10-digit run
+  const machineSlug = /^[A-Z0-9_\-]+$/.test(title) && /\d{10,}/.test(title);
+  if (machineSlug) return '[ photo — untitled ]';
+  return title;
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 /**
@@ -207,9 +234,16 @@ function ArchiveLedgerRow({
             color: 'var(--ink-primary)',
           }}
         >
-          <span className="entry-glitch" data-text={entry.title}>
-            {entry.title}
-          </span>
+          {/* CW-09: humanTitle masks raw machine-slug IDs (CHATGPTIMAGE-…) when
+              caption is absent. Display label only — slug and route unchanged. */}
+          {(() => {
+            const display = humanTitle(entry.title, entry.kind);
+            return (
+              <span className="entry-glitch" data-text={display}>
+                {display}
+              </span>
+            );
+          })()}
         </div>
 
         {/* Domain / tags — first accent (.alr-tag-lead), rest ink-soft (.alr-tag) */}

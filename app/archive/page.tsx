@@ -47,6 +47,12 @@ import {
 } from '@/lib/content';
 import { ArchiveClient } from '@/components/ArchiveClient';
 import { ArchiveSurveyAffordance } from '@/components/ArchiveSurveyAffordance';
+// CW-17 · persistent Nav on /archive (ux-journey, α-SUR-01, 2026-06-14)
+// The archive previously rendered with no global Nav — island routing confirmed
+// in the persona audit. Without Nav, returning from the archive to /photos requires
+// backtracking through the homepage. Nav.tsx is server-safe (useEffect only for the
+// clock; the RSC shell renders safely). Mounted before the archive header.
+import { Nav } from '@/components/Nav';
 import type { ArchiveEntry } from '@/lib/content';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -127,6 +133,16 @@ export default async function ArchivePage() {
     >
       {/* Scroll meter — top 2px accent-orange fill (existing .scroll-meter atom) */}
       <div className="scroll-meter" aria-hidden="true" />
+
+      {/*
+       * CW-17 · persistent Nav (ux-journey, α-SUR-01, 2026-06-14)
+       * The global Nav gives the archive the same navigation frame as every other
+       * route. Placed after the scroll-meter and before the skip-link so the DOM
+       * order is: scroll-meter → nav → skip-link → archive content. The Nav uses
+       * 'use client' (for the clock); mounting it in an RSC is valid — Next.js
+       * handles client components inside server components at the boundary.
+       */}
+      <Nav />
 
       {/*
        * Visually-hidden skip link (§12 accessibility).

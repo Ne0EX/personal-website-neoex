@@ -180,9 +180,16 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
           <div style={{ display: "flex", gap: "14px", alignItems: "baseline" }}>
             {/* hover states via className — photo-entry-link class defined below */}
             {/* Use Next.js Link for the homepage route (avoids no-html-link-for-pages) */}
+            {/*
+             * CW-14 · back-to-atlas touch target (ux-journey, α-SUR-01, 2026-06-14)
+             * Was 95×31px — only path back to homepage without Nav on mobile.
+             * minHeight:44px + display:inline-flex + alignItems:center → ≥44px tap zone.
+             * paddingBlock:7px adds comfortable vertical room. Visual text unchanged.
+             */}
             <Link
               href="/"
               className="photo-entry-link"
+              style={{ display: "inline-flex", alignItems: "center", minHeight: "44px", paddingBlock: "7px" }}
             >
               [← BACK TO ATLAS]
             </Link>
@@ -371,11 +378,16 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
              * if variants are absent, per SHIP-PLAN §2 precondition note).
              */}
             {variants?.medium?.webp ? (
+              /* CW-13 · objectFit: cover (ux-journey, α-SUR-01, 2026-06-14)
+                 Browser default is objectFit:fill which stretches images without
+                 preserving aspect ratio. cover preserves aspect ratio + fills the
+                 container. height:auto defers to natural ratio when no container
+                 height is set. */
               <img
                 src={variants.medium.webp}
                 alt={caption ?? `Photo ${id} from roll ${roll}`}
                 className="paper-mount-image"
-                style={{ width: "100%", height: "auto", display: "block" }}
+                style={{ width: "100%", height: "auto", display: "block", objectFit: "cover" }}
               />
             ) : (
               /* Graceful placeholder — instrument-style, no filler imagery.
