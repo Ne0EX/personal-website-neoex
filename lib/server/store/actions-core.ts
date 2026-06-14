@@ -702,48 +702,130 @@ function classifyExtension(key: string): 'supported' | 'heic' | 'raw' | 'unsuppo
 }
 
 // ---------------------------------------------------------------------------
-// extractLargestJpegPreview — scan a buffer for the largest embedded JPEG
+// extractRafJpegPreview — Fujifilm RAF format-aware header extraction
 // ---------------------------------------------------------------------------
 //
-// Most camera RAW formats (RAF, CR2, NEF, ARW, DNG, RW2, etc.) store a full-
-// resolution or large-preview JPEG in the file bytes alongside the proprietary
-// sensor data. This function scans for the outermost SOI…EOI span (0xFF 0xD8 0xFF
-// … 0xFF 0xD9) and returns the longest contiguous JPEG found.
+// RAF (Fujifilm RAW) stores the embedded full-res JPEG preview at a known
+// header offset. The magic string 'FUJIFILMCCD-RAW' appears at byte 0.
 //
-// "Largest" is correct: RAW files typically embed both a small thumbnail
-// (IFD1, ~320px) and a large preview (full-res or half-res). The largest span
-// is always the full preview. We want the highest-quality source for the
-// variant pipeline.
+//   bytes 84–87  uint32 BE  — byte offset of the embedded JPEG in the file
+//   bytes 88–91  uint32 BE  — byte length of the embedded JPEG
 //
-// The returned Buffer is a complete, self-contained JPEG that sharp can decode
-// directly — no further parsing needed.
+// Slicing buf[offset..offset+length] yields a clean, complete JPEG.
+// Validated by Polaris on DSCF0835.RAF: offset=148, length≈4.4MB,
+// decodes to 4416×2944, camera=X-E5, lens=XF23mmF2.8 R WR, ISO=1600.
 //
-// Returns null if no JPEG is found (e.g. a malformed or DNG-only file).
+// This approach is preferred over the byte-scan fallback because the RAF
+// byte stream also contains many smaller JPEG spans (thumbnails, IOPs) that
+// the scan would compete with — the header gives us the right one directly.
+//
+// Returns null if:
+//   - magic does not match (not a RAF)
+//   - offset/length are out of range (malformed header)
+//   - the sliced buffer fails sharp.metadata() validation
 
-function extractLargestJpegPreview(buf: Buffer): Buffer | null {
-  let bestStart = -1
-  let bestLen   = 0
+async function extractRafJpegPreview(buf: Buffer): Promise<Buffer | null> {
+  const RAF_MAGIC = 'FUJIFILMCCD-RAW'
+  if (buf.length < 92) return null
+  if (buf.subarray(0, RAF_MAGIC.length).toString('ascii') !== RAF_MAGIC) return null
+
+  const offset = buf.readUInt32BE(84)
+  const length = buf.readUInt32BE(88)
+
+  // Sanity: offset must be within the file, length must be at least a minimal JPEG
+  if (
+    offset < 92 ||
+    length < 100 ||
+    offset > buf.length ||
+    offset + length > buf.length
+  ) {
+    console.warn(
+      `[extractRafJpegPreview] Header values out of range: offset=${offset} length=${length} fileSize=${buf.length} — falling back to byte-scan`,
+    )
+    return null
+  }
+
+  const candidate = Buffer.from(buf.buffer, buf.byteOffset + offset, length)
+
+  // Validate: sharp must be able to decode it
+  try {
+    const sharpLib = (await import('sharp')).default
+    await sharpLib(candidate).metadata()
+    return candidate
+  } catch {
+    console.warn('[extractRafJpegPreview] Header-sliced JPEG failed sharp.metadata() — falling back to byte-scan')
+    return null
+  }
+}
+
+// ---------------------------------------------------------------------------
+// extractLargestJpegPreview — format-aware RAW preview extractor
+// ---------------------------------------------------------------------------
+//
+// Entry point for all RAW formats. Dispatch order:
+//
+//   1. RAF (Fujifilm): extractRafJpegPreview — uses the header-encoded
+//      offset/length to get the full-res JPEG directly (no scanning).
+//
+//   2. TIFF-based RAW (CR2, NEF, ARW, DNG, RW2, ORF, PEF, etc.): byte-scan
+//      for SOI…EOI candidates, sorted largest-first, then validated one by
+//      one via sharp.metadata(). The first candidate that sharp can decode
+//      is returned. This is more expensive (O(n) scan + try/catch per
+//      candidate) but handles the full variety of TIFF-based containers.
+//
+//      The previous naive implementation picked the LARGEST RAW SPAN without
+//      validation. On real Fujifilm RAFs this grabbed a corrupt cross-boundary
+//      span ('VipsJpeg: Corrupt JPEG data'). The validated fallback prevents
+//      that for all TIFF-based formats too.
+//
+// Returns null if no valid JPEG preview can be extracted.
+
+async function extractLargestJpegPreview(buf: Buffer): Promise<Buffer | null> {
+  // --- Path 1: Fujifilm RAF (header-based, zero-scan) ---
+  const rafResult = await extractRafJpegPreview(buf)
+  if (rafResult !== null) return rafResult
+
+  // --- Path 2: TIFF-based RAW (validated byte-scan) ---
+  // Collect all SOI…EOI candidates (SOI = 0xFF 0xD8 0xFF).
+  // For each SOI, scan forward for the LAST EOI (0xFF 0xD9) to get the
+  // outermost span — inner EOIs (e.g. from nested thumbnail JFIFs) would
+  // truncate the candidate prematurely.
+  const candidates: Array<{ start: number; len: number }> = []
 
   for (let i = 0; i < buf.length - 4; i++) {
-    // JPEG SOI: 0xFF 0xD8 0xFF (third byte leads into the first marker segment)
     if (buf[i] === 0xFF && buf[i + 1] === 0xD8 && buf[i + 2] === 0xFF) {
-      // Scan forward for the matching EOI (0xFF 0xD9)
+      // Scan for the LAST EOI from this SOI onwards
+      let lastEoiEnd = -1
       for (let j = i + 4; j < buf.length - 1; j++) {
         if (buf[j] === 0xFF && buf[j + 1] === 0xD9) {
-          const len = j + 2 - i
-          if (len > bestLen) {
-            bestLen   = len
-            bestStart = i
-          }
-          break // found EOI for this SOI; continue to next SOI candidate
+          lastEoiEnd = j + 2
+          // Do NOT break — keep scanning for a later EOI (outermost span)
         }
+      }
+      if (lastEoiEnd !== -1) {
+        candidates.push({ start: i, len: lastEoiEnd - i })
       }
     }
   }
 
-  if (bestStart === -1) return null
-  // Buffer.from to ensure Buffer<ArrayBuffer> (not ArrayBufferLike from .slice)
-  return Buffer.from(buf.buffer, buf.byteOffset + bestStart, bestLen)
+  if (candidates.length === 0) return null
+
+  // Sort largest-first: the full-res preview is almost always the biggest span
+  candidates.sort((a, b) => b.len - a.len)
+
+  // Try candidates in order; return the first that sharp can decode
+  const sharpLib = (await import('sharp')).default
+  for (const { start, len } of candidates) {
+    const candidate = Buffer.from(buf.buffer, buf.byteOffset + start, len)
+    try {
+      await sharpLib(candidate).metadata()
+      return candidate
+    } catch {
+      // This candidate is corrupt or not a real JPEG — try the next
+    }
+  }
+
+  return null
 }
 
 export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoResult> {
@@ -854,7 +936,7 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
     let decodeBuffer = sourceBuffer  // what sharp will process (may be swapped for RAW)
 
     if (extClass === 'raw') {
-      const previewBuf = extractLargestJpegPreview(sourceBuffer)
+      const previewBuf = await extractLargestJpegPreview(sourceBuffer)
       if (!previewBuf) {
         await rollbackOriginal('RAW_NO_PREVIEW')
         return err(
@@ -870,8 +952,13 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
     // --- EXIF extraction ---
     // exifr is a dynamic import (optional dep at runtime, required at ingest time).
     //
-    // For RAW files we parse the original sourceBuffer (not decodeBuffer) so we get
-    // the full camera metadata from the RAW header (including proprietary MakerNotes).
+    // Extraction strategy (in order):
+    //   1. Try sourceBuffer (the full original). Works for JPEG/PNG/HEIC/TIFF-RAW.
+    //   2. For RAF containers: exifr throws 'Unknown file format' on the RAF bytes.
+    //      Fall back to decodeBuffer (the extracted embedded JPEG) — the JPEG header
+    //      carries the full EXIF IFD (camera/lens/ISO/GPS/DateTimeOriginal).
+    //      Verified on DSCF0835.RAF: exifr on the extracted JPEG returns X-E5,
+    //      XF23mmF2.8 R WR, ISO 1600, DateTimeOriginal correctly.
     //
     // GPS auto-detect (Layer 1 gate):
     //   exifr computes decimal latitude/longitude from GPSLatitude+Ref automatically.
@@ -892,28 +979,42 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
     //   standalone Fujifilm MakerNote IFD parser. DEFERRED pending lightweight
     //   alternative. Manual film-sim selector (Sirius console) is the current path.
     //   entries.film_sim (migration 0011) accepts the manual override.
+    const EXIF_PICK = [
+      'Make', 'Model', 'LensModel', 'LensMake',
+      'FNumber', 'ExposureTime', 'ISO', 'FocalLength', 'FocalLengthIn35mmFormat',
+      'DateTimeOriginal',
+      // GPS tags: exifr auto-computes decimal latitude/longitude from these
+      'GPSLatitude', 'GPSLongitude', 'GPSLatitudeRef', 'GPSLongitudeRef',
+    ]
+    const EXIF_PARSE_OPTS = {
+      // makerNote: intentionally false — Fujifilm MakerNote decodes only as an
+      // opaque byte array (not named tags), so including it wastes parse budget
+      // and adds a 1308-key object to memory with no actionable content.
+      // Film sim detection is deferred; see note above.
+      mergeOutput: true,
+    }
     let rawExif: Record<string, unknown> = {}
     try {
       const exifr = (await import('exifr')).default
-      // Always parse EXIF from sourceBuffer (the original). For RAW files this gives
-      // us the full camera metadata; for HEIC/JPEG this is also the right buffer.
-      rawExif = await exifr.parse(sourceBuffer, {
-        pick: [
-          'Make', 'Model', 'LensModel', 'LensMake',
-          'FNumber', 'ExposureTime', 'ISO', 'FocalLength', 'FocalLengthIn35mmFormat',
-          'DateTimeOriginal',
-          // GPS tags: exifr auto-computes decimal latitude/longitude from these
-          'GPSLatitude', 'GPSLongitude', 'GPSLatitudeRef', 'GPSLongitudeRef',
-        ],
-        // makerNote: intentionally false — Fujifilm MakerNote decodes only as an
-        // opaque byte array (not named tags), so including it wastes parse budget
-        // and adds a 1308-key object to memory with no actionable content.
-        // Film sim detection is deferred; see note above.
-        mergeOutput: true,
-      }) ?? {}
+      // Primary: parse the original bytes. Works for JPEG/PNG/HEIC/TIFF-RAW.
+      rawExif = await exifr.parse(sourceBuffer, { pick: EXIF_PICK, ...EXIF_PARSE_OPTS }) ?? {}
     } catch (exifError) {
-      // EXIF extraction failure is non-fatal: proceed with empty exif
-      console.warn('[ingestPhoto] EXIF extraction failed (proceeding without):', String(exifError))
+      // RAF containers: exifr throws 'Unknown file format' on the RAF bytes.
+      // Fall back to the extracted JPEG preview (decodeBuffer) which carries the
+      // full EXIF IFD embedded by the camera. Only attempt if we are in the RAW
+      // branch and preview extraction succeeded (decodeBuffer !== sourceBuffer).
+      if (extClass === 'raw' && decodeBuffer !== sourceBuffer) {
+        try {
+          const exifr = (await import('exifr')).default
+          console.info('[ingestPhoto] EXIF: sourceBuffer parse failed for RAW container — retrying on extracted preview JPEG')
+          rawExif = await exifr.parse(decodeBuffer, { pick: EXIF_PICK, ...EXIF_PARSE_OPTS }) ?? {}
+        } catch (fallbackError) {
+          console.warn('[ingestPhoto] EXIF extraction failed on both source and preview (proceeding without):', String(fallbackError))
+        }
+      } else {
+        // EXIF extraction failure is non-fatal: proceed with empty exif
+        console.warn('[ingestPhoto] EXIF extraction failed (proceeding without):', String(exifError))
+      }
     }
 
     // Extract GPS for auto-coord (owner column). exifr merges decimal lat/lon
@@ -1347,10 +1448,24 @@ async function resolveDefaultRollSlug(
     if (downloadData) {
       const buf = Buffer.from(await downloadData.arrayBuffer())
       const exifr = (await import('exifr')).default
-      const rawExif = await exifr.parse(buf, {
-        pick: ['DateTimeOriginal'],
-        mergeOutput: true,
-      }) ?? {}
+
+      // Try to parse EXIF directly (works for JPEG/PNG/HEIC/TIFF-RAW).
+      // For RAF containers exifr throws 'Unknown file format' — in that case
+      // extract the embedded JPEG preview and parse EXIF from it instead.
+      let rawExif: Record<string, unknown> = {}
+      try {
+        rawExif = await exifr.parse(buf, { pick: ['DateTimeOriginal'], mergeOutput: true }) ?? {}
+      } catch {
+        // Likely a RAF container — attempt extraction and re-parse
+        try {
+          const previewBuf = await extractLargestJpegPreview(buf)
+          if (previewBuf) {
+            rawExif = await exifr.parse(previewBuf, { pick: ['DateTimeOriginal'], mergeOutput: true }) ?? {}
+          }
+        } catch {
+          // still non-fatal; fall through to current-month
+        }
+      }
 
       const dto = rawExif['DateTimeOriginal']
       let captureDate: Date | null = null
