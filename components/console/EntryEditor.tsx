@@ -2454,17 +2454,39 @@ export function EntryEditor({
       setUploadError('pick or create a roll first')
       return
     }
+
+    // heic-reject: early type guard — same logic as QuickUploadBar.rejectReason().
+    // Must run BEFORE URL.createObjectURL(file), which is the crash site: browsers
+    // may tab-kill when an <img> src tries to decode an undecoded HEIC blob.
+    // Also prevents orphan originals in storage (file never reaches Step 1).
+    const ext = (file.name.split('.').pop() ?? '').toLowerCase()
+    const mime = file.type.toLowerCase()
+    const SUPPORTED_EXTS = ['jpg', 'jpeg', 'png', 'webp']
+    const SUPPORTED_MIMES = ['image/jpeg', 'image/png', 'image/webp']
+    const isHeic = ext === 'heic' || ext === 'heif' || mime === 'image/heic' || mime === 'image/heif'
+    const extOk = SUPPORTED_EXTS.includes(ext)
+    const mimeOk = mime === '' || SUPPORTED_MIMES.includes(mime)
+    if (isHeic) {
+      setUploadError('HEIC not supported yet — please use JPEG')
+      return
+    }
+    if (!extOk || !mimeOk) {
+      const label = ext ? `.${ext}` : mime || 'unknown type'
+      setUploadError(`${label} not supported — please use JPEG, PNG, or WebP`)
+      return
+    }
+
     setUploadError(null)
 
     // Generate a deterministic-looking photoId from the filename
     const base = file.name.replace(/\.[^.]+$/, '').toUpperCase().replace(/[^A-Z0-9_-]/g, '') || 'DSCF0000'
     const photoId = base.slice(0, 12)  // max 12 chars (photo_id constraint is 40 chars)
-    const ext = file.name.split('.').pop() ?? 'jpg'
     const originalKey = `${effectiveRoll}/${photoId}.${ext}`
     const frameKey = `${effectiveRoll}/${photoId}`
 
     setUploadStatuses((s) => ({ ...s, [frameKey]: 'uploading' }))
-    // Append placeholder frame immediately (degraded — no URL yet)
+    // Append placeholder frame immediately (degraded — no URL yet).
+    // createObjectURL is safe here: the file type has already been validated above.
     const placeholderSrc = URL.createObjectURL(file)
     setFrames((fs) => [...fs, { id: frameKey, src: placeholderSrc, caption: file.name }])
     setActiveFrame(frameKey)
