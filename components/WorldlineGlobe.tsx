@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import {
-  OBSERVER_NODES,
+  // OBSERVER_NODES: export kept in lib/entries.ts for harness/watchdog consumers;
+  // the standalone observer-dot layer was removed 2026-06-15 (tokyo-alpha, α-SUR-01).
   type ArchiveNode,
 } from "@/lib/entries";
 // Place-aware globe — place-aware-globe-spec.md §2/§3/§4 + DECISION-2026-06-07 §15 (Option A).
@@ -700,13 +701,10 @@ function buildScene(alphaLat: number, alphaLon: number): { root: THREE.Group; sc
   const nodesGroup = new THREE.Group();
   globe.add(nodesGroup);
 
-  const nodeMatInk = new THREE.MeshBasicMaterial({ color: 0x1f5063 });
-  const nodeMatAcc = new THREE.MeshBasicMaterial({ color: 0xd4602a });
-
   // Ne0 place-nodes are built ASYNC from getPlacesSummary() after the scene
   // mounts (mirrors the NeX fiction-glyph async population). The registry starts
   // empty; the THREE-setup effect fills it via buildPlaceNode() and re-targets
-  // the JUMP cycle. Until then nodesGroup carries only the observer glyphs below.
+  // the JUMP cycle.
   const placeObjects: PlaceNodeObject[] = [];
 
   // NeX fiction hit proxies — populated async alongside nexFictionGlyphs.
@@ -714,36 +712,16 @@ function buildScene(alphaLat: number, alphaLon: number): { root: THREE.Group; sc
   // orbital position, raycast registry mirrors placeObjects pattern.)
   const fictionHitObjects: THREE.Mesh[] = [];
 
-  // Observer nodes (α + 012 + 047, not clickable) — SEPARATE LAYER from places
-  // (spec §2.3): α co-locates with the alpha-locus place-node but stays its own
-  // object with its own orange halo; never a place, never clickable.
-  // movable-alpha: the α node position uses alphaLat/alphaLon from the prop (data-driven).
-  let alphaRing: THREE.Mesh | null = null;
+  // tokyo-alpha: observer-node layer REMOVED (2026-06-15, α-SUR-01).
+  // The separate α / 012 / 047 observer dots were vestigial decoration with no
+  // content and no navigable destination. The α identity is now merged onto the
+  // PLACE node: whichever place has isAlpha=true renders with the orange accent
+  // dot+ring+α-prefix (data-driven via the place-recolor effect below).
+  // OBSERVER_NODES import is kept for lib/entries.ts consumers; not used here.
   const observerObjects: { node: ArchiveNode; head: THREE.Mesh }[] = [];
-  for (const n of OBSERVER_NODES) {
-    // For the primary α node, override the hardcoded coords with the data-driven alpha locus.
-    const lat = n.primary ? alphaLat : n.coords.lat;
-    const lon = n.primary ? alphaLon : n.coords.lon;
-    const v = latLonToVec3(lat, lon, 1.005);
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(n.primary ? 0.022 : 0.01, 12, 12), // M4 sync: α sphere 0.018→0.022 per spec §5.3 / master gallery canonical
-      n.primary ? nodeMatAcc.clone() : nodeMatInk.clone()
-    );
-    head.position.copy(v);
-    nodesGroup.add(head);
-
-    if (n.primary) {
-      alphaRing = new THREE.Mesh(
-        new THREE.RingGeometry(0.034, 0.044, 32), // M4 sync: halo ring 0.03→0.034 / 0.038→0.044 per spec §5.3 / master gallery canonical
-        new THREE.MeshBasicMaterial({ color: 0xd4602a, side: THREE.DoubleSide, transparent: true, opacity: 0.85 })
-      );
-      alphaRing.position.copy(v.clone().multiplyScalar(1.001));
-      alphaRing.lookAt(0, 0, 0);
-      alphaRing.rotateY(Math.PI);
-      globe.add(alphaRing);
-    }
-    observerObjects.push({ node: n, head });
-  }
+  // alphaRing is no longer built as a standalone object — kept null so the tick's
+  // `if (refs.alphaRing)` guard is a harmless no-op.
+  const alphaRing: THREE.Mesh | null = null;
 
   // NETRA active tracker — exact surface anchor, kept on the globe so the
   // marker follows ATLAS rotation while the camera follows with softened lag.
@@ -1054,36 +1032,24 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
   const rebuildJumpTargets = useCallback((summaries: PlaceSummary[]) => {
     placeSummariesRef.current = summaries;
 
-    // movable-alpha: find the alpha place summary to derive the observer-α coords.
-    // If no alpha is flagged (unseeded DB), fall back to the hardcoded Bangkok.
-    const alphaSummary = summaries.find((s) => s.isAlpha);
-    const observerAlphaLat = alphaSummary?.place.coord.lat ?? ALPHA_LAT_FALLBACK;
-    const observerAlphaLon = alphaSummary?.place.coord.lon ?? ALPHA_LON_FALLBACK;
-    const observerAlphaPlace = alphaSummary?.place.name ?? OBSERVER_NODES[0].coords.place;
-
-    const surface: JumpTarget[] = [
-      // Observer α — use the data-driven alpha locus coords (movable-alpha goal: NEXT NODE starts here).
-      // globe-nextnode fix (sirius): 012 (Tokyo) and 047 (Point Nemo) are NOT store entries;
-      // lib/entries.ts:24 marks them "observation points marked on the globe but not clickable
-      // as articles". Cycling to them lands on a ghost with no console/store records, breaking
-      // the cycle flow. They are REMOVED from the cycle and remain as ambient rendered dots only.
-      {
-        label: OBSERVER_NODES[0].label,
-        place: observerAlphaPlace,
-        coords: { lat: observerAlphaLat, lon: observerAlphaLon },
-      },
-      // Place nodes — alpha place first, then the rest (weight-sorted from getPlacesSummary).
-      // movable-alpha: ensures NEXT NODE cycle visits the alpha locus FIRST among places.
-      ...summaries
-        .slice()
-        .sort((a, b) => (b.isAlpha ? 1 : 0) - (a.isAlpha ? 1 : 0))
-        .map((s) => ({
-          label: s.place.name.split(" · ")[0].toUpperCase(),
+    // tokyo-alpha: observer-α cycle stop REMOVED (2026-06-15, α-SUR-01).
+    // The standalone observer α entry is gone — the alpha-locus PLACE is now
+    // the first cycle stop, rendered with orange accent + 'α · ' prefix.
+    // Place nodes: alpha place first (isAlpha=true sorted top), then the rest.
+    // The alpha place gets the 'α · ' prefix on its label so the NETRA readout
+    // shows e.g. "α · BANGKOK · Bangkok · TH" — distinguishing it as the locus.
+    const surface: JumpTarget[] = summaries
+      .slice()
+      .sort((a, b) => (b.isAlpha ? 1 : 0) - (a.isAlpha ? 1 : 0))
+      .map((s) => {
+        const baseName = s.place.name.split(" · ")[0].toUpperCase();
+        return {
+          label: s.isAlpha ? `α · ${baseName}` : baseName,
           place: s.place.name,
           coords: { lat: s.place.coord.lat, lon: s.place.coord.lon },
           placeId: s.place.id,
-        })),
-    ];
+        };
+      });
     jumpTargetsRef.current = [...surface, ...fictionJumpTargetsRef.current];
   }, []);
   const netraLockRef = useRef<{ coords: { lat: number; lon: number }; range: number } | null>(null);
@@ -2283,40 +2249,52 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
     }
   }, [placeSummaries]);
 
-  // ─── Relocate α observer ring when alpha place data resolves ───
-  // movable-alpha: if the data-driven alpha place coords differ from the initial
-  // build coords (e.g. the console changed alpha after the page loaded), relocate
-  // the observer α ring and head to the new position. No geometry rebuild needed —
-  // just update .position on the existing THREE objects.
+  // ─── Alpha-on-place accent: paint the isAlpha place node ORANGE (data-driven) ───
+  // tokyo-alpha (2026-06-15, α-SUR-01): the separate observer α dot is gone.
+  // The place whose isAlpha=true gets the --accent-orange treatment on its dot +
+  // ring-1 + ring-2 so it reads as the α locus visually. This runs AFTER the
+  // selection recolor effect in dep-order; the selection effect (selectedId,
+  // placeSummaries) handles a selected alpha place's own orange treatment already,
+  // so this effect only applies the persistent accent when the place is NOT selected.
   useEffect(() => {
     const refs = sceneRefsRef.current;
     if (!refs || placeSummaries.length === 0) return;
-    const alphaSummary = placeSummaries.find((s) => s.isAlpha);
-    if (!alphaSummary) return;
-    const { lat, lon } = alphaSummary.place.coord;
-    // Reposition the observer α head (first observerObjects entry — the primary one).
-    const primaryObserver = refs.observerObjects.find((o) => o.node.primary);
-    if (primaryObserver) {
-      const v = latLonToVec3(lat, lon, 1.005);
-      primaryObserver.head.position.copy(v);
+    for (const node of refs.placeObjects) {
+      const isAlpha = node.summary.isAlpha;
+      const isSel = node.summary.place.id === selectedId;
+      if (isAlpha && !isSel) {
+        // Persistent alpha accent — orange dot + ring-1 full / ring-2 mid.
+        (node.dot.material as THREE.MeshBasicMaterial).color.setHex(PLACE_ACCENT_HEX);
+        node.rings.forEach((ring, i) => {
+          const mat = ring.material as THREE.MeshBasicMaterial;
+          const base = (ring.userData.baseOpacity as number) ?? PLACE_RING_GEO[i][2];
+          if (i < 2) {
+            mat.color.setHex(PLACE_ACCENT_HEX);
+            mat.opacity = i === 0 ? 0.95 : 0.6;
+          } else {
+            mat.color.setHex(PLACE_INK_HEX);
+            mat.opacity = base;
+          }
+        });
+      }
+      // When alpha place IS selected, the selection recolor effect above has already
+      // applied orange — no double-paint needed. Non-alpha nodes handled by that effect.
     }
-    // Reposition the alpha halo ring.
-    if (refs.alphaRing) {
-      const v = latLonToVec3(lat, lon, 1.005);
-      refs.alphaRing.position.copy(v.clone().multiplyScalar(1.001));
-      refs.alphaRing.lookAt(0, 0, 0);
-      refs.alphaRing.rotateY(Math.PI);
-    }
-  }, [placeSummaries]);
+  }, [placeSummaries, selectedId]);
 
   // ─── Recolor place-node dot + rings on selection (spec §3.4 states table) ───
-  // Selected place: dot + visible rings → accent-orange. Others: ink, base
-  // opacity. Pure material mutation — no geometry rebuild, no re-render churn.
+  // Selected place: dot + visible rings → accent-orange. Others: ink, base opacity.
+  // tokyo-alpha exception: non-selected alpha place keeps its orange accent
+  // (painted by the alpha-on-place effect above) — this effect must not wipe it.
+  // Pure material mutation — no geometry rebuild, no re-render churn.
   useEffect(() => {
     const refs = sceneRefsRef.current;
     if (!refs) return;
     for (const node of refs.placeObjects) {
       const isSel = node.summary.place.id === selectedId;
+      const isAlpha = node.summary.isAlpha;
+      // Non-selected alpha place: let the alpha-on-place effect own its color.
+      if (isAlpha && !isSel) continue;
       (node.dot.material as THREE.MeshBasicMaterial).color.setHex(
         isSel ? PLACE_ACCENT_HEX : PLACE_INK_HEX
       );
