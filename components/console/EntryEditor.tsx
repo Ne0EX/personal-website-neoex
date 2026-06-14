@@ -2455,28 +2455,41 @@ export function EntryEditor({
       return
     }
 
-    // heic-reject: early type guard — same logic as QuickUploadBar.rejectReason().
-    // Must run BEFORE URL.createObjectURL(file), which is the crash site: browsers
-    // may tab-kill when an <img> src tries to decode an undecoded HEIC blob.
-    // Also prevents orphan originals in storage (file never reaches Step 1).
+    // type guard — runs BEFORE URL.createObjectURL(file) (the browser crash site for
+    // undecoded blobs). RAW files are now accepted (embedded JPEG preview extraction
+    // on the server). HEIC is now accepted (sharp has libheif 1.20.2).
+    // Warn about RAW large-file cost; all other non-image types are hard-rejected.
     const ext = (file.name.split('.').pop() ?? '').toLowerCase()
     const mime = file.type.toLowerCase()
-    const SUPPORTED_EXTS = ['jpg', 'jpeg', 'png', 'webp']
-    const SUPPORTED_MIMES = ['image/jpeg', 'image/png', 'image/webp']
-    const isHeic = ext === 'heic' || ext === 'heif' || mime === 'image/heic' || mime === 'image/heif'
-    const extOk = SUPPORTED_EXTS.includes(ext)
-    const mimeOk = mime === '' || SUPPORTED_MIMES.includes(mime)
-    if (isHeic) {
-      setUploadError('HEIC not supported yet — please use JPEG')
-      return
-    }
-    if (!extOk || !mimeOk) {
+    const SUPPORTED_EXTS = new Set([
+      'jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'tif', 'tiff',
+      'heic', 'heif',
+      'raf', 'cr2', 'cr3', 'nef', 'nrw', 'arw', 'dng', 'rw2', 'orf',
+      'pef', 'rwl', 'raw', 'srw', 'x3f', '3fr',
+    ])
+    const RAW_EXTS = new Set([
+      'raf', 'cr2', 'cr3', 'nef', 'nrw', 'arw', 'dng', 'rw2', 'orf',
+      'pef', 'rwl', 'raw', 'srw', 'x3f', '3fr',
+    ])
+    const SUPPORTED_MIMES = [
+      'image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif',
+      'image/tiff', 'image/heic', 'image/heif',
+    ]
+    const extOk = SUPPORTED_EXTS.has(ext)
+    const mimeOk = mime === '' || SUPPORTED_MIMES.some((m) => mime.startsWith(m))
+    if (!extOk && !mimeOk) {
       const label = ext ? `.${ext}` : mime || 'unknown type'
-      setUploadError(`${label} not supported — please use JPEG, PNG, or WebP`)
+      setUploadError(`${label} not supported — use JPEG, PNG, HEIC, or RAW`)
       return
     }
 
-    setUploadError(null)
+    // RAW warning: surface the large-file advisory (upload proceeds)
+    if (RAW_EXTS.has(ext)) {
+      setUploadError('RAW files are large (20–50 MB) and eat storage quota fast — uploading anyway')
+      // Don't return — continue with upload
+    } else {
+      setUploadError(null)
+    }
 
     // Generate a deterministic-looking photoId from the filename
     const base = file.name.replace(/\.[^.]+$/, '').toUpperCase().replace(/[^A-Z0-9_-]/g, '') || 'DSCF0000'

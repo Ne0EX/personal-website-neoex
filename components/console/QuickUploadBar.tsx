@@ -40,48 +40,79 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Supported file types — what sharp can actually ingest on the server.
-// HEIC/HEIF requires libheif which is not bundled with sharp in this stack.
-// Validate by BOTH extension AND mime type; reject early, before ANY storage
-// upload, so orphan originals never reach the bucket.
+// Supported file types — what the ingest pipeline can process server-side.
+//
+// HEIC/HEIF: sharp ships with libheif 1.20.2 and decodes HEIC natively.
+//   Typical size ≈ 1–3 MB (fine for free-tier Supabase 1 GB quota).
+//
+// RAW (.RAF/.CR2/.NEF/.ARW/.DNG/.RW2 etc.): the pipeline extracts the embedded
+//   JPEG preview and generates variants from that. The RAW original is stored as
+//   the archival copy. RAW files are 20–50 MB each — user gets a warning.
+//
+// Validate by extension AND mime type; reject early so orphan originals never
+// reach the bucket.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const SUPPORTED_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp'])
+const SUPPORTED_EXTENSIONS = new Set([
+  'jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'tif', 'tiff',
+  // HEIC/HEIF: libheif in sharp handles these natively
+  'heic', 'heif',
+  // RAW: embedded JPEG preview extraction path on the server
+  'raf', 'cr2', 'cr3', 'nef', 'nrw', 'arw', 'dng', 'rw2', 'orf',
+  'pef', 'rwl', 'raw', 'srw', 'x3f', '3fr',
+])
+
+const RAW_EXTENSIONS = new Set([
+  'raf', 'cr2', 'cr3', 'nef', 'nrw', 'arw', 'dng', 'rw2', 'orf',
+  'pef', 'rwl', 'raw', 'srw', 'x3f', '3fr',
+])
 
 const SUPPORTED_MIME_PREFIXES = [
   'image/jpeg',
   'image/png',
   'image/webp',
+  'image/avif',
+  'image/gif',
+  'image/tiff',
+  'image/heic',
+  'image/heif',
+  // RAW files often report as image/x-* or application/octet-stream;
+  // extension check is the reliable gate for them.
 ]
 
 /**
  * Returns a human-readable rejection reason for unsupported files, or null if
- * the file is acceptable. Checks extension AND mime type so a renamed .heic
- * uploaded as image/jpeg (or vice-versa) is still caught.
+ * the file is acceptable. Checks extension AND mime type.
+ *
+ * Returns an object { reason: string, isWarning: boolean } so callers can
+ * distinguish hard rejections from "allowed but warn" cases (RAW large-file).
  */
-function rejectReason(file: File): string | null {
+function rejectReason(file: File): { reason: string; isWarning: boolean } | null {
   const ext = (file.name.split('.').pop() ?? '').toLowerCase()
   const mime = file.type.toLowerCase()
 
-  // Known HEIC/HEIF rejection — explicit message per task spec
-  if (ext === 'heic' || ext === 'heif' || mime === 'image/heic' || mime === 'image/heif') {
-    return 'HEIC not supported yet — please use JPEG'
+  // Extension check is primary — MIME is unreliable for RAW and HEIC
+  if (!SUPPORTED_EXTENSIONS.has(ext)) {
+    // Also check mime for known image types in case extension is missing
+    const mimeOk = mime === '' || SUPPORTED_MIME_PREFIXES.some((p) => mime.startsWith(p))
+    if (!mimeOk) {
+      const label = ext ? `.${ext}` : mime || 'unknown type'
+      return { reason: `${label} not supported — use JPEG, PNG, HEIC, or RAW`, isWarning: false }
+    }
   }
 
-  // Extension not in supported set
-  const extOk = SUPPORTED_EXTENSIONS.has(ext)
-  // Mime not in supported set (empty mime string = browser didn't detect, allow extension check only)
-  const mimeOk = mime === '' || SUPPORTED_MIME_PREFIXES.some((p) => mime.startsWith(p))
-
-  if (!extOk || !mimeOk) {
-    const label = ext ? `.${ext}` : mime || 'unknown type'
-    return `${label} not supported — please use JPEG, PNG, or WebP`
+  // RAW warning — allowed, but large file (20–50 MB eats free-tier Supabase quota)
+  if (RAW_EXTENSIONS.has(ext)) {
+    return {
+      reason: `RAW files are large (20–50 MB) and eat storage quota fast — uploading anyway`,
+      isWarning: true,
+    }
   }
 
   return null
 }
 
-type UploadStatus = 'uploading' | 'processing' | 'done' | 'failed'
+type UploadStatus = 'uploading' | 'processing' | 'done' | 'failed' | 'warning'
 
 interface FileUpload {
   /** Stable key derived from filename + upload batch timestamp. */
@@ -92,8 +123,10 @@ interface FileUpload {
   roll: string | null
   /** Populated on success — the photo entry slug (roll/photoId). */
   entrySlug: string | null
-  /** Human-readable error message on failure. */
+  /** Human-readable error message on failure, or warning text for RAW. */
   errorMsg: string | null
+  /** true if this item is a RAW-file warning (upload proceeds). */
+  isRawWarning?: boolean
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -216,6 +249,7 @@ const QUB_CSS = `
 .qub-file-status.is-processing { color: var(--accent-orange); }
 .qub-file-status.is-done       { color: var(--ink-primary); }
 .qub-file-status.is-failed     { color: #c0392b; }  /* semantic error — no token for red yet */
+.qub-file-status.is-warning    { color: #d68000; }  /* RAW large-file advisory */
 
 .qub-file-action {
   flex-shrink: 0;
@@ -334,40 +368,44 @@ export function QuickUploadBar() {
     const originalKey   = `quick-uploads/${uniquePhotoId}.${ext}`
     const fileKey       = `${file.name}-${batchTs}`
 
-    // --- [CLIENT GATE] Reject unsupported types before touching storage ---
-    // Catches HEIC/HEIF (and unknown types) BEFORE any upload attempt so:
-    //   (a) no orphan is created in the originals bucket,
-    //   (b) the server never tries to run sharp on an unsupported buffer,
-    //   (c) the tab cannot crash from a downstream sharp decode failure.
-    // The server (ingestPhotoImpl) has an independent extension-based gate
-    // as a second layer — this client gate is defence-in-depth only.
-    const SUPPORTED_EXTS = new Set(['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'tif', 'tiff'])
-    const HEIC_EXTS      = new Set(['heic', 'heif'])
-    if (HEIC_EXTS.has(ext)) {
+    // --- [CLIENT GATE] Type check before touching storage ---
+    // Reuses rejectReason() which handles both hard rejections (unsupported types)
+    // and soft warnings (RAW = large file, upload proceeds with advisory message).
+    // The server (ingestPhotoImpl) has an independent extension-based gate as a
+    // second layer — this client gate is defence-in-depth only.
+    const innerCheck = rejectReason(file)
+    if (innerCheck && !innerCheck.isWarning) {
       setFiles((fs) => [...fs, {
         key: fileKey, name: file.name,
         status: 'failed', roll: null, entrySlug: null,
-        errorMsg: 'HEIC not supported yet — convert to JPEG first',
-      }])
-      return
-    }
-    if (!SUPPORTED_EXTS.has(ext)) {
-      setFiles((fs) => [...fs, {
-        key: fileKey, name: file.name,
-        status: 'failed', roll: null, entrySlug: null,
-        errorMsg: `".${ext}" not supported — use JPEG, PNG, WEBP, or AVIF`,
+        errorMsg: innerCheck.reason,
       }])
       return
     }
 
-    // Register as uploading
-    setFiles((fs) => [...fs, {
-      key: fileKey, name: file.name,
-      status: 'uploading', roll: null, entrySlug: null, errorMsg: null,
-    }])
+    // For RAW: show advisory warning immediately, then proceed with the upload.
+    // For all other accepted types: register as uploading immediately.
+    if (innerCheck?.isWarning) {
+      setFiles((fs) => [...fs, {
+        key: fileKey, name: file.name,
+        status: 'warning', roll: null, entrySlug: null,
+        errorMsg: innerCheck.reason,
+        isRawWarning: true,
+      }])
+    } else {
+      setFiles((fs) => [...fs, {
+        key: fileKey, name: file.name,
+        status: 'uploading', roll: null, entrySlug: null, errorMsg: null,
+      }])
+    }
 
     const patch = (updates: Partial<FileUpload>) =>
       setFiles((fs) => fs.map((f) => f.key === fileKey ? { ...f, ...updates } : f))
+
+    // Transition RAW warning → uploading now that we're actually starting
+    if (innerCheck?.isWarning) {
+      patch({ status: 'uploading' })
+    }
 
     try {
       // Step 1: upload original to `originals` bucket (browser client, DL3 pattern)
@@ -397,6 +435,8 @@ export function QuickUploadBar() {
         status: 'done',
         roll: result.roll,
         entrySlug: result.entry.slug,
+        // Carry forward the RAW warning text so the done entry notes it was RAW
+        errorMsg: innerCheck?.isWarning ? `(RAW original stored)` : null,
       })
     } catch (thrown) {
       const msg = thrown instanceof Error ? thrown.message : String(thrown)
@@ -413,15 +453,17 @@ export function QuickUploadBar() {
       // Early-reject unsupported types BEFORE any storage upload.
       // This prevents: vague server-side errors, orphan originals in storage,
       // and potential tab crashes from uploading large/undecoded files.
-      const rejection = rejectReason(file)
-      if (rejection) {
+      const check = rejectReason(file)
+      // Hard rejection: show error, skip upload
+      if (check && !check.isWarning) {
         const fileKey = `${file.name}-${batchTs}`
         setFiles((fs) => [...fs, {
           key: fileKey, name: file.name,
-          status: 'failed', roll: null, entrySlug: null, errorMsg: rejection,
+          status: 'failed', roll: null, entrySlug: null, errorMsg: check.reason,
         }])
         continue
       }
+      // Soft warning (RAW) or null (accepted): proceed; uploadFile handles the warning display
       void uploadFile(file, batchTs)
     }
   }, [expand, uploadFile])
@@ -471,11 +513,11 @@ export function QuickUploadBar() {
         onDrop={onDrop}
       >
         {/* Hidden multi-file picker */}
-        {/* accept= lists the subset sharp can process; drag-drop is guarded via rejectReason() */}
+        {/* accept= lists formats the pipeline supports; drag-drop is guarded via rejectReason() */}
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+          accept="image/jpeg,image/png,image/webp,image/avif,image/gif,image/tiff,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.avif,.gif,.tif,.tiff,.heic,.heif,.raf,.cr2,.cr3,.nef,.nrw,.arw,.dng,.rw2,.orf,.pef,.rwl,.raw,.srw"
           multiple
           style={{ display: 'none' }}
           onChange={onPickerChange}
@@ -517,6 +559,7 @@ export function QuickUploadBar() {
                   {f.status === 'uploading'  ? 'UP…'    :
                    f.status === 'processing' ? 'PROC…'  :
                    f.status === 'done'       ? 'DONE'   :
+                   f.status === 'warning'    ? 'WARN'   :
                    /* failed */                'FAILED' }
                 </span>
                 {f.status === 'done' && f.entrySlug && (

@@ -658,23 +658,25 @@ export type IngestPhotoResult =
   | ActionError
 
 // ---------------------------------------------------------------------------
-// MIME / extension allow-list for sharp-supported formats
+// MIME / extension allow-list for formats the ingest pipeline supports
 // ---------------------------------------------------------------------------
 //
-// sharp (libvips) supports: jpeg, png, webp, avif, gif, tiff.
-// HEIC/HEIF requires libheif which is NOT bundled in the default sharp npm
-// package — sharp will throw an opaque error if given a HEIC buffer.
-// We reject unsupported types at the file-extension level BEFORE downloading
-// so the error is clear and no processing budget is wasted.
+// HEIC/HEIF — sharp ships with libheif 1.20.2 (confirmed 2026-06-14) and CAN
+// decode HEIC/HEIF buffers natively. sharp(buf).rotate().resize()... works
+// identically for HEIC as for JPEG. No pre-conversion needed.
+//
+// RAW (.RAF, .CR2, .NEF, .ARW, .DNG, .RW2, etc.) — we do NOT full-decode RAW
+// (libraw/dcraw is too heavy for serverless). Instead we extract the embedded
+// JPEG preview (virtually all RAW files carry one) via extractLargestJpegPreview()
+// and feed THAT to the sharp variant pipeline. The RAW original is kept in
+// storage as the archival copy (large — user is warned on the client side).
+//
+// Extensions that remain UNSUPPORTED (rejected with clear code):
+//   .bmp, .ico, .svg, and any other non-image type.
 //
 // The allow-list uses file extension (lower-cased) because the originalKey
 // path is the only artifact we have server-side (the browser already uploaded
 // the file before ingestPhotoImpl is called).
-//
-// Extensions that are explicitly NOT supported yet (rejected with clear code):
-//   .heic, .heif  — HEIC/HEIF (Apple Live Photo, iPhone default)
-//   .raw, .cr2, .nef, .arw, .dng, etc. — camera RAW
-//   .bmp, .ico, .svg — unsupported image types
 
 const SHARP_SUPPORTED_EXTENSIONS = new Set([
   'jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'tif', 'tiff',
@@ -682,11 +684,66 @@ const SHARP_SUPPORTED_EXTENSIONS = new Set([
 
 const HEIC_EXTENSIONS = new Set(['heic', 'heif'])
 
-function classifyExtension(key: string): 'supported' | 'heic' | 'unsupported' {
+// Camera RAW formats whose containers embed a JPEG preview we can extract.
+// Fujifilm .raf, Canon .cr2/.cr3, Nikon .nef/.nrw, Sony .arw, Adobe .dng,
+// Panasonic .rw2, Olympus .orf, Leica .rwl/.raw, Pentax .pef — all confirmed
+// to carry at least a large-preview JPEG in their byte stream.
+const RAW_EXTENSIONS = new Set([
+  'raf', 'cr2', 'cr3', 'nef', 'nrw', 'arw', 'dng', 'rw2', 'orf',
+  'pef', 'rwl', 'raw', 'srw', 'x3f', '3fr',
+])
+
+function classifyExtension(key: string): 'supported' | 'heic' | 'raw' | 'unsupported' {
   const ext = (key.split('.').pop() ?? '').toLowerCase()
   if (SHARP_SUPPORTED_EXTENSIONS.has(ext)) return 'supported'
   if (HEIC_EXTENSIONS.has(ext)) return 'heic'
+  if (RAW_EXTENSIONS.has(ext)) return 'raw'
   return 'unsupported'
+}
+
+// ---------------------------------------------------------------------------
+// extractLargestJpegPreview — scan a buffer for the largest embedded JPEG
+// ---------------------------------------------------------------------------
+//
+// Most camera RAW formats (RAF, CR2, NEF, ARW, DNG, RW2, etc.) store a full-
+// resolution or large-preview JPEG in the file bytes alongside the proprietary
+// sensor data. This function scans for the outermost SOI…EOI span (0xFF 0xD8 0xFF
+// … 0xFF 0xD9) and returns the longest contiguous JPEG found.
+//
+// "Largest" is correct: RAW files typically embed both a small thumbnail
+// (IFD1, ~320px) and a large preview (full-res or half-res). The largest span
+// is always the full preview. We want the highest-quality source for the
+// variant pipeline.
+//
+// The returned Buffer is a complete, self-contained JPEG that sharp can decode
+// directly — no further parsing needed.
+//
+// Returns null if no JPEG is found (e.g. a malformed or DNG-only file).
+
+function extractLargestJpegPreview(buf: Buffer): Buffer | null {
+  let bestStart = -1
+  let bestLen   = 0
+
+  for (let i = 0; i < buf.length - 4; i++) {
+    // JPEG SOI: 0xFF 0xD8 0xFF (third byte leads into the first marker segment)
+    if (buf[i] === 0xFF && buf[i + 1] === 0xD8 && buf[i + 2] === 0xFF) {
+      // Scan forward for the matching EOI (0xFF 0xD9)
+      for (let j = i + 4; j < buf.length - 1; j++) {
+        if (buf[j] === 0xFF && buf[j + 1] === 0xD9) {
+          const len = j + 2 - i
+          if (len > bestLen) {
+            bestLen   = len
+            bestStart = i
+          }
+          break // found EOI for this SOI; continue to next SOI candidate
+        }
+      }
+    }
+  }
+
+  if (bestStart === -1) return null
+  // Buffer.from to ensure Buffer<ArrayBuffer> (not ArrayBufferLike from .slice)
+  return Buffer.from(buf.buffer, buf.byteOffset + bestStart, bestLen)
 }
 
 export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoResult> {
@@ -699,20 +756,16 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
 
   // --- [GATE] Validate file type BEFORE downloading ---
   // This check runs before any download/processing so no orphan is possible here.
+  // HEIC: sharp has libheif 1.20.2 — decodes natively, allow through.
+  // RAW:  embedded JPEG preview extraction path (extractLargestJpegPreview).
+  // Anything else: reject with a clear error code.
   const extClass = classifyExtension(originalKey)
-  if (extClass === 'heic') {
-    return err(
-      'UNSUPPORTED_TYPE',
-      'HEIC/HEIF is not supported yet. Convert to JPEG or PNG before uploading.',
-      { extension: (originalKey.split('.').pop() ?? '').toLowerCase() },
-    )
-  }
+  const fileExt  = (originalKey.split('.').pop() ?? '').toLowerCase()
   if (extClass === 'unsupported') {
-    const ext = (originalKey.split('.').pop() ?? '').toLowerCase()
     return err(
       'UNSUPPORTED_TYPE',
-      `File type ".${ext}" is not supported. Supported formats: JPEG, PNG, WEBP, AVIF, GIF, TIFF.`,
-      { extension: ext },
+      `File type ".${fileExt}" is not supported. Supported formats: JPEG, PNG, WEBP, AVIF, GIF, TIFF, HEIC/HEIF, and RAW (RAF/CR2/NEF/ARW/DNG/RW2/ORF/PEF).`,
+      { extension: fileExt },
     )
   }
 
@@ -787,8 +840,38 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
     const sourceBuffer = Buffer.from(await downloadData.arrayBuffer())
     const sourceHash = createHash('sha1').update(sourceBuffer).digest('hex').slice(0, 10)
 
+    // --- RAW: extract embedded JPEG preview for variant generation ---
+    // For camera RAW files (RAF, CR2, NEF, ARW, DNG, etc.) we cannot feed the raw
+    // sensor data to sharp — libvips has no RAW decoder. Instead we extract the
+    // embedded JPEG preview (virtually every RAW file contains one at full or large
+    // resolution) and use THAT for variant generation.
+    //
+    // EXIF (camera/lens/ISO/GPS) is still extracted from the full RAW buffer, since
+    // the metadata lives in the RAW header, not the embedded JPEG.
+    //
+    // The RAW original is kept in storage as the archival copy. The client-side
+    // warning about large file size is the only consumer-facing cue.
+    let decodeBuffer = sourceBuffer  // what sharp will process (may be swapped for RAW)
+
+    if (extClass === 'raw') {
+      const previewBuf = extractLargestJpegPreview(sourceBuffer)
+      if (!previewBuf) {
+        await rollbackOriginal('RAW_NO_PREVIEW')
+        return err(
+          'RAW_NO_PREVIEW',
+          `No embedded JPEG preview found in RAW file ".${fileExt}". The file may be malformed or use a format that does not embed a preview.`,
+          { extension: fileExt },
+        )
+      }
+      console.info(`[ingestPhoto] RAW "${originalKey}": extracted ${previewBuf.length}B embedded JPEG preview (raw was ${sourceBuffer.length}B)`)
+      decodeBuffer = Buffer.from(previewBuf)
+    }
+
     // --- EXIF extraction ---
     // exifr is a dynamic import (optional dep at runtime, required at ingest time).
+    //
+    // For RAW files we parse the original sourceBuffer (not decodeBuffer) so we get
+    // the full camera metadata from the RAW header (including proprietary MakerNotes).
     //
     // GPS auto-detect (Layer 1 gate):
     //   exifr computes decimal latitude/longitude from GPSLatitude+Ref automatically.
@@ -812,6 +895,8 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
     let rawExif: Record<string, unknown> = {}
     try {
       const exifr = (await import('exifr')).default
+      // Always parse EXIF from sourceBuffer (the original). For RAW files this gives
+      // us the full camera metadata; for HEIC/JPEG this is also the right buffer.
       rawExif = await exifr.parse(sourceBuffer, {
         pick: [
           'Make', 'Model', 'LensModel', 'LensMake',
@@ -869,6 +954,9 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
     // .rotate() bakes EXIF orientation before stripping.
     // Adding .withMetadata() would re-embed GPS into the world-readable
     // photos bucket. This is forbidden (spec §4.3, §2.5).
+    //
+    // For RAW files: decodeBuffer is the extracted embedded JPEG preview (not the
+    // original RAW bytes). For HEIC/standard formats: decodeBuffer === sourceBuffer.
     const sharp = (await import('sharp')).default
 
     type VariantKey = { jpg: string; webp: string; avif: string }
@@ -888,7 +976,8 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
 
         // Generate the variant buffer
         // NO .withMetadata() — intentionally omitted per spec
-        const pipeline = sharp(sourceBuffer, { failOn: 'truncated' })
+        // decodeBuffer: for RAW = embedded JPEG preview; for HEIC/JPEG/PNG = original
+        const pipeline = sharp(decodeBuffer, { failOn: 'truncated' })
           .rotate()  // bake EXIF orientation, then EXIF is stripped by default
           .resize({ width: size.width, withoutEnlargement: true })
 
