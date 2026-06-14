@@ -72,15 +72,17 @@ export function AttractorFields({ activeAttractor, onSelect, memberCounts }: Pro
             /*
              * CW-16 · attractor pill touch target (ux-journey, α-SUR-01, 2026-06-14)
              * Active pills (ALL, coffee, meta) were 29px tall on mobile — below 44px min.
-             * minHeight:44px + display:flex + alignItems:center → ≥44px tap zone.
-             * py-1.5 padding kept for visual rhythm; overridden by minHeight on mobile.
+             * Desktop density regression fix: minHeight moved to .attractor-pill CSS class
+             * gated at @media (max-width: 768px) so desktop pills keep compact height.
+             * display:flex + align-items:center kept inline for the vertical centering;
+             * that is structural (needed at all viewports) not a touch-target fix.
              */
             <button
               key={tag}
               type="button"
               onClick={() => onSelect(tag)}
               aria-pressed={isActive}
-              className={`px-3 py-1.5 font-mono uppercase tracking-[0.15em] text-[10px] border transition-colors
+              className={`attractor-pill px-3 py-1.5 font-mono uppercase tracking-[0.15em] text-[10px] border transition-colors
                 ${
                   isActive
                     ? "bg-[var(--ink-primary)] border-[var(--ink-primary)]"
@@ -90,7 +92,6 @@ export function AttractorFields({ activeAttractor, onSelect, memberCounts }: Pro
                 fontFamily: "var(--font-mono)",
                 color: isActive ? "var(--paper-base)" : "var(--ink-primary)",
                 fontWeight: isActive ? 500 : 400,
-                minHeight: "44px",
                 display: "flex",
                 alignItems: "center",
               }}

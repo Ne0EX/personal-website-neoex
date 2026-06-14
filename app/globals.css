@@ -659,6 +659,45 @@ body {
   }
 }
 
+/* CW-08 + CW-16 + CW-04 · MOBILE-ONLY touch-target enlargements
+   (footer-raf, α-SUR-01, 2026-06-14)
+
+   These three enlargements were previously applied at ALL viewports (inline
+   styles or an unscoped rule), causing density regressions on desktop. Each
+   CW is now scoped to ≤768px so desktop retains the original tight spacing.
+
+   CW-08 · .footer-channel-link — footer CHANNELS + TRANSMIT link tap zone.
+     Inline paddingBlock:"18px" removed from FooterManifesto.tsx; replaced by
+     this class. display:block is structural (always needed to make the anchor
+     fill the <li>); only paddingBlock is the mobile-only touch-target.
+
+   CW-16 · .attractor-pill — attractor field pill tap zone.
+     Inline minHeight:"44px" removed from AttractorFields.tsx; replaced by
+     this class. display:flex + align-items:center (the centering) remain
+     inline because they are structural at all viewports.
+
+   CW-04 · .nav-links a — nav link tap zone.
+     padding-block:15px was added to the global .nav-links a rule but has no
+     visual benefit on desktop where the nav-shell grid already provides height.
+     Moved here so desktop links keep the original 0 padding-block. */
+.footer-channel-link {
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .footer-channel-link {
+    padding-block: 18px;
+  }
+
+  .attractor-pill {
+    min-height: 44px;
+  }
+
+  .nav-links a {
+    padding-block: 15px;
+  }
+}
+
 /* ── #3 READ-TIER CONTRAST LIFT — READOUT + FILTER ──
    Peat finds the readout (RETICLE/DRIFT/BEARING/STRATUM/COORD/α + NEXT NODE)
    and the filter (§ FILTER / TYPE / ALL ART PHO FIC) hard to read. Lift the
@@ -1540,13 +1579,14 @@ body {
 }
 /* CW-04 · Nav link touch targets (ux-journey, α-SUR-01, 2026-06-14)
    All five nav links were 14px tall with 0px padding-block — below the 44px
-   minimum. Adding padding-block 15px brings the tap zone to ~44px. Invisible
-   at desktop (the links already have sufficient height in the nav-shell grid).
-   align-items:center keeps the glyph vertically centred. */
+   minimum. padding-block:15px brings the tap zone to ≥44px on mobile.
+   Desktop density regression fix (footer-raf, α-SUR-01, 2026-06-14):
+   padding-block moved to the @media (max-width: 768px) block above so
+   desktop links keep their original compact height (0 padding-block).
+   display:inline-flex + align-items:center are structural and stay global. */
 .nav-links a {
   display: inline-flex;
   align-items: center;
-  padding-block: 15px;
 }
 .nav-clock {
   text-align: right;
