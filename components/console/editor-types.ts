@@ -32,7 +32,10 @@ export type FilmSim =
 // Single photo frame
 export interface PhotoFrame {
   id: string
-  src: string          // blob URL or resolved path
+  /** Resolved URL for browser-renderable formats (JPEG/PNG/WebP/AVIF/GIF/TIFF).
+   *  Undefined for RAW and HEIC — those cannot be decoded client-side; the neutral
+   *  placeholder slot is shown instead, and the real preview is server-generated. */
+  src?: string
   caption?: string
   filmSim?: FilmSim
   exif?: {

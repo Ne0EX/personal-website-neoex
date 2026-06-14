@@ -2520,9 +2520,21 @@ export function EntryEditor({
     const frameKey = `${effectiveRoll}/${photoId}`
 
     setUploadStatuses((s) => ({ ...s, [frameKey]: 'uploading' }))
-    // Append placeholder frame immediately (degraded — no URL yet).
-    // createObjectURL is safe here: the file type has already been validated above.
-    const placeholderSrc = URL.createObjectURL(file)
+    // Append placeholder frame immediately.
+    // SAFETY: do NOT call URL.createObjectURL for RAW or HEIC files.
+    // The browser cannot decode RAF/CR2/NEF/HEIC/etc. and attempting to render
+    // a 20–50 MB undecoded blob as <img src> will OOM the tab (the HEIC/RAF crash).
+    // Only browser-renderable formats (JPEG/PNG/WebP/AVIF/GIF/TIFF) get a live
+    // preview blob URL. RAW + HEIC get undefined → PhotoManager renders the neutral
+    // placeholder slot ("image preview pending") instead of the crash path.
+    // The server generates the real preview (sharp embedded-JPEG extraction); the
+    // actual thumbnail appears after the entry editor reloads post-ingest.
+    const BROWSER_RENDERABLE_EXTS = new Set([
+      'jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'tif', 'tiff',
+    ])
+    const placeholderSrc: string | undefined = BROWSER_RENDERABLE_EXTS.has(ext)
+      ? URL.createObjectURL(file)
+      : undefined
     setFrames((fs) => [...fs, { id: frameKey, src: placeholderSrc, caption: file.name }])
     setActiveFrame(frameKey)
 
