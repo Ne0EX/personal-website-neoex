@@ -988,3 +988,94 @@ Non-blocking note (not a REVISE item): `label-content-name-mismatch` axe finding
 All other checks (#1, #A, #2, #B) pass. When #3 is fixed, re-verify the three back-nav paths and confirm reload removes the blank within one visual frame.
 
 *Algol · α-VER-06 · 2026-06-14*
+
+---
+
+## HEIC + RAW support verify
+
+**Verified:** 2026-06-14 · Branch `genesis/store-as-source` · Port 3000 (pre-existing dev server) · Chrome DevTools MCP
+
+### Environment
+
+- next dev on port 3000 (PID 29925/29926) — owner already logged in
+- Supabase project: `aitqswnbtpexrxqpoiwo`
+- Test files: synthetic HEIC via `sharp().heif({compression:'av1'})` (284 B, valid AV1 HEIF); no real RAW file available in this environment
+- Baseline pre-test: entries=11, rolls=3, photo_assets=6, all 6 sacred slugs present (SQL-confirmed)
+
+### 1 · HEIC upload → real Chrome browser test
+
+**PASS**
+
+Synthetic HEIC (284 B, `image/heic`, filename `test-algol-heic.heic`) injected as File into QuickUploadBar's hidden file input via DataTransfer API. Browser dispatched change event.
+
+Evidence:
+- Client type-guard: `rejectReason('photo.heic', 'image/heic')` → `null` (no rejection, no warning). Verified in-browser via Chrome DevTools evaluate_script.
+- Upload progressed through QuickUploadBar: file appeared as `PROC…` status, then auto-dismissed (8 s timer).
+- DB result: entry `2026-06-snapshots/TEST-ALGOL-H-1781401010045` created, status=`published`, original_key=`quick-uploads/TEST-ALGOL-H-1781401010045.heic`, all 9 variants (thumb/medium/full × jpg/webp/avif) in `photo_assets.variants`.
+- Variant CDN: `GET /storage/v1/object/public/photos/2026-06-snapshots/TEST-ALGOL-H-1781401010045/thumb-cfff44639d.jpg` → HTTP 200, `image/jpeg`, 360 B.
+- Editor page renders real blue image (not AWAITING-IMAGE placeholder). ASSETS reads `THUMB · MEDIUM · FULL`. No console errors.
+- Privacy: downloaded public thumb, `sharp(buf).metadata()` → `exif: undefined`. GPS stripped. No EXIF in variant.
+- No tab crash.
+
+sharp libheif decode confirmed: `sharp(heicBuf).rotate().resize({width:80}).jpeg()` → 306 B JPEG, metadata `{format:'heif', width:100, height:100}`. libheif 1.20.2 claim verified.
+
+### 2 · RAW code path
+
+**PARTIAL PASS — no real RAW file available; code path verified to the limit of this environment**
+
+No real RAW file present on this machine. Verified:
+
+**Client-side (in-browser Chrome eval):**
+- `rejectReason('DSCF9999.RAF', 'image/x-fuji-raf')` → `{ isWarning: true }`. Upload not blocked.
+- RAF/CR2/DNG/ARW/X3F/3FR all → `isWarning:true`.
+- `uploadAndIngest` RAW branch: sets `isRawWarning=true`, `uploadError='RAW (~N.N MB) — large, uses more storage. Uploading…'`, does NOT return early.
+- Warning routes to `.up-raw-warn` (ink-soft, paper-warm, ink-dashed), not `.up-error-strip` (orange). Confirmed at EntryEditor.tsx lines 2927–2941.
+
+**Server-side (`/tmp/algol-raw-test.mjs`, all assertions green):**
+- `classifyExtension`: 16/16 correct. RAF/CR2/DNG/ARW/X3F/3FR → `'raw'`; HEIC/HEIF → `'heic'`; BMP/TXT/PDF → `'unsupported'`.
+- `extractLargestJpegPreview`: synthetic fake-RAW buffer (header + small JPEG 289 B + junk + large JPEG 522 B + footer) → extracted 522 B (largest span), sharp decodes to `{format:'jpeg', width:200, height:200}`. Null-input → `null`. All pass.
+- RAW_NO_PREVIEW path: if extractor returns null, server returns `{ok:false, code:'RAW_NO_PREVIEW'}` and rolls back original (actions-core.ts lines 857–865). Confirmed by code read.
+
+**Gap:** end-to-end RAW ingest with a real camera file (.RAF/.CR2/.DNG) not exercised — no such file on this machine. Recommend Peat drop one into the console to exercise live.
+
+### 3 · Normal JPEG regression
+
+**PASS**
+
+`test-algol-jpeg.jpg` (1×1 JPEG, 284 B) uploaded. Entry `2026-06-snapshots/TEST-ALGOL-J-1781401248499` created, published, all 9 variants. No console errors.
+
+### 4 · Unsupported type rejection
+
+**PASS**
+
+`test-bad-file.txt` (text/plain). QuickUploadBar showed `FAILED [.TXT NOT SUPPORTED — USE JPEG, P…]` immediately. No storage upload, no orphan, no tab crash.
+
+### 5 · Cleanup + baseline assertion
+
+**PASS**
+
+Both test entries deleted via DELETE ENTRY → CONFIRM DELETE (storage-first path). Post-cleanup SQL: `entry_count=11, roll_count=3, asset_count=6, photo_count=6`. All 6 sacred slugs confirmed (SQL returned 6/6).
+
+### 6 · tsc + console errors
+
+**PASS** — `npx tsc --noEmit` exit 0. No console errors on any tested page.
+
+### 7 · Gallery regression
+
+**PASS** — `/photos`: 04 FRAMES · 02 ROLLS, no console errors. Pre-existing AWAITING-IMAGE on DSCF0002/0004/0005 unchanged (pre-existing, not a regression).
+
+### Non-blocking gap flagged
+
+**`x3f` and `3fr` missing from `accept=` in QuickUploadBar.tsx (line 520) and EntryEditor.tsx (line 2807).** Both extensions are correctly present in all JS extension Sets (SUPPORTED_EXTENSIONS, RAW_EXTENSIONS, SUPPORTED_EXTS, RAW_EXTS), so drag-drop works. The file-picker dialog will not surface `.x3f` (Sigma) or `.3fr` (Hasselblad) files because the HTML `accept=` attribute omits them. Fix: append `,.x3f,.3fr` to both accept= strings. Owner: Altair/Sirius.
+
+### Verdict
+
+**PASS WITH NOTE**
+
+HEIC: fully exercised end-to-end in real Chrome — ingest, 9 variants generated, CDN 200, real render in editor, privacy invariant clean, no crash. JPEG regression: clean. Unsupported rejection: clean. Baseline exactly restored.
+
+RAW: all code layers verified correct; live end-to-end with a real camera file is deferred (no RAW file on this machine).
+
+One non-blocking discoverability gap: `x3f`/`3fr` absent from `accept=` (drag-drop works; picker won't surface Sigma/Hasselblad files).
+
+*Algol · α-VER-06 · 2026-06-14*
