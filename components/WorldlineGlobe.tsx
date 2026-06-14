@@ -1063,17 +1063,15 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
 
     const surface: JumpTarget[] = [
       // Observer α — use the data-driven alpha locus coords (movable-alpha goal: NEXT NODE starts here).
+      // globe-nextnode fix (sirius): 012 (Tokyo) and 047 (Point Nemo) are NOT store entries;
+      // lib/entries.ts:24 marks them "observation points marked on the globe but not clickable
+      // as articles". Cycling to them lands on a ghost with no console/store records, breaking
+      // the cycle flow. They are REMOVED from the cycle and remain as ambient rendered dots only.
       {
         label: OBSERVER_NODES[0].label,
         place: observerAlphaPlace,
         coords: { lat: observerAlphaLat, lon: observerAlphaLon },
       },
-      // Non-alpha observer nodes (012, 047) — still hardcoded (not places).
-      ...OBSERVER_NODES.slice(1).map((n) => ({
-        label: n.label,
-        place: n.coords.place,
-        coords: { lat: n.coords.lat, lon: n.coords.lon },
-      })),
       // Place nodes — alpha place first, then the rest (weight-sorted from getPlacesSummary).
       // movable-alpha: ensures NEXT NODE cycle visits the alpha locus FIRST among places.
       ...summaries
@@ -1887,7 +1885,8 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
         return;
       }
 
-      // Standard Ne0 surface node (observer α/012/047 — no panel, camera only).
+      // Standard Ne0 surface node (observer α — no panel, camera only).
+      // globe-nextnode fix: 012/047 removed from cycle; this branch is now α-only.
       deactivateBranches();
       setNetraLock(n.coords, 2.6);
       const startPos = camera.position.clone();
