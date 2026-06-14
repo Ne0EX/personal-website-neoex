@@ -517,7 +517,7 @@ export function QuickUploadBar() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/avif,image/gif,image/tiff,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.avif,.gif,.tif,.tiff,.heic,.heif,.raf,.cr2,.cr3,.nef,.nrw,.arw,.dng,.rw2,.orf,.pef,.rwl,.raw,.srw"
+          accept="image/jpeg,image/png,image/webp,image/avif,image/gif,image/tiff,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.avif,.gif,.tif,.tiff,.heic,.heif,.raf,.cr2,.cr3,.nef,.nrw,.arw,.dng,.rw2,.orf,.pef,.rwl,.raw,.srw,.x3f,.3fr"
           multiple
           style={{ display: 'none' }}
           onChange={onPickerChange}
