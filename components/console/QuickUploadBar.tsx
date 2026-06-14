@@ -39,6 +39,48 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Supported file types — what sharp can actually ingest on the server.
+// HEIC/HEIF requires libheif which is not bundled with sharp in this stack.
+// Validate by BOTH extension AND mime type; reject early, before ANY storage
+// upload, so orphan originals never reach the bucket.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SUPPORTED_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp'])
+
+const SUPPORTED_MIME_PREFIXES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]
+
+/**
+ * Returns a human-readable rejection reason for unsupported files, or null if
+ * the file is acceptable. Checks extension AND mime type so a renamed .heic
+ * uploaded as image/jpeg (or vice-versa) is still caught.
+ */
+function rejectReason(file: File): string | null {
+  const ext = (file.name.split('.').pop() ?? '').toLowerCase()
+  const mime = file.type.toLowerCase()
+
+  // Known HEIC/HEIF rejection — explicit message per task spec
+  if (ext === 'heic' || ext === 'heif' || mime === 'image/heic' || mime === 'image/heif') {
+    return 'HEIC not supported yet — please use JPEG'
+  }
+
+  // Extension not in supported set
+  const extOk = SUPPORTED_EXTENSIONS.has(ext)
+  // Mime not in supported set (empty mime string = browser didn't detect, allow extension check only)
+  const mimeOk = mime === '' || SUPPORTED_MIME_PREFIXES.some((p) => mime.startsWith(p))
+
+  if (!extOk || !mimeOk) {
+    const label = ext ? `.${ext}` : mime || 'unknown type'
+    return `${label} not supported — please use JPEG, PNG, or WebP`
+  }
+
+  return null
+}
+
 type UploadStatus = 'uploading' | 'processing' | 'done' | 'failed'
 
 interface FileUpload {
@@ -292,6 +334,32 @@ export function QuickUploadBar() {
     const originalKey   = `quick-uploads/${uniquePhotoId}.${ext}`
     const fileKey       = `${file.name}-${batchTs}`
 
+    // --- [CLIENT GATE] Reject unsupported types before touching storage ---
+    // Catches HEIC/HEIF (and unknown types) BEFORE any upload attempt so:
+    //   (a) no orphan is created in the originals bucket,
+    //   (b) the server never tries to run sharp on an unsupported buffer,
+    //   (c) the tab cannot crash from a downstream sharp decode failure.
+    // The server (ingestPhotoImpl) has an independent extension-based gate
+    // as a second layer — this client gate is defence-in-depth only.
+    const SUPPORTED_EXTS = new Set(['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'tif', 'tiff'])
+    const HEIC_EXTS      = new Set(['heic', 'heif'])
+    if (HEIC_EXTS.has(ext)) {
+      setFiles((fs) => [...fs, {
+        key: fileKey, name: file.name,
+        status: 'failed', roll: null, entrySlug: null,
+        errorMsg: 'HEIC not supported yet — convert to JPEG first',
+      }])
+      return
+    }
+    if (!SUPPORTED_EXTS.has(ext)) {
+      setFiles((fs) => [...fs, {
+        key: fileKey, name: file.name,
+        status: 'failed', roll: null, entrySlug: null,
+        errorMsg: `".${ext}" not supported — use JPEG, PNG, WEBP, or AVIF`,
+      }])
+      return
+    }
+
     // Register as uploading
     setFiles((fs) => [...fs, {
       key: fileKey, name: file.name,
@@ -342,6 +410,18 @@ export function QuickUploadBar() {
     expand()
     const batchTs = Date.now()
     for (const file of Array.from(incoming)) {
+      // Early-reject unsupported types BEFORE any storage upload.
+      // This prevents: vague server-side errors, orphan originals in storage,
+      // and potential tab crashes from uploading large/undecoded files.
+      const rejection = rejectReason(file)
+      if (rejection) {
+        const fileKey = `${file.name}-${batchTs}`
+        setFiles((fs) => [...fs, {
+          key: fileKey, name: file.name,
+          status: 'failed', roll: null, entrySlug: null, errorMsg: rejection,
+        }])
+        continue
+      }
       void uploadFile(file, batchTs)
     }
   }, [expand, uploadFile])
@@ -391,10 +471,11 @@ export function QuickUploadBar() {
         onDrop={onDrop}
       >
         {/* Hidden multi-file picker */}
+        {/* accept= lists the subset sharp can process; drag-drop is guarded via rejectReason() */}
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
           multiple
           style={{ display: 'none' }}
           onChange={onPickerChange}

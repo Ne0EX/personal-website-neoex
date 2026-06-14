@@ -657,6 +657,38 @@ export type IngestPhotoResult =
     }
   | ActionError
 
+// ---------------------------------------------------------------------------
+// MIME / extension allow-list for sharp-supported formats
+// ---------------------------------------------------------------------------
+//
+// sharp (libvips) supports: jpeg, png, webp, avif, gif, tiff.
+// HEIC/HEIF requires libheif which is NOT bundled in the default sharp npm
+// package — sharp will throw an opaque error if given a HEIC buffer.
+// We reject unsupported types at the file-extension level BEFORE downloading
+// so the error is clear and no processing budget is wasted.
+//
+// The allow-list uses file extension (lower-cased) because the originalKey
+// path is the only artifact we have server-side (the browser already uploaded
+// the file before ingestPhotoImpl is called).
+//
+// Extensions that are explicitly NOT supported yet (rejected with clear code):
+//   .heic, .heif  — HEIC/HEIF (Apple Live Photo, iPhone default)
+//   .raw, .cr2, .nef, .arw, .dng, etc. — camera RAW
+//   .bmp, .ico, .svg — unsupported image types
+
+const SHARP_SUPPORTED_EXTENSIONS = new Set([
+  'jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'tif', 'tiff',
+])
+
+const HEIC_EXTENSIONS = new Set(['heic', 'heif'])
+
+function classifyExtension(key: string): 'supported' | 'heic' | 'unsupported' {
+  const ext = (key.split('.').pop() ?? '').toLowerCase()
+  if (SHARP_SUPPORTED_EXTENSIONS.has(ext)) return 'supported'
+  if (HEIC_EXTENSIONS.has(ext)) return 'heic'
+  return 'unsupported'
+}
+
 export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoResult> {
   const auth = await assertOwner()
   if (!auth.ok) return auth
@@ -665,8 +697,54 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
   if (!parsed.success) return err('INVALID_INPUT', 'Validation failed', parsed.error.flatten())
   const { roll, photoId, originalKey, overwrite } = parsed.data
 
+  // --- [GATE] Validate file type BEFORE downloading ---
+  // This check runs before any download/processing so no orphan is possible here.
+  const extClass = classifyExtension(originalKey)
+  if (extClass === 'heic') {
+    return err(
+      'UNSUPPORTED_TYPE',
+      'HEIC/HEIF is not supported yet. Convert to JPEG or PNG before uploading.',
+      { extension: (originalKey.split('.').pop() ?? '').toLowerCase() },
+    )
+  }
+  if (extClass === 'unsupported') {
+    const ext = (originalKey.split('.').pop() ?? '').toLowerCase()
+    return err(
+      'UNSUPPORTED_TYPE',
+      `File type ".${ext}" is not supported. Supported formats: JPEG, PNG, WEBP, AVIF, GIF, TIFF.`,
+      { extension: ext },
+    )
+  }
+
   const supabase = await createSupabaseServerClient()
   const slug = `${roll}/${photoId}`
+
+  // ---------------------------------------------------------------------------
+  // Rollback helper — called on any failure AFTER we know the original is in
+  // storage (the browser uploads before calling this action). Deletes the
+  // original from the `originals` bucket so no orphan is left.
+  //
+  // Rollback is best-effort: if it fails we log a warning (the periodic orphan
+  // sweep will reconcile) but we still return the original error to the caller.
+  // ---------------------------------------------------------------------------
+  async function rollbackOriginal(reason: string): Promise<void> {
+    try {
+      const { error: removeErr } = await supabase
+        .storage
+        .from('originals')
+        .remove([originalKey])
+      if (removeErr) {
+        console.warn(
+          `[ingestPhoto] rollback: failed to delete original "${originalKey}" after ${reason}:`,
+          removeErr.message,
+        )
+      } else {
+        console.info(`[ingestPhoto] rollback: deleted original "${originalKey}" after ${reason}.`)
+      }
+    } catch (e) {
+      console.warn(`[ingestPhoto] rollback: unexpected error deleting "${originalKey}":`, String(e))
+    }
+  }
 
   try {
     // --- Check for existing entry with variants (collision guard) ---
@@ -686,6 +764,7 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
         .maybeSingle()
 
       if (existingAssets?.variants && !overwrite) {
+        // COLLISION — original already ingested; don't roll back (it's referenced)
         return err(
           'COLLISION',
           `Entry ${slug} already has variants. Pass overwrite:true to re-ingest.`,
@@ -700,6 +779,8 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
       .download(originalKey)
 
     if (downloadError || !downloadData) {
+      // Download failed — original may or may not be in storage; attempt rollback
+      await rollbackOriginal('DOWNLOAD_FAILED')
       return err('DOWNLOAD_FAILED', `Failed to download original: ${downloadError?.message ?? 'no data'}`)
     }
 
@@ -832,6 +913,7 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
           })
 
         if (uploadError) {
+          await rollbackOriginal('UPLOAD_FAILED')
           return err('UPLOAD_FAILED', `Failed to upload ${objectKey}: ${uploadError.message}`)
         }
       }
@@ -901,6 +983,7 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
         .single()
 
       if (insertError || !newEntry) {
+        await rollbackOriginal('DB_INSERT_FAILED')
         return err('DB_INSERT_FAILED', `Failed to create entry: ${insertError?.message ?? 'no data'}`)
       }
       entryId = (newEntry as { id: string }).id
@@ -923,6 +1006,7 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
       )
 
     if (assetError) {
+      await rollbackOriginal('ASSET_UPSERT_FAILED')
       return err('ASSET_UPSERT_FAILED', `Failed to upsert photo_assets: ${assetError.message}`)
     }
 
@@ -935,6 +1019,10 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
       variantKeys: fullVariantKeys,
     }
   } catch (e) {
+    // Unexpected throw — attempt rollback before surfacing the error.
+    // rollbackOriginal is async; we must await it here. The outer catch receives
+    // the original thrown value (not a Promise rejection from rollback).
+    await rollbackOriginal('UNEXPECTED')
     return err('UNEXPECTED', 'Unexpected error during ingest', String(e))
   }
 }
