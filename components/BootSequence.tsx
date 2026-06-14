@@ -90,10 +90,17 @@ export function BootSequence({ onDoneAction }: { onDoneAction?: () => void }) {
   }, []);
 
   return (
+    // boot-footer fix (α-SUR-01, 2026-06-14): paper-canvas sets position:relative
+    // which overrides the Tailwind `fixed` class, collapsing the overlay to a
+    // relative block at the bottom of the page. Fix: bg-[var(--paper-base)] for
+    // the background color on the outer fixed div; paper-canvas texture is moved
+    // to an absolute inner child so it doesn't clobber `position:fixed`.
     <div
       ref={rootRef}
-      className="fixed inset-0 z-[50] paper-canvas flex items-center justify-center"
+      className="fixed inset-0 z-[50] flex items-center justify-center bg-[var(--paper-base)]"
     >
+      {/* paper texture layer — absolute so it doesn't disturb the fixed positioning */}
+      <div className="paper-canvas absolute inset-0 z-[0]" aria-hidden="true" />
       <div className="corner-marks" />
 
       <div className="relative z-[3] w-[min(560px,82vw)] px-8 py-7 paper-warm-surface border border-[var(--ink-faint)]">

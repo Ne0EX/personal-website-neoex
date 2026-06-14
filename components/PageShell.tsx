@@ -9,31 +9,41 @@ const STORAGE_KEY = "wl:boot-seen";
  * BootOverlay — client-only overlay that shows the BootSequence on a genuine
  * first session visit and disappears once done.
  *
- * Architecture note (bfcache-fix #3, 2026-06-14):
- *   The previous approach gated CHILDREN behind a `booted === null` blank
- *   placeholder. bfcache captures the page as-frozen when the user navigates
- *   away. If the blank placeholder was on screen at freeze time, back-nav
- *   restores the blank → white page.
+ * Architecture note (boot-footer fix, α-SUR-01, 2026-06-14):
  *
- *   Root fix: children are ALWAYS rendered as the base layer. This component
- *   is purely additive — it mounts a position:fixed overlay on top when
- *   sessionStorage says it's a first visit, then dismisses to reveal the
- *   content underneath. bfcache always captures real content, never blank.
+ *   Root constraint: the overlay must be client-only (no SSR) to avoid a
+ *   hydration mismatch — sessionStorage doesn't exist on the server, so the
+ *   server always renders nothing here and the client reconciles after mount.
  *
- *   Hydration safety: `mounted` starts false (server renders nothing here),
- *   set to true in useEffect. The overlay is therefore client-only and never
- *   causes a hydration mismatch. Children are rendered identically on server
- *   and client.
+ *   The real root cause of "boot gone" was NOT a queueMicrotask timing issue —
+ *   it was that BootSequence used `paper-canvas` on its fixed-positioned root
+ *   div. `.paper-canvas { position: relative }` in globals.css overrode the
+ *   Tailwind `fixed` class, collapsing the overlay into a relative block at the
+ *   bottom of the page flow rather than covering the viewport. Fixed in
+ *   BootSequence.tsx (boot-footer fix, α-SUR-01, 2026-06-14).
+ *
+ *   queueMicrotask is the codebase-standard pattern (see Nav.tsx, TriangulateSearch.tsx)
+ *   for deferring setState out of the effect body to satisfy react-hooks/set-state-in-effect.
+ *   sessionStorage is read synchronously before the queueMicrotask so the value
+ *   is captured in the same task as the effect.
+ *
+ *   bfcache safety: children are ALWAYS rendered as the base layer (see PageShell
+ *   below). The overlay is purely additive — a position:fixed opaque cover on top
+ *   during boot. bfcache always captures real content underneath, never blank.
+ *
+ *   Hydration safety: `show` starts `null` on server and first client render
+ *   (both render nothing), so SSR HTML matches. The useEffect fires after mount
+ *   (client-only) and sets `show` via queueMicrotask.
  */
 function BootOverlay() {
-  // `null` = not yet mounted (server / first client paint), avoids hydration
-  // mismatch. `true` = show boot overlay. `false` = already seen, skip.
+  // null = server / not yet mounted. true = first visit, show boot. false = skip.
   const [show, setShow] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // queueMicrotask defers the setState out of the effect body, satisfying the
-    // react-hooks/set-state-in-effect rule while still reading sessionStorage
-    // synchronously (so the value is captured before any concurrent update).
+    // queueMicrotask defers setState out of the effect body, satisfying the
+    // react-hooks/set-state-in-effect rule (per Nav.tsx / TriangulateSearch.tsx
+    // codebase pattern), while reading sessionStorage synchronously before the
+    // microtask so the value is captured in the same task as the effect.
     const seen = sessionStorage.getItem(STORAGE_KEY);
     queueMicrotask(() => setShow(seen ? false : true));
   }, []);
@@ -52,7 +62,8 @@ function BootOverlay() {
 
 /**
  * PageShell — wraps page content so the boot sequence overlays on first visit.
- * Children are always rendered (never blanked), making this safe for bfcache.
+ * Children are ALWAYS rendered (never blanked) — bfcache captures real content.
+ * BootOverlay sits above children as a fixed opaque layer during the boot play.
  */
 export function PageShell({ children }: { children: React.ReactNode }) {
   return (

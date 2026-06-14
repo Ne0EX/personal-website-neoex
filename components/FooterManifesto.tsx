@@ -51,7 +51,13 @@ export function FooterManifesto() {
          * brings tap zone to ~44px on mobile. leading-[2] kept on the <ul> for
          * desktop visual rhythm but overridden per-link for mobile tap safety.
          */}
-        <ul className="leading-[2] text-[var(--ink-primary)]" style={{ lineHeight: 1 }}>
+        {/*
+         * boot-footer fix (α-SUR-01, 2026-06-14): removed style={{ lineHeight: 1 }}
+         * which was overriding the leading-[2] Tailwind class and cramping desktop
+         * spacing. The mobile 44px tap zone is handled by .footer-channel-link
+         * @media rule in globals.css — no inline style needed here.
+         */}
+        <ul className="leading-[2] text-[var(--ink-primary)]">
           {[
             /* CW-07: All three URLs wired to confirmed public profiles. */
             { label: "anilist",         href: "https://anilist.co/user/NeospiritTH/",                                       live: true },
@@ -78,7 +84,8 @@ export function FooterManifesto() {
 
       <div>
         <h4 className="t-meta tracking-[0.3em] mb-3">{"//"} TRANSMIT</h4>
-        <ul className="leading-[2] text-[var(--ink-primary)]" style={{ lineHeight: 1 }}>
+        {/* boot-footer fix: same inline override removed here for TRANSMIT column */}
+        <ul className="leading-[2] text-[var(--ink-primary)]">
           {[
             /* address authorized by Peat; visible label stays obfuscated
                (fix: footer-mailto · α-SUR-01 · wiring-wave1) */
