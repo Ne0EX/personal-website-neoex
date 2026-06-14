@@ -64,9 +64,11 @@ const PAGE_SIZE = 20;
 
 /**
  * Threshold above which the "LOAD NEXT 20" button is shown.
- * Per spec §4: only shown if entries > 60.
+ * Matches PAGE_SIZE so pagination activates as soon as the corpus exceeds one
+ * screenful — graceful scaling as Peat adds content, not a hard wall at 60.
+ * (TASK-2026-06-15: lowered from 60 → PAGE_SIZE, α-SUR-01)
  */
-const PAGINATION_THRESHOLD = 60;
+const PAGINATION_THRESHOLD = PAGE_SIZE;
 
 /** sessionStorage key for scroll position restore (20-archive.md §9.3). */
 const SCROLL_KEY = 'wl:archive-scroll';
