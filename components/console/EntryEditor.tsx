@@ -1024,6 +1024,20 @@ const EDITOR_CSS = `
   border-top: 1px dashed var(--accent-orange);
   padding: 7px 14px;
 }
+/* RAW advisory strip — non-blocking notice; distinct from error (softer register).
+   Upload proceeds; this communicates storage-cost awareness, not a failure.
+   Uses ink-soft (not primary), ink-dashed border (not orange), warm paper bg. */
+.up-raw-warn {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  background: var(--paper-warm);
+  border-top: 1px dashed var(--ink-dashed);
+  padding: 7px 14px;
+}
 @media (prefers-reduced-motion: reduce) {
   .rp-create-btn { transition: none; }
 }
@@ -2430,6 +2444,9 @@ export function EntryEditor({
   const [isCreatingRoll, setIsCreatingRoll] = useState<boolean>(false)
   // BUG-2 / BUG-3 fix: visible upload error state — surfaced in the photo pane.
   const [uploadError, setUploadError] = useState<string | null>(null)
+  // RAW advisory: true while a RAW upload is in progress (non-blocking, distinct from errors).
+  // Cleared on upload completion (success or failure) so only the relevant terminal state shows.
+  const [isRawWarning, setIsRawWarning] = useState<boolean>(false)
 
   // Derive the roll from the URL slug (format "roll/id") or from the first existing frame
   const photoRoll = useMemo<string | null>(() => {
@@ -2483,11 +2500,16 @@ export function EntryEditor({
       return
     }
 
-    // RAW warning: surface the large-file advisory (upload proceeds)
+    // RAW advisory: surface the large-file notice via the dedicated warning channel
+    // (not the error channel — this is non-blocking, upload proceeds).
+    // Show the actual file size so Peat can gauge storage cost.
     if (RAW_EXTS.has(ext)) {
-      setUploadError('RAW files are large (20–50 MB) and eat storage quota fast — uploading anyway')
+      const mb = (file.size / (1024 * 1024)).toFixed(1)
+      setIsRawWarning(true)
+      setUploadError(`RAW (~${mb} MB) — large, uses more storage. Uploading…`)
       // Don't return — continue with upload
     } else {
+      setIsRawWarning(false)
       setUploadError(null)
     }
 
@@ -2514,6 +2536,7 @@ export function EntryEditor({
       if (uploadErr) {
         // BUG-2 fix: surface the storage error message (auth expired, RLS, etc.)
         setUploadStatuses((s) => ({ ...s, [frameKey]: 'failed' }))
+        setIsRawWarning(false)
         setUploadError(`storage: ${uploadErr.message}`)
         return
       }
@@ -2531,11 +2554,14 @@ export function EntryEditor({
       if (!result.ok) {
         // BUG-2 fix: surface the action error message (sharp fail, DB, RLS, etc.)
         setUploadStatuses((s) => ({ ...s, [frameKey]: 'failed' }))
+        setIsRawWarning(false)
         setUploadError(`ingest: ${result.error.message}`)
         return
       }
 
       setUploadStatuses((s) => ({ ...s, [frameKey]: 'done' }))
+      setIsRawWarning(false)
+      setUploadError(null)
       // BUG-A fix: navigate to the new entry's editor URL so the page identity
       // (header FILE slug, right panel photo count, NETRA locus, URL) all reflect
       // the newly ingested photo. The route will load the real sidecar + EXIF
@@ -2549,6 +2575,7 @@ export function EntryEditor({
       const msg = err instanceof Error ? err.message : String(err)
       console.error('[uploadAndIngest] unexpected error:', msg)
       setUploadStatuses((s) => ({ ...s, [frameKey]: 'failed' }))
+      setIsRawWarning(false)
       setUploadError(`unexpected: ${msg}`)
     }
   }, [effectiveRoll, router])
@@ -2771,10 +2798,13 @@ export function EntryEditor({
             <>
               {/* hidden input for + ADD FRAME — caller owns the ref (contract §1) */}
               {/* S6: hidden input — triggers real upload+ingest flow */}
+              {/* accept= mirrors the server allowlist (SUPPORTED_EXTS in uploadAndIngest).
+                  image/* alone misses RAW files (often served as image/x-* or octet-stream).
+                  Explicit MIME types + extension list ensures the picker opens RAW files. */}
               <input
                 ref={frameInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/avif,image/gif,image/tiff,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.avif,.gif,.tif,.tiff,.heic,.heif,.raf,.cr2,.cr3,.nef,.nrw,.arw,.dng,.rw2,.orf,.pef,.rwl,.raw,.srw"
                 style={{ display: 'none' }}
                 aria-hidden
                 tabIndex={-1}
@@ -2889,18 +2919,29 @@ export function EntryEditor({
                       </div>
                     )}
 
-                    {/* Upload error inside picker (BUG-2/3 fix) */}
+                    {/* Upload notice inside picker (BUG-2/3 fix).
+                        RAW advisory (isRawWarning) uses .up-raw-warn — calm, non-blocking.
+                        Hard errors use .rp-error — orange-tinted alert style. */}
                     {uploadError && (
-                      <div className="rp-error" role="alert" aria-live="polite">
+                      <div
+                        className={isRawWarning ? 'up-raw-warn' : 'rp-error'}
+                        role={isRawWarning ? 'status' : 'alert'}
+                        aria-live="polite"
+                      >
                         {uploadError}
                       </div>
                     )}
                   </div>
                 ) : null
 
-                // Upload error strip when photoRoll IS set from URL (BUG-2 fix)
+                // Upload notice strip when photoRoll IS set from URL (BUG-2 fix).
+                // RAW advisory: .up-raw-warn (calm). Hard error: .up-error-strip (orange).
                 const urlRollErrorNode = photoRoll && uploadError ? (
-                  <div className="up-error-strip" role="alert" aria-live="polite">
+                  <div
+                    className={isRawWarning ? 'up-raw-warn' : 'up-error-strip'}
+                    role={isRawWarning ? 'status' : 'alert'}
+                    aria-live="polite"
+                  >
                     {uploadError}
                   </div>
                 ) : null
