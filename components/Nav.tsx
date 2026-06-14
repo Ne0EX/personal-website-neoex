@@ -148,14 +148,15 @@ export function Nav() {
     <div className="nav-shell relative z-[3] section-rule">
       <div className="nav-id t-meta">
         {/*
-         * CW-05 · first name added to nav-id strip (ux-journey, α-SUR-01, 2026-06-14)
-         * No visitor-name or person name appeared anywhere on the homepage. Added
-         * "· Peat" to the existing instrument row — same t-meta-accent class,
-         * no new element, no new register. Resolves the top identity gap for both
-         * the first-time visitor and the recruiter (spec §2.2 §TIER-1).
+         * CW-05 (name "· Peat" in nav-id) REVERTED by Polaris 2026-06-14 — surfacing the
+         * real name in the persistent nav is an identity/aesthetic call that overlaps the
+         * deferred NP-01 (about/resume signpost prominence) and the deliberate ∇ NEOSPIRIT /
+         * Ne0EX persona mythology. Peat is building a separate about-me + resume.neoex.com for
+         * the real-identity audience; whether his name belongs in the main-site nav is HIS call.
+         * Deferred into NP-01 for his decision on return.
          */}
         <div>
-          <span className="t-meta-accent">∇ NEOSPIRIT {"//"} WORLDLINE 1.130426 · Peat</span>
+          <span className="t-meta-accent">∇ NEOSPIRIT {"//"} WORLDLINE 1.130426</span>
         </div>
         <div className="mt-1.5 text-[var(--ink-soft)]">
           EST. 2026 — BANGKOK / THAILAND
