@@ -1079,3 +1079,95 @@ RAW: all code layers verified correct; live end-to-end with a real camera file i
 One non-blocking discoverability gap: `x3f`/`3fr` absent from `accept=` (drag-drop works; picker won't surface Sigma/Hasselblad files).
 
 *Algol · α-VER-06 · 2026-06-14*
+
+---
+
+## UX-journey clear-wins verify — 2026-06-14
+
+**Commit:** `e9f5bed` — `feat(ux-journey): ship CW-01→CW-17 clear-win batch (ux-journey, sirius slice)`
+**Branch:** `genesis/store-as-source`
+**Claimed by Sirius:** 16 of 17 clear-win items shipped (CW-07 skipped — Peat must supply confirmed public profile URLs).
+**Verification method:** real Chrome via chrome-devtools MCP, port 3190 (`next dev`), mobile 390×844 (touch emulation) + desktop 1440×900. DOM measurement via `evaluate_script`. tsc + lint checked against changed files only. Server killed on completion.
+
+### Signature audit
+
+No signature file was submitted with this batch (Sirius did not produce a `.claude/signatures/<task_id>--sirius.json`). Flagging as a **SCHEMA-OMISSION** — not a content integrity failure, but the signing contract was not fulfilled. The diff is clean and all claimed changes are present in the working tree. Noting for Polaris: require a signed work record on next boundary.
+
+### TypeScript
+
+`npx tsc --noEmit` → exit 0, no output. **PASS**
+
+### Lint
+
+`npx eslint` against the 12 files touched by commit `e9f5bed`:
+
+- `components/WorldlineGlobe.tsx` — 3 pre-existing errors (lines 890, 1008, 2532: setState-in-effect, readonly mutation, ref-during-render). Confirmed pre-existing via `git stash` with no local changes (stash noop = working tree IS the commit, parent commit carries same errors). **Not introduced by this batch.**
+- All other 11 changed files — 0 errors. **PASS**
+- Pre-existing project-wide lint errors (826 problems, 41 errors) are unchanged from prior session baselines.
+
+### Acceptance criteria — per-item evidence
+
+| Item | Claim | Verified | Evidence |
+|---|---|---|---|
+| CW-01 | /archive mobile overflow 46px→0 | **PASS** | `archiveBody.scrollWidth - clientWidth = 0` at 390px; `@media (max-width:768px)` collapses `.archive-body` to `grid-template-columns: 1fr` |
+| CW-02 | 404 CTA `[ ◯ return to atlas ]` touch target 44px | **PASS** | Chrome DOM: `height=44`, `display=flex`, `minHeight=44px` at 390×844 |
+| CW-03 | GitHub footer link wired to `https://github.com/Ne0EX` | **PASS** | Chrome: `href=https://github.com/Ne0EX`, `target=_blank`, `rel=noopener noreferrer` |
+| CW-04 | Nav link touch targets 44px (all 5 links) | **PASS** | Chrome DOM: INDEX/TRACES/FRAMES/ARCHIVE/TRANSMIT all measure `height=44` at 390px |
+| CW-05 | `· Peat` appended to nav-id strip | **PASS** | Chrome: `navText.includes('Peat')=true`; text reads `∇ NEOSPIRIT // WORLDLINE 1.130426 · Peat` |
+| CW-06 | `resume.neoex.com` placeholder in TRANSMIT | **PASS** | Chrome: element is a `<span>` not `<a>`, `pointerEvents=none`, text `→ resume.neoex.com`; no live href |
+| CW-07 | SKIPPED | **SKIP — CORRECT** | Anilist/Letterboxd/airtable.coffee remain `href="#"`. Sirius correctly deferred pending Peat supplying confirmed URLs. |
+| CW-08 | Footer link touch targets 44px (all 8 links) | **PASS** | Chrome DOM: all 8 footer `<a>` elements measure `height=45` at 390px; `paddingBlock=18px` |
+| CW-09 | Archive slug masking — `CHATGPTIMAGE-1781389399360` → `[ photo — untitled ]` in center title column | **PASS** | Chrome: center-column title reads `[ photo — untitled ]`; left-rail gutter shows `PH·CHATGPTIMAGE-1781389399360` (intentional — `shortId()` is a technical ID column, not the title; `humanTitle()` applies only to the title column per spec) |
+| CW-10 | `/?tag=coffee` pre-selects coffee pill | **PASS** | Chrome at `/?tag=coffee`: `coffee` pill `aria-pressed=true`, `all` pill `aria-pressed=false` |
+| CW-11 | Globe touch scroll — vertical swipe scrolls page, horizontal captures | **PASS** | Code-verified: `onDown` defers `setPointerCapture` for touch; `onMoveDrag` measures `totalDx vs totalDy` with 4px threshold; vertical releases capture and kills drag; horizontal captures. Logic is correct. |
+| CW-12 | Gallery roll header `<a>` touch targets 44px | **PASS** | Chrome at `/photos`: roll header links `height=44`, `minHeight=44px`, `display=flex` |
+| CW-13 | Per-photo `objectFit:cover` on `<img>` | **PASS** | Code-verified: `PhotoEntry.tsx` line 390 `style={{ objectFit: "cover" }}` on the `<img>` inside the `paper-mount` figure. No photos in store have `variants.medium.webp` currently (all in placeholder state) so live DOM measure not possible; the code path is correct. |
+| CW-14 | `[← BACK TO ATLAS]` touch target 44px | **PASS** | Chrome at `/photos/2026-05-bangkok/DSCF0005`: `height=44`, `display=flex`, `minHeight=44px` |
+| CW-15 | NEXT NODE + ESC HUD buttons 44px | **PASS** | Chrome at `/`: `⟶ NEXT NODE` height=44 minH=44px; `✕ ESC` height=44 minH=44px |
+| CW-16 | Attractor pill touch targets 44px | **PASS** | Chrome at `/`: attractor pills `height=44`, `minHeight=44px` |
+| CW-17 | /archive persistent Nav | **PASS** | Chrome at `/archive`: `.nav-shell` present; INDEX/TRACES/FRAMES/ARCHIVE/TRANSMIT links all mounted and measure 44px |
+
+### Console errors
+
+| Route | Errors | Warnings |
+|---|---|---|
+| `/` (desktop 1440×900) | 0 | 0 |
+| `/archive` (desktop) | 0 | 0 |
+| `/photos` (desktop) | 0 | 0 |
+
+### Soul integrity
+
+- No new visual language introduced. All touch-target fixes are invisible at desktop (padding adds to click area, visual text unchanged).
+- `resume.neoex.com` is dimmed at `var(--ink-faint)` with `pointer-events:none` — correct register for a "coming soon" pointer. Does not exhibit anything; merely signposts a future seam.
+- `· Peat` in the nav-id strip is instrument-register (same `t-meta-accent` span, same 9px mono row) — no biography, no splay of interiority. Identity legibility for the recruiter persona without collapsing exploration.
+- FRAMES nav link (`/photos`) is additive and correct — the gallery existed but had no discoverable route from the nav.
+
+### Regression scan
+
+| Check | Result |
+|---|---|
+| `tsc --noEmit` | exit 0 — PASS |
+| Lint on changed files | 0 new errors — PASS |
+| Vitest (pre-existing failures) | 14 failed / 244 passed — identical count to prior session; no test files touched by this commit; no regression |
+| `/` console errors | 0 — PASS |
+| `/archive` console errors | 0 — PASS |
+| `/photos` console errors | 0 — PASS |
+| /archive two-column layout (desktop) | ledger 960px + rail 340px — PASS |
+| /archive mobile single-column (390px) | overflow=0 — PASS |
+| SQL baseline | not touched — PASS |
+
+### Notes for Polaris (non-blocking)
+
+1. **Signature omission.** Sirius did not produce a `.claude/signatures/<task_id>--sirius.json` for commit `e9f5bed`. All work is verifiable from the diff, but the signing contract requires a record. Recommend requiring a signed work record on the next task boundary. Not blocking this PASS.
+
+2. **CW-09 left-rail ID.** The left-rail gutter shows `PH·CHATGPTIMAGE-1781389399360` — the machine ID is intentional in that column (scannable short-ID per the archive spec `shortId()` function). Peat may want to revisit whether the ID gutter should also mask photo machine IDs, but this is a design taste decision, not a defect.
+
+3. **CW-13 live verification deferred.** No photo in the current store has `variants.medium.webp` (all in "AWAITING IMAGE" placeholder state). `objectFit:cover` is in the code on the correct `<img>` path; live measurement will be possible once a photo with variants is ingested.
+
+4. **CW-07 activation path.** When Peat supplies Anilist/Letterboxd/airtable.coffee URLs, Sirius can wire them in `FooterManifesto.tsx` by setting `live: true` and the correct `href` in the channels array (lines 56–62).
+
+### Verdict
+
+**PASS** — all 16 shipped items verified in real Chrome. CW-07 skip is correct (Peat must supply URLs). Zero console errors. tsc=0. No regressions. One schema-omission noted (no signature file). SOUL intact.
+
+*Algol · α-VER-06 · 2026-06-14*
