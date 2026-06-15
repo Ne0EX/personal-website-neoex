@@ -36,15 +36,41 @@ export function ChapterIndex({ entries, activeAttractor }: Props) {
   // Also runs on initial mount (empty-dep behavior is preserved by always including
   // activeAttractor in the dep array — first run is "all", subsequent are filtered).
   // Respects prefers-reduced-motion; skips animation if user prefers none.
+  //
+  // Back-forward + reduced-motion fix (α-SUR-01 · back-content):
+  //   Cards are rendered WITHOUT opacity-0 in the SSR className — they are visible by
+  //   default. This useEffect applies opacity:0 inline BEFORE animating, so the stagger
+  //   still plays on genuine first render and on filter change. If this effect never fires
+  //   (React hydration failure on back-forward navigation) or if the user prefers reduced
+  //   motion, cards remain at their default-visible state (opacity:1 inherited, no inline
+  //   override). Animation is pure progressive enhancement — it cannot leave content hidden.
   useEffect(() => {
     if (!gridRef.current) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) return;
 
-    // Cards start opacity-0 via className; animate them in after filter renders.
     const cards = Array.from(
       gridRef.current.querySelectorAll<HTMLElement>(".entry-card")
     );
+
+    // Reduced-motion: ensure cards are explicitly visible (no animation, no hidden state).
+    // Without this guard, a stale inline style from a previous filter animation could
+    // leave cards at opacity:0 if the user toggles reduced-motion mid-session.
+    if (reduce) {
+      cards.forEach((c) => {
+        c.style.opacity = "1";
+        c.style.transform = "";
+      });
+      return;
+    }
+
+    // Set cards to invisible via inline style immediately — this is the "starting frame"
+    // for the stagger. We do NOT rely on the className for the initial hidden state so
+    // that if this effect never runs (hydration failure) cards stay visible.
+    cards.forEach((c) => {
+      c.style.opacity = "0";
+      c.style.transform = "translateY(10px)";
+    });
+
     animate(cards, {
       opacity: [0, 1],
       translateY: [10, 0],
@@ -76,7 +102,7 @@ export function ChapterIndex({ entries, activeAttractor }: Props) {
               // (fix: chapter-index-cards · α-SUR-01 · wiring-wave1)
               href={`/articles/${e.fileNum}`}
               id={`entry-${e.fileNum}`}
-              className={`entry-card opacity-0 group relative cursor-pointer px-7 py-6 transition-colors hover:bg-[rgba(212,96,42,0.04)]
+              className={`entry-card group relative cursor-pointer px-7 py-6 transition-colors hover:bg-[rgba(212,96,42,0.04)]
                 ${isRight ? "" : "md:border-r md:border-[var(--ink-hairline)]"}
                 ${lastTwo ? "" : "border-b border-[var(--ink-hairline)]"}`}
             >
