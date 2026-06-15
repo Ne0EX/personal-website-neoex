@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* Tailwind v4 auto-scans the project tree for class candidates. Under Turbopack
+   dev it reads the codegraph Unix socket (.codegraph/daemon.sock) as a text file,
+   yielding binary garbage and "Parsing CSS source code failed" on the
+   --accent-orange utilities. .gitignore does NOT exclude it from Turbopack's
+   source scan, so exclude it explicitly. Two paths cover both possible @source
+   resolution bases (project-root and CSS-file relative); one matches the real
+   .codegraph dir, the other is a harmless no-op. NOTE: Turbopack does not re-read
+   this (or .gitignore) live, so a dev-server RESTART is the reliable clear once
+   the panic is already showing (the error banner reads "stale").
+   Ref: memory reference_codegraph_socket_tailwind_panic. */
+@source not "./.codegraph";
+@source not "../.codegraph";
+
 /* =============================================================
    WORLDLINE — Design tokens (PROJECT_BRIEF §3)
 
