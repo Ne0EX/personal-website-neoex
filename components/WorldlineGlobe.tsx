@@ -1289,7 +1289,10 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
         // the position vector) instead of spinning the globe geometry. This keeps the orbital
         // shells visually stable and gives a true "swing around the surface" feel.
         // Per soul rules: camera must orbit the surface (slerp / great-circle), never clip.
-        const angle = dx * 0.005;
+        // Direction fix (α-SUR-01 · nex-drag): orbiting the camera by +angle produces the
+        // OPPOSITE apparent surface motion vs rotating the globe geometry by +dx (as `all`/
+        // `neo` do). Negating the angle makes the perceived surface direction match.
+        const angle = -dx * 0.005;
         const cosA = Math.cos(angle);
         const sinA = Math.sin(angle);
         const cx = camera.position.x;
@@ -1872,6 +1875,24 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
       setNetraTarget(`${n.label} · ${n.place}`);
     };
 
+    // QA debug-state hook — read-only snapshot for deterministic verification.
+    // Matches the __atlasApplyStratum / __atlasApplySelected / __atlasNetraJump
+    // family pattern; deleted in the same cleanup block below.
+    (window as unknown as {
+      __atlasDebugState?: () => {
+        stratum: StratumKey;
+        camX: number; camZ: number;
+        camAzimuth: number;
+        globeRotY: number;
+      };
+    }).__atlasDebugState = () => ({
+      stratum: stratumRef.current,
+      camX: camera.position.x,
+      camZ: camera.position.z,
+      camAzimuth: Math.atan2(camera.position.x, camera.position.z),
+      globeRotY: refs.globe.rotation.y,
+    });
+
     // ─── Async fiction load — populates NeX glyph layer + jump targets ───
     // Called once after scene is mounted. Runs in background; non-blocking.
     (async () => {
@@ -2223,6 +2244,7 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
       delete (window as unknown as Record<string, unknown>).__atlasApplyStratum;
       delete (window as unknown as Record<string, unknown>).__atlasApplySelected;
       delete (window as unknown as Record<string, unknown>).__atlasNetraJump;
+      delete (window as unknown as Record<string, unknown>).__atlasDebugState;
     };
     // movable-alpha: rebuildJumpTargets is a useCallback stable across renders;
     // it is captured once at mount inside the once-bound THREE scene closure and
