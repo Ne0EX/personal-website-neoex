@@ -325,7 +325,26 @@ const QUB_CSS = `
 // Component
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function QuickUploadBar() {
+/**
+ * Callback fired once per successful upload, with enough data for the console
+ * graph to add the new node to client state without a page reload.
+ *
+ * `uniquePhotoId` is the same id used as the in-roll photo identifier
+ * (e.g. "DSCF0835-1781514759179"). The caller can build the node fileId as
+ * `${result.roll}/${uniquePhotoId}`.
+ */
+export interface QuickUploadSuccess {
+  roll:          string
+  uniquePhotoId: string
+  entry:         { kind: string; slug: string; id: string; status: string }
+}
+
+interface QuickUploadBarProps {
+  /** Optional — called each time a single file upload completes successfully. */
+  onUploadSuccess?: (result: QuickUploadSuccess) => void
+}
+
+export function QuickUploadBar({ onUploadSuccess }: QuickUploadBarProps = {}) {
   const [files, setFiles]     = useState<FileUpload[]>([])
   const [drag, setDrag]       = useState(false)
   const [collapsed, setCollapsed] = useState(false)
@@ -358,6 +377,12 @@ export function QuickUploadBar() {
   }, [])
 
   // ── Core upload function: file → originals bucket → quickUploadPhoto ──
+  // onUploadSuccessRef lets the callback see the latest prop value without
+  // adding it to the useCallback dep array (which would recreate uploadFile
+  // on every render that ConsoleApp passes a new arrow function reference).
+  const onUploadSuccessRef = useRef(onUploadSuccess)
+  useEffect(() => { onUploadSuccessRef.current = onUploadSuccess }, [onUploadSuccess])
+
   const uploadFile = useCallback(async (file: File, batchTs: number) => {
     // Derive a stable key for this upload
     const base = file.name.replace(/\.[^.]+$/, '').toUpperCase().replace(/[^A-Z0-9_-]/g, '') || 'PHOTO'
@@ -437,6 +462,16 @@ export function QuickUploadBar() {
         entrySlug: result.entry.slug,
         // Carry forward the RAW warning text so the done entry notes it was RAW
         errorMsg: innerCheck?.isWarning ? `(RAW original stored)` : null,
+      })
+
+      // Notify the parent (ConsoleApp) so it can add the new node to the
+      // graph canvas immediately — without a page reload. The parent calls
+      // setNodes; we stay presentation-only here.
+      // Fires AFTER patch so the done status is already reflected in the bar.
+      onUploadSuccessRef.current?.({
+        roll:          result.roll,
+        uniquePhotoId,
+        entry:         result.entry as { kind: string; slug: string; id: string; status: string },
       })
     } catch (thrown) {
       const msg = thrown instanceof Error ? thrown.message : String(thrown)

@@ -51,6 +51,7 @@ import { PlaceHighlightEditor }  from './PlaceHighlightEditor'
 import { createEntry, setAlphaPlace } from '@/lib/server/store/actions'
 // simple-upload: frictionless photo drop zone on the console front door
 import { QuickUploadBar } from './QuickUploadBar'
+import type { QuickUploadSuccess } from './QuickUploadBar'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CSS — shell, header, body grid, NETRA foot, offline
@@ -395,6 +396,36 @@ export function ConsoleApp({ initialNodes, initialEdges, initialPlaces }: Consol
     )
   }, [])
 
+  // ── Quick-upload: add the new photo node to the canvas immediately ──
+  // Called by QuickUploadBar after a successful upload. Constructs a ConsoleNode
+  // from the server-action result and appends it to local state — no page reload
+  // required. Fixes the RAF-disappear bug where revalidatePath's RSC update was
+  // silently discarded by React (useState ignores initialNodes after first mount).
+  const handleUploadSuccess = useCallback((result: QuickUploadSuccess) => {
+    const { roll, uniquePhotoId } = result
+    // fileId contract for photo nodes: "roll/photoId" (mirrors app/console/page.tsx ~line 184)
+    const fileId = `${roll}/${uniquePhotoId}`
+    // Derive a display date from today (the upload just completed)
+    const now = new Date()
+    const displayDate = `${now.getFullYear()}.${String(now.getMonth() + 1).padStart(2, '0')}.${String(now.getDate()).padStart(2, '0')}`
+    // Grid constants from app/console/page.tsx (cols=3, gx=230, gy=158, ox=90, oy=70)
+    const cols = 3, gx = 230, gy = 158, ox = 90, oy = 70
+    const newNode: ConsoleNode = {
+      id:      nextId(),
+      kind:    'photo',
+      fileId,
+      title:   uniquePhotoId,
+      date:    displayDate,
+      domain:  '',
+      tags:    [],
+      summary: '',
+      // Position after the last existing node; modular grid wraps at cols
+      x: ox + (nodes.length % cols) * gx,
+      y: oy + Math.floor(nodes.length / cols) * gy,
+    }
+    setNodes((ns) => [...ns, newNode])
+  }, [nodes.length]) // nodes.length for grid position; setNodes is stable
+
   // ── Keyboard: ESC closes form / deselects; Cmd+S saves draft ──
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -487,8 +518,11 @@ export function ConsoleApp({ initialNodes, initialEdges, initialPlaces }: Consol
 
         {/* ── Quick upload bar — simple-upload track.
             Peat drops photos here; they publish with zero further input.
-            Lives between header and the two-pane body for maximum visibility. */}
-        <QuickUploadBar />
+            Lives between header and the two-pane body for maximum visibility.
+            onUploadSuccess: adds the new node to canvas state without reload
+            (fix for RAF-disappear — revalidatePath RSC update is silently discarded
+            by React because ConsoleApp.nodes is already-mounted useState). */}
+        <QuickUploadBar onUploadSuccess={handleUploadSuccess} />
 
         {/* ── Body — two-pane ── */}
         <div id="console-main" className="console-body" tabIndex={-1}>
