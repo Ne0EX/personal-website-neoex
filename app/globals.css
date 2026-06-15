@@ -1,17 +1,17 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 
-/* Tailwind v4 auto-scans the project tree for class candidates. Under Turbopack
-   dev it reads the codegraph Unix socket (.codegraph/daemon.sock) as a text file,
-   yielding binary garbage and "Parsing CSS source code failed" on the
-   --accent-orange utilities. .gitignore does NOT exclude it from Turbopack's
-   source scan, so exclude it explicitly. Two paths cover both possible @source
-   resolution bases (project-root and CSS-file relative); one matches the real
-   .codegraph dir, the other is a harmless no-op. NOTE: Turbopack does not re-read
-   this (or .gitignore) live, so a dev-server RESTART is the reliable clear once
-   the panic is already showing (the error banner reads "stale").
+/* Auto source-detection is DISABLED via source(none): Tailwind v4 under Turbopack
+   otherwise walks the whole project tree and reads binary files as text — the
+   codegraph daemon socket (.codegraph/daemon.sock), the codegraph SQLite db,
+   screenshots, and the .claude/worktrees copies — producing garbage class
+   candidates and "Parsing CSS source code failed" on the --accent-orange
+   utilities. Class usage lives ONLY in app/ and components/, so scan exactly
+   those. .gitignore does NOT exclude binaries from Turbopack's scan; an explicit
+   allowlist is the only reliable guard. Turbopack does not re-read this live, so
+   a dev-server restart with the .next cache cleared is required to pick it up.
    Ref: memory reference_codegraph_socket_tailwind_panic. */
-@source not "./.codegraph";
-@source not "../.codegraph";
+@source "../app";
+@source "../components";
 
 /* =============================================================
    WORLDLINE — Design tokens (PROJECT_BRIEF §3)
