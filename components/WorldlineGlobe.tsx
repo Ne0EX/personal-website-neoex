@@ -1962,8 +1962,13 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
           refs.nexField.rotation.y = -baseRotY * 0.4;
           refs.raysGroup.rotation.y = baseRotY * 0.6;
         } else if (sk === "nex") {
-          refs.nexField.rotation.y += dt * 0.08;
-          refs.raysGroup.rotation.y -= dt * 0.06;
+          // Fix (α-SUR-01 · nex-rotation): signs must match the direction convention
+          // established by the `all` stratum (nexField counter-rotates → negative delta;
+          // raysGroup co-rotates → positive delta). The original +/- here caused a jarring
+          // direction reversal on all→nex transition. Rate changes (0.04→0.08 / 0.06
+          // unchanged) are fine — acceleration is imperceptible compared to a sign flip.
+          refs.nexField.rotation.y -= dt * 0.08;
+          refs.raysGroup.rotation.y += dt * 0.06;
           refs.globe.rotation.y += dt * 0.04;
           baseRotY = refs.globe.rotation.y;
         } else if (sk === "neon") {
