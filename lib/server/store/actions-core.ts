@@ -661,9 +661,13 @@ export type IngestPhotoResult =
 // MIME / extension allow-list for formats the ingest pipeline supports
 // ---------------------------------------------------------------------------
 //
-// HEIC/HEIF — sharp ships with libheif 1.20.2 (confirmed 2026-06-14) and CAN
-// decode HEIC/HEIF buffers natively. sharp(buf).rotate().resize()... works
-// identically for HEIC as for JPEG. No pre-conversion needed.
+// HEIC/HEIF — sharp ships with libheif WITHOUT the HEVC decoder, so real
+// iPhone HEICs (HEVC-compressed) fail with "Support for this compression
+// format has not been built in". heic-convert uses WASM libheif WITH the
+// HEVC decoder and handles both HEVC and AV1 HEIC — it is the correct
+// pre-conversion step. We decode to JPEG first, then feed that buffer to
+// sharp. (Confirmed 2026-06-16 on IMG_7481.HEIC: HEVC iPhone HEIC → JPEG
+// 1334785B → sharp jpeg/webp/avif all OK.)
 //
 // RAW (.RAF, .CR2, .NEF, .ARW, .DNG, .RW2, etc.) — we do NOT full-decode RAW
 // (libraw/dcraw is too heavy for serverless). Instead we extract the embedded
@@ -838,7 +842,7 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
 
   // --- [GATE] Validate file type BEFORE downloading ---
   // This check runs before any download/processing so no orphan is possible here.
-  // HEIC: sharp has libheif 1.20.2 — decodes natively, allow through.
+  // HEIC: pre-converted to JPEG via heic-convert (WASM libheif, HEVC+AV1), allow through.
   // RAW:  embedded JPEG preview extraction path (extractLargestJpegPreview).
   // Anything else: reject with a clear error code.
   const extClass = classifyExtension(originalKey)
@@ -949,6 +953,35 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
       decodeBuffer = Buffer.from(previewBuf)
     }
 
+    // --- HEIC/HEIF: pre-convert to JPEG via heic-convert (WASM libheif) ---
+    //
+    // sharp's bundled libheif lacks the HEVC decoder, so real iPhone HEICs fail
+    // with "Support for this compression format has not been built in".
+    // heic-convert ships libheif WITH HEVC + AV1 support via WASM and handles
+    // both codec variants. We decode to JPEG at quality 0.92 (lossless-equivalent
+    // for the source; sharp will re-encode to final variants at VARIANT_QUALITY).
+    //
+    // EXIF is still extracted from sourceBuffer (the original HEIC bytes) below —
+    // exifr handles HEIC natively. If that fails we fall back to the JPEG buffer.
+    //
+    // On failure (corrupt/unsupported HEIC): rollback the original and return a
+    // clear HEIC_DECODE_FAILED error — Sirius will surface it in the UI.
+    if (extClass === 'heic') {
+      try {
+        const convert = (await import('heic-convert')).default
+        const jpegResult = await convert({ buffer: sourceBuffer, format: 'JPEG', quality: 0.92 })
+        decodeBuffer = Buffer.from(jpegResult)
+        console.info(`[ingestPhoto] HEIC "${originalKey}": decoded to JPEG ${decodeBuffer.length}B (source was ${sourceBuffer.length}B)`)
+      } catch (heicError) {
+        await rollbackOriginal('HEIC_DECODE_FAILED')
+        return err(
+          'HEIC_DECODE_FAILED',
+          `HEIC decode failed for "${originalKey}". The file may be corrupt or use an unsupported codec variant.`,
+          { cause: String(heicError) },
+        )
+      }
+    }
+
     // --- EXIF extraction ---
     // exifr is a dynamic import (optional dep at runtime, required at ingest time).
     //
@@ -1000,16 +1033,16 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
       rawExif = await exifr.parse(sourceBuffer, { pick: EXIF_PICK, ...EXIF_PARSE_OPTS }) ?? {}
     } catch (exifError) {
       // RAF containers: exifr throws 'Unknown file format' on the RAF bytes.
-      // Fall back to the extracted JPEG preview (decodeBuffer) which carries the
-      // full EXIF IFD embedded by the camera. Only attempt if we are in the RAW
-      // branch and preview extraction succeeded (decodeBuffer !== sourceBuffer).
-      if (extClass === 'raw' && decodeBuffer !== sourceBuffer) {
+      // HEIC containers: exifr can normally parse HEIC natively, but if it fails
+      // (e.g. unusual metadata layout), fall back to the heic-convert JPEG which
+      // also carries the EXIF IFD. In both cases decodeBuffer !== sourceBuffer.
+      if ((extClass === 'raw' || extClass === 'heic') && decodeBuffer !== sourceBuffer) {
         try {
           const exifr = (await import('exifr')).default
-          console.info('[ingestPhoto] EXIF: sourceBuffer parse failed for RAW container — retrying on extracted preview JPEG')
+          console.info(`[ingestPhoto] EXIF: sourceBuffer parse failed for ${extClass.toUpperCase()} container — retrying on decoded buffer`)
           rawExif = await exifr.parse(decodeBuffer, { pick: EXIF_PICK, ...EXIF_PARSE_OPTS }) ?? {}
         } catch (fallbackError) {
-          console.warn('[ingestPhoto] EXIF extraction failed on both source and preview (proceeding without):', String(fallbackError))
+          console.warn('[ingestPhoto] EXIF extraction failed on both source and decoded buffer (proceeding without):', String(fallbackError))
         }
       } else {
         // EXIF extraction failure is non-fatal: proceed with empty exif
@@ -1057,7 +1090,8 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
     // photos bucket. This is forbidden (spec §4.3, §2.5).
     //
     // For RAW files: decodeBuffer is the extracted embedded JPEG preview (not the
-    // original RAW bytes). For HEIC/standard formats: decodeBuffer === sourceBuffer.
+    // original RAW bytes). For HEIC/HEIF: decodeBuffer is the heic-convert JPEG
+    // (WASM libheif decoded). For standard formats: decodeBuffer === sourceBuffer.
     const sharp = (await import('sharp')).default
 
     type VariantKey = { jpg: string; webp: string; avif: string }
@@ -1077,7 +1111,7 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
 
         // Generate the variant buffer
         // NO .withMetadata() — intentionally omitted per spec
-        // decodeBuffer: for RAW = embedded JPEG preview; for HEIC/JPEG/PNG = original
+        // decodeBuffer: for RAW = embedded JPEG preview; for HEIC = heic-convert JPEG; for JPEG/PNG = original
         const pipeline = sharp(decodeBuffer, { failOn: 'truncated' })
           .rotate()  // bake EXIF orientation, then EXIF is stripped by default
           .resize({ width: size.width, withoutEnlargement: true })
