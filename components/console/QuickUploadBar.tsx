@@ -355,20 +355,28 @@ export function QuickUploadBar({ onUploadSuccess }: QuickUploadBarProps = {}) {
   // ── Derived: is every file in a terminal state? ──
   const allDone = files.length > 0 && files.every((f) => f.status === 'done' || f.status === 'failed')
   const anySuccess = files.some((f) => f.status === 'done')
+  // FIX (sirius): track whether any file failed so we can suppress auto-collapse.
+  // A failed upload must stay visible until the user explicitly dismisses it — the
+  // 8-second timer was silently hiding failures, making them look like the file
+  // had vanished. Auto-collapse is only safe when ALL files succeeded.
+  const anyFailed = files.some((f) => f.status === 'failed')
 
   // First successful roll — used for the "see them" link.
   // Multiple photos may land in different rolls (different EXIF months); we link
   // to the first successful one for simplicity. A future track can list all rolls.
   const firstSuccessRoll = files.find((f) => f.status === 'done' && f.roll)?.roll ?? null
 
-  // ── Auto-dismiss after 8 s once all files are done ──
+  // ── Auto-dismiss after 8 s once all files are done — only when no failures ──
+  // When ANY file failed, we do NOT auto-collapse. The failed status + errorMsg
+  // must remain legible until the user presses [ clear ] or drops new files.
   useEffect(() => {
     if (!allDone) return
+    if (anyFailed) return  // keep expanded so the user can see what went wrong
     dismissTimer.current = setTimeout(() => setCollapsed(true), 8000)
     return () => {
       if (dismissTimer.current) clearTimeout(dismissTimer.current)
     }
-  }, [allDone])
+  }, [allDone, anyFailed])
 
   // ── Re-expand on new drop (so the bar is always available without reload) ──
   const expand = useCallback(() => {
