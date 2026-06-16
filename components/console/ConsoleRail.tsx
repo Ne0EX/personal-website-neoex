@@ -193,7 +193,16 @@ export function ConsoleRail({
   onFilter, onQuery, onSelect, onNew,
   placesBlock,
 }: ConsoleRailProps) {
-  const count = String(nodes.length).padStart(3, '0')
+  // ── Filter: mirror ConsoleCanvas.matchesQuery exactly so rail and canvas agree ──
+  // KIND: keep when filter is 'all' or node.kind matches
+  // QUERY: keep when no query, or [title, fileId, domain, ...tags].join(' ') includes it
+  const filteredNodes = nodes.filter((n) => {
+    const kindMatch = activeFilter === 'all' || n.kind === activeFilter
+    if (!kindMatch) return false
+    if (!query) return true
+    return [n.title, n.fileId, n.domain, ...n.tags].join(' ').toLowerCase().includes(query.toLowerCase())
+  })
+  const count = String(filteredNodes.length).padStart(3, '0')
 
   return (
     <>
@@ -268,32 +277,54 @@ export function ConsoleRail({
               {'// ENTRIES'} <span className="rail-count">{count}</span>
             </div>
             <ul className="rail-list" role="listbox" aria-label="Entries">
-              {nodes.map((n) => {
-                const k = KINDS[n.kind]
-                const sel = selectedId === n.id
-                return (
-                  <li key={n.id} role="option" aria-selected={sel} style={{ listStyle: 'none' }}>
-                    <button
-                      type="button"
-                      className={'atlas-strata-btn' + (sel ? ' is-active' : '')}
-                      onClick={() => onSelect(n.id)}
-                    >
-                      <span
-                        className="glyph"
-                        style={{ color: sel ? 'var(--accent-orange)' : k.color }}
+              {filteredNodes.length === 0 ? (
+                /* empty-state: instrument-idiom, ink-faint, no visual noise */
+                <li
+                  role="option"
+                  aria-selected={false}
+                  aria-disabled="true"
+                  style={{ listStyle: 'none', padding: '8px 10px' }}
+                >
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: '9px',
+                      letterSpacing: '0.14em',
+                      color: 'var(--ink-faint)',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {'// no entries'}
+                  </span>
+                </li>
+              ) : (
+                filteredNodes.map((n) => {
+                  const k = KINDS[n.kind]
+                  const sel = selectedId === n.id
+                  return (
+                    <li key={n.id} role="option" aria-selected={sel} style={{ listStyle: 'none' }}>
+                      <button
+                        type="button"
+                        className={'atlas-strata-btn' + (sel ? ' is-active' : '')}
+                        onClick={() => onSelect(n.id)}
                       >
-                        {k.glyph}
-                      </span>
-                      <span>
-                        <span className="label-id">{n.title}</span>
-                        <span className="label-role">{n.kind} · {n.domain}</span>
-                      </span>
-                      {/* title preserves full fileId when truncated by D1 fix */}
-                      <span className="key" title={n.fileId}>{n.fileId}</span>
-                    </button>
-                  </li>
-                )
-              })}
+                        <span
+                          className="glyph"
+                          style={{ color: sel ? 'var(--accent-orange)' : k.color }}
+                        >
+                          {k.glyph}
+                        </span>
+                        <span>
+                          <span className="label-id">{n.title}</span>
+                          <span className="label-role">{n.kind} · {n.domain}</span>
+                        </span>
+                        {/* title preserves full fileId when truncated by D1 fix */}
+                        <span className="key" title={n.fileId}>{n.fileId}</span>
+                      </button>
+                    </li>
+                  )
+                })
+              )}
             </ul>
           </div>
 
