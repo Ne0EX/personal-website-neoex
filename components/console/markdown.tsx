@@ -105,16 +105,34 @@ export function renderInline(text: string, keyPrefix: string): React.ReactNode[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// slugify — heading text → DOM-safe id (mirrors scrollToHeading in EntryEditor)
+// Used by Blocks so outline click-scroll resolves ids in the preview pane.
+// Public-page note: ArticleEntry uses renderMdxBody, NOT Blocks — this function
+// is console-preview-only; the public /articles/[fileNum] page is unaffected.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Blocks — render a Block[] as React nodes (no wrapping div — caller decides)
 // Ported from prototype editor-engine.jsx@93.
 // Class names use .wlc-* scope (styled in ArticlePreview's embedded <style>).
+// heading ids: slugified heading text so scrollToHeading in ArticleOutline can
+// querySelector('#slug') inside the preview pane (ed-preview). Inert on the
+// public page (ArticleEntry renders via renderMdxBody, never Blocks).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function Blocks({ blocks }: { blocks: Block[] }): React.ReactNode {
   return blocks.map((b, i) => {
     const key = 'blk' + i
-    if (b.type === 'h2') return <h2 key={key} className="wlc-h2">{renderInline(b.text, key)}</h2>
-    if (b.type === 'h3') return <h3 key={key} className="wlc-h3">{renderInline(b.text, key)}</h3>
+    if (b.type === 'h2') return <h2 key={key} id={slugify(b.text)} className="wlc-h2">{renderInline(b.text, key)}</h2>
+    if (b.type === 'h3') return <h3 key={key} id={slugify(b.text)} className="wlc-h3">{renderInline(b.text, key)}</h3>
     if (b.type === 'hr') return <hr key={key} className="wlc-hr" />
     if (b.type === 'quote') return (
       <blockquote key={key} className="wlc-quote">

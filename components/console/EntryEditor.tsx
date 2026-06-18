@@ -407,6 +407,12 @@ const EDITOR_CSS = `
   flex-direction: column;
   border-right: 1px dashed var(--ink-dashed);
   min-height: 0;
+  /* BUG-4 fix: flex:1 fills the wrapper column so .src-text (flex:1 inside
+     .src-pane) can expand to full pane height. Without this the pane shrinks
+     to intrinsic height, truncating the textarea to ~intro length. The wrapper
+     div at the ArticleSourcePane call site is a flex-column that stretches to
+     fill the grid cell; .src-pane must flex:1 inside it. */
+  flex: 1;
   background: var(--paper-base);
 }
 .src-head {
@@ -1452,9 +1458,23 @@ interface ArticleOutlineProps {
   md:           string
   fileNum:      string
   previewRefId: string
+  /** BUG-4 fix: ref to the source textarea so clicking a heading also scrolls
+   *  the editor source to that heading's line. Optional — if absent, only the
+   *  preview-pane scroll fires (non-breaking for usages without a textarea). */
+  textareaRef?: React.RefObject<HTMLTextAreaElement | null>
 }
 
-function ArticleOutline({ md, fileNum, previewRefId }: ArticleOutlineProps) {
+// Shared slugify — must be byte-identical to slugify() in markdown.tsx so that
+// the id we query in the preview pane matches the id Blocks emits.
+function slugifyOutline(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+}
+
+function ArticleOutline({ md, fileNum, previewRefId, textareaRef }: ArticleOutlineProps) {
   const heads = useMemo(
     () =>
       (md || '')
@@ -1468,16 +1488,46 @@ function ArticleOutline({ md, fileNum, previewRefId }: ArticleOutlineProps) {
     [md],
   )
 
-  // Best-effort scroll: slugify heading → look for a matching [id] in the preview.
+  // BUG-4 fix: two-target scroll —
+  //   (1) Preview pane: querySelector by slugified id (now that Blocks emits ids).
+  //   (2) Source textarea: find the matching "## heading" line in md, compute the
+  //       character offset, set selectionStart/End and scroll the textarea.
+  //
+  // Guard: both paths are best-effort (no-op on not-found / null ref).
+  // Repeated headings: querySelector finds the FIRST occurrence (correct DOM
+  // behaviour); textarea scan also finds the first matching line.
   const scrollToHeading = (text: string) => {
-    const slug = text
-      .toLowerCase()
-      .replace(/[^\w\s-]/g, '')
-      .trim()
-      .replace(/\s+/g, '-')
+    const slug = slugifyOutline(text)
+
+    // (1) Preview-pane scroll
     const root = document.getElementById(previewRefId)
     const target = root?.querySelector(`#${CSS.escape(slug)}`)
     if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+    // (2) Source textarea scroll
+    const ta = textareaRef?.current
+    if (ta) {
+      const lines = (md || '').split('\n')
+      let charOffset = 0
+      let found = false
+      for (const line of lines) {
+        // Match ## text or ### text — heading text after "## "/"### " must equal `text`
+        const m = line.match(/^(#{2,3}) (.+)/)
+        if (m && m[2] === text) {
+          found = true
+          break
+        }
+        charOffset += line.length + 1 // +1 for the '\n'
+      }
+      if (found) {
+        ta.focus()
+        ta.setSelectionRange(charOffset, charOffset)
+        // Approximate scrollTop: proportion of char offset to total content length,
+        // scaled to scrollHeight. More reliable than lineHeight math on variable content.
+        const ratio = charOffset / Math.max(1, (md || '').length)
+        ta.scrollTop = ratio * ta.scrollHeight
+      }
+    }
   }
 
   return (
@@ -2766,7 +2816,8 @@ export function EntryEditor({
           {kind === 'article' && (
             <>
               {outlineOpen && (
-                <ArticleOutline md={md} fileNum={draft.fileNum} previewRefId="ed-preview" />
+                // BUG-4 fix: pass textareaRef so outline clicks also scroll the source editor.
+                <ArticleOutline md={md} fileNum={draft.fileNum} previewRefId="ed-preview" textareaRef={textareaRef} />
               )}
               {/* S6: pass real save handler when a real entry is loaded.
                   Image picker (model B): ◎ IMAGE button opens ImagePickerPanel.
