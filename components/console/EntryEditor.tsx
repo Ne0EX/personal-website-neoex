@@ -76,7 +76,8 @@ import { useRouter } from 'next/navigation'
 import type { Article, Photo, PhotoSidecar } from '@/lib/content/types'
 import type { InstrumentOverrides, Place } from '@/lib/store/types'
 // S6: swap to store actions (setEntryDraft + deleteEntry + updateEntry now live against DB)
-import { setEntryDraft, deleteEntry, updateEntry } from '@/lib/server/store/actions'
+// P5: createTranslation seeds a draft sibling (bilingual affordance)
+import { setEntryDraft, deleteEntry, updateEntry, createTranslation } from '@/lib/server/store/actions'
 import type {
   ArticleMeta,
   EntryKind,
@@ -1047,6 +1048,92 @@ const EDITOR_CSS = `
 @media (prefers-reduced-motion: reduce) {
   .rp-create-btn { transition: none; }
 }
+
+/* ── Language chips — P5 bilingual affordance ─────────────────────────────────
+   Row of chips in the toolbar identity lane (ROW 1), displayed beside the file
+   slug for article/fiction entries. Photos are monolingual (PD5) → chips hidden.
+
+   .lc-chips:  flex row, gap 6px, shrink-0 so it never compresses the slug.
+   .lc-chip:   base chip — dashed border, mono uppercase, ink-faint text.
+   .lc-chip.is-active: filled-ink (same convention as kind-tab / PUBLISHED toggle).
+   .lc-chip.is-add:    ghost ghost — dashed border, accent-orange text + plus glyph.
+                       Visually distinct from existing chips: signals an ADD action.
+
+   Touch target: min-height 28px (toolbar row; 44px is for standalone actions).
+   These are inline annotation chips, not primary actions — 28px is acceptable in
+   a toolbar context that already meets 44px row height.
+*/
+.lc-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.lc-chip {
+  appearance: none;
+  background: transparent;
+  border: 1px dashed var(--ink-dashed);
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 4px 8px;
+  min-height: 28px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.lc-chip:hover:not(.is-active):not(:disabled),
+.lc-chip:focus-visible:not(.is-active):not(:disabled) {
+  border-color: var(--ink-primary);
+  color: var(--ink-primary);
+  outline: none;
+}
+.lc-chip.is-active {
+  background: var(--ink-primary);
+  border-color: var(--ink-primary);
+  color: var(--paper-base);
+  cursor: default;
+}
+/* Add-translation affordance chip — orange accent to signal it's an ADD action. */
+.lc-chip.is-add {
+  color: var(--accent-orange);
+  border-color: rgba(212, 96, 42, 0.45);
+}
+.lc-chip.is-add:hover:not(:disabled),
+.lc-chip.is-add:focus-visible:not(:disabled) {
+  background: var(--accent-orange);
+  border-color: var(--accent-orange);
+  color: var(--paper-bright);
+  outline: none;
+}
+.lc-chip.is-add:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.lc-chip:focus-visible {
+  outline: 1px dashed var(--accent-orange);
+  outline-offset: 2px;
+}
+/* Error banner for per-sibling publish completeness — reuses ed-lc-error style
+   but is rendered below the chips row so it doesn't push the chip alignment. */
+.lc-error {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.1em;
+  color: var(--accent-orange);
+  white-space: nowrap;
+  max-width: 28ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lc-chip { transition: none; }
+}
 `
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1076,6 +1163,110 @@ const LC = {
 // Derived badge segments — split from LC.draft.badge on ' · ' so the displayed
 // text is never separately typed (single source of truth = LC.draft.badge).
 const [LC_BADGE_DRAFT, LC_BADGE_HIDDEN] = LC.draft.badge.split(' · ') as [string, string]
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LanguageChips — P5 bilingual affordance
+//
+// Displayed in the toolbar identity lane (ROW 1) for article and fiction entries.
+// Shows the existing language siblings as chips (EN / TH); the active sibling is
+// filled-ink. Adds a "+ TH" affordance when only the en sibling exists.
+//
+// Clicking an existing chip navigates to ?lang=<lang> (router.push — triggers
+// a full RSC re-render which loads the correct sibling via getArticleBySlug).
+// Clicking "+ TH" calls createTranslation (seeds the draft sibling), then
+// navigates to ?lang=th.
+//
+// onAddTranslation is async: the parent useTransition wraps it so the chip shows
+// a disabled/pending state during the server action round-trip.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Supported locale codes in v1 (entries_lang_chk allowlist). */
+const SUPPORTED_LANGS = ['en', 'th'] as const
+type SupportedLang = typeof SUPPORTED_LANGS[number]
+
+interface LanguageChipsProps {
+  /** Language siblings that exist for this entry (from getSiblingLangs). */
+  siblingLangs: string[]
+  /** The sibling currently being edited (from ?lang param or default 'en'). */
+  activeLang: string
+  /** True while a server action (createTranslation) is in-flight. */
+  pending: boolean
+  /** Error from the last add-translation attempt. Null = no error. */
+  addError: string | null
+  /** Called when a chip is clicked to switch to an existing sibling. */
+  onSwitchLang: (lang: SupportedLang) => void
+  /** Called when "+ TH" is clicked to seed the draft Thai sibling. */
+  onAddTranslation: (toLang: SupportedLang) => void
+}
+
+function LanguageChips({
+  siblingLangs,
+  activeLang,
+  pending,
+  addError,
+  onSwitchLang,
+  onAddTranslation,
+}: LanguageChipsProps) {
+  // Existing chips: show one for each sibling that exists and is in the supported set.
+  // Sorted by SUPPORTED_LANGS order (en, then th) so the chip row is stable.
+  const existingChips = SUPPORTED_LANGS.filter((l) => siblingLangs.includes(l))
+
+  // Missing languages: candidates for the "+ <LANG>" add affordance.
+  // In v1 only 'th' is addable (the en sibling is always the authored baseline).
+  const addCandidates = SUPPORTED_LANGS.filter(
+    (l) => l !== 'en' && !siblingLangs.includes(l),
+  )
+
+  return (
+    <div className="lc-chips" role="group" aria-label="Language siblings">
+      {existingChips.map((lang) => (
+        <button
+          key={lang}
+          type="button"
+          className={'lc-chip' + (lang === activeLang ? ' is-active' : '')}
+          // Active chip is the current sibling — disable it (already editing it).
+          disabled={lang === activeLang || pending}
+          onClick={() => onSwitchLang(lang)}
+          aria-pressed={lang === activeLang}
+          aria-label={`edit ${lang.toUpperCase()} sibling${lang === activeLang ? ' (current)' : ''}`}
+          title={
+            lang === activeLang
+              ? `editing ${lang.toUpperCase()} sibling`
+              : `switch to ${lang.toUpperCase()} sibling`
+          }
+        >
+          {lang.toUpperCase()}
+          {/* Filled dot beside the active sibling — presentational */}
+          {lang === activeLang && (
+            <span aria-hidden style={{ fontSize: '7px', lineHeight: 1 }}>●</span>
+          )}
+        </button>
+      ))}
+
+      {/* "+ TH" (or any missing supported lang) add-translation affordance */}
+      {addCandidates.map((toLang) => (
+        <button
+          key={toLang}
+          type="button"
+          className="lc-chip is-add"
+          disabled={pending}
+          onClick={() => onAddTranslation(toLang)}
+          aria-label={`add ${toLang.toUpperCase()} translation`}
+          title={`seed a draft ${toLang.toUpperCase()} sibling (createTranslation)`}
+        >
+          {pending ? '…' : `+ ${toLang.toUpperCase()}`}
+        </button>
+      ))}
+
+      {/* Per-sibling error (inline, beside the chips) */}
+      {addError && (
+        <span className="lc-error" role="alert" aria-live="assertive">
+          {addError}
+        </span>
+      )}
+    </div>
+  )
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // EntryToolbar — kind switcher + file-num reserve + VIEW + OUTLINE + cross-kind
@@ -1139,6 +1330,13 @@ interface EntryToolbarProps {
    * target=false → publish (draft=false); target=true → hide (draft=true).
    */
   onSetHidden: (target: boolean) => void
+
+  // ── P5 language chips ────────────────────────────────────────────────────
+  /**
+   * Language chips (article / fiction only). Null → chips not shown (photo,
+   * SAMPLE_DRAFT fallback, or langs array not yet loaded).
+   */
+  langChipsProps: LanguageChipsProps | null
 }
 
 function EntryToolbar({
@@ -1147,6 +1345,7 @@ function EntryToolbar({
   hasEntry, isHidden, lifecyclePending, lifecycleError,
   onDeleteStart, onDeleteCancel, isDeleteConfirming, onDeleteConfirm,
   onSetHidden,
+  langChipsProps,
 }: EntryToolbarProps) {
   // Focus ref — restore focus to DELETE ENTRY trigger when inline confirm is dismissed
   // (cancel or ESC). Without this, focus falls to <body> when autoFocus CANCEL unmounts.
@@ -1207,6 +1406,16 @@ function EntryToolbar({
               ? `FILE ${fileNum}`
               : <span className="ed-tb-file-empty">FILE ···</span>}
           </span>
+
+          {/* P5: Language chips — article/fiction entries only. Rendered beside the
+              file slug so the sibling relationship reads as part of the entry identity.
+              Hidden for photo (monolingual, PD5) and SAMPLE_DRAFT fallback. */}
+          {langChipsProps && (
+            <>
+              <span className="ed-tb-sep" aria-hidden style={{ marginLeft: 10, marginRight: 4 }}>·</span>
+              <LanguageChips {...langChipsProps} />
+            </>
+          )}
         </div>
 
         {/* Lifecycle cluster — only rendered when a real entry is loaded.
@@ -1895,6 +2104,18 @@ interface EntryEditorProps {
    */
   availablePlaces?: Place[]
   /**
+   * P5: Language of the sibling currently being edited (from ?lang searchParam).
+   * 'en' when absent / unrecognized. Used to seed the language chips active state
+   * and to anchor per-sibling lifecycle actions (setEntryDraft lang param).
+   */
+  activeLang?: string
+  /**
+   * P5: All langs that exist for this entry's translation group (from getSiblingLangs).
+   * E.g. ['en'] for a mono-lingual entry, ['en', 'th'] once a Thai sibling is seeded.
+   * Empty array when no entry is loaded (SAMPLE_DRAFT fallback).
+   */
+  siblingLangs?: string[]
+  /**
    * Owner's full photo library with public CDN thumbnail URLs (model B image picker).
    * Loaded server-side when kind=article; empty otherwise (no picker for photo/fiction).
    * Each item carries slug / roll / photoId / caption / thumbUrl / mediumUrl.
@@ -1915,6 +2136,8 @@ export function EntryEditor({
   availableRolls = [],
   availablePlaces = [],
   pickerPhotos = [],
+  activeLang = 'en',
+  siblingLangs = [],
 }: EntryEditorProps = {}) {
   const draft = initialDraft ?? SAMPLE_DRAFT
 
@@ -2050,6 +2273,13 @@ export function EntryEditor({
     initialRealFrames[0]?.id ?? null,
   )
 
+  // P5: language anchor for per-sibling lifecycle actions.
+  // The LOADED sibling's lang is the ground truth (from initialDraft.lang, which
+  // comes from the DB row selected by ?lang= — not the URL param directly, so it
+  // reflects the actual sibling that was loaded). Falls back to activeLang prop
+  // (which itself falls back to 'en') when no draft is loaded.
+  const entryLang: string = initialDraft?.lang ?? activeLang
+
   // isHidden — current draft visibility. Initialized from the velite field.
   // Photo: sidecar has its own draft field. Other kinds: Article.draft.
   // Both are typed as boolean by the velite schema (s.boolean().default(false)).
@@ -2067,15 +2297,22 @@ export function EntryEditor({
   // startTransition(async () => …) correctly marks the transition pending.
   const [lifecyclePending, startLifecycleTransition] = useTransition()
 
-  // useRouter — navigate after delete.
+  // P5: add-translation transition + error (separate from lifecycle to avoid
+  // conflating the chip spinner with the delete-confirm pending state).
+  const [addTranslationPending, startAddTranslationTransition] = useTransition()
+  const [addTranslationError, setAddTranslationError] = useState<string | null>(null)
+
+  // useRouter — navigate after delete and after lang switch.
   const router = useRouter()
 
   // deleteEntry handler — called by CONFIRM DELETE button.
+  // P5: passes entryLang so ONLY the currently-edited sibling is deleted (not all siblings).
+  // Spec §5.3: "deleteEntry(kind, slug, lang) → deletes ONLY the target sibling; other siblings survive."
   const onDeleteConfirm = useCallback(() => {
     if (!hasEntry || !entrySlug) return
     setLifecycleError(null)
     startLifecycleTransition(async () => {
-      const result = await deleteEntry({ kind: entryKind, slug: entrySlug })
+      const result = await deleteEntry({ kind: entryKind, slug: entrySlug, lang: entryLang })
       if (!result.ok) {
         setLifecycleError(result.error.message)
         setIsDeleteConfirming(false)
@@ -2091,7 +2328,7 @@ export function EntryEditor({
         : `${entryKind}-${entrySlug}`
       router.push(`/console?removed=${encodeURIComponent(nodeId)}`)
     })
-  }, [hasEntry, entryKind, entrySlug, router, startLifecycleTransition])
+  }, [hasEntry, entryKind, entrySlug, entryLang, router, startLifecycleTransition])
 
   // ── Image picker (model B — reuse, no re-upload) ─────────────────────────
   // pickerOpen: whether the ImagePickerPanel slide-up is visible.
@@ -2142,7 +2379,8 @@ export function EntryEditor({
     if (!hasEntry || !entrySlug) return
     setSaveStatus('saving')
     startSaveTransition(async () => {
-      const result = await updateEntry({ kind: entryKind, slug: entrySlug, patch: { body: md } })
+      // P5: thread entryLang so updateEntry patches the correct sibling (per-sibling body)
+      const result = await updateEntry({ kind: entryKind, slug: entrySlug, lang: entryLang, patch: { body: md } })
       if (!result.ok) {
         setSaveStatus('error')
         return
@@ -2151,7 +2389,7 @@ export function EntryEditor({
       // Reset status indicator after 2s
       setTimeout(() => setSaveStatus('idle'), 2000)
     })
-  }, [hasEntry, entryKind, entrySlug, md, startSaveTransition])
+  }, [hasEntry, entryKind, entrySlug, entryLang, md, startSaveTransition])
 
   // ── Instrument overrides (lens-override wiring, 2026-06-12, Sirius slice) ──
   //
@@ -2308,20 +2546,26 @@ export function EntryEditor({
   // setEntryDraft handler — called by DRAFT⇄PUBLISH segmented switch.
   // Receives an explicit target boolean (not a blind flip) — mirrors .st-switch pattern.
   // target=false → publish; target=true → set to draft (hidden from prod).
+  // P5: passes entryLang so the action targets the correct sibling (per-sibling publish).
   // Dependency array excludes `isHidden` (the target is passed in, not read from closure).
   const onSetHidden = useCallback((target: boolean) => {
     if (!hasEntry || !entrySlug) return
     setLifecycleError(null)
     startLifecycleTransition(async () => {
-      const result = await setEntryDraft({ kind: entryKind, slug: entrySlug, draft: target })
+      const result = await setEntryDraft({ kind: entryKind, slug: entrySlug, lang: entryLang, draft: target })
       if (!result.ok) {
-        setLifecycleError(result.error.message)
+        // PUBLISH_INCOMPLETE: surface the missing fields list (per-sibling completeness, SPEC §5.4)
+        if ('missingFields' in result.error && Array.isArray(result.error.missingFields)) {
+          setLifecycleError(`incomplete [${entryLang.toUpperCase()}]: ${(result.error.missingFields as string[]).join(', ')}`)
+        } else {
+          setLifecycleError(result.error.message)
+        }
         return
       }
       // Update ONLY from the action's return value (decoupled — no velite refetch).
       setIsHidden(result.entry.draft)
     })
-  }, [hasEntry, entryKind, entrySlug, startLifecycleTransition])
+  }, [hasEntry, entryKind, entrySlug, entryLang, startLifecycleTransition])
 
   // Mutually-exclusive surfaces: opening one closes the other so their ESC
   // handlers never fight and a slide-panel is never stacked under a full overlay.
@@ -2708,18 +2952,92 @@ export function EntryEditor({
   // → PublishPanel uses its 2s mock timer.
   const onTransmitReal = useCallback(async (): Promise<string | null> => {
     if (!hasEntry || !entrySlug) return 'no entry loaded'
-    const result = await setEntryDraft({ kind: entryKind, slug: entrySlug, draft: false })
+    // P5: thread entryLang for per-sibling publish (en can publish while th is draft)
+    const result = await setEntryDraft({ kind: entryKind, slug: entrySlug, lang: entryLang, draft: false })
     if (!result.ok) {
-      // PUBLISH_INCOMPLETE: surface the missing fields list
+      // PUBLISH_INCOMPLETE: surface the missing fields list (per-sibling, SPEC §5.4)
       if ('missingFields' in result.error && Array.isArray(result.error.missingFields)) {
-        return `incomplete: ${result.error.missingFields.join(', ')}`
+        return `incomplete [${entryLang.toUpperCase()}]: ${(result.error.missingFields as string[]).join(', ')}`
       }
       return result.error.message
     }
     // Reflect the published state in the toolbar badge
     setIsHidden(false)
     return null
-  }, [hasEntry, entryKind, entrySlug])
+  }, [hasEntry, entryKind, entrySlug, entryLang])
+
+  // ── P5: Language chips handlers ───────────────────────────────────────────
+  //
+  // onSwitchLang: navigate to ?lang=<lang> — triggers a full RSC re-render which
+  //   calls lookupDraft(kind, slug, lang) → loads the correct sibling from the DB.
+  //   The URL change means the server component re-runs and passes the new sibling
+  //   as `initialDraft` on the next render. This is a full page navigation (not
+  //   client state swap) — the simplest, most correct approach for loading a
+  //   different sibling.
+  //
+  // onAddTranslation: call createTranslation (seeds a draft th sibling), then
+  //   navigate to ?lang=th so the editor loads the freshly-seeded sibling.
+  //   The full RSC reload makes siblingLangs refresh (getSiblingLangs re-runs
+  //   server-side), so the chips correctly show EN ● / TH on next render.
+
+  const onSwitchLang = useCallback((lang: SupportedLang) => {
+    if (!hasEntry || !entrySlug || !entryKind) return
+    // Build the URL preserving existing kind/slug params, replacing lang.
+    // Using router.push (not window.location) so Next 16 RSC re-render is clean.
+    const params = new URLSearchParams({
+      kind: entryKind,
+      slug: entrySlug,
+      lang,
+    })
+    router.push(`/console/editor?${params.toString()}`)
+  }, [hasEntry, entryKind, entrySlug, router])
+
+  const onAddTranslation = useCallback((toLang: SupportedLang) => {
+    if (!hasEntry || !entrySlug || !entryKind || entryKind === 'photo') return
+    setAddTranslationError(null)
+    startAddTranslationTransition(async () => {
+      const result = await createTranslation({
+        kind: entryKind as 'article' | 'fiction',
+        slug: entrySlug,
+        fromLang: entryLang as SupportedLang,
+        toLang,
+        // No patch — blank-seeded title/summary/body (owner will fill in the editor).
+      })
+      if (!result.ok) {
+        // SIBLING_EXISTS: another session already created it — navigate there instead.
+        if (result.error.code === 'SIBLING_EXISTS') {
+          const params = new URLSearchParams({ kind: entryKind, slug: entrySlug, lang: toLang })
+          router.push(`/console/editor?${params.toString()}`)
+          return
+        }
+        setAddTranslationError(result.error.message)
+        return
+      }
+      // Success — navigate to the new sibling's editor URL.
+      const params = new URLSearchParams({ kind: entryKind, slug: entrySlug, lang: toLang })
+      router.push(`/console/editor?${params.toString()}`)
+    })
+  }, [hasEntry, entryKind, entrySlug, entryLang, router, startAddTranslationTransition])
+
+  // Build langChipsProps — null for photo (monolingual), SAMPLE_DRAFT (no real entry),
+  // or any kind where we have no slug. Otherwise pass the sibling lang context.
+  const langChipsProps: LanguageChipsProps | null = useMemo(() => {
+    if (!hasEntry || !entrySlug || entryKind === 'photo') return null
+    // siblingLangs from the server (getSiblingLangs). If empty (e.g., old entry without
+    // lang column populated), treat as ['en'] so the chip row still shows something useful.
+    const langs = siblingLangs.length > 0 ? siblingLangs : ['en']
+    return {
+      siblingLangs: langs,
+      activeLang:   entryLang,
+      pending:      addTranslationPending,
+      addError:     addTranslationError,
+      onSwitchLang,
+      onAddTranslation,
+    }
+  }, [
+    hasEntry, entrySlug, entryKind, siblingLangs, entryLang,
+    addTranslationPending, addTranslationError, onSwitchLang, onAddTranslation,
+  ])
 
   // S6: public URL for the done phase (DL11 — revalidatePath makes it live immediately)
   const publicUrl = hasEntry && entrySlug ? (
@@ -2803,6 +3121,8 @@ export function EntryEditor({
           onDeleteCancel={() => { setIsDeleteConfirming(false); setLifecycleError(null) }}
           onDeleteConfirm={onDeleteConfirm}
           onSetHidden={onSetHidden}
+          // ── P5 language chips ──
+          langChipsProps={langChipsProps}
         />
 
         {/* ── Pane grid ── */}

@@ -50,6 +50,7 @@ import {
   getSidecarsInRollAdmin,
   getAllRolls,
   getOwnerPhotosForPicker,
+  getSiblingLangs,
 } from '@/lib/store/admin-reads'
 import { getAllPlacesFromStore } from '@/lib/store/reads'
 import { EntryEditor }         from '@/components/console/EntryEditor'
@@ -80,13 +81,20 @@ export const maxDuration = 60
 async function lookupDraft(
   kind: string | string[] | undefined,
   slug: string | string[] | undefined,
+  lang: string | string[] | undefined,
 ): Promise<Article | null> {
   // Narrow: both must be plain strings
   if (typeof kind !== 'string' || typeof slug !== 'string' || !slug) return null
 
+  // P5: resolve the requested sibling lang (default 'en').
+  // Only 'en' and 'th' are valid (entries_lang_chk constraint).
+  const resolvedLang: string =
+    typeof lang === 'string' && (lang === 'en' || lang === 'th') ? lang : 'en'
+
   if (kind === 'article') {
     // S6: use admin-reads (DB lookup) so newly-created entries (not yet in velite) resolve.
-    const entry = await getArticleBySlug(slug)
+    // P5: pass resolved lang so the editor loads the correct sibling.
+    const entry = await getArticleBySlug(slug, resolvedLang)
     if (!entry) return null
     // Article maps fully — no field gaps.
     return entry
@@ -94,7 +102,8 @@ async function lookupDraft(
 
   if (kind === 'fiction') {
     // S6: use admin-reads so new fiction drafts resolve.
-    const entry = await getFictionBySlugAdmin(slug)
+    // P5: pass resolved lang so the editor loads the correct sibling.
+    const entry = await getFictionBySlugAdmin(slug, resolvedLang)
     if (!entry) return null
     // Map fiction to Article shape. fiction has: slug, title, date, isoDate, domain,
     // tags, summary, kind, variants, divergence_cluster, worldline_links, originLocus.
@@ -221,10 +230,11 @@ export default async function ArticleEditorPage({
 
   // Await the searchParams Promise (Next 15+ App Router requirement).
   // See page.md: "searchParams is a Promise; use async/await to access values."
-  const { kind, slug } = await searchParams
+  const { kind, slug, lang } = await searchParams
 
   // Look up the entry. Returns null → editor uses SAMPLE_DRAFT fallback.
-  const initialDraft = await lookupDraft(kind, slug)
+  // P5: pass lang so the editor loads the correct language sibling.
+  const initialDraft = await lookupDraft(kind, slug, lang)
 
   // Load the REAL photo sidecar (photo kind only) so the PHOTO preview reuses
   // the real <PhotoEntry> + working FilmSimSwitcher. Null → PhotoPreview MOCK
@@ -251,6 +261,20 @@ export default async function ArticleEditorPage({
     ? await getOwnerPhotosForPicker()
     : []
 
+  // P5: load the list of langs that exist for this (kind, slug) translation group.
+  // Shows the language chips in the editor toolbar (EN ● / TH / + TH affordance).
+  // Only meaningful for article / fiction (photos are monolingual, PD5).
+  // Empty array when no slug — the chips are hidden in that case (SAMPLE_DRAFT fallback).
+  const siblingLangs: string[] =
+    (kind === 'article' || kind === 'fiction') &&
+    typeof slug === 'string' && slug
+      ? await getSiblingLangs(kind as 'article' | 'fiction', slug).catch(() => [])
+      : []
+
+  // P5: resolve the active language from the URL ?lang param (same logic as lookupDraft).
+  const activeLang: string =
+    typeof lang === 'string' && (lang === 'en' || lang === 'th') ? lang : 'en'
+
   // Seed the editor's top-level kind state from the URL ?kind param. The draft's
   // `.kind` is hardcoded 'article' (ArticlePreview's type constraint); the URL
   // kind param is the semantic kind the console node carries, and it drives the
@@ -270,6 +294,8 @@ export default async function ArticleEditorPage({
       availableRolls={availableRolls}
       availablePlaces={availablePlaces}
       pickerPhotos={pickerPhotos}
+      activeLang={activeLang}
+      siblingLangs={siblingLangs}
     />
   )
 }

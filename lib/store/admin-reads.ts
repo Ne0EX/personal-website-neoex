@@ -244,6 +244,37 @@ export async function getAllRolls(): Promise<Photo[]> {
 }
 
 // ---------------------------------------------------------------------------
+// Translation-group siblings — P5 console affordance
+// ---------------------------------------------------------------------------
+
+/**
+ * Return the list of langs that exist for a given (kind, slug) translation group.
+ * Lightweight: selects only the lang column, no mapper needed.
+ *
+ * Used by the console editor page to determine which sibling chips to render
+ * (EN ● / TH ○ / + TH) without a full ENTRY_COLS fetch per sibling.
+ *
+ * Admin client (includes drafts — the owner must see the th sibling even before
+ * it is published, per SPEC-2026-06-18 §5.4).
+ *
+ * Owner: Sirius (α-SUR-01) · bilingual P5
+ */
+export async function getSiblingLangs(
+  kind: 'article' | 'fiction',
+  slug: string,
+): Promise<string[]> {
+  const client = await createSupabaseServerClient()
+  const { data, error } = await client
+    .from('entries')
+    .select('lang')
+    .eq('kind', kind)
+    .eq('slug', slug)
+
+  if (error) throw new Error(`getSiblingLangs: ${error.message}`)
+  return (data ?? []).map((r: { lang: string }) => r.lang).sort()
+}
+
+// ---------------------------------------------------------------------------
 // Tags — sorted, de-duplicated universe across ALL entries
 // ---------------------------------------------------------------------------
 
