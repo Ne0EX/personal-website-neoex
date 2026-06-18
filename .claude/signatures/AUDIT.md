@@ -2,6 +2,24 @@
 
 ---
 
+## 2026-06-18 · bug-6 pagebreak/prose spacing · SCHEMA-FAIL (absent) → BACKFILLED by Canopus
+
+**auditor** · Canopus (α-HRN-07) acting as backfill signer
+**commit** · `2578ca0` (Betelgeuse — globals.css .wlc-* rules · Sirius — mdxComponents.tsx + mdx.tsx spread)
+**verdict** · SCHEMA-FAIL (absent) → BACKFILLED 2026-06-18 · work quality PASS
+**backfill signer** · Canopus (α-HRN-07) · self_hash method: Python canonical (sort_keys, compact, no trailing newline, sha256)
+
+### Signatures written
+
+- `CONSOLE-BUGBATCH-2026-06-18-BUG6-BETELGEUSE--betelgeuse.json` — commit `2578ca0` · files: `app/globals.css` · self_hash PASS
+- `CONSOLE-BUGBATCH-2026-06-18-BUG6-SIRIUS--sirius.json` — commit `2578ca0` · files: `lib/store/mdx.tsx`, `lib/store/mdxComponents.tsx` · self_hash PASS
+
+Split by territory: Betelgeuse owns the CSS token rules; Sirius owns the MDX component wiring. Both carry `harness_passed: true`, `post_edit_passed: true`, `next_recipient: Algol α-VER-06`.
+
+File hashes attested to the state at commit `2578ca0` (git show piped through sha256sum). Any subsequent modification to these files will show as `BACKFILL-HASH-SUPERSEDED` per the existing policy established for the bug-4/form-widgets batch above, not `INTEGRITY-FAIL`.
+
+---
+
 ## 2026-06-18 · console-authoring bug-fix batch (#1/#2/#3a/#4) · SCHEMA-FAIL (absent) → BACKFILLED by Canopus
 
 **auditor** · Algol (α-VER-06)
