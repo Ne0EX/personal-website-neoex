@@ -117,6 +117,7 @@ async function lookupDraft(
       highlightForPlace: false,         // FIELD-GAP: fiction has no place highlight
       draft:          entry.draft ?? false,
       body:           entry.body ?? '', // DL4: store body; editor shows md placeholder
+      lang:           entry.lang ?? 'en', // Pass through fiction sibling lang
     }
   }
 
@@ -144,6 +145,7 @@ async function lookupDraft(
       highlightForPlace: false,
       draft:          entry.draft ?? false,  // S6: real draft status from DB
       body:           '',                    // photo sidecar body lives in caption / roll body, not entry body
+      lang:           'en',                  // Photos are monolingual (PD5)
     }
   }
 

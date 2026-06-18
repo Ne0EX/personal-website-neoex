@@ -73,6 +73,12 @@ export interface DbEntryRow {
    * Set via updateEntry patch; never derived from sensor EXIF.
    */
   film_sim: string | null
+  /**
+   * Language of this sibling (translation-group model, DL1 / SPEC-2026-06-18 §3.1).
+   * 'en' for all existing rows (backfilled by P1 migration DEFAULT 'en').
+   * Anon-granted (public display/routing metadata, NOT a security boundary).
+   */
+  lang: string
 }
 
 export interface DbPhotoAssetRow {
@@ -143,6 +149,10 @@ export function mapArticle(row: DbEntryRow): Article {
     draft: row.status === 'draft',
     worldline_links: row.worldline_links ?? [],
     body: row.body ?? '',
+    // Translation-group: pass the served sibling's lang through (§3.1).
+    // Consumers use this for the region lang attribute (§6.2) — it reflects the
+    // actual sibling language, not the URL locale (they differ on fallback).
+    lang: row.lang ?? 'en',
   }
 }
 
@@ -165,6 +175,8 @@ export function mapFiction(row: DbEntryRow): Fiction {
     draft: row.status === 'draft',
     worldline_links: row.worldline_links ?? [],
     body: row.body ?? '',
+    // Translation-group: pass the served sibling's lang through (§3.1).
+    lang: row.lang ?? 'en',
   }
 }
 

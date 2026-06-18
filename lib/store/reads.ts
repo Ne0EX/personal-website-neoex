@@ -66,17 +66,76 @@ const ENTRY_COLS = [
   'instrument_overrides',
   // Authored film-sim override — wins over photo_assets.exif.filmSim when set.
   'film_sim',
+  // Translation-group lang (SPEC-2026-06-18 §3.1, P1 migration, anon-granted).
+  // Without this in the select list, anon would receive a 42501 on the column.
+  'lang',
 ].join(',')
 
 /** Anon-readable columns from photo_assets (original_key + source_hash excluded). */
 const ASSET_COLS = 'entry_id,exif,variants'
 
 // ---------------------------------------------------------------------------
+// Translation-group helpers (SPEC-2026-06-18 §3.2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Pure helper: pick the best sibling from a set of 0–2 sibling rows.
+ *
+ * Contract:
+ *   - Prefer the row whose lang === requestedLang.
+ *   - If absent, prefer the 'en' (authored fallback) row.
+ *   - If neither is present, return undefined.
+ *
+ * This is the canonical opt-in fallback logic. Factor here so it is unit-testable
+ * independently of the Supabase client. (§3.2 SPEC — the "HARDEST path" is the
+ * fallback branch: requested lang absent → en row returned, NOT undefined.)
+ *
+ * @param rows   Raw DB rows (0..N); typically fetched with .in('lang', [requestedLang, 'en'])
+ * @param requestedLang  The locale the caller wants (e.g. 'th')
+ */
+export function pickSibling(rows: DbEntryRow[], requestedLang: string): DbEntryRow | undefined {
+  return (
+    rows.find((r) => r.lang === requestedLang) ??
+    rows.find((r) => r.lang === 'en') ??
+    undefined
+  )
+}
+
+/**
+ * Dedup a list of DB rows by slug, choosing per slug-group:
+ *   the requestedLang row if present, else the 'en' row.
+ *
+ * Used by listing reads (getArticles, getRecentArticles, getRelatedArticles)
+ * so each article appears once in a listing even when siblings exist.
+ * Untranslated articles still appear (in 'en'). (§3.3 SPEC)
+ */
+function dedupBySlug(rows: DbEntryRow[], requestedLang: string): DbEntryRow[] {
+  // Group rows by slug
+  const groups = new Map<string, DbEntryRow[]>()
+  for (const row of rows) {
+    const group = groups.get(row.slug) ?? []
+    group.push(row)
+    groups.set(row.slug, group)
+  }
+  // Pick one winner per group
+  const result: DbEntryRow[] = []
+  for (const group of groups.values()) {
+    const picked = pickSibling(group, requestedLang)
+    if (picked) result.push(picked)
+  }
+  return result
+}
+
+// ---------------------------------------------------------------------------
 // Articles
 // ---------------------------------------------------------------------------
 
-/** All published articles, sorted newest-first. */
-export async function getArticles(): Promise<Article[]> {
+/**
+ * All published articles, sorted newest-first.
+ * Deduped by slug — each article appears once, in requestedLang if translated,
+ * else in 'en'. (§3.3 SPEC)
+ */
+export async function getArticles(requestedLang = 'en'): Promise<Article[]> {
   const { data, error } = await anonClient
     .from('entries')
     .select(ENTRY_COLS)
@@ -85,39 +144,71 @@ export async function getArticles(): Promise<Article[]> {
     .order('iso_date', { ascending: false })
 
   if (error) throw new Error(`getArticles: ${error.message}`)
-  return (data as unknown as DbEntryRow[]).map(mapArticle)
+  const rows = data as unknown as DbEntryRow[]
+  return dedupBySlug(rows, requestedLang).map(mapArticle)
 }
 
-/** Single article by fileNum (slug). Returns undefined when not found or not published. */
-export async function getArticleByFileNum(fileNum: string): Promise<Article | undefined> {
+/**
+ * Single article by fileNum (slug), with opt-in language fallback.
+ * Returns undefined when not found or not published.
+ *
+ * IMPORTANT: .maybeSingle() is NOT used here — PostgREST returns 406 when
+ * more than one sibling row matches (both en + th for one slug), which is
+ * exactly the bilingual case. Instead we fetch 0..2 candidate rows via .in()
+ * and pick the best in JS. (§3.2 SPEC)
+ */
+export async function getArticleByFileNum(
+  fileNum: string,
+  requestedLang = 'en',
+): Promise<Article | undefined> {
+  // Fetch at most 2 rows: the requested lang and the en fallback.
+  // When requestedLang === 'en' this degenerates to a single-lang fetch (set has 1 element).
   const { data, error } = await anonClient
     .from('entries')
     .select(ENTRY_COLS)
     .eq('kind', 'article')
     .eq('slug', fileNum)
-    .maybeSingle()
+    .eq('status', 'published')
+    .in('lang', Array.from(new Set([requestedLang, 'en'])))
 
   if (error) throw new Error(`getArticleByFileNum: ${error.message}`)
-  if (!data) return undefined
-  return mapArticle(data as unknown as DbEntryRow)
+  const row = pickSibling((data ?? []) as unknown as DbEntryRow[], requestedLang)
+  if (!row) return undefined
+  return mapArticle(row)
 }
 
-/** Recent published articles for ChapterIndex / hero block. */
-export async function getRecentArticles(limit = 4): Promise<Article[]> {
+/**
+ * Recent published articles for ChapterIndex / hero block.
+ * Deduped by slug — each article appears once. (§3.3 SPEC)
+ */
+export async function getRecentArticles(limit = 4, requestedLang = 'en'): Promise<Article[]> {
+  // Fetch more than `limit` to ensure dedup doesn't drop us below the requested count.
+  // Upper bound: if every article has a sibling, we'd need 2×limit rows to get limit
+  // distinct slugs after dedup. A 4× multiplier is safe for realistic volumes.
+  const fetchLimit = limit * 4
   const { data, error } = await anonClient
     .from('entries')
     .select(ENTRY_COLS)
     .eq('kind', 'article')
     .eq('status', 'published')
     .order('iso_date', { ascending: false })
-    .limit(limit)
+    .limit(fetchLimit)
 
   if (error) throw new Error(`getRecentArticles: ${error.message}`)
-  return (data as unknown as DbEntryRow[]).map(mapArticle)
+  const rows = data as unknown as DbEntryRow[]
+  return dedupBySlug(rows, requestedLang).slice(0, limit).map(mapArticle)
 }
 
-/** Related articles: share at least one tag with source, sorted by overlap then date. */
-export async function getRelatedArticles(source: Article, limit = 3): Promise<Article[]> {
+/**
+ * Related articles: share at least one tag with source, sorted by overlap then date.
+ * Excludes ALL siblings of the source (they share the slug — §3.4 SPEC).
+ * Deduped by slug so each related article appears once. (§3.4 SPEC)
+ */
+export async function getRelatedArticles(
+  source: Article,
+  limit = 3,
+  requestedLang = 'en',
+): Promise<Article[]> {
   if (!source.tags || source.tags.length === 0) return []
 
   const { data, error } = await anonClient
@@ -126,13 +217,16 @@ export async function getRelatedArticles(source: Article, limit = 3): Promise<Ar
     .eq('kind', 'article')
     .eq('status', 'published')
     .overlaps('tags', source.tags)
+    // Exclude all siblings of the source (they share the slug): §3.4 SPEC.
+    // .neq on slug already covers all language variants since they share the slug.
     .neq('slug', source.fileNum)
     .order('iso_date', { ascending: false })
 
   if (error) throw new Error(`getRelatedArticles: ${error.message}`)
 
   const sourceTags = new Set(source.tags)
-  return (data as unknown as DbEntryRow[])
+  // Dedup first so overlap sort / slice operates on one row per article. (§3.4 SPEC)
+  return dedupBySlug((data as unknown as DbEntryRow[]), requestedLang)
     .map(mapArticle)
     .map((a) => ({
       article: a,
@@ -148,8 +242,12 @@ export async function getRelatedArticles(source: Article, limit = 3): Promise<Ar
 // Fiction
 // ---------------------------------------------------------------------------
 
-/** All published fiction entries, sorted newest-first. */
-export async function getFiction(): Promise<Fiction[]> {
+/**
+ * All published fiction entries, sorted newest-first.
+ * Deduped by slug — each entry appears once, in requestedLang if translated,
+ * else in 'en'. (§3.5 SPEC — fiction same model as articles)
+ */
+export async function getFiction(requestedLang = 'en'): Promise<Fiction[]> {
   const { data, error } = await anonClient
     .from('entries')
     .select(ENTRY_COLS)
@@ -158,21 +256,31 @@ export async function getFiction(): Promise<Fiction[]> {
     .order('iso_date', { ascending: false })
 
   if (error) throw new Error(`getFiction: ${error.message}`)
-  return (data as unknown as DbEntryRow[]).map(mapFiction)
+  const rows = data as unknown as DbEntryRow[]
+  return dedupBySlug(rows, requestedLang).map(mapFiction)
 }
 
-/** Single published fiction entry by slug. */
-export async function getFictionBySlug(slug: string): Promise<Fiction | undefined> {
+/**
+ * Single published fiction entry by slug, with opt-in language fallback.
+ * Same pattern as getArticleByFileNum: .maybeSingle() removed (406 on siblings),
+ * 0..2 rows fetched via .in('lang', ...), JS pick applied. (§3.5 SPEC)
+ */
+export async function getFictionBySlug(
+  slug: string,
+  requestedLang = 'en',
+): Promise<Fiction | undefined> {
   const { data, error } = await anonClient
     .from('entries')
     .select(ENTRY_COLS)
     .eq('kind', 'fiction')
     .eq('slug', slug)
-    .maybeSingle()
+    .eq('status', 'published')
+    .in('lang', Array.from(new Set([requestedLang, 'en'])))
 
   if (error) throw new Error(`getFictionBySlug: ${error.message}`)
-  if (!data) return undefined
-  return mapFiction(data as unknown as DbEntryRow)
+  const row = pickSibling((data ?? []) as unknown as DbEntryRow[], requestedLang)
+  if (!row) return undefined
+  return mapFiction(row)
 }
 
 const SITE_ALPHA = 1.130426
@@ -182,7 +290,13 @@ function _pickAlpha(f: Fiction): number {
   return SITE_ALPHA
 }
 
-/** Sibling NeX nodes within the same divergence_cluster. Returns up to 2. */
+/**
+ * Sibling NeX nodes within the same divergence_cluster. Returns up to 2.
+ * These are narrative siblings (different slugs, same cluster) — not translation
+ * siblings. Deduped by slug so translation variants of cluster members don't inflate
+ * the result. Always resolves in 'en' (no requestedLang param needed here — the
+ * alpha-distance sort is alpha-language-neutral).
+ */
 export async function getFictionSiblings(slug: string): Promise<Fiction[]> {
   const self = await getFictionBySlug(slug)
   if (!self || !self.divergence_cluster) return []
@@ -198,7 +312,8 @@ export async function getFictionSiblings(slug: string): Promise<Fiction[]> {
   if (error) throw new Error(`getFictionSiblings: ${error.message}`)
 
   const selfAlpha = _pickAlpha(self)
-  return (data as unknown as DbEntryRow[])
+  // Dedup by slug (pick 'en' for each cluster member) before alpha-distance sort.
+  return dedupBySlug((data as unknown as DbEntryRow[]), 'en')
     .map(mapFiction)
     .map((f) => ({ entry: f, dist: Math.abs(_pickAlpha(f) - selfAlpha) }))
     .sort((a, b) => a.dist - b.dist)

@@ -124,6 +124,7 @@ function articleMetaToArticle(meta: ArticleMeta): Article {
     draft: false,             // Preview context is always non-draft
     patches: [],              // Preview context has no patch log
     body: '',                 // Preview uses md prop, not DB body
+    lang: 'en',               // Preview context always uses the authored (en) language
   }
 }
 

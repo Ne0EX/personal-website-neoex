@@ -42,6 +42,9 @@ const ENTRY_COLS = [
   // excludes this column; admin is authenticated as owner so it may be included here).
   // Exposed as PhotoSidecar.authoredCoords for the console COORD control.
   'coords',
+  // Translation-group lang (SPEC-2026-06-18 §3.1, P1 migration).
+  // Owner console must see lang to switch between sibling editors (P5).
+  'lang',
 ].join(',')
 
 const ASSET_COLS = 'entry_id,exif,variants'
@@ -67,14 +70,24 @@ async function fetchAssetsAdmin(
 // Articles (all, including drafts)
 // ---------------------------------------------------------------------------
 
-export async function getAllArticles(): Promise<Article[]> {
+/**
+ * All articles (including drafts), newest-first.
+ * Owner console listing — no slug dedup needed (the console should show ALL siblings
+ * so the owner can manage each language variant independently).
+ * Add optional lang filter: when set, returns only rows for that language (P5 console
+ * tab view). When omitted, returns all rows (current console behaviour unchanged).
+ */
+export async function getAllArticles(lang?: string): Promise<Article[]> {
   const client = await createSupabaseServerClient()
-  const { data, error } = await client
+  let query = client
     .from('entries')
     .select(ENTRY_COLS)
     .eq('kind', 'article')
     .order('iso_date', { ascending: false })
 
+  if (lang !== undefined) query = query.eq('lang', lang)
+
+  const { data, error } = await query
   if (error) throw new Error(`getAllArticles: ${error.message}`)
   return (data as unknown as DbEntryRow[]).map(mapArticle)
 }
@@ -83,14 +96,25 @@ export async function getAllArticles(): Promise<Article[]> {
  * Fetch a single article by its fileNum/slug (zero-padded string like "004").
  * Used by the editor page to load a draft by slug from the DB (not velite).
  * Returns null when not found.
+ *
+ * Add optional lang param (default 'en') so the console editor can load a specific
+ * sibling for editing. Default 'en' means existing console screens work unchanged.
+ * (§3.6 SPEC — admin reads gain an optional lang param)
+ *
+ * IMPORTANT: .maybeSingle() is retained here because the admin fetch targets a
+ * specific (slug, lang) pair — the combination is unique by the
+ * entries_kind_slug_lang_unique constraint. If lang is specified, at most one row
+ * matches. If lang is not specified and multiple siblings exist, the caller should
+ * pass an explicit lang; defaulting to 'en' keeps backward compat.
  */
-export async function getArticleBySlug(slug: string): Promise<Article | null> {
+export async function getArticleBySlug(slug: string, lang = 'en'): Promise<Article | null> {
   const client = await createSupabaseServerClient()
   const { data, error } = await client
     .from('entries')
     .select(ENTRY_COLS)
     .eq('kind', 'article')
     .eq('slug', slug)
+    .eq('lang', lang)
     .maybeSingle()
 
   if (error) throw new Error(`getArticleBySlug: ${error.message}`)
@@ -102,14 +126,17 @@ export async function getArticleBySlug(slug: string): Promise<Article | null> {
  * Fetch a single fiction entry by slug from the DB (not velite).
  * Used by the editor page to load a draft.
  * Returns null when not found.
+ *
+ * Add optional lang param (default 'en') — same as getArticleBySlug (§3.6 SPEC).
  */
-export async function getFictionBySlugAdmin(slug: string): Promise<Fiction | null> {
+export async function getFictionBySlugAdmin(slug: string, lang = 'en'): Promise<Fiction | null> {
   const client = await createSupabaseServerClient()
   const { data, error } = await client
     .from('entries')
     .select(ENTRY_COLS)
     .eq('kind', 'fiction')
     .eq('slug', slug)
+    .eq('lang', lang)
     .maybeSingle()
 
   if (error) throw new Error(`getFictionBySlugAdmin: ${error.message}`)
@@ -121,14 +148,21 @@ export async function getFictionBySlugAdmin(slug: string): Promise<Fiction | nul
 // Fiction (all, including drafts)
 // ---------------------------------------------------------------------------
 
-export async function getAllFiction(): Promise<Fiction[]> {
+/**
+ * All fiction (including drafts), newest-first.
+ * Optional lang filter — same pattern as getAllArticles (§3.6 SPEC).
+ */
+export async function getAllFiction(lang?: string): Promise<Fiction[]> {
   const client = await createSupabaseServerClient()
-  const { data, error } = await client
+  let query = client
     .from('entries')
     .select(ENTRY_COLS)
     .eq('kind', 'fiction')
     .order('iso_date', { ascending: false })
 
+  if (lang !== undefined) query = query.eq('lang', lang)
+
+  const { data, error } = await query
   if (error) throw new Error(`getAllFiction: ${error.message}`)
   return (data as unknown as DbEntryRow[]).map(mapFiction)
 }

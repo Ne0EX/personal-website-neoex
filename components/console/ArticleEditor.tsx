@@ -58,6 +58,7 @@ export const SAMPLE_DRAFT: Article = {
   draft:         false,
   patches:       [],
   body:          '',
+  lang:          'en',
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -77,6 +77,13 @@ export interface Article {
   draft: boolean
   worldline_links: WorldlineLink[]
   body: string
+  /**
+   * Language of the sibling that was served (from the lang column).
+   * Equals the requestedLang when a sibling exists; equals 'en' (authored fallback)
+   * when the requested language has no sibling. Consumers use this to set the
+   * region lang attribute (§6.2 — content lang may differ from page locale on fallback).
+   */
+  lang: string
 }
 
 // ---------------------------------------------------------------------------
@@ -98,6 +105,12 @@ export interface Fiction {
   draft: boolean
   worldline_links: WorldlineLink[]
   body: string
+  /**
+   * Language of the sibling that was served (from the lang column).
+   * Same semantics as Article.lang — served-language, not requested-language,
+   * so the region lang attribute (§6.2) correctly reflects fallback content.
+   */
+  lang: string
 }
 
 // ---------------------------------------------------------------------------
