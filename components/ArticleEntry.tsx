@@ -197,14 +197,40 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
         <span style={{ color: 'var(--ink-soft)' }}>{domain.toUpperCase()}</span>
       </div>
 
+      {/* ARTICLE SUMMARY SECTION (bug-3b)
+       * Placement: between DOMAIN label and wl-body div.
+       * Register: INSTRUMENT ORIENTATION - JetBrains Mono at ink-body.
+       * NOT Cormorant italic (reserved for the body lede).
+       * Atoms composed: type-roles, dashed-hairline (via .wl-summary__seam).
+       * Guard: null when summary is absent - no empty seam, no marker.
+       * When body is absent (draft): summary renders alone; wl-body is empty. */}
+      {summary && (
+        <section className="wl-summary" aria-label="orientation summary">
+          {/* Survey-instrument marker: orange glyph + ORIENTATION label.
+              Consistent with corner-reticles and alpha-node orange grammar. */}
+          <div className="wl-summary__label" aria-hidden>
+            <span className="wl-summary__label-glyph">{'◈'}</span>
+            <span>ORIENTATION</span>
+          </div>
+          <p className="wl-summary__body">{summary}</p>
+          {/* Dashed hairline seam separating orientation from body prose.
+              Same motif as patches timeline seams - no new atom introduced. */}
+          <hr className="wl-summary__seam" aria-hidden />
+        </section>
+      )}
+
       {/*
-       * Body region — body prop takes precedence when provided (editor preview path).
-       * Falls back to summary-placeholder when body is omitted (public page path).
+       * Body region — renders the MDX body when provided (editor preview path
+       * and public page path once Procyon wires the velite MDX seam).
        *
        * wl-body: JetBrains Mono 13.5px leading 1.75 (spec §typography).
-       * Full MDX body render requires next-mdx-remote or @next/mdx integration
-       * at the velite layer — deferred as a follow-up (Procyon territory).
-       * The summary is the spec's approved placeholder (it's part of the entry record).
+       * The summary-as-fallback placeholder inside this div is REMOVED (bug-3b):
+       * the summary is now its own section above. The body region renders only
+       * body content — or nothing when body is absent (draft state is readable
+       * via the summary section above).
+       *
+       * TODO(Procyon): Wire MDX body rendering via velite `body` field.
+       * WAIT(Procyon): MDX body render infrastructure.
        */}
       <div
         className="wl-body"
@@ -216,30 +242,7 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
           marginBottom: '40px',
         }}
       >
-        {body ?? (
-          /*
-           * TODO(Procyon): Wire MDX body rendering via velite `body` field
-           * (velite outputs compiled JSX in the `code` field; needs
-           * useMDXComponent or equivalent at this layer).
-           * WAIT(Procyon): MDX body render infrastructure.
-           *
-           * For now: summary as lede paragraph (entry is still readable).
-           */
-          <p
-            style={{
-              fontFamily: 'var(--font-display)',
-              fontStyle: 'italic',
-              fontSize: '16px',
-              lineHeight: 1.6,
-              color: 'var(--ink-soft)',
-              borderLeft: '2px solid var(--accent-orange)',
-              paddingLeft: '16px',
-              marginBottom: '24px',
-            }}
-          >
-            {summary}
-          </p>
-        )}
+        {body}
       </div>
 
       {/* ─────────────────────────────────────────────────────── */}

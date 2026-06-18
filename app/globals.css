@@ -1869,6 +1869,72 @@ body {
 }
 
 /* =============================================================
+   ARTICLE SUMMARY SECTION — bug-3b
+   Atom ids composed: type-roles, dashed-hairline
+   Register: INSTRUMENT ORIENTATION — mono uppercase label + body
+   in JetBrains Mono at ink-body. NOT Cormorant italic, which is
+   reserved for the body lede. The two-italics-stacked problem is
+   solved by making this section mono throughout.
+
+   Placement: between the DOMAIN label and the wl-body div.
+   Rendered by ArticleEntryContent (components/ArticleEntry.tsx).
+   Guard: null when summary is absent — no empty seam, no marker.
+   ============================================================= */
+
+.wl-summary {
+  margin: 0 0 32px;
+  /* no background, no border-box — flush with page surface */
+}
+
+/* Survey marker label: ◈ SURVEY + word ORIENTATION
+   Unicode ◈ (U+25C8) = diamond with cross, survey-instrument idiom.
+   Rendered in accent-orange so it reads as "instrument metadata",
+   parallel to the orange in corner-reticles and α-node.
+   NOT a call-out label like "TL;DR" — a survey stamp. */
+.wl-summary__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 10px;
+}
+
+.wl-summary__label-glyph {
+  color: var(--accent-orange);
+  font-size: 10px;
+  letter-spacing: 0;
+  line-height: 1;
+  user-select: none;
+  /* no animation — static mark, not decorative */
+}
+
+/* Summary body: JetBrains Mono at ink-body (0.82).
+   NOT italic. NOT Cormorant. This is instrument-register prose,
+   read at scan speed — the body lede is Cormorant italic, earned
+   by reading further. The mono + ink-body pair makes the register
+   unmistakably distinct from the italic-serif lede below the seam. */
+.wl-summary__body {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--ink-body);
+  /* max 3 lines is soft guidance (spec says 2-3 sentences);
+     no overflow clamp in CSS — overflow-guard lives at the data layer */
+}
+
+/* Dashed seam below summary, above body — atom: dashed-hairline.
+   Renders only when summary is present (guard in JSX). */
+.wl-summary__seam {
+  border: none;
+  border-bottom: 1px dashed var(--ink-dashed);
+  margin: 24px 0 32px;
+}
+
+/* =============================================================
    Reduced motion — kill all keyframes per §7
    ============================================================= */
 @media (prefers-reduced-motion: reduce) {
