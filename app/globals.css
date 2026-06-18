@@ -1721,6 +1721,154 @@ body {
 }
 
 /* =============================================================
+   .wl-body MDX DESCENDANT RHYTHM — bug-6 pagebreak/prose spacing
+   Public article body — bare element spacing aligned to the
+   established wlc-preview-body rhythm (ArticlePreview.tsx).
+
+   Primary fix via Approach B (components map in renderMdxBody):
+   bare MDX elements carry .wlc-* class names; these rules style
+   them under .wl-body. The selector scope is .wl-body descendants
+   only — no global element style leakage.
+
+   Token map — NO raw hex, NO new tokens:
+     font     : var(--font-mono) / var(--font-display) / var(--font-type)
+     ink      : var(--ink-primary) / var(--ink-soft)
+     rule     : var(--ink-dashed)
+     accent   : var(--accent-orange)
+     size     : var(--body-size) = 13.5px
+     leading  : 1.75  (set on .wl-body wrapper in ArticleEntry.tsx)
+
+   Owner: Sirius (α-SUR-01) · bug-6 pagebreak/prose spacing
+   ============================================================= */
+
+/* Paragraph */
+.wl-body .wlc-p {
+  font-family: var(--font-mono);
+  font-size: var(--body-size);     /* 13.5px */
+  line-height: 1.75;
+  letter-spacing: 0.01em;
+  color: var(--ink-primary);
+  margin: 0 0 1.5em;              /* ~1 line-gap below; 0 top so stacking does not double */
+}
+
+/* Heading h2 — section title (VOICE register, Cormorant italic) */
+.wl-body .wlc-h2 {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 25px;
+  line-height: 1.2;
+  color: var(--ink-primary);
+  margin: 2.2em 0 0.6em;         /* top: ~2.2 × line-height clears prior prose cleanly;
+                                    bottom: shorter — heading anchors what follows */
+}
+
+/* Heading h3 — sub-section (VOICE register) */
+.wl-body .wlc-h3 {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 500;
+  font-size: 19px;
+  line-height: 1.25;
+  color: var(--ink-primary);
+  margin: 1.8em 0 0.5em;
+}
+
+/* Pagebreak hr — THE THEMATIC BREAK.
+   Generous symmetric vertical space (2 full lines each side).
+   Remains a single 1px dashed hairline — not a block, not a rule.
+   Centered, short, deliberate. Surveyed station marker between
+   worldline sections — not a generic paragraph divider.
+
+   Width: 40% of the body column, centered. Short enough to feel
+   intentional. Long enough to not disappear on narrow viewports. */
+.wl-body .wlc-hr {
+  border: none;
+  border-top: 1px dashed var(--ink-dashed);  /* var(--ink-dashed) = rgb(31 80 99 / 0.25) */
+  width: 40%;
+  margin: 3em auto;                           /* 3em × 13.5px ≈ 40px each side, symmetric */
+  display: block;
+}
+
+/* Unordered list */
+.wl-body .wlc-ul {
+  margin: 0 0 1.5em;
+  padding-left: 4px;
+  list-style: none;
+}
+.wl-body .wlc-ul li {
+  font-family: var(--font-mono);
+  font-size: var(--body-size);
+  line-height: 1.75;
+  color: var(--ink-primary);
+  margin-bottom: 0.35em;
+  position: relative;
+  padding-left: 18px;
+}
+.wl-body .wlc-ul li::before {
+  content: '◇';
+  position: absolute;
+  left: 0;
+  color: var(--accent-orange);
+  font-size: 9px;
+  top: 4px;
+}
+
+/* Ordered list */
+.wl-body .wlc-ol {
+  margin: 0 0 1.5em;
+  padding-left: 4px;
+  list-style: none;
+  counter-reset: wl-ol;
+}
+.wl-body .wlc-ol li {
+  font-family: var(--font-mono);
+  font-size: var(--body-size);
+  line-height: 1.75;
+  color: var(--ink-primary);
+  margin-bottom: 0.35em;
+  position: relative;
+  padding-left: 28px;
+  counter-increment: wl-ol;
+}
+.wl-body .wlc-ol li::before {
+  content: counter(wl-ol, decimal-leading-zero);
+  position: absolute;
+  left: 0;
+  font-family: var(--font-type);  /* VALUE register — Special Elite for numerals */
+  font-size: 10px;
+  color: var(--ink-soft);
+  top: 2px;
+  letter-spacing: 0.04em;
+}
+
+/* Blockquote / pullquote — VOICE register, left accent rule */
+.wl-body .wlc-quote {
+  margin: 1.8em 0;
+  padding-left: 18px;
+  border-left: 2px solid var(--accent-orange);
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 21px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+}
+
+/* Inline code */
+.wl-body .wlc-code {
+  font-family: var(--font-type);
+  font-size: 12px;
+  background: rgb(var(--ink-rgb) / 0.06);
+  padding: 1px 5px;
+  color: var(--ink-primary);
+}
+
+/* First child: no top-margin bleed */
+.wl-body > *:first-child {
+  margin-top: 0;
+}
+
+/* =============================================================
    Reduced motion — kill all keyframes per §7
    ============================================================= */
 @media (prefers-reduced-motion: reduce) {

@@ -18,6 +18,7 @@
 import * as runtime from 'react/jsx-runtime'
 import { evaluate } from '@mdx-js/mdx'
 import type React from 'react'
+import { wlcComponents } from './mdxComponents'
 
 // Lazy-import the Pullquote component only when needed (server-only).
 // Using a relative path avoids circular dependency through @/components.
@@ -48,6 +49,13 @@ export async function renderMdxBody(source: string | undefined | null): Promise<
     return (
       <Content
         components={{
+          // Bind all prose elements to .wlc-* classes (shared with editor preview).
+          // This is the primary fix for bug-6: bare MDX elements (p, h2, h3, hr,
+          // ul, ol, blockquote, code) now carry the class names that .wl-body
+          // descendants in globals.css style — eliminating the spacing vacuum on
+          // the public /articles route. wlcComponents is extracted to
+          // lib/store/mdxComponents.tsx so ArticlePreview shares the same map.
+          ...wlcComponents,
           // Make Pullquote available inside MDX bodies that use <Pullquote> JSX.
           // Plain Markdown (all current bodies) does not use JSX so this is a
           // forward-compat registration — zero cost for bodies without JSX.
