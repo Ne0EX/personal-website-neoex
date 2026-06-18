@@ -149,9 +149,11 @@ interface ConsoleAppProps {
   initialNodes:  ConsoleNode[]
   initialEdges:  ConsoleEdge[]
   initialPlaces: PlaceDTO[]
+  /** #2 TAGS: known tag suggestions from getAllTags() — threaded from server page. */
+  knownTags:     string[]
 }
 
-export function ConsoleApp({ initialNodes, initialEdges, initialPlaces }: ConsoleAppProps) {
+export function ConsoleApp({ initialNodes, initialEdges, initialPlaces, knownTags }: ConsoleAppProps) {
   const router = useRouter()
   // S6: useTransition wraps createEntry so saving state is SSR-safe
   const [_createPending, startCreateTransition] = useTransition()
@@ -580,6 +582,7 @@ export function ConsoleApp({ initialNodes, initialEdges, initialPlaces }: Consol
               data={formData}
               dirty={dirty}
               saving={saving}
+              knownTags={knownTags}
               onField={onField}
               onClose={closeForm}
               onSaveDraft={() => persist(false)}

@@ -37,7 +37,8 @@
 
 import type { Metadata } from 'next'
 // S6: switch to full admin-reads (all data from store, including photo sidecars + rolls)
-import { getAllArticles, getAllFiction, getAllPhotoSidecars, getAllRolls } from '@/lib/store/admin-reads'
+// #2 TAGS: getAllTags() feeds the creatable-combobox suggestions in ConsoleEntryForm
+import { getAllArticles, getAllFiction, getAllPhotoSidecars, getAllRolls, getAllTags } from '@/lib/store/admin-reads'
 import { getAllPlaces, getPlaceContent } from '@/lib/content/places'
 import { ConsoleApp }   from '@/components/console/ConsoleApp'
 import { ConsoleLogin } from '@/components/console/ConsoleLogin'
@@ -85,10 +86,12 @@ export default async function ConsolePage() {
   // S6: Fetch all collections from the store (admin-reads — includes drafts).
   // getAllPhotoSidecars gives us the sidecar-level entries (per-photo, with exif + variants).
   // getAllRolls gives us the roll descriptors for the photo manager.
-  const [articles, fictions, photoSidecars] = await Promise.all([
+  // #2 TAGS: getAllTags() provides sorted distinct tags for the combobox suggestions.
+  const [articles, fictions, photoSidecars, knownTags] = await Promise.all([
     getAllArticles(),
     getAllFiction(),
     getAllPhotoSidecars(),
+    getAllTags(),
   ])
 
   // ── Build place DTOs for the console (server-side; never ships velite internals) ──
@@ -239,5 +242,5 @@ export default async function ConsolePage() {
     }
   }
 
-  return <ConsoleApp initialNodes={nodes} initialEdges={edges} initialPlaces={initialPlaces} />
+  return <ConsoleApp initialNodes={nodes} initialEdges={edges} initialPlaces={initialPlaces} knownTags={knownTags} />
 }

@@ -31,7 +31,7 @@ const SlugDateSchema = z
 const EntryKindSchema = z.enum(['article', 'fiction', 'photo'])
 const EntryStatusSchema = z.enum(['draft', 'published'])
 const MaturitySchema = z.enum(['seed', 'ongoing', 'refined', 'settled'])
-const DomainSchema = z.enum(['identity', 'reflection', 'method', 'meta'])
+export const DomainSchema = z.enum(['identity', 'reflection', 'method', 'meta'])
 
 const CoordsSchema = z.object({
   lat: z.number().min(-90).max(90),
@@ -99,7 +99,8 @@ export const PhotoIdSchema = z
 const EntryBaseFields = {
   date: SlugDateSchema.optional(), // defaults to today in action
   tags: z.array(z.string()).optional(),
-  summary: z.string().optional(),
+  // #3a: max(300) is a backward-compatible server safety net (same limit as the form counter)
+  summary: z.string().max(300).optional(),
   body: z.string().optional(),
   coords: CoordsSchema.optional(),
   shareLocation: z.boolean().optional(),
