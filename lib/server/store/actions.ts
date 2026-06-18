@@ -49,6 +49,7 @@ import {
   savePlaceHighlightsImpl,
   setAlphaPlaceImpl,
   quickUploadPhotoImpl,
+  createTranslationImpl,
   type CreateEntryResult,
   type UpdateEntryResult,
   type SetEntryDraftResult,
@@ -60,6 +61,7 @@ import {
   type SavePlaceHighlightsResult,
   type SetAlphaPlaceResult,
   type QuickUploadPhotoResult,
+  type CreateTranslationResult,
 } from './actions-core'
 
 // NOTE: Result types are NOT re-exported here. 'use server' modules must only
@@ -217,4 +219,45 @@ export async function setAlphaPlace(input: unknown): Promise<SetAlphaPlaceResult
  */
 export async function quickUploadPhoto(input: unknown): Promise<QuickUploadPhotoResult> {
   return quickUploadPhotoImpl(input)
+}
+
+/**
+ * Seed a new translation sibling for an existing article or fiction entry.
+ *
+ * Bilingual P4 — SPEC §5.2.
+ *
+ * // contract
+ * method      · server action (direct import)
+ * auth        · assertOwner() first
+ * request     · {
+ *                 kind:     'article' | 'fiction'
+ *                 slug:     string        — shared language-agnostic identity
+ *                 fromLang: 'en' | 'th'  — source sibling language
+ *                 toLang:   'en' | 'th'  — target sibling language (must differ from fromLang)
+ *                 patch?:   {
+ *                   title?:   string    — translated title (blank-seeded if absent)
+ *                   summary?: string   — translated summary (blank-seeded if absent)
+ *                   body?:    string   — translated body (blank-seeded if absent)
+ *                 }
+ *               }
+ * response    · { ok:true, entry: { id, kind, slug, lang, status:'draft' } }
+ *               | { ok:false, error: { code, message, details? } }
+ * error codes ·
+ *   INVALID_INPUT    — zod validation failed (incl. fromLang===toLang)
+ *   SOURCE_NOT_FOUND — source (kind, slug, fromLang) row does not exist
+ *   SIBLING_EXISTS   — (kind, slug, toLang) row already exists
+ *   DB_ERROR         — unexpected Supabase error
+ *   UNEXPECTED       — unhandled throw
+ * idempotency · NOT idempotent — second call with same (kind, slug, toLang) returns SIBLING_EXISTS
+ * rate limit  · none (owner-only)
+ *
+ * Language-neutral fields (date, tags, place_id, coords, domain, maturity,
+ *   reading_time, patches, worldline_links, variants, divergence_cluster) are
+ *   copied from the source sibling. Title, summary, body are seeded from patch
+ *   (null/empty if absent). The new sibling starts as status='draft' and will
+ *   be blocked from publish by entries_check5/check6 until the owner supplies
+ *   a translated title and summary — this is intentional (spec §5.2).
+ */
+export async function createTranslation(input: unknown): Promise<CreateTranslationResult> {
+  return createTranslationImpl(input)
 }

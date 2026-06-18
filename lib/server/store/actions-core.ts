@@ -49,6 +49,7 @@ import {
   SavePlaceCoordInputSchema,
   SavePlaceHighlightsInputSchema,
   SetAlphaPlaceInputSchema,
+  CreateTranslationInputSchema,
   checkPublishCompleteness,
   type CreateEntryInput,
   type UpdateEntryInput,
@@ -59,6 +60,7 @@ import {
   type CreatePlaceInput,
   type SavePlaceCoordInput,
   type SavePlaceHighlightsInput,
+  type CreateTranslationInput,
 } from '@/lib/store/schema'
 
 // ---------------------------------------------------------------------------
@@ -191,6 +193,7 @@ export async function createEntryImpl(rawInput: unknown): Promise<CreateEntryRes
         kind: 'article' as const,
         slug,
         status: 'draft' as const,
+        lang: input.lang ?? 'en',
         title: input.title ?? null,
         date,
         iso_date: isoDate,
@@ -225,6 +228,7 @@ export async function createEntryImpl(rawInput: unknown): Promise<CreateEntryRes
         kind: 'fiction' as const,
         slug: input.slug,
         status: 'draft' as const,
+        lang: input.lang ?? 'en',
         title: input.title ?? null,
         date,
         iso_date: isoDate,
@@ -309,7 +313,7 @@ export async function updateEntryImpl(rawInput: unknown): Promise<UpdateEntryRes
 
   const parsed = UpdateEntryInputSchema.safeParse(rawInput)
   if (!parsed.success) return err('INVALID_INPUT', 'Validation failed', parsed.error.flatten())
-  const { kind, slug, patch } = parsed.data
+  const { kind, slug, lang, patch } = parsed.data
 
   const supabase = await createSupabaseServerClient()
 
@@ -351,16 +355,18 @@ export async function updateEntryImpl(rawInput: unknown): Promise<UpdateEntryRes
   }
 
   try {
+    // Bilingual P4: .eq('lang', lang) scopes the update to exactly one sibling.
     const { data, error } = await supabase
       .from('entries')
       .update(update)
       .eq('kind', kind)
       .eq('slug', slug)
+      .eq('lang', lang)
       .select('id, kind, slug')
       .single()
 
     if (error) return err('DB_ERROR', error.message, error)
-    if (!data) return err('NOT_FOUND', `Entry ${kind}/${slug} not found`)
+    if (!data) return err('NOT_FOUND', `Entry ${kind}/${slug}/${lang} not found`)
 
     revalidatePath('/', 'layout')
     return { ok: true, entry: data as { id: string; kind: string; slug: string } }
@@ -384,24 +390,26 @@ export async function setEntryDraftImpl(rawInput: unknown): Promise<SetEntryDraf
 
   const parsed = SetEntryDraftInputSchema.safeParse(rawInput)
   if (!parsed.success) return err('INVALID_INPUT', 'Validation failed', parsed.error.flatten())
-  const { kind, slug, draft } = parsed.data
+  const { kind, slug, lang, draft } = parsed.data
 
   const supabase = await createSupabaseServerClient()
 
-  // Fetch the current row (need all fields for publish completeness check)
+  // Fetch the current row (need all fields for publish completeness check).
+  // Bilingual P4: .eq('lang', lang) targets exactly one sibling per-language.
   try {
     const { data: row, error: fetchError } = await supabase
       .from('entries')
       .select('*')
       .eq('kind', kind)
       .eq('slug', slug)
+      .eq('lang', lang)
       .single()
 
     if (fetchError || !row) {
-      return err('NOT_FOUND', `Entry ${kind}/${slug} not found`)
+      return err('NOT_FOUND', `Entry ${kind}/${slug}/${lang} not found`)
     }
 
-    // DL14: publish path requires completeness check
+    // DL14: publish path requires completeness check (per-sibling).
     if (!draft) {
       const missing = checkPublishCompleteness(kind, row as Record<string, unknown>)
       if (missing.length > 0) {
@@ -417,11 +425,13 @@ export async function setEntryDraftImpl(rawInput: unknown): Promise<SetEntryDraf
     }
 
     const newStatus = draft ? 'draft' : 'published'
+    // Bilingual P4: per-sibling publish. en can be published while th is draft.
     const { data, error } = await supabase
       .from('entries')
       .update({ status: newStatus })
       .eq('kind', kind)
       .eq('slug', slug)
+      .eq('lang', lang)
       .select('kind, slug, status')
       .single()
 
@@ -456,12 +466,14 @@ export async function deleteEntryImpl(rawInput: unknown): Promise<DeleteEntryRes
 
   const parsed = DeleteEntryInputSchema.safeParse(rawInput)
   if (!parsed.success) return err('INVALID_INPUT', 'Validation failed', parsed.error.flatten())
-  const { kind, slug } = parsed.data
+  const { kind, slug, lang } = parsed.data
 
   const supabase = await createSupabaseServerClient()
 
   try {
-    // For photo entries: storage cleanup first
+    // For photo entries: storage cleanup first.
+    // Photos are monolingual (PD5); lang is always 'en' for photos. Storage
+    // cleanup is unchanged — it is keyed on the photo roll/photoId slug, not lang.
     if (kind === 'photo') {
       // Parse roll/photoId from slug
       const slashIdx = slug.indexOf('/')
@@ -471,15 +483,17 @@ export async function deleteEntryImpl(rawInput: unknown): Promise<DeleteEntryRes
 
       // Resolve entry_id first (avoid inline nested-await: passing '' as a UUID
       // causes Postgres 22P02 invalid-uuid error, which aborts the whole delete).
+      // Bilingual P4: lang filter scopes to exact sibling (photos always en).
       const { data: entryIdRow, error: entryIdError } = await supabase
         .from('entries')
         .select('id')
         .eq('kind', 'photo')
         .eq('slug', slug)
+        .eq('lang', lang)
         .single()
 
       if (entryIdError || !entryIdRow) {
-        return err('NOT_FOUND', `Entry photo/${slug} not found`)
+        return err('NOT_FOUND', `Entry photo/${slug}/${lang} not found`)
       }
       const entryId = (entryIdRow as { id: string }).id
 
@@ -566,12 +580,14 @@ export async function deleteEntryImpl(rawInput: unknown): Promise<DeleteEntryRes
         )
       }
 
-      // Storage clear confirmed — delete the DB row (photo_assets cascades)
+      // Storage clear confirmed — delete the DB row (photo_assets cascades).
+      // Bilingual P4: lang filter ensures only the target sibling is deleted.
       const { error: deleteError } = await supabase
         .from('entries')
         .delete()
         .eq('kind', kind)
         .eq('slug', slug)
+        .eq('lang', lang)
 
       if (deleteError) return err('DB_DELETE_FAILED', deleteError.message, deleteError)
 
@@ -579,17 +595,145 @@ export async function deleteEntryImpl(rawInput: unknown): Promise<DeleteEntryRes
       return { ok: true, deleted: { kind, slug } }
     }
 
-    // Non-photo: just delete the row
+    // Non-photo (article/fiction): delete exactly the target sibling.
+    // Bilingual P4: other language siblings survive — no cascade.
     const { error: deleteError } = await supabase
       .from('entries')
       .delete()
       .eq('kind', kind)
       .eq('slug', slug)
+      .eq('lang', lang)
 
     if (deleteError) return err('DB_DELETE_FAILED', deleteError.message, deleteError)
 
     revalidatePath('/', 'layout')
     return { ok: true, deleted: { kind, slug } }
+  } catch (e) {
+    return err('UNEXPECTED', 'Unexpected error', String(e))
+  }
+}
+
+// ---------------------------------------------------------------------------
+// createTranslation (Bilingual P4)
+// ---------------------------------------------------------------------------
+//
+// contract:
+//   method      · server action (direct import via actions.ts wrapper)
+//   auth        · assertOwner — owner-only write
+//   path        · n/a (server action)
+//   request     · { kind, slug, fromLang, toLang, patch?: { title?, summary?, body? } }
+//   response    · { ok:true, entry: { id, kind, slug, lang, status } }
+//                 | { ok:false, error: { code, message, details? } }
+//   error codes ·
+//     INVALID_INPUT      — zod validation failed
+//     AUTH               — not authenticated as owner
+//     SAME_LANG          — fromLang === toLang (caught by schema refine)
+//     SOURCE_NOT_FOUND   — source (kind, slug, fromLang) row does not exist
+//     SIBLING_EXISTS     — (kind, slug, toLang) row already exists (unique constraint)
+//     DB_ERROR           — unexpected Supabase error
+//     UNEXPECTED         — unhandled throw
+//   idempotency · NOT idempotent — second call with same (kind, slug, toLang) returns SIBLING_EXISTS
+//   rate limit  · none (owner-only; assertOwner gates)
+//
+// Language-neutral fields COPIED from source: date, tags, place_id, coords,
+//   share_location, domain, maturity, reading_time, patches, worldline_links,
+//   variants (fiction), divergence_cluster (fiction), origin_locus (fiction).
+//   Photos are monolingual (PD5) — this action does not accept kind='photo'.
+//
+// Language-specific fields SEEDED from patch (blank if absent):
+//   title, summary, body.
+//   The new sibling starts as status='draft'. It will be blocked from publish
+//   by entries_check5/check6 until the owner supplies a translated title and
+//   summary — this is intentional (spec §5.2) and surfaced as a per-sibling
+//   console completeness error, not a bug.
+
+export type CreateTranslationResult =
+  | { ok: true; entry: { id: string; kind: string; slug: string; lang: string; status: string } }
+  | ActionError
+
+export async function createTranslationImpl(rawInput: unknown): Promise<CreateTranslationResult> {
+  const auth = await assertOwner()
+  if (!auth.ok) return auth
+
+  const parsed = CreateTranslationInputSchema.safeParse(rawInput)
+  if (!parsed.success) return err('INVALID_INPUT', 'Validation failed', parsed.error.flatten())
+  const { kind, slug, fromLang, toLang, patch } = parsed.data
+
+  const supabase = await createSupabaseServerClient()
+
+  try {
+    // Load source sibling (kind, slug, fromLang)
+    const { data: sourceRow, error: sourceError } = await supabase
+      .from('entries')
+      .select('*')
+      .eq('kind', kind)
+      .eq('slug', slug)
+      .eq('lang', fromLang)
+      .single()
+
+    if (sourceError || !sourceRow) {
+      return err('SOURCE_NOT_FOUND', `Source entry ${kind}/${slug}/${fromLang} not found`)
+    }
+
+    const src = sourceRow as Record<string, unknown>
+
+    // Build the new sibling row.
+    // Language-neutral fields are copied from source.
+    // Language-specific fields (title, summary, body) come from patch (blank if absent).
+    const insertData: Record<string, unknown> = {
+      kind,
+      slug,
+      lang: toLang,
+      status: 'draft',
+      // Language-specific — from patch (blank-seeded if absent)
+      title:   patch?.title   ?? null,
+      summary: patch?.summary ?? null,
+      body:    patch?.body    ?? '',
+      // Language-neutral — copied from source
+      date:               src['date'],
+      iso_date:           src['iso_date'],
+      tags:               src['tags']             ?? [],
+      place_id:           src['place_id']         ?? null,
+      coords:             src['coords']           ?? null,
+      share_location:     src['share_location']   ?? false,
+      domain:             src['domain']           ?? null,
+      maturity:           src['maturity']         ?? null,
+      reading_time:       src['reading_time']     ?? null,
+      patches:            src['patches']          ?? [],
+      worldline_links:    src['worldline_links']  ?? [],
+      highlight_for_place: src['highlight_for_place'] ?? false,
+    }
+
+    // Fiction-specific neutral fields
+    if (kind === 'fiction') {
+      insertData['variants']           = src['variants']            ?? []
+      insertData['divergence_cluster'] = src['divergence_cluster']  ?? null
+      insertData['origin_locus']       = src['origin_locus']        ?? null
+    }
+
+    const { data, error: insertError } = await supabase
+      .from('entries')
+      .insert(insertData)
+      .select('id, kind, slug, lang, status')
+      .single()
+
+    if (insertError) {
+      // 23505 = unique_violation (entries_kind_slug_lang_unique) — sibling already exists
+      if (insertError.code === '23505') {
+        return err(
+          'SIBLING_EXISTS',
+          `Translation sibling ${kind}/${slug}/${toLang} already exists`,
+          { pgCode: insertError.code },
+        )
+      }
+      return err('DB_ERROR', insertError.message, insertError)
+    }
+
+    revalidatePath('/', 'layout')
+    return {
+      ok: true,
+      entry: data as { id: string; kind: string; slug: string; lang: string; status: string },
+    }
   } catch (e) {
     return err('UNEXPECTED', 'Unexpected error', String(e))
   }

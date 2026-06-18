@@ -110,6 +110,10 @@ const EntryBaseFields = {
   worldline_links: z.array(WorldlineLinkSchema).optional(),
 }
 
+// Bilingual P4: lang enum for authored language (en|th). Default en.
+// CreatePhotoInputSchema does NOT gain lang (photos are monolingual, PD5).
+const LangSchema = z.enum(['en', 'th'])
+
 export const CreateArticleInputSchema = z.object({
   kind: z.literal('article'),
   slug: ArticleSlugSchema.optional(), // auto-assigned if absent
@@ -117,6 +121,7 @@ export const CreateArticleInputSchema = z.object({
   domain: DomainSchema.optional(),
   maturity: MaturitySchema.optional(),
   readingTime: z.number().int().positive().optional(),
+  lang: LangSchema.default('en'),
   ...EntryBaseFields,
 })
 
@@ -125,6 +130,7 @@ export const CreateFictionInputSchema = z.object({
   slug: FictionSlugSchema,
   title: z.string().optional(),
   domain: DomainSchema.optional(),
+  lang: LangSchema.default('en'),
   variants: z
     .array(FictionVariantSchema)
     .max(4)
@@ -225,6 +231,9 @@ const UpdateFieldsSchema = z.object({
 export const UpdateEntryInputSchema = z.object({
   kind: EntryKindSchema,
   slug: z.string(),
+  // Bilingual P4: lang identifies which sibling to patch. Default en so
+  // existing callers that omit lang continue to target the en sibling.
+  lang: LangSchema.default('en'),
   patch: UpdateFieldsSchema,
 })
 
@@ -237,6 +246,8 @@ export type UpdateEntryInput = z.infer<typeof UpdateEntryInputSchema>
 export const SetEntryDraftInputSchema = z.object({
   kind: EntryKindSchema,
   slug: z.string(),
+  // Bilingual P4: per-sibling publish/unpublish. Default en.
+  lang: LangSchema.default('en'),
   draft: z.boolean(),
 })
 
@@ -280,9 +291,33 @@ export function checkPublishCompleteness(
 export const DeleteEntryInputSchema = z.object({
   kind: EntryKindSchema,
   slug: z.string(),
+  // Bilingual P4: deletes ONLY the target sibling; other siblings survive.
+  // Default en so existing callers continue to target the en sibling.
+  lang: LangSchema.default('en'),
 })
 
 export type DeleteEntryInput = z.infer<typeof DeleteEntryInputSchema>
+
+// ---------------------------------------------------------------------------
+// createTranslation input (Bilingual P4)
+// ---------------------------------------------------------------------------
+
+export const CreateTranslationInputSchema = z.object({
+  kind: z.enum(['article', 'fiction']), // photos are monolingual (PD5)
+  slug: z.string().min(1),
+  fromLang: LangSchema,
+  toLang: LangSchema,
+  patch: z.object({
+    title: z.string().optional(),
+    summary: z.string().max(300).optional(),
+    body: z.string().optional(),
+  }).optional(),
+}).refine(
+  (v) => v.fromLang !== v.toLang,
+  { message: 'fromLang and toLang must differ' },
+)
+
+export type CreateTranslationInput = z.infer<typeof CreateTranslationInputSchema>
 
 // ---------------------------------------------------------------------------
 // createRoll input
