@@ -210,6 +210,43 @@ export async function getAllRolls(): Promise<Photo[]> {
 }
 
 // ---------------------------------------------------------------------------
+// Tags — sorted, de-duplicated universe across ALL entries
+// ---------------------------------------------------------------------------
+
+/**
+ * Return the sorted, de-duplicated, non-empty set of tags used across ALL
+ * entries (published + draft — admin client, owner-authenticated).
+ *
+ * The tags column is a Postgres text[]; we fetch it, flatten all arrays in JS,
+ * filter empty strings, deduplicate with a Set, and sort — keeping this layer
+ * free of raw SQL and consistent with the Supabase client pattern used here.
+ *
+ * Used by: app/console/page.tsx → console TAGS creatable-combobox (Sirius).
+ *
+ * Owner: Procyon (α-IDX-03)
+ */
+export async function getAllTags(): Promise<string[]> {
+  const client = await createSupabaseServerClient()
+  const { data, error } = await client
+    .from('entries')
+    .select('tags')
+    .not('tags', 'is', null)
+
+  if (error) throw new Error(`getAllTags: ${error.message}`)
+
+  const rows = (data ?? []) as unknown as Array<{ tags: string[] | null }>
+  const tagSet = new Set<string>()
+  for (const row of rows) {
+    if (!row.tags) continue
+    for (const tag of row.tags) {
+      const t = tag.trim()
+      if (t.length > 0) tagSet.add(t)
+    }
+  }
+  return Array.from(tagSet).sort()
+}
+
+// ---------------------------------------------------------------------------
 // Image picker — model B (reuse; no re-upload)
 // ---------------------------------------------------------------------------
 
