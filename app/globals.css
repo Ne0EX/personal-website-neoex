@@ -175,6 +175,12 @@
   --font-display: var(--font-cormorant), 'Cormorant Garamond', serif;
   --font-mono:    var(--font-jetbrains), 'JetBrains Mono', ui-monospace, monospace;
   --font-type:    var(--font-elite),     'Special Elite', ui-monospace, monospace;
+  /* P6a — Thai script supplement. Appended AFTER Latin families in body/title stacks
+     so Latin glyphs resolve first; Thai glyphs resolve only for Thai codepoints.
+     next/font injects --font-noto-thai on <html> (variable: '--font-noto-thai').
+     This @theme token maps it to the canonical --font-thai design token name.
+     Never used as the sole family — always a fallback tail after the Latin family. */
+  --font-thai:    var(--font-noto-thai), 'Noto Serif Thai', serif;
 }
 
 /* =============================================================
@@ -1743,7 +1749,10 @@ body {
 
 /* Paragraph */
 .wl-body .wlc-p {
-  font-family: var(--font-mono);
+  /* P6a: var(--font-thai) appended AFTER mono so Latin glyphs resolve via JetBrains Mono
+     and Thai codepoints fall through to Noto Serif Thai. One design language — the
+     mono register governs all Latin; Thai content reads as the serif instrument register. */
+  font-family: var(--font-mono), var(--font-thai);
   font-size: var(--body-size);     /* 13.5px */
   line-height: 1.75;
   letter-spacing: 0.01em;
@@ -1943,9 +1952,11 @@ body {
 /* Summary body: JetBrains Mono at ink-body (0.82).
    NOT italic. NOT Cormorant. Instrument-register prose —
    the body lede is Cormorant italic, earned by reading further.
-   Mono + ink-body is unmistakably distinct from the serif lede. */
+   Mono + ink-body is unmistakably distinct from the serif lede.
+   P6a: var(--font-thai) appended as fallback — Thai summary text resolves to
+   Noto Serif Thai while Latin summary text stays in the mono register. */
 .wl-summary__body {
-  font-family: var(--font-mono);
+  font-family: var(--font-mono), var(--font-thai);
   font-size: 12.5px;
   line-height: 1.7;
   color: var(--ink-body);

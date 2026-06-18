@@ -23,6 +23,7 @@ import type { Metadata } from 'next'
 import {
   Cormorant_Garamond,
   JetBrains_Mono,
+  Noto_Serif_Thai,
   Special_Elite,
 } from 'next/font/google'
 import './globals.css'
@@ -49,6 +50,20 @@ const elite = Special_Elite({
   display: 'swap',
 })
 
+// P6a — Noto Serif Thai for Thai-script content rendering.
+// next/font injects the CSS variable --font-noto-thai on <html>.
+// globals.css @theme block maps --font-thai to var(--font-noto-thai) so
+// fallback chains (body/title stacks) can append var(--font-thai) AFTER
+// the Latin families: Latin glyphs resolve first; Thai glyphs resolve only
+// for codepoints the Latin family has no coverage for.
+// subsets: ['thai'] — no Latin subset needed; the other three families cover Latin.
+const notoSerifThai = Noto_Serif_Thai({
+  variable: '--font-noto-thai',
+  subsets: ['thai'],
+  weight: ['400', '500'],
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
   title: 'Worldline · ∇ Neospirit',
   description:
@@ -61,7 +76,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${cormorant.variable} ${jetbrains.variable} ${elite.variable} h-full antialiased`}
+      className={`${cormorant.variable} ${jetbrains.variable} ${elite.variable} ${notoSerifThai.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {children}

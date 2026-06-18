@@ -115,6 +115,7 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
     patches,
     isoDate,
     summary,
+    lang,
   } = article
 
   const hasPatches = patches && patches.length > 0
@@ -162,9 +163,17 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
       </div>
 
       {/* ── H1 TITLE (Cormorant italic 38px · ink-primary) ── */}
+      {/*
+       * P6a: var(--font-thai) appended after --font-display as a fallback.
+       * Cormorant Garamond has no Thai glyphs — a Thai title would render
+       * as tofu boxes without this fallback. Thai codepoints resolve to
+       * Noto Serif Thai (the same serif register: voice, not instrument).
+       * lang attr on the h1 is NOT set here — the region lang attr on the
+       * wrapping section (§6.2) covers the content language for a11y/search.
+       */}
       <h1
         style={{
-          fontFamily: 'var(--font-display)',
+          fontFamily: 'var(--font-display), var(--font-thai)',
           fontStyle: 'italic',
           fontWeight: 400,
           fontSize: 'clamp(24px, 5vw, 38px)',
@@ -205,7 +214,18 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
        * Guard: null when summary is absent - no empty seam, no marker.
        * When body is absent (draft): summary renders alone; wl-body is empty. */}
       {summary && (
-        <section className="wl-summary" aria-label="summary">
+        <section
+          className="wl-summary"
+          aria-label="summary"
+          lang={lang}
+        >
+          {/*
+           * P6a §6.2: lang attr on this section carries the SERVED sibling's language,
+           * independent of the URL locale. On a /th page where no Thai sibling exists,
+           * article.lang = 'en' (opt-in fallback) — the section is correctly marked
+           * lang="en" so screen readers and search engines see the real content language,
+           * not the requested locale. This is the region-level lang signal for a11y/SEO.
+           */}
           {/* Panel title seated on top frame edge — axis-label punch-through technique.
               Orange ◈ glyph (U+25C8, JSX string) + SUMMARY word (ink-soft, mono 10px).
               Matches .atlas-axis-label idiom: background:paper-base pill breaks border. */}
@@ -230,21 +250,34 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
        * body content — or nothing when body is absent (draft state is readable
        * via the summary section above).
        *
+       * P6a §6.2: lang attr on the wrapping section carries the SERVED sibling's
+       * language (article.lang), which equals the authored fallback ('en') when
+       * no sibling exists for the requested locale. Screen readers and search
+       * engines see the real content language, not the URL locale.
+       *
+       * P6a §6.1: var(--font-thai) appended after --font-mono in the inline style.
+       * Thai codepoints in MDX body paragraphs resolve to Noto Serif Thai; Latin
+       * stays JetBrains Mono. The CSS rule at .wl-body .wlc-p already carries this
+       * fallback — the inline style on the wrapper div mirrors it for the rare case
+       * where body content is rendered outside the .wlc-p class.
+       *
        * TODO(Procyon): Wire MDX body rendering via velite `body` field.
        * WAIT(Procyon): MDX body render infrastructure.
        */}
-      <div
-        className="wl-body"
-        style={{
-          fontFamily: 'var(--font-mono)',
-          fontSize: '13.5px',
-          lineHeight: 1.75,
-          color: 'var(--ink-primary)',
-          marginBottom: '40px',
-        }}
-      >
-        {body}
-      </div>
+      <section lang={lang} aria-label="article body">
+        <div
+          className="wl-body"
+          style={{
+            fontFamily: 'var(--font-mono), var(--font-thai)',
+            fontSize: '13.5px',
+            lineHeight: 1.75,
+            color: 'var(--ink-primary)',
+            marginBottom: '40px',
+          }}
+        >
+          {body}
+        </div>
+      </section>
 
       {/* ─────────────────────────────────────────────────────── */}
       {/* § SELF-DEPTH — patches revision timeline               */}
