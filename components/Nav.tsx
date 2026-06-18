@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useStratumKey, type StratumKey } from "@/lib/client-state/globe-store";
+import { LocaleSwitcher } from "./LocaleSwitcher";
 
 // ARCHIVE is a real route link per docs/design/21-archive-route.md §0 + §2.
 // Peat directive 2026-06-01 overrides VISION-2026-05-31 §1.1 Π1:
@@ -186,6 +187,15 @@ export function Nav() {
         so server and client render differ. suppressHydrationWarning on the
         div prevents the warning without hiding real bugs.
       */}
+      {/*
+        P6b (Sirius, α-SUR-01) — LocaleSwitcher added as a third row in
+        the nav-clock cell, below UTC+7 // HH:MM + StratumIndicator.
+        The switcher is a control, not translated chrome — it stays in the
+        English-register t-meta instrument style per SPEC-2026-06-18 §6.3 / DL3.
+        flex justify-end keeps it right-aligned to match the rest of nav-clock.
+        suppressHydrationWarning: LocaleSwitcher renders null until useEffect
+        reads window.location (client-only), so no SSR/client mismatch.
+      */}
       <div className="nav-clock t-meta">
         <div>SYS {"//"} CALIBRATED</div>
         <div
@@ -194,6 +204,9 @@ export function Nav() {
         >
           <span>{`UTC+7 // ${time}`}</span>
           <StratumIndicator />
+        </div>
+        <div className="flex justify-end items-baseline" suppressHydrationWarning>
+          <LocaleSwitcher />
         </div>
       </div>
     </div>
