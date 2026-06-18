@@ -1869,69 +1869,94 @@ body {
 }
 
 /* =============================================================
-   ARTICLE SUMMARY SECTION — bug-3b
-   Atom ids composed: type-roles, dashed-hairline
-   Register: INSTRUMENT ORIENTATION — mono uppercase label + body
-   in JetBrains Mono at ink-body. NOT Cormorant italic, which is
-   reserved for the body lede. The two-italics-stacked problem is
-   solved by making this section mono throughout.
+   ARTICLE SUMMARY SECTION — bug-3b (contained panel iteration)
+   Atom ids composed: type-roles · dashed-hairline · axis-label
+   Register: INSTRUMENT PANEL — dashed cartographic frame containing
+   mono summary prose. The label is seated on the top edge using the
+   same punch-through technique as .atlas-axis-label (background-paper
+   pill breaks the frame line). Paper-warm tint echoes diverge-panel
+   at low opacity — calm, not loud.
+
+   The standalone .wl-summary__seam is REMOVED. The dashed frame
+   closes the block; no separate seam element needed below the panel.
 
    Placement: between the DOMAIN label and the wl-body div.
    Rendered by ArticleEntryContent (components/ArticleEntry.tsx).
-   Guard: null when summary is absent — no empty seam, no marker.
+   Guard: null when summary is absent — no empty frame rendered.
    ============================================================= */
 
+/* Outer container: relative positioning context for the label punch-through.
+   margin-bottom creates breathing room to the body lede below. */
 .wl-summary {
-  margin: 0 0 32px;
-  /* no background, no border-box — flush with page surface */
+  position: relative;
+  margin: 0 0 36px;
+  /* Dashed cartographic frame — identical register to atlas-globe-wrap
+     and q.bar: 1px dashed var(--ink-dashed). Not solid, not heavy. */
+  border: 1px dashed var(--ink-dashed);
+  /* Very quiet paper-warm tint — same source as diverge-panel's
+     rgba(240, 235, 221, 0.45) but lighter, so it reads as a tonal
+     hint rather than a filled block. */
+  background: rgb(var(--paper-bright-rgb) / 0.28);
+  padding: 22px 16px 14px;    /* top padding clears the seated label */
 }
 
-/* Survey marker label: ◈ SURVEY + word ORIENTATION
-   Unicode ◈ (U+25C8) = diamond with cross, survey-instrument idiom.
-   Rendered in accent-orange so it reads as "instrument metadata",
-   parallel to the orange in corner-reticles and α-node.
-   NOT a call-out label like "TL;DR" — a survey stamp. */
+/* Panel title — ◈ SUMMARY — seated on the top frame edge.
+   Technique: position absolute, transform -50% vertical, with a
+   paper-base background pill that punches through the dashed border.
+   Identical to .atlas-axis-label placement idiom.
+   Color bumped from --ink-faint to --ink-soft (one notch up) so
+   it reads as the panel title, not ambient annotation.
+   Size bumped from 9px to 10px for the same reason.
+   Orange glyph precedes the word; the word itself stays --ink-soft. */
 .wl-summary__label {
+  position: absolute;
+  top: 0;
+  left: 14px;
+  transform: translateY(-50%);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.3em;
   text-transform: uppercase;
-  color: var(--ink-faint);
-  margin-bottom: 10px;
+  color: var(--ink-soft);
+  /* Punch-through: paper-base chip isolates the label from the border line */
+  background: var(--paper-base);
+  padding: 0 5px;
+  white-space: nowrap;
+  line-height: 1.4;
 }
 
+/* The orange ◈ glyph — accent-orange, slightly larger than the label word.
+   Reserved orange register: survey marker / reticle idiom.
+   Letter-spacing reset to 0 — glyph, not word. */
 .wl-summary__label-glyph {
   color: var(--accent-orange);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0;
   line-height: 1;
   user-select: none;
-  /* no animation — static mark, not decorative */
+  /* no animation — static survey stamp, not decorative */
 }
 
 /* Summary body: JetBrains Mono at ink-body (0.82).
-   NOT italic. NOT Cormorant. This is instrument-register prose,
-   read at scan speed — the body lede is Cormorant italic, earned
-   by reading further. The mono + ink-body pair makes the register
-   unmistakably distinct from the italic-serif lede below the seam. */
+   NOT italic. NOT Cormorant. Instrument-register prose —
+   the body lede is Cormorant italic, earned by reading further.
+   Mono + ink-body is unmistakably distinct from the serif lede. */
 .wl-summary__body {
   font-family: var(--font-mono);
   font-size: 12.5px;
   line-height: 1.7;
   color: var(--ink-body);
-  /* max 3 lines is soft guidance (spec says 2-3 sentences);
-     no overflow clamp in CSS — overflow-guard lives at the data layer */
+  /* max 3 lines is soft guidance; no CSS clamp — data layer guards */
 }
 
-/* Dashed seam below summary, above body — atom: dashed-hairline.
-   Renders only when summary is present (guard in JSX). */
+/* .wl-summary__seam is RETIRED — the dashed frame closes the block.
+   The class may still exist in JSX; this rule ensures it is invisible
+   and takes no space should it be rendered during the transition. */
 .wl-summary__seam {
-  border: none;
-  border-bottom: 1px dashed var(--ink-dashed);
-  margin: 24px 0 32px;
+  display: none;
 }
 
 /* =============================================================

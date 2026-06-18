@@ -205,16 +205,17 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
        * Guard: null when summary is absent - no empty seam, no marker.
        * When body is absent (draft): summary renders alone; wl-body is empty. */}
       {summary && (
-        <section className="wl-summary" aria-label="orientation summary">
-          {/* Survey-instrument marker: orange glyph + ORIENTATION label.
-              Consistent with corner-reticles and alpha-node orange grammar. */}
+        <section className="wl-summary" aria-label="summary">
+          {/* Panel title seated on top frame edge — axis-label punch-through technique.
+              Orange ◈ glyph (U+25C8, JSX string) + SUMMARY word (ink-soft, mono 10px).
+              Matches .atlas-axis-label idiom: background:paper-base pill breaks border. */}
           <div className="wl-summary__label" aria-hidden>
             <span className="wl-summary__label-glyph">{'◈'}</span>
-            <span>ORIENTATION</span>
+            <span>SUMMARY</span>
           </div>
           <p className="wl-summary__body">{summary}</p>
-          {/* Dashed hairline seam separating orientation from body prose.
-              Same motif as patches timeline seams - no new atom introduced. */}
+          {/* .wl-summary__seam is retired — dashed frame closes the block.
+              CSS sets display:none; element preserved for transition safety. */}
           <hr className="wl-summary__seam" aria-hidden />
         </section>
       )}
