@@ -391,6 +391,11 @@ interface ConsoleEntryFormProps {
 export function ConsoleEntryForm({
   open, mode, data, dirty, saving, knownTags, onField, onClose, onSaveDraft, onCommit,
 }: ConsoleEntryFormProps) {
+  // F6 hydration fix: `new Date()` inside a value prop diverges between SSR and client
+  // if the component mounts near a midnight boundary. Lazy initializer runs only on the
+  // client mount — stable thereafter, so SSR and hydration produce the same markup.
+  const [defaultDate] = useState(() => todayIso())
+
   const safe = data ?? {
     id: '', kind: 'article' as NodeKind, fileId: '', title: '',
     date: '', domain: '', tags: [], summary: '', x: 0, y: 0,
@@ -487,8 +492,9 @@ export function ConsoleEntryForm({
               type="date"
               className="ef-input"
               // Convert stored dotted date to ISO for the picker value.
-              // Fall back to today when the field is empty (new entry default).
-              value={safe.date ? dottedToIso(safe.date) : todayIso()}
+              // Fall back to defaultDate (stable per-mount) — never inline todayIso()
+              // here because new Date() differs between SSR and client hydration (F6).
+              value={safe.date ? dottedToIso(safe.date) : defaultDate}
               onChange={(e) => {
                 // Convert ISO picker value back to dotted before storing in formData.
                 const dotted = e.target.value ? isoToDotted(e.target.value) : ''
