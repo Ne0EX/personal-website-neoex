@@ -1,66 +1,129 @@
 // contract
 // --------
-// file     · proxy.ts (Next 16 file convention)
-// purpose  · console route gate — fail-closed session choke point.
-//            REPLACES the WORLDLINE_AUTHORING=1 env flag gate (retired, spec §5.3/§11).
+// file     · proxy.ts (Next 16 file convention — renamed from middleware.ts in v16.0.0)
+// purpose  · TWO RESPONSIBILITIES (ordered):
+//            1. Locale routing (bilingual P3) — asymmetric en-unprefixed pattern.
+//               Bare paths → internally rewrite to /en/... (URL bar stays unprefixed).
+//               Thai visitors (by cookie > geo > Accept-Language) → redirect to /th/...
+//            2. Console auth gate — fail-closed session choke point (original purpose).
+//               @supabase/ssr session refresh + getUser() validation.
+//               No authenticated user → rewrite every /console/** path to /console (login).
 //
-// matcher  · ['/console', '/console/:path*']
+// matcher  · TWO GROUPS:
+//            (a) Locale matcher: all public paths EXCEPT /_next, static assets, /api,
+//                /console, and the internal /en/* re-entry target (loop guard).
+//            (b) Console matcher: /console and /console/:path*
 //
-// behavior · (1) @supabase/ssr session-refresh pass: re-reads and rewrites the
-//                auth cookie on every matched request, so token refreshes are
-//                propagated even when the page doesn't do a full reload.
-//            (2) supabase.auth.getUser() — contacts the Supabase Auth server to
-//                validate the session token (not just reads from cookie).
-//                No user → ALL matched paths rewrite to /console (which renders
-//                <ConsoleLogin /> when unauthenticated). The requested sub-route
-//                NEVER executes — the rewrite means the browser's URL does not
-//                change but the server renders the login shell.
-//            (3) User present → NextResponse.next() with the refreshed cookie
-//                set on the response. Defence-in-depth is inside each page/action.
+//            The proxy function checks which group the request belongs to and
+//            dispatches accordingly. Both groups are listed in config.matcher so
+//            Next.js invokes the proxy for all of them.
 //
-// fail-closed guarantee · a future console sub-route added without its own
-//   page-level auth check is still unreachable unauthenticated, because the
-//   proxy rewrite to /console (login) fires before any route renders.
+// LOCALE ROUTING (§4.2 SPEC-2026-06-18):
+//   Asymmetric en-unprefixed logic (the PINNED MECHANIC per SPEC §4.2):
+//   1. If pathname starts with /en/ → short-circuit (internal target, loop guard).
+//   2. If pathname starts with a known non-en locale prefix (/th/) → pass through.
+//   3. If pathname is a console/api/static path → skip (handled by console group).
+//   4. Otherwise (bare unprefixed public path): resolve effective locale:
+//      a. Cookie wl_locale (manual choice, WINS)
+//      b. Geo x-vercel-ip-country (TH → th, else en)
+//      c. Accept-Language (th-prefixed → th, else en)
+//      d. Default: en
+//   5. Effective locale == en → NextResponse.rewrite to /en + pathname + search.
+//      URL bar stays unprefixed. The app/[lang]/ segment resolves lang='en' internally.
+//   6. Effective locale == th → NextResponse.redirect to /th + pathname.
 //
-// WORLDLINE_AUTHORING · RETIRED. The env var is no longer read here.
-//   Remove from Vercel env and any docs that reference it (spec §11, S8 task).
+// REDIRECT-LOOP GUARD (SPEC §4.2, RISK-3):
+//   The internal /en/... rewrite target must never re-trigger locale resolution.
+//   Guard: if (pathname.startsWith('/en')) return NextResponse.next()
+//   This short-circuits before any locale resolution for the /en re-entry.
+//   The /en path is NOT excluded from the matcher (matcher exclusions are static;
+//   the guard is dynamic and cheaper). The /console group already excludes /en.
 //
-// second layer · app/console/page.tsx + app/console/editor/page.tsx each call
-//   supabase.auth.getUser() independently and render <ConsoleLogin /> if unauthed.
-//   This is defence-in-depth behind the proxy, not the gate itself.
+// rate-limit · none (locale routing; console is Peat-only)
 //
-// third layer  · lib/server/auth.ts assertOwner() is called by every server
-//   action. Final backstop is RLS at the DB.
-//
-// runtime  · nodejs (proxy.ts defaults to nodejs; the @supabase/ssr cookie
-//            operations require the Node.js runtime, not edge, per the need to
-//            read next/headers cookies() — which is Node-only in Next 16).
-//            The `runtime` config option is not valid in proxy files (Next 16
-//            docs: "Setting the runtime config option in Proxy will throw an error").
-//
-// rate-limit · none (console is Peat-only; signups disabled; no public traffic)
-//
-// Owner: Altair (α-BND-02) · store-as-source S4
+// Owner: Altair (α-BND-02) · bilingual P3 + store-as-source S4
 // server: altair
 
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 
-export async function proxy(request: NextRequest): Promise<NextResponse> {
-  // Build a mutable response that will carry any refreshed auth cookies back
-  // to the browser. We start with next() and potentially replace it with a
-  // rewrite if the user is not authenticated.
+// ---------------------------------------------------------------------------
+// Locale constants
+// ---------------------------------------------------------------------------
+
+/** Supported locale identifiers (PD4). Add here when a new language is enabled. */
+export const SUPPORTED_LOCALES = ['en', 'th'] as const
+export type SupportedLocale = typeof SUPPORTED_LOCALES[number]
+
+/** Locale prefixes that are non-en (i.e. have an actual path prefix). */
+const PREFIXED_LOCALES = SUPPORTED_LOCALES.filter((l) => l !== 'en')
+
+// ---------------------------------------------------------------------------
+// Locale resolution helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Resolve the effective locale from request signals.
+ * Precedence: cookie wl_locale > geo > Accept-Language > default 'en'.
+ * (SPEC §4.4)
+ */
+function resolveLocale(request: NextRequest): SupportedLocale {
+  // 1. Cookie — manual choice wins (PD2: cookie name = wl_locale)
+  const cookieLocale = request.cookies.get('wl_locale')?.value
+  if (cookieLocale && SUPPORTED_LOCALES.includes(cookieLocale as SupportedLocale)) {
+    return cookieLocale as SupportedLocale
+  }
+
+  // 2. Geo — x-vercel-ip-country (set by Vercel CDN; absent in local dev)
+  const country = request.headers.get('x-vercel-ip-country')
+  if (country === 'TH') return 'th'
+
+  // 3. Accept-Language — secondary signal; th-prefixed → th, else en
+  const acceptLang = request.headers.get('accept-language') ?? ''
+  if (acceptLang.split(',').some((tag) => tag.trim().toLowerCase().startsWith('th'))) {
+    return 'th'
+  }
+
+  // 4. Default
+  return 'en'
+}
+
+/**
+ * Returns true when the request path is destined for the console group.
+ * Console paths are handled by the console auth logic, not locale routing.
+ */
+function isConsolePath(pathname: string): boolean {
+  return pathname === '/console' || pathname.startsWith('/console/')
+}
+
+/**
+ * Returns true when the request path is an API path.
+ */
+function isApiPath(pathname: string): boolean {
+  return pathname.startsWith('/api/')
+}
+
+/**
+ * Returns true when the request path already carries a known non-en locale prefix.
+ * These paths are passed through unchanged.
+ */
+function hasLocalePrefix(pathname: string): boolean {
+  return PREFIXED_LOCALES.some(
+    (locale) =>
+      pathname === `/${locale}` || pathname.startsWith(`/${locale}/`)
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Console auth handler (original gate — store-as-source S4)
+// ---------------------------------------------------------------------------
+
+async function handleConsoleAuth(request: NextRequest): Promise<NextResponse> {
   let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
+    request: { headers: request.headers },
   })
 
-  // Create a session-refresh-aware client. getAll reads cookies from the
-  // incoming request; setAll writes the refreshed cookies onto the response.
-  // Both are required by @supabase/ssr to avoid "significant and difficult to
-  // debug authentication issues" (documented in createServerClient.d.ts).
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
@@ -70,22 +133,15 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet, headers) {
-          // Step 1: stamp cookies onto the request (so downstream reads see them)
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           )
-          // Step 2: rebuild response with the updated request headers
           response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
+            request: { headers: request.headers },
           })
-          // Step 3: stamp cookies onto the response so the browser receives them
           cookiesToSet.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           )
-          // Step 4: propagate any cache-control headers the library needs set
-          // (prevents CDN caching of auth responses — see SetAllCookies type)
           if (headers) {
             Object.entries(headers).forEach(([key, value]) =>
               response.headers.set(key, value)
@@ -96,30 +152,101 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
     }
   )
 
-  // getUser() validates the token with the Supabase Auth server.
-  // Never use getSession() for authorization — it reads from cookie only,
-  // is unverified, and can be spoofed. This distinction is load-bearing.
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    // No authenticated user — rewrite every matched path to /console.
-    // The browser URL does not change; the server renders ConsoleLogin.
-    // This is the single choke-point: no console sub-route can execute
-    // unauthenticated, regardless of whether its page has its own gate.
     const loginUrl = new URL('/console', request.url)
     return NextResponse.rewrite(loginUrl, {
       request: { headers: request.headers },
     })
   }
 
-  // Authenticated — return the response with any refreshed cookies set.
   return response
 }
 
+// ---------------------------------------------------------------------------
+// Main proxy function
+// ---------------------------------------------------------------------------
+
+export async function proxy(request: NextRequest): Promise<NextResponse> {
+  const { pathname } = request.nextUrl
+
+  // ── REDIRECT-LOOP GUARD ──────────────────────────────────────────────────
+  // The internal /en/... rewrite target must never re-enter locale resolution.
+  // Short-circuit before any other logic when the path already carries /en.
+  // (SPEC §4.2 PINNED MECHANIC, RISK-3)
+  if (pathname.startsWith('/en')) {
+    return NextResponse.next()
+  }
+
+  // ── CONSOLE AUTH GROUP ───────────────────────────────────────────────────
+  if (isConsolePath(pathname)) {
+    return handleConsoleAuth(request)
+  }
+
+  // ── API PASS-THROUGH ─────────────────────────────────────────────────────
+  // API routes are not locale-routed.
+  if (isApiPath(pathname)) {
+    return NextResponse.next()
+  }
+
+  // ── LOCALE ROUTING ───────────────────────────────────────────────────────
+
+  // If the path already carries a known prefixed locale (/th/...) → pass through.
+  // The app/[lang]/ segment will resolve lang='th' internally.
+  if (hasLocalePrefix(pathname)) {
+    return NextResponse.next()
+  }
+
+  // Bare unprefixed path — resolve effective locale.
+  const locale = resolveLocale(request)
+  const search = request.nextUrl.search
+
+  if (locale === 'en') {
+    // Serve as-is via an INTERNAL rewrite to /en + pathname.
+    // The URL bar stays unprefixed (DL2 — existing English URLs preserved byte-for-byte).
+    // NextResponse.rewrite propagates RSC headers automatically (proxy.md §RSC requests).
+    const rewriteUrl = new URL(`/en${pathname}${search}`, request.url)
+    // Inject x-wl-locale so the root app/layout.tsx can read the resolved lang
+    // for the <html lang> attribute without needing to re-resolve locale signals.
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set('x-wl-locale', 'en')
+    return NextResponse.rewrite(rewriteUrl, {
+      request: { headers: requestHeaders },
+    })
+  }
+
+  // Non-en locale → redirect to /${locale}${pathname}.
+  // The browser URL changes; the [lang] segment resolves the locale.
+  const redirectUrl = new URL(`/${locale}${pathname}${search}`, request.url)
+  return NextResponse.redirect(redirectUrl)
+}
+
+// ---------------------------------------------------------------------------
+// Matcher — MUST be statically analyzable (no dynamic values)
+// ---------------------------------------------------------------------------
+
 export const config = {
-  // Explicit array covers the bare /console path AND all sub-routes.
-  // /console/:path* alone would miss the zero-segment /console case.
-  matcher: ['/console', '/console/:path*'],
+  matcher: [
+    // ── Console group ────────────────────────────────────────────────────────
+    // Explicit array covers the bare /console path AND all sub-routes.
+    '/console',
+    '/console/:path*',
+
+    // ── Locale group ─────────────────────────────────────────────────────────
+    // Match all request paths EXCEPT:
+    //   - /_next/static  (static files)
+    //   - /_next/image   (image optimization)
+    //   - /api           (API routes — handled by route handlers, not locale-routed)
+    //   - /favicon.ico, /sitemap.xml, /robots.txt (metadata files)
+    //   - /console       (handled by the console group above; prevent double-fire)
+    //
+    // NOTE: /en/... paths are NOT excluded from the matcher because the exclusion
+    // list is static. The redirect-loop guard (pathname.startsWith('/en')) inside
+    // the proxy function short-circuits before any locale resolution — dynamic guard
+    // is correct here, static exclusion is not required (and would be fragile).
+    '/((?!_next/static|_next/image|api|console|favicon\\.ico|sitemap\\.xml|robots\\.txt).*)',
+  ],
 }
