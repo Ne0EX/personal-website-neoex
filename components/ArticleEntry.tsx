@@ -187,26 +187,24 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
         {title}
       </h1>
 
-      {/* ── DOMAIN axis — instrument seam + seated axis label ──
-       * Atoms: wl-domain-axis (dashed-hairline seam) · wl-domain-axis__label
-       *        (punch-through, identical technique to ◈ SUMMARY + atlas-axis-label)
-       * Role: structural ontology axis (identity/reflection/method/meta),
-       *       NOT a content tag. Distinct from header-strip attractor pills
-       *       which show topic tags. Domain is "what this IS"; pills are "what about".
-       * Value rendered at --ink-body (read tier, 0.82) so it reads, not vanishes.
-       * ◇ glyph = U+25C7 open diamond — instrument axis marker, accent-orange.
-       */}
+      {/* ── DOMAIN label — instrument register ── */}
       <div
-        className="wl-domain-axis"
-        role="note"
-        aria-label={`Ontology axis: ${domain}`}
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: '9px',
+          letterSpacing: '0.3em',
+          textTransform: 'uppercase',
+          color: 'var(--ink-soft)',
+          marginBottom: '24px',
+          display: 'flex',
+          gap: '8px',
+          alignItems: 'center',
+        }}
+        aria-label={`Domain: ${domain}`}
       >
-        <div className="wl-domain-axis__label" aria-hidden>
-          <span className="wl-domain-axis__glyph">{'◇'}</span>
-          <span>DOMAIN</span>
-          <span style={{ color: 'var(--ink-dashed)', letterSpacing: 0 }}>·</span>
-          <span className="wl-domain-axis__value">{domain.toUpperCase()}</span>
-        </div>
+        <span>DOMAIN</span>
+        <span style={{ color: 'var(--ink-dashed)' }}>·</span>
+        <span style={{ color: 'var(--ink-body)' }}>{domain.toUpperCase()}</span>
       </div>
 
       {/* ARTICLE SUMMARY SECTION (bug-3b)
