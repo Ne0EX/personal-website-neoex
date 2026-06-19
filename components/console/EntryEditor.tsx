@@ -1134,6 +1134,42 @@ const EDITOR_CSS = `
 @media (prefers-reduced-motion: reduce) {
   .lc-chip { transition: none; }
 }
+
+/* ── Per-sibling metadata strip — TITLE + SUMMARY (article / fiction) ─────────
+   Displayed above the source pane for article/fiction entries when a real entry
+   is loaded (hasEntry). Fills the gap left by pre-store MDX frontmatter: the
+   first surface where TH title/summary can be entered manually.
+
+   Visual contract: same dashed-instrument idiom as .rp-wrap (roll picker).
+   Typography: .ef-label + .ef-input/.ef-summary from ConsoleEntryForm (single
+   source of truth for the console's metadata field vocabulary).
+   Counter: .ef-char-counter / .is-near / .is-limit from ConsoleEntryForm #3a. */
+.ed-meta-strip {
+  flex-shrink: 0;
+  border-bottom: 1px dashed var(--ink-dashed);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--paper-warm);
+}
+.ed-meta-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+/* Reuse ConsoleEntryForm label/input/summary/counter vocabulary exactly */
+.ed-meta-strip .ef-label  { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--ink-soft); }
+.ed-meta-strip .ef-input  { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.01em; color: var(--ink-primary); border: 1px solid var(--ink-hairline); background: var(--paper-base); padding: 6px 8px; border-radius: 0; outline: none; width: 100%; transition: border-color 0.2s; }
+.ed-meta-strip .ef-input:focus { border-color: var(--accent-orange); }
+.ed-meta-strip .ef-summary { font-family: var(--font-display); font-style: italic; font-size: 13px; line-height: 1.4; resize: vertical; min-height: 52px; }
+.ed-meta-strip .ef-char-counter { font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-faint); text-align: right; margin-top: 2px; }
+.ed-meta-strip .ef-char-counter.is-near  { color: var(--ink-soft); }
+.ed-meta-strip .ef-char-counter.is-limit { color: var(--accent-orange); }
+@media (prefers-reduced-motion: reduce) {
+  .ed-meta-strip .ef-input { transition-duration: 0.001ms; }
+}
 `
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -2391,6 +2427,64 @@ export function EntryEditor({
     })
   }, [hasEntry, entryKind, entrySlug, entryLang, md, startSaveTransition])
 
+  // ── Per-sibling TITLE + SUMMARY (fix: unblocks TH translation publish) ──────
+  //
+  // Pre-store, title/summary came from MDX frontmatter at import time — the editor
+  // never needed to touch them. Translations are the first case where they must be
+  // entered manually (the TH sibling is seeded with title=NULL + summary=NULL and
+  // has NO frontmatter). The backend (UpdateFieldsSchema + actions-core updateEntry)
+  // already supports `title` and `summary` patches; this is the missing editor UI.
+  //
+  // Seeded from `draft.title` / `draft.summary` so each sibling shows its OWN values
+  // when the lang chip navigates to a different sibling (the full RSC reload passes the
+  // correct sibling as `initialDraft`, so the state initializer re-runs correctly).
+  //
+  // Save on blur (mirror onSaveCaption pattern): updateEntry({ kind, slug, lang, patch })
+  // with the correct entryLang → patches ONLY the active sibling, not the EN baseline.
+  const [draftTitle,   setDraftTitle]   = useState<string>(draft.title   ?? '')
+  const [draftSummary, setDraftSummary] = useState<string>(draft.summary ?? '')
+
+  const [titleSaveStatus,   setTitleSaveStatus]   = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [summarySaveStatus, setSummarySaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_titlePending,   startTitleTransition]   = useTransition()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_summaryPending, startSummaryTransition] = useTransition()
+
+  // onSaveTitle — fires on blur of the title input.
+  // updateEntry patches title on the sibling identified by entryLang.
+  const onSaveTitle = useCallback((value: string) => {
+    if (!hasEntry || !entrySlug) return
+    setTitleSaveStatus('saving')
+    startTitleTransition(async () => {
+      const result = await updateEntry({ kind: entryKind, slug: entrySlug, lang: entryLang, patch: { title: value } })
+      if (!result.ok) {
+        setTitleSaveStatus('error')
+        return
+      }
+      setTitleSaveStatus('saved')
+      setTimeout(() => setTitleSaveStatus('idle'), 2000)
+    })
+  }, [hasEntry, entryKind, entrySlug, entryLang, startTitleTransition])
+
+  // onSaveSummary — fires on blur of the summary textarea.
+  // updateEntry patches summary on the sibling identified by entryLang.
+  // Summary is capped at 300 chars (UpdateFieldsSchema .max(300)); we enforce
+  // maxLength at the input level too so the value is always within bounds.
+  const onSaveSummary = useCallback((value: string) => {
+    if (!hasEntry || !entrySlug) return
+    setSummarySaveStatus('saving')
+    startSummaryTransition(async () => {
+      const result = await updateEntry({ kind: entryKind, slug: entrySlug, lang: entryLang, patch: { summary: value } })
+      if (!result.ok) {
+        setSummarySaveStatus('error')
+        return
+      }
+      setSummarySaveStatus('saved')
+      setTimeout(() => setSummarySaveStatus('idle'), 2000)
+    })
+  }, [hasEntry, entryKind, entrySlug, entryLang, startSummaryTransition])
+
   // ── Instrument overrides (lens-override wiring, 2026-06-12, Sirius slice) ──
   //
   // State: current authored override map for the active photo entry.
@@ -3147,6 +3241,64 @@ export function EntryEditor({
                   whole editor) — mirrors the PublishPanel host pattern. */}
               {showSource && (
                 <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+                  {/* Per-sibling TITLE + SUMMARY strip — shown for real article entries only.
+                      Absent on SAMPLE_DRAFT path (hasEntry=false). Seeded from draft.title/summary
+                      which reflect the LOADED sibling (en or th), so each lang sees its own values.
+                      On blur → updateEntry({ lang: entryLang, patch: { title } / { summary } })
+                      patches ONLY this sibling. Unblocks TH translation publish completeness. */}
+                  {hasEntry && (
+                    <div className="ed-meta-strip" aria-label="entry metadata">
+                      <div className="ed-meta-field">
+                        <label className="ef-label" htmlFor="ed-meta-title">
+                          TITLE
+                          {titleSaveStatus !== 'idle' && (
+                            <span style={{ marginLeft: 8, color: titleSaveStatus === 'error' ? 'var(--accent-orange)' : 'var(--ink-faint)' }}>
+                              {titleSaveStatus === 'saving' ? '· SAVING…' : titleSaveStatus === 'saved' ? '· SAVED' : '· SAVE ERR'}
+                            </span>
+                          )}
+                        </label>
+                        <input
+                          id="ed-meta-title"
+                          type="text"
+                          className="ef-input"
+                          value={draftTitle}
+                          onChange={(e) => setDraftTitle(e.target.value)}
+                          onBlur={(e) => onSaveTitle(e.target.value)}
+                          aria-label={`title for ${entryLang.toUpperCase()} sibling`}
+                          placeholder="entry title…"
+                        />
+                      </div>
+                      <div className="ed-meta-field">
+                        <label className="ef-label" htmlFor="ed-meta-summary">
+                          SUMMARY
+                          {summarySaveStatus !== 'idle' && (
+                            <span style={{ marginLeft: 8, color: summarySaveStatus === 'error' ? 'var(--accent-orange)' : 'var(--ink-faint)' }}>
+                              {summarySaveStatus === 'saving' ? '· SAVING…' : summarySaveStatus === 'saved' ? '· SAVED' : '· SAVE ERR'}
+                            </span>
+                          )}
+                        </label>
+                        <textarea
+                          id="ed-meta-summary"
+                          className="ef-input ef-summary"
+                          maxLength={300}
+                          value={draftSummary}
+                          onChange={(e) => setDraftSummary(e.target.value)}
+                          onBlur={(e) => onSaveSummary(e.target.value)}
+                          aria-label={`summary for ${entryLang.toUpperCase()} sibling (max 300 chars)`}
+                          placeholder="one or two sentences…"
+                        />
+                        <div className={
+                          'ef-char-counter'
+                          + (draftSummary.length >= 300 ? ' is-limit' : draftSummary.length >= 240 ? ' is-near' : '')
+                        }
+                          aria-live="polite"
+                          aria-label={`${draftSummary.length} of 300 characters`}
+                        >
+                          {draftSummary.length} / 300
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <ArticleSourcePane
                     md={md}
                     onChange={setMd}
@@ -3416,12 +3568,71 @@ export function EntryEditor({
                 />
               )}
               {showSource && (
-                <FictionManager
-                  chapters={chapters}
-                  setChapters={setChapters}
-                  active={activeChapter}
-                  setActive={setActiveChapter}
-                />
+                /* Wrap strip + FictionManager in a flex column so the strip occupies the
+                   top of the source column and FictionManager fills the remainder. Same
+                   pattern as the article source column wrapper. */
+                <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+                  {/* Per-sibling TITLE + SUMMARY — same implementation as article kind. */}
+                  {hasEntry && (
+                    <div className="ed-meta-strip" aria-label="entry metadata">
+                      <div className="ed-meta-field">
+                        <label className="ef-label" htmlFor="ed-meta-title-fiction">
+                          TITLE
+                          {titleSaveStatus !== 'idle' && (
+                            <span style={{ marginLeft: 8, color: titleSaveStatus === 'error' ? 'var(--accent-orange)' : 'var(--ink-faint)' }}>
+                              {titleSaveStatus === 'saving' ? '· SAVING…' : titleSaveStatus === 'saved' ? '· SAVED' : '· SAVE ERR'}
+                            </span>
+                          )}
+                        </label>
+                        <input
+                          id="ed-meta-title-fiction"
+                          type="text"
+                          className="ef-input"
+                          value={draftTitle}
+                          onChange={(e) => setDraftTitle(e.target.value)}
+                          onBlur={(e) => onSaveTitle(e.target.value)}
+                          aria-label={`title for ${entryLang.toUpperCase()} sibling`}
+                          placeholder="entry title…"
+                        />
+                      </div>
+                      <div className="ed-meta-field">
+                        <label className="ef-label" htmlFor="ed-meta-summary-fiction">
+                          SUMMARY
+                          {summarySaveStatus !== 'idle' && (
+                            <span style={{ marginLeft: 8, color: summarySaveStatus === 'error' ? 'var(--accent-orange)' : 'var(--ink-faint)' }}>
+                              {summarySaveStatus === 'saving' ? '· SAVING…' : summarySaveStatus === 'saved' ? '· SAVED' : '· SAVE ERR'}
+                            </span>
+                          )}
+                        </label>
+                        <textarea
+                          id="ed-meta-summary-fiction"
+                          className="ef-input ef-summary"
+                          maxLength={300}
+                          value={draftSummary}
+                          onChange={(e) => setDraftSummary(e.target.value)}
+                          onBlur={(e) => onSaveSummary(e.target.value)}
+                          aria-label={`summary for ${entryLang.toUpperCase()} sibling (max 300 chars)`}
+                          placeholder="one or two sentences…"
+                        />
+                        <div className={
+                          'ef-char-counter'
+                          + (draftSummary.length >= 300 ? ' is-limit' : draftSummary.length >= 240 ? ' is-near' : '')
+                        }
+                          aria-live="polite"
+                          aria-label={`${draftSummary.length} of 300 characters`}
+                        >
+                          {draftSummary.length} / 300
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <FictionManager
+                    chapters={chapters}
+                    setChapters={setChapters}
+                    active={activeChapter}
+                    setActive={setActiveChapter}
+                  />
+                </div>
               )}
               {showPreview && (
                 <div className="ed-preview-wrap" id="ed-preview">
