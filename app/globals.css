@@ -1827,13 +1827,14 @@ body {
   margin: 1.8em 0 0.5em;
 }
 
-/* Thai heading rhythm overrides — Trirong Light for display register.
-   Cormorant italic 500 is already optically light; Trirong 300 (light weight)
-   must be matched explicitly so Thai h2/h3 does not punch heavier.
+/* Thai heading rhythm overrides — Trirong Regular for display register.
+   Cormorant italic 500 is optically light (the italic axis thins the stroke);
+   Trirong 400 (regular) matches Cormorant's perceived visual weight side-by-side.
+   Trirong 300 was too light — it under-punched EN, reversing the imbalance.
    font-style: normal for Thai — Trirong italic is not a Thai script concept. */
 :lang(th) .wl-body .wlc-h2,
 .wl-body .wlc-h2:lang(th) {
-  font-weight: 300;   /* Trirong Light — matches Cormorant's optical lightness */
+  font-weight: 400;   /* Trirong Regular — matches Cormorant italic 500 optical weight */
   font-style: normal; /* Thai script has no italic axis; avoid faux-italic */
   line-height: 1.3;   /* Thai h2 needs slightly more line-height than Latin 1.2 */
   letter-spacing: -0.005em;
@@ -1841,7 +1842,7 @@ body {
 
 :lang(th) .wl-body .wlc-h3,
 .wl-body .wlc-h3:lang(th) {
-  font-weight: 300;
+  font-weight: 400;
   font-style: normal;
   line-height: 1.35;
   letter-spacing: -0.005em;

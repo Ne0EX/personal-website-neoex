@@ -377,13 +377,16 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
                         {patch.date.replace(/-/g, '.')}
                       </span>
 
-                      {/* Note — JetBrains Mono 11px ink-soft (instrument) */}
+                      {/* Note — JetBrains Mono 11px ink-body (read tier).
+                           ink-soft (0.5) felt disconnected from the article body;
+                           ink-body (0.82) closes the gap while keeping the
+                           orange patch number and soft date as the hierarchy top. */}
                       <span
                         style={{
                           fontFamily: 'var(--font-mono)',
                           fontSize: '11px',
                           letterSpacing: '0.08em',
-                          color: 'var(--ink-soft)',
+                          color: 'var(--ink-body)',
                           lineHeight: 1.5,
                         }}
                       >
