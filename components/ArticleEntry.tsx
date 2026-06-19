@@ -191,10 +191,10 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
       <div
         style={{
           fontFamily: 'var(--font-mono)',
-          fontSize: '9px',
-          letterSpacing: '0.3em',
+          fontSize: '10px',
+          letterSpacing: '0.2em',
           textTransform: 'uppercase',
-          color: 'var(--ink-soft)',
+          color: 'var(--ink-body)',
           marginBottom: '24px',
           display: 'flex',
           gap: '8px',
@@ -204,7 +204,7 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
       >
         <span>DOMAIN</span>
         <span style={{ color: 'var(--ink-dashed)' }}>·</span>
-        <span style={{ color: 'var(--ink-body)' }}>{domain.toUpperCase()}</span>
+        <span style={{ color: 'var(--accent-orange)' }}>{domain.toUpperCase()}</span>
       </div>
 
       {/* ARTICLE SUMMARY SECTION (bug-3b)
