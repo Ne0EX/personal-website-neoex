@@ -164,16 +164,17 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
 
       {/* ── H1 TITLE (Cormorant italic 38px · ink-primary) ── */}
       {/*
-       * P6a: var(--font-thai) appended after --font-display as a fallback.
+       * P6b: var(--font-thai-display) (Trirong) appended after --font-display.
        * Cormorant Garamond has no Thai glyphs — a Thai title would render
        * as tofu boxes without this fallback. Thai codepoints resolve to
-       * Noto Serif Thai (the same serif register: voice, not instrument).
-       * lang attr on the h1 is NOT set here — the region lang attr on the
-       * wrapping section (§6.2) covers the content language for a11y/search.
+       * Trirong (high-contrast literary Thai serif = same register as Cormorant).
+       * Trirong weight 300 prevents Thai titles from punching heavier than
+       * Cormorant's light italic. lang attr on the h1 is NOT set here —
+       * the region lang attr on the wrapping section (§6.2) covers a11y/search.
        */}
       <h1
         style={{
-          fontFamily: 'var(--font-display), var(--font-thai)',
+          fontFamily: 'var(--font-display), var(--font-thai-display)',
           fontStyle: 'italic',
           fontWeight: 400,
           fontSize: 'clamp(24px, 5vw, 38px)',
@@ -255,10 +256,11 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
        * no sibling exists for the requested locale. Screen readers and search
        * engines see the real content language, not the URL locale.
        *
-       * P6a §6.1: var(--font-thai) appended after --font-mono in the inline style.
-       * Thai codepoints in MDX body paragraphs resolve to Noto Serif Thai; Latin
-       * stays JetBrains Mono. The CSS rule at .wl-body .wlc-p already carries this
-       * fallback — the inline style on the wrapper div mirrors it for the rare case
+       * P6b §6.1: var(--font-thai-body) (IBM Plex Sans Thai) appended after --font-mono.
+       * IBM Plex Sans Thai matches JetBrains Mono's even/technical-calm register —
+       * both are designed for the same visual temperature. Thai body text reads at
+       * the same instrument weight as Latin body text. The CSS rule at .wl-body .wlc-p
+       * already carries this fallback — the inline style mirrors it for rare cases
        * where body content is rendered outside the .wlc-p class.
        *
        * TODO(Procyon): Wire MDX body rendering via velite `body` field.
@@ -268,7 +270,7 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
         <div
           className="wl-body"
           style={{
-            fontFamily: 'var(--font-mono), var(--font-thai)',
+            fontFamily: 'var(--font-mono), var(--font-thai-body)',
             fontSize: '13.5px',
             lineHeight: 1.75,
             color: 'var(--ink-primary)',

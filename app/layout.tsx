@@ -22,9 +22,10 @@
 import type { Metadata } from 'next'
 import {
   Cormorant_Garamond,
+  IBM_Plex_Sans_Thai,
   JetBrains_Mono,
-  Noto_Serif_Thai,
   Special_Elite,
+  Trirong,
 } from 'next/font/google'
 import './globals.css'
 
@@ -50,17 +51,38 @@ const elite = Special_Elite({
   display: 'swap',
 })
 
-// P6a — Noto Serif Thai for Thai-script content rendering.
-// next/font injects the CSS variable --font-noto-thai on <html>.
-// globals.css @theme block maps --font-thai to var(--font-noto-thai) so
-// fallback chains (body/title stacks) can append var(--font-thai) AFTER
-// the Latin families: Latin glyphs resolve first; Thai glyphs resolve only
-// for codepoints the Latin family has no coverage for.
-// subsets: ['thai'] — no Latin subset needed; the other three families cover Latin.
-const notoSerifThai = Noto_Serif_Thai({
-  variable: '--font-noto-thai',
+// Bilingual type system — TWO Thai fonts, one per Latin register.
+//
+// --font-ibm-plex-thai (body register)
+//   IBM Plex Sans Thai pairs with JetBrains Mono: both are designed for
+//   technical/even-weight environments. Low contrast, humanist structure,
+//   even stroke weight. weight 500 (medium) compensates for Thai's optical
+//   thinness relative to JetBrains Mono's even 400.
+//
+// --font-trirong (display register)
+//   Trirong Light (weight 300) pairs with Cormorant Garamond: both are
+//   high-contrast, literary serifs. weight 300 prevents Thai headings from
+//   punching heavier than Cormorant's already-light italic.
+//
+// Design token mapping in globals.css @theme:
+//   --font-thai-body    → var(--font-ibm-plex-thai)
+//   --font-thai-display → var(--font-trirong)
+//
+// The old --font-noto-thai / --font-thai single token is retired:
+//   one Thai font cannot serve two distinct Latin registers (mono body
+//   vs Cormorant display) without creating the voice mismatch Peat observed.
+
+const ibmPlexSansThai = IBM_Plex_Sans_Thai({
+  variable: '--font-ibm-plex-thai',
   subsets: ['thai'],
   weight: ['400', '500'],
+  display: 'swap',
+})
+
+const trirong = Trirong({
+  variable: '--font-trirong',
+  subsets: ['thai'],
+  weight: ['300', '400'],
   display: 'swap',
 })
 
@@ -76,7 +98,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${cormorant.variable} ${jetbrains.variable} ${elite.variable} ${notoSerifThai.variable} h-full antialiased`}
+      className={`${cormorant.variable} ${jetbrains.variable} ${elite.variable} ${ibmPlexSansThai.variable} ${trirong.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         {children}

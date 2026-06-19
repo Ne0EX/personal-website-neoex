@@ -175,12 +175,38 @@
   --font-display: var(--font-cormorant), 'Cormorant Garamond', serif;
   --font-mono:    var(--font-jetbrains), 'JetBrains Mono', ui-monospace, monospace;
   --font-type:    var(--font-elite),     'Special Elite', ui-monospace, monospace;
-  /* P6a — Thai script supplement. Appended AFTER Latin families in body/title stacks
-     so Latin glyphs resolve first; Thai glyphs resolve only for Thai codepoints.
-     next/font injects --font-noto-thai on <html> (variable: '--font-noto-thai').
-     This @theme token maps it to the canonical --font-thai design token name.
-     Never used as the sole family — always a fallback tail after the Latin family. */
-  --font-thai:    var(--font-noto-thai), 'Noto Serif Thai', serif;
+
+  /* ── Bilingual type system (P6b) ────────────────────────────────────────────
+     One Thai font cannot serve two distinct Latin registers.
+     JetBrains Mono body and Cormorant display have different visual signatures;
+     a single Thai serif against both produces the voice mismatch Peat observed:
+     "Thai body reads thinner than mono; Thai headings punch heavier than Cormorant."
+
+     The fix: two Thai tokens, each matched to its Latin register by character.
+
+     --font-thai-body (→ IBM Plex Sans Thai)
+       IBM Plex Sans Thai was designed as companion to IBM Plex Mono.
+       Low contrast, even stroke weight, humanist structure.
+       Sits in the same technical-calm register as JetBrains Mono.
+       Used at weight 500 in body context — Thai optical thinness compensated.
+       Fallback chain: var(--font-ibm-plex-thai), 'IBM Plex Sans Thai', sans-serif
+
+     --font-thai-display (→ Trirong)
+       Trirong Light/Regular is a high-contrast Thai serif, literary in character.
+       Mirrors Cormorant Garamond's editorial, high-contrast, light structure.
+       Used at weight 300 so Thai headings do not punch heavier than Cormorant italic.
+       Fallback chain: var(--font-trirong), 'Trirong', serif
+
+     Usage:
+       Body chains   (mono register) → append var(--font-thai-body) after var(--font-mono)
+       Display chains (serif register) → append var(--font-thai-display) after var(--font-display)
+
+     next/font injects --font-ibm-plex-thai and --font-trirong on <html>
+     (see layout.tsx). The fallback strings below are the Google Fonts CSS names
+     as failsafe in case next/font has not yet hydrated.
+     ──────────────────────────────────────────────────────────────────────────── */
+  --font-thai-body:    var(--font-ibm-plex-thai), 'IBM Plex Sans Thai', sans-serif;
+  --font-thai-display: var(--font-trirong),        'Trirong', serif;
 }
 
 /* =============================================================
@@ -1749,10 +1775,16 @@ body {
 
 /* Paragraph */
 .wl-body .wlc-p {
-  /* P6a: var(--font-thai) appended AFTER mono so Latin glyphs resolve via JetBrains Mono
-     and Thai codepoints fall through to Noto Serif Thai. One design language — the
-     mono register governs all Latin; Thai content reads as the serif instrument register. */
-  font-family: var(--font-mono), var(--font-thai);
+  /* P6b: --font-thai-body (IBM Plex Sans Thai) appended AFTER mono.
+     IBM Plex Sans Thai's even stroke weight and humanist structure match JetBrains
+     Mono's technical-calm register — both designed for the same visual temperature.
+     Latin glyphs resolve first via JetBrains Mono; Thai codepoints fall through to
+     IBM Plex Sans Thai. One writer, one voice — the body feels even in both scripts.
+
+     Rhythm note: IBM Plex Sans Thai at 13.5px needs line-height 1.85 (vs 1.75 Latin)
+     to breathe equally — Thai's vowel marks + loops add vertical complexity that
+     Latin mono lacks. The +0.1 line-height is matched by a Thai-specific override below. */
+  font-family: var(--font-mono), var(--font-thai-body);
   font-size: var(--body-size);     /* 13.5px */
   line-height: 1.75;
   letter-spacing: 0.01em;
@@ -1760,9 +1792,20 @@ body {
   margin: 0 0 1.5em;              /* ~1 line-gap below; 0 top so stacking does not double */
 }
 
+/* Thai body rhythm override — :lang(th) scoped for paragraph content */
+:lang(th) .wl-body .wlc-p,
+.wl-body .wlc-p:lang(th) {
+  line-height: 1.85;    /* +0.1 vs Latin mono — vowel marks + loops need breathing room */
+  font-weight: 500;     /* IBM Plex Sans Thai medium — compensates optical thinness vs mono 400 */
+  letter-spacing: 0;    /* Thai tracking at 0 — Thai does not kern like Latin mono at 0.01em */
+}
+
 /* Heading h2 — section title (VOICE register, Cormorant italic) */
 .wl-body .wlc-h2 {
-  font-family: var(--font-display);
+  /* P6b: --font-thai-display (Trirong) fallback after Cormorant.
+     Trirong is a high-contrast Thai serif — same literary register as Cormorant.
+     weight 300 (light) so Thai h2 does not punch heavier than Cormorant italic 500. */
+  font-family: var(--font-display), var(--font-thai-display);
   font-style: italic;
   font-weight: 500;
   font-size: 25px;
@@ -1774,13 +1817,34 @@ body {
 
 /* Heading h3 — sub-section (VOICE register) */
 .wl-body .wlc-h3 {
-  font-family: var(--font-display);
+  /* P6b: same Trirong display fallback as h2 */
+  font-family: var(--font-display), var(--font-thai-display);
   font-style: italic;
   font-weight: 500;
   font-size: 19px;
   line-height: 1.25;
   color: var(--ink-primary);
   margin: 1.8em 0 0.5em;
+}
+
+/* Thai heading rhythm overrides — Trirong Light for display register.
+   Cormorant italic 500 is already optically light; Trirong 300 (light weight)
+   must be matched explicitly so Thai h2/h3 does not punch heavier.
+   font-style: normal for Thai — Trirong italic is not a Thai script concept. */
+:lang(th) .wl-body .wlc-h2,
+.wl-body .wlc-h2:lang(th) {
+  font-weight: 300;   /* Trirong Light — matches Cormorant's optical lightness */
+  font-style: normal; /* Thai script has no italic axis; avoid faux-italic */
+  line-height: 1.3;   /* Thai h2 needs slightly more line-height than Latin 1.2 */
+  letter-spacing: -0.005em;
+}
+
+:lang(th) .wl-body .wlc-h3,
+.wl-body .wlc-h3:lang(th) {
+  font-weight: 300;
+  font-style: normal;
+  line-height: 1.35;
+  letter-spacing: -0.005em;
 }
 
 /* Pagebreak hr — THE THEMATIC BREAK.
@@ -1953,14 +2017,23 @@ body {
    NOT italic. NOT Cormorant. Instrument-register prose —
    the body lede is Cormorant italic, earned by reading further.
    Mono + ink-body is unmistakably distinct from the serif lede.
-   P6a: var(--font-thai) appended as fallback — Thai summary text resolves to
-   Noto Serif Thai while Latin summary text stays in the mono register. */
+   P6b: var(--font-thai-body) (IBM Plex Sans Thai) as fallback —
+   matches mono's even technical register. Thai summary text reads
+   at the same calm-instrument temperature as the Latin mono. */
 .wl-summary__body {
-  font-family: var(--font-mono), var(--font-thai);
+  font-family: var(--font-mono), var(--font-thai-body);
   font-size: 12.5px;
   line-height: 1.7;
   color: var(--ink-body);
   /* max 3 lines is soft guidance; no CSS clamp — data layer guards */
+}
+
+/* Thai summary rhythm */
+:lang(th) .wl-summary__body,
+.wl-summary__body:lang(th) {
+  line-height: 1.82;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 /* .wl-summary__seam is RETIRED — the dashed frame closes the block.
