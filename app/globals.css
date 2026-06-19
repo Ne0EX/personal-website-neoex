@@ -1795,8 +1795,12 @@ body {
 /* Thai body rhythm override — :lang(th) scoped for paragraph content */
 :lang(th) .wl-body .wlc-p,
 .wl-body .wlc-p:lang(th) {
+  font-size: 15.5px;    /* Thai glyphs (vowel marks, tone marks, loops) need more optical size
+                           than Latin at equal px — reviewer confirmed 15.5–16px comfortable;
+                           EN mono body stays at --body-size (13.5px), untouched */
   line-height: 1.85;    /* +0.1 vs Latin mono — vowel marks + loops need breathing room */
-  font-weight: 500;     /* IBM Plex Sans Thai medium — compensates optical thinness vs mono 400 */
+  font-weight: 450;     /* 500 read heavy at 15.5px; 450 is comfortable long-form weight
+                           while still compensating IBM Plex Sans Thai optical thinness */
   letter-spacing: 0;    /* Thai tracking at 0 — Thai does not kern like Latin mono at 0.01em */
 }
 
@@ -2032,8 +2036,11 @@ body {
 /* Thai summary rhythm */
 :lang(th) .wl-summary__body,
 .wl-summary__body:lang(th) {
+  font-size: 15px;      /* summary was ~12.5px — same thinness problem as body; 15px brings
+                           it into comfortable optical range while staying one notch smaller
+                           than the body (15.5px) to preserve the summary-vs-body hierarchy */
   line-height: 1.82;
-  font-weight: 500;
+  font-weight: 450;     /* matched to body weight at new size — comfortable, not heavy */
   letter-spacing: 0;
 }
 
