@@ -247,6 +247,12 @@ export const config = {
     // list is static. The redirect-loop guard (pathname.startsWith('/en')) inside
     // the proxy function short-circuits before any locale resolution — dynamic guard
     // is correct here, static exclusion is not required (and would be fragile).
-    '/((?!_next/static|_next/image|api|console|favicon\\.ico|sitemap\\.xml|robots\\.txt).*)',
+    //
+    // `.*\\..*` excludes any path that contains a dot (e.g. /textures/earth.jpg,
+    // /favicon.ico, /*.json, /*.png, /*.css). All real content routes use dot-free
+    // slugs (articles → \d{3}, fiction → kebab, photos → roll/DSCF\d+) so this
+    // pattern cannot accidentally eat a real page. The three named dotted files are
+    // redundant once `.*\\..*` is present but are retained for clarity.
+    '/((?!_next/static|_next/image|api|console|favicon\\.ico|sitemap\\.xml|robots\\.txt|.*\\..*).*)',
   ],
 }

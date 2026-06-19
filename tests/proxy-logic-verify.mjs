@@ -100,6 +100,68 @@ const tests = [
     '/en/foo/bar', null, null, null, 'guard', null],
 ]
 
+// ---------------------------------------------------------------------------
+// Matcher regex assertions — verify the config.matcher pattern is correct.
+// The source must match what is in proxy.ts config.matcher[1].
+// ---------------------------------------------------------------------------
+const MATCHER_SOURCE =
+  '/((?!_next/static|_next/image|api|console|favicon\\.ico|sitemap\\.xml|robots\\.txt|.*\\..*).*)'
+
+const matcherRe = new RegExp('^' + MATCHER_SOURCE.slice(1)) // strip leading '/' anchor implicit in Next
+
+// Paths the matcher MUST exclude (proxy should NOT run — static assets / dotted files)
+const mustExclude = [
+  '/textures/earth_specular_2048.jpg',
+  '/favicon.ico',
+  '/sitemap.xml',
+  '/robots.txt',
+  '/images/hero.png',
+  '/styles/global.css',
+  '/data/feed.json',
+]
+
+// Paths the matcher MUST match (proxy SHOULD run — real content routes)
+const mustMatch = [
+  '/',
+  '/articles/002',
+  '/th',
+  '/th/articles/002',
+  '/photos/2026-05-bangkok/DSCF0002',
+  '/fiction/transmission-001',
+  '/archive',
+]
+
+console.log('\n--- Matcher regex assertions ---')
+let matcherPassed = 0
+let matcherFailed = 0
+
+for (const p of mustExclude) {
+  const matched = matcherRe.test(p.slice(1)) // RegExp anchors against path-without-leading-slash
+  if (!matched) {
+    console.log(`  PASS  [excluded] ${p}`)
+    matcherPassed++
+  } else {
+    console.log(`  FAIL  [should be excluded but matched] ${p}`)
+    matcherFailed++
+  }
+}
+
+for (const p of mustMatch) {
+  const matched = matcherRe.test(p.slice(1))
+  if (matched) {
+    console.log(`  PASS  [matched]  ${p}`)
+    matcherPassed++
+  } else {
+    console.log(`  FAIL  [should match but excluded] ${p}`)
+    matcherFailed++
+  }
+}
+
+console.log(`\nMatcher assertions: ${matcherPassed}/${matcherPassed + matcherFailed} passed.`)
+if (matcherFailed > 0) process.exit(1)
+
+// ---------------------------------------------------------------------------
+
 let passed = 0
 let failed = 0
 
