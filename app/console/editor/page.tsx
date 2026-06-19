@@ -286,6 +286,7 @@ export default async function ArticleEditorPage({
 
   return (
     <EntryEditor
+      key={`${entryKind ?? 'unknown'}-${typeof slug === 'string' ? slug : ''}-${activeLang}`}
       initialDraft={initialDraft ?? undefined}
       kind={entryKind}
       initialPhoto={photoCtx?.photo}
