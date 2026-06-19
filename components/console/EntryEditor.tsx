@@ -363,6 +363,68 @@ const EDITOR_CSS = `
   outline-offset: 2px;
 }
 
+/* ── body-save affordance (.ed-save) ─────────────────────────────────────────
+   Four states, one class. Dirty = call-to-action (orange dashed border, orange
+   text — the same vocabulary as .ed-tb-action on hover, made the resting state
+   because there is something to act on). Saved = calm confirmation. Saving =
+   muted. Clean/idle-with-nothing = quiet (not rendered when onSave is absent).
+
+   Uses the existing token + typography stack; no raw hex, no new sizes.       */
+.ed-save {
+  appearance: none;
+  background: transparent;
+  border: 1px dashed var(--accent-orange);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent-orange);
+  padding: 5px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+.ed-save:hover,
+.ed-save:focus-visible {
+  background: var(--accent-orange);
+  color: var(--paper-bright);
+  border-color: var(--accent-orange);
+  outline: none;
+}
+.ed-save:focus-visible {
+  outline: 1px dashed var(--accent-orange);
+  outline-offset: 2px;
+}
+/* saved — calm confirmation; drop the border, soften the ink */
+.ed-save.is-saved {
+  border-color: transparent;
+  color: var(--ink-soft);
+  cursor: default;
+}
+.ed-save.is-saved:hover,
+.ed-save.is-saved:focus-visible {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-soft);
+}
+/* saving — muted, not-allowed cursor, no border */
+.ed-save.is-saving {
+  border-color: transparent;
+  color: var(--ink-faint);
+  cursor: not-allowed;
+}
+.ed-save.is-saving:hover,
+.ed-save.is-saving:focus-visible {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-faint);
+}
+/* error — accent-orange bare (same as legacy, already readable) */
+.ed-save.is-error {
+  border-color: var(--accent-orange);
+  color: var(--accent-orange);
+}
+
 /* ── VIEW mode toggle (SOURCE | PREVIEW | SPLIT) — filled-ink active ── */
 .ed-modes { display: flex; border: 1px solid var(--ink-hairline); }
 .ed-mode {
@@ -1853,15 +1915,12 @@ function ArticleSourcePane({
               type="button"
               onClick={onSave}
               disabled={saveStatus === 'saving'}
-              style={{
-                appearance: 'none', background: 'transparent', border: 'none',
-                fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.22em',
-                textTransform: 'uppercase',
-                color: saveStatus === 'error' ? 'var(--accent-orange)'
-                  : saveStatus === 'saved' ? 'var(--ink-primary)'
-                  : 'var(--ink-faint)',
-                cursor: saveStatus === 'saving' ? 'not-allowed' : 'pointer', padding: 0,
-              }}
+              className={[
+                'ed-save',
+                saveStatus === 'saving' ? 'is-saving' : '',
+                saveStatus === 'saved'  ? 'is-saved'  : '',
+                saveStatus === 'error'  ? 'is-error'  : '',
+              ].filter(Boolean).join(' ')}
               aria-label="save body to store"
               title="CMD+S to save"
             >
