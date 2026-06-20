@@ -2607,32 +2607,67 @@ function PlaceFrontDoorPanel(props: {
 
   const panelLabel = place ? `${place.name} highlights` : "place highlights";
 
+  // Mobile bottom-sheet: detect viewport ≤600px. Hydration-safe — starts false
+  // on server, corrects on mount (panel only shows after user interaction, so
+  // the one-frame mismatch is invisible). α-SUR-01 2026-06-21.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width:600px)");
+    const on = () => setIsMobile(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+
+  // Shared tokens — identical on both form factors.
+  const sharedStyle = {
+    background: "var(--paper-warm)",
+    border: "1px solid var(--ink-primary)",
+    padding: "18px 20px",
+    boxShadow: "3px 3px 0 rgba(31,80,99,0.16)",
+    opacity: open ? 1 : 0,
+    transition: reducedMotion
+      ? "none"
+      : "transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 320ms ease-out",
+    pointerEvents: (open ? "auto" : "none") as React.CSSProperties["pointerEvents"],
+  };
+
+  // Desktop right-rail — pixel-identical to the pre-mobile-native state.
+  const desktopStyle: React.CSSProperties = {
+    ...sharedStyle,
+    position: "absolute",
+    top: 78,
+    right: 22,
+    // Fix #1: panel must not cover the NEXT NODE (⟶) button in atlas-foot.
+    // The footer (atlas-foot-row + atlas-netra-voice) sits at the bottom of the
+    // frame. We anchor the panel above it with bottom: 124 so the full NETRA
+    // console + voice strip remain fully visible and clickable when a panel is open.
+    bottom: 124,
+    width: "min(46%, 360px)",
+    transform: open ? "translateX(0)" : "translateX(calc(100% + 30px))",
+  };
+
+  // Mobile bottom-sheet — escapes the atlas-frame via position:fixed (the frame
+  // has no CSS transform, so fixed is viewport-relative). Slides from the bottom.
+  // maxHeight is short for the summary state; expands to scroll when dig is open.
+  const mobileStyle: React.CSSProperties = {
+    ...sharedStyle,
+    position: "fixed",
+    left: "max(8px, env(safe-area-inset-left))",
+    right: "max(8px, env(safe-area-inset-right))",
+    bottom: "max(8px, env(safe-area-inset-bottom))",
+    top: "auto",
+    width: "auto",
+    maxHeight: digOpen ? "72vh" : "46vh",
+    transform: open ? "translateY(0)" : "translateY(110%)",
+  };
+
   return (
     <section
-      className="absolute z-[6] flex flex-col overflow-y-auto"
+      className="z-[6] flex flex-col overflow-y-auto"
       aria-label={panelLabel}
       aria-hidden={!open}
-      style={{
-        top: 78,
-        right: 22,
-        // Fix #1: panel must not cover the NEXT NODE (⟶) button in atlas-foot.
-        // The footer (atlas-foot-row + atlas-netra-voice) sits at the bottom of the
-        // frame. We anchor the panel above it with bottom: 124 so the full NETRA
-        // console + voice strip remain fully visible and clickable when a panel is open.
-        bottom: 124,
-        width: "min(46%, 360px)",
-        background: "var(--paper-warm)",
-        border: "1px solid var(--ink-primary)",
-        padding: "18px 20px",
-        boxShadow: "3px 3px 0 rgba(31,80,99,0.16)",
-        transform: open ? "translateX(0)" : "translateX(calc(100% + 30px))",
-        opacity: open ? 1 : 0,
-        // Spec §8: reduced motion → instant (no slide/fade).
-        transition: reducedMotion
-          ? "none"
-          : "transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 320ms ease-out",
-        pointerEvents: open ? "auto" : "none",
-      }}
+      style={isMobile ? mobileStyle : desktopStyle}
     >
       {/* CW-15 · ESC button touch target (ux-journey, α-SUR-01, 2026-06-14)
           Was 44×17px. minHeight:44px + display:flex + alignItems:center → ≥44px.
