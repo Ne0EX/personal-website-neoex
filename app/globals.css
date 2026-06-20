@@ -1364,6 +1364,49 @@ body {
   background: linear-gradient(to right, rgb(var(--ink-rgb) / 0.25), transparent);
 }
 
+/* ── MOBILE DOCK — atlas-mobile-dock (α-VIS-04, 2026-06-21)
+   Desktop: hidden. ≤600px: replaces the verbose strata sidebar with a
+   compact chip row + NEXT NODE jump, ordered UNDER the globe. */
+.atlas-mobile-dock { display: none; }
+
+.atlas-mobile-dock-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 5px; min-height: 44px; padding: 0 10px; flex: 1 1 0;
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-soft); background: transparent;
+  border: 1px dashed rgb(var(--ink-rgb) / 0.30);
+  transition: border-color 140ms ease, color 140ms ease;
+}
+.atlas-mobile-dock-chip .glyph {
+  font-size: 12px; line-height: 1;
+}
+.atlas-mobile-dock-chip:hover {
+  border-color: var(--accent-orange); color: var(--ink-primary);
+}
+.atlas-mobile-dock-chip.is-active {
+  border-style: solid; border-color: var(--accent-orange); color: var(--accent-orange);
+}
+.atlas-mobile-dock-chip:focus-visible {
+  outline: 1px dashed var(--accent-orange); outline-offset: 2px;
+}
+
+.atlas-mobile-dock-jump {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 44px; padding: 0 14px; flex: 0 0 auto;
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--accent-orange); background: transparent;
+  border: 1px solid var(--accent-orange);
+  transition: background 140ms ease, color 140ms ease;
+}
+.atlas-mobile-dock-jump:hover {
+  background: var(--accent-orange); color: var(--paper-base);
+}
+.atlas-mobile-dock-jump:focus-visible {
+  outline: 1px dashed var(--accent-orange); outline-offset: 2px;
+}
+
 .atlas-current {
   border-left: 2px solid var(--accent-orange);
   padding: 4px 0 4px 10px;
@@ -1810,6 +1853,29 @@ body {
   }
   main.paper-canvas {
     padding-right: 0;
+  }
+
+  /* ── ATLAS MOBILE REFLOW — ≤600px (α-VIS-04, 2026-06-21)
+     Stack order: globe → dock → current card → readout → foot.
+     The dock replaces the verbose sidebar strata list at phone width. */
+  .atlas-content {
+    display: flex; flex-direction: column; gap: 0;
+  }
+  .atlas-globe-wrap {
+    order: -2; /* globe FIRST */
+  }
+  .atlas-mobile-dock {
+    display: flex; align-items: stretch; gap: 5px;
+    order: -1; /* dock UNDER globe, BEFORE current card */
+    margin: 8px 0; padding: 8px 0;
+    border-top: 1px dashed rgb(var(--ink-rgb) / 0.22);
+    border-bottom: 1px dashed rgb(var(--ink-rgb) / 0.22);
+  }
+  /* Verbose strata sidebar hidden ≤600px — dock replaces it */
+  .atlas-strata-head,
+  .atlas-strata-list,
+  .atlas-divider {
+    display: none;
   }
 }
 

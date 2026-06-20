@@ -2450,6 +2450,39 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
               Rendering lat/lon here misframed α (identity-locus) as a Bangkok GPS pin. */}
         </div>
 
+        {/* Mobile dock — compact strata chips + NEXT NODE, co-located beneath the globe.
+            Spec: docs/design/23-mobile-atlas-reflow.md · α-VIS-04 · 2026-06-21
+            Hidden >600px via CSS. The verbose .atlas-strata-list is display:none ≤600px
+            (removed from a11y tree), so only one stratum control set is active per breakpoint. */}
+        <div className="atlas-mobile-dock" aria-label="STRATUM CONTROLS">
+          {STRATA_BUTTONS.map((b) => {
+            const active = stratum === b.key;
+            return (
+              <button
+                key={b.key}
+                type="button"
+                onClick={() => setStratum(active ? "all" : b.key)}
+                className={`atlas-mobile-dock-chip${active ? " is-active" : ""}`}
+                aria-pressed={active}
+              >
+                <span className="glyph" aria-hidden>{b.glyph}</span>
+                <span>{b.id}</span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            className="atlas-mobile-dock-jump"
+            aria-label="Jump to next node"
+            onClick={() => {
+              const fn = (window as unknown as { __atlasNetraJump?: () => void }).__atlasNetraJump;
+              if (fn) fn();
+            }}
+          >
+            ⟶ NEXT NODE
+          </button>
+        </div>
+
         {/* RIGHT — stratum readout */}
         <aside className="atlas-readout">
           <div className="atlas-readout-head">§ STRATUM READOUT</div>
