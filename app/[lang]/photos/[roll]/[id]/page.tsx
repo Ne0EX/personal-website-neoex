@@ -15,6 +15,7 @@ import { Nav } from '@/components/Nav'
 import { MarginaliaHUD, ScrollMeter } from '@/components/MarginaliaHUD'
 import { CornerMarks } from '@/components/CornerMarks'
 import { PhotoEntry } from '@/components/PhotoEntry'
+import { PhotoSwipeViewer } from '@/components/PhotoSwipeViewer'
 import { WorldlineLinks } from '@/components/WorldlineLinks'
 
 import {
@@ -65,6 +66,15 @@ export default async function PhotoEntryPage({
   const sequenceIndex = rollPhotos.findIndex((s) => s.id === id)
   const rollTotal = rollPhotos.length
 
+  // S4 (mobile-native): compute prev/next hrefs for swipe navigation.
+  // URL shape mirrors the generateStaticParams output: /[lang]/photos/[roll]/[id].
+  // lang is always 'en' for photos (monolingual, PD5 — photos use the same [lang]
+  // segment for routing parity but do not localise content).
+  const prevPhoto = sequenceIndex > 0 ? rollPhotos[sequenceIndex - 1] : null
+  const nextPhoto = sequenceIndex < rollPhotos.length - 1 ? rollPhotos[sequenceIndex + 1] : null
+  const prevHref = prevPhoto ? `/en/photos/${prevPhoto.roll}/${prevPhoto.id}` : null
+  const nextHref = nextPhoto ? `/en/photos/${nextPhoto.roll}/${nextPhoto.id}` : null
+
   return (
     <PageShell>
       <main className="paper-canvas min-h-screen overflow-hidden pr-7">
@@ -94,11 +104,16 @@ export default async function PhotoEntryPage({
           data-section="photo-entry"
           style={{ marginTop: '14px', position: 'relative' }}
         >
-          <PhotoEntry
-            photo={photo}
-            sequenceIndex={sequenceIndex >= 0 ? sequenceIndex : 0}
-            rollTotal={rollTotal > 0 ? rollTotal : 1}
-          />
+          {/* S4: PhotoSwipeViewer is a client island that adds swipe-to-navigate on
+              phone (<600px). Desktop (≥600px) renders children inert. The server
+              PhotoEntry content (film-sim switcher + NETRA) is unchanged. */}
+          <PhotoSwipeViewer prevHref={prevHref} nextHref={nextHref}>
+            <PhotoEntry
+              photo={photo}
+              sequenceIndex={sequenceIndex >= 0 ? sequenceIndex : 0}
+              rollTotal={rollTotal > 0 ? rollTotal : 1}
+            />
+          </PhotoSwipeViewer>
 
           <WorldlineLinks
             kind="photo"

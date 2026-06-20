@@ -165,3 +165,29 @@
 @media (prefers-reduced-motion: reduce) {
   .gv-mode { transition-duration: 0.001ms !important; }
 }
+
+/* ── S5-CSS · Gallery caption always-visible on touch/phone ─────────────────
+   S5 (mobile-native, α-VIS-04, 2026-06-20)
+
+   Caption is SIGNAL (Cormorant italic, photo intent text) — not decorative.
+   On hover-capable devices the caption fades in via inline opacity:0→1 in
+   GalleryGrid.tsx (isHovered state). On touch/phone there is no hover state;
+   the caption stays at opacity:0 permanently without this rule.
+
+   FIX: override the inline opacity at ≤600px so captions are always visible.
+   !important is required because the inline style has higher CSS specificity.
+
+   CLASS-NAME CONTRACT:
+   Sirius must add className="gv-cap" to the caption <div> in GalleryGrid.tsx
+   wherever photo.caption is rendered (three view modes: TIMELINE, FLAT, PLACE).
+   The inline opacity / transition stays in the .tsx so desktop hover behaviour
+   is unchanged — this ≤600px rule simply wins over it on phone.
+
+   Decorative hovers (entry-card marching underline, result-row glow, locale
+   hover color) are left as-is per plan: those are visual rewards, not signal.
+   Only the caption overrides here because it carries meaning. */
+@media (max-width: 600px) {
+  .gv-cap {
+    opacity: 1 !important;
+  }
+}

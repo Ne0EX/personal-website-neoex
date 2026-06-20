@@ -271,7 +271,17 @@ body {
    ============================================================= */
 .corner-marks {
   position: absolute;
-  inset: 16px;
+  /* S2 · safe-area inset (mobile-native, α-VIS-04, 2026-06-20)
+     max(16px, env(safe-area-inset-*)) keeps the reticles at the 16px
+     desktop gutter on devices with no notch, but pulls them inward by
+     the Dynamic Island / home-indicator clearance on iPhone 14+/17.
+     Requires viewport-fit=cover in the Next.js Viewport export (F1,
+     Canopus) to make env() resolve. Reticles stay VISIBLE as the
+     instrument signature — they shift inward, not hidden. */
+  inset: max(16px, env(safe-area-inset-top))
+         max(16px, env(safe-area-inset-right))
+         max(16px, env(safe-area-inset-bottom))
+         max(16px, env(safe-area-inset-left));
   pointer-events: none;
   z-index: 4;
 }
@@ -413,7 +423,12 @@ body {
 /* Top scroll meter — marching dashes filling left → right */
 .scroll-meter {
   position: fixed;
-  top: 0;
+  /* S2 · safe-area top (mobile-native, α-VIS-04, 2026-06-20)
+     env(safe-area-inset-top) clears the Dynamic Island on notched phones.
+     Requires viewport-fit=cover (F1, Canopus). Falls back to 0 on non-notched
+     devices where env() resolves to 0. Meter stays VISIBLE — it shifts down
+     to clear the hardware chrome. */
+  top: env(safe-area-inset-top);
   left: 0;
   right: 28px; /* leave room for marginalia */
   height: 2px;
@@ -707,9 +722,14 @@ body {
 /* CW-08 + CW-16 + CW-04 · MOBILE-ONLY touch-target enlargements
    (footer-raf, α-SUR-01, 2026-06-14)
 
-   These three enlargements were previously applied at ALL viewports (inline
-   styles or an unscoped rule), causing density regressions on desktop. Each
-   CW is now scoped to ≤768px so desktop retains the original tight spacing.
+   F2 MIGRATION (mobile-native, α-VIS-04, 2026-06-20):
+   Touch-target block migrated from ≤768px → ≤900px (canonical tablet tier).
+   Rationale: tablets on touch interfaces need ≥44px targets equally; 768px
+   missed the 769–900px window where finger-driven tablets live. The archive-grid
+   layout tweak at ≤768px (CW-01, .archive-body single-col) is intentionally
+   left at 768px — it is a LAYOUT shift, not a touch-target, and the archive
+   gained its own responsive design at that threshold first (documented as legacy
+   tablet tweak; adjusting it is a separate surface decision, not part of F2).
 
    CW-08 · .footer-channel-link — footer CHANNELS + TRANSMIT link tap zone.
      Inline paddingBlock:"18px" removed from FooterManifesto.tsx; replaced by
@@ -724,12 +744,14 @@ body {
    CW-04 · .nav-links a — nav link tap zone.
      padding-block:15px was added to the global .nav-links a rule but has no
      visual benefit on desktop where the nav-shell grid already provides height.
-     Moved here so desktop links keep the original 0 padding-block. */
+     Desktop .nav-shell is hidden ≤600px (see S3 nav-slim block below);
+     at 601–900px .nav-shell is still shown, and these larger tap targets
+     are useful on portrait tablets. */
 .footer-channel-link {
   display: block;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .footer-channel-link {
     padding-block: 18px;
   }
@@ -1383,6 +1405,29 @@ body {
   position: absolute; inset: 0;
   width: 100%; height: 100%; display: block;
 }
+
+/* S1-CSS · Globe pan-y gesture split (mobile-native, α-VIS-04, 2026-06-20)
+   On coarse-pointer (touch) devices the main globe canvas receives
+   touch-action:pan-y so the browser handles vertical scroll through the
+   canvas while Three.js only captures horizontal drags (Y-axis rotation).
+   Scoped to pointer:coarse rather than max-width:600px so touch-enabled
+   tablets and touch-screen laptops get the same correct split.
+
+   SCOPE: .atlas-frame .atlas-globe-wrap canvas — the main globe only.
+   DO NOT apply to the mini-globe (.archive-mini-globe canvas or
+   ArchiveMiniGlobeThreeJS's wrapper) — the mini-globe is a bounded
+   pan-able panel that correctly uses touch-action:none (set inline in
+   ArchiveMiniGlobeThreeJS.tsx). This rule cannot reach the mini-globe
+   because the mini-globe is not a descendant of .atlas-frame.
+
+   CW-11 direction-guard (~WorldlineGlobe.tsx:1260) is kept as
+   belt-and-suspenders under pan-y; this CSS is the gesture hint to the
+   browser, the JS guard is the fallback for edge cases. */
+@media (pointer: coarse) {
+  .atlas-frame .atlas-globe-wrap canvas {
+    touch-action: pan-y;
+  }
+}
 .atlas-axis-label {
   position: absolute;
   font-family: var(--font-mono);
@@ -1740,15 +1785,261 @@ body {
     gap: 4px;
   }
 
-  /* Marginalia HUD takes too much room — hide on tiny screens */
+  /* S2 · Marginalia slim-to-hairline (mobile-native, α-VIS-04, 2026-06-20)
+     Previously display:none — that stripped the instrument signature entirely.
+     Now: collapse to a 1px hairline rail so the instrument edge survives on
+     phone as a dashed seam, but text children (vertical readout strings) are
+     hidden — they are unreadable at this width and the width has no room.
+     The hairline is the minimum viable instrument presence on phone:
+     "the soul-chrome adapted, not removed."
+     background:none removes the scanline texture (too heavy at 1px).
+     padding:0 removes the vertical spacing that expanded the 1px slot.
+     The right:0 / safe-area rule on .scroll-meter (below) compensates for
+     the marginalia no longer claiming 28px on the right edge. */
   .marginalia {
+    width: 1px;
+    padding: 0;
+    border-left: 1px dashed var(--ink-dashed);
+    background: none;
+  }
+  .marginalia > * {
     display: none;
   }
   .scroll-meter {
-    right: 0;
+    right: 1px; /* clear the 1px hairline marginalia */
   }
   main.paper-canvas {
     padding-right: 0;
+  }
+}
+
+/* =============================================================
+   S3 · Nav slim bar — ≤600px phone navigation
+   (mobile-native, α-VIS-04, 2026-06-20)
+
+   CLASS-NAME CONTRACT (for Sirius / Nav.tsx implementation):
+   ─────────────────────────────────────────────────────────────
+   .nav-shell       — EXISTING desktop nav wrapper. Hidden ≤600px.
+   .nav-slim        — NEW slim bar root. Hidden >600px. Always present
+                      in DOM; CSS show/hide. No JS breakpoint. Zero
+                      hydration flash.
+   .nav-slim-bar    — Inner bar: wordmark · stratum/clock · locale · search · menu.
+                      Single row, 100% width, items vertically centred.
+   .nav-slim-search — Search glyph button (⌖). onClick → dispatch
+                      CustomEvent("triangulate:open") on window.
+                      Min 44×44px tap target.
+   .nav-slim-menu-btn — Menu glyph button (☰). onClick → toggle
+                        .nav-slim.is-open class on the root element.
+                        Min 44×44px tap target.
+   .nav-slim-menu   — Collapsible panel holding the 5 NAV_ITEMS links.
+                      Open state: .nav-slim.is-open .nav-slim-menu.
+                      Panel height collapses to 0 when closed; expands
+                      to auto when open. CSS-only open/close via the
+                      .is-open class Sirius toggles via onClick in .tsx.
+   .nav-slim-link   — Each of the 5 NAV_ITEMS <a> tags inside .nav-slim-menu.
+                      Min 44px height tap target. t-meta register.
+
+   BREAKPOINT SHOW/HIDE:
+   ─────────────────────────────────────────────────────────────
+   .nav-shell  → visible >600px  /  hidden ≤600px  (via @media ≤600 below)
+   .nav-slim   → hidden  >600px  /  visible ≤600px (via @media ≤600 below)
+
+   INSTRUMENT LANGUAGE NOTES:
+   ─────────────────────────────────────────────────────────────
+   · Wordmark: t-meta-accent (accent-orange). Same as desktop nav-id first line.
+   · Clock/stratum: t-meta, ink-soft. Same register as desktop nav-clock.
+   · Locale toggle: LocaleSwitcher component — min-height bumped to 44px via
+     .nav-slim-bar .locale-switcher-root (see token override below).
+   · Glyph buttons: t-mono, ink-soft, 44×44px. Orange on hover/focus.
+   · Menu panel: paper-warm surface, dashed top hairline seam.
+   · Links: t-meta, ink-primary. Same as desktop nav-links.
+   · No shadow/gradient/rounded — instrument language.
+   ============================================================= */
+
+/* .nav-slim is hidden by default (>600px); only active inside the ≤600 query below. */
+.nav-slim {
+  display: none;
+}
+
+/* Slim bar root: paper-base surface with a section-rule bottom seam. */
+.nav-slim-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 16px;
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+  /* Safe-area top: keeps the bar below the Dynamic Island / notch. */
+  padding-top: env(safe-area-inset-top);
+  height: calc(44px + env(safe-area-inset-top));
+  background: var(--paper-base);
+  border-bottom: 1px dashed var(--ink-dashed);
+  position: relative;
+  z-index: 40;
+}
+
+/* Wordmark — left-most, accent orange, shrinks before anything else. */
+.nav-slim-wordmark {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent-orange);
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: none;
+}
+
+/* Stratum / clock readout — centre, flexible fill, shrinks freely. */
+.nav-slim-readout {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  padding: 0 8px;
+}
+
+/* Action cluster — locale + search glyph + menu glyph. Right-aligned, no gap shrink. */
+.nav-slim-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* Search + menu glyph buttons — 44×44px tap targets. */
+.nav-slim-search,
+.nav-slim-menu-btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--ink-soft);
+  transition: color 120ms ease;
+  padding: 0;
+  flex-shrink: 0;
+}
+.nav-slim-search:hover,
+.nav-slim-search:focus-visible,
+.nav-slim-menu-btn:hover,
+.nav-slim-menu-btn:focus-visible {
+  color: var(--accent-orange);
+  outline: none;
+}
+.nav-slim-search:focus-visible,
+.nav-slim-menu-btn:focus-visible {
+  outline: 1px dashed var(--accent-orange);
+  outline-offset: -2px;
+}
+
+/* Locale switcher tap-target enlargement inside slim bar.
+   LocaleSwitcher renders a <span> wrapping the toggle buttons.
+   The buttons themselves get min-height via this rule.
+   Sirius: apply .nav-slim-locale to the LocaleSwitcher wrapper in the slim bar. */
+.nav-slim-locale {
+  display: flex;
+  align-items: center;
+}
+.nav-slim-locale button {
+  min-height: 44px;
+  min-width: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Collapsible menu panel — links list. */
+.nav-slim-menu {
+  position: absolute;
+  top: 100%; /* pins below the slim bar */
+  left: 0;
+  right: 0;
+  background: var(--paper-warm);
+  border-bottom: 1px dashed var(--ink-dashed);
+  /* Collapse: zero max-height + overflow hidden. No display:none — keeps
+     the menu in the accessibility tree so focus management works cleanly. */
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 220ms cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 39;
+  padding-left: max(0px, env(safe-area-inset-left));
+  padding-right: max(0px, env(safe-area-inset-right));
+}
+
+/* Open state — toggled by Sirius via onClick adding .is-open to .nav-slim */
+.nav-slim.is-open .nav-slim-menu {
+  max-height: 320px; /* generous ceiling for 5 links at 44px each + padding */
+}
+
+/* Menu inner padding — breathing room above/below the link list. */
+.nav-slim-menu-inner {
+  padding: 8px 0 max(8px, env(safe-area-inset-bottom));
+}
+
+/* Individual nav link in the menu — t-meta register, ≥44px tap target. */
+.nav-slim-link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 max(24px, env(safe-area-inset-left));
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-primary);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--ink-hairline);
+  transition: color 120ms ease, background 120ms ease;
+}
+.nav-slim-link:last-child {
+  border-bottom: none;
+}
+.nav-slim-link:hover,
+.nav-slim-link:focus-visible {
+  color: var(--accent-orange);
+  background: rgb(var(--accent-orange-rgb) / 0.04);
+  outline: none;
+}
+.nav-slim-link:focus-visible {
+  outline: 1px dashed var(--accent-orange);
+  outline-offset: -2px;
+}
+
+/* ── BREAKPOINT TOGGLE ── */
+@media (max-width: 600px) {
+  /* Desktop nav: hide */
+  .nav-shell {
+    display: none;
+  }
+  /* Slim bar: show */
+  .nav-slim {
+    display: block;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+  }
+}
+@media (min-width: 601px) {
+  /* Slim bar: ensure hidden above phone breakpoint (belt-and-suspenders). */
+  .nav-slim {
+    display: none !important;
   }
 }
 

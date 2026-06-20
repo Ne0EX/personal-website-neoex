@@ -918,7 +918,47 @@ const EDITOR_CSS = `
   .ed-lc-toggle { transition: none; }
 }
 @media (pointer: coarse) {
-  .st-btn { padding: 12px 14px; }
+  /* A2: ≥44px tap targets on all toolbar controls under touch input.
+     Using min-height (not padding) so the visual height is guaranteed even if
+     font metrics change. The toolbar rows already meet 44px via min-height on
+     .ed-tb-row, but the individual buttons inside need explicit enforcement so
+     they are individually tappable (not just contained in a tall row). */
+  .st-btn,
+  .ed-kindtab,
+  .ed-mode,
+  .ed-srctoggle,
+  .ed-tb-action,
+  .ed-save,
+  .ed-lc-toggle,
+  .ed-lc-confirm-action,
+  .ed-lc-confirm-cancel {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* .ed-modes and .ed-kindtabs are flex containers — let them stretch to the
+     tallest child so the borders align with the button fill */
+  .ed-modes,
+  .ed-kindtabs {
+    align-items: stretch;
+  }
+}
+
+/* ── safe-area insets (A2) ─────────────────────────────────────────── */
+/* The .ed shell occupies the full viewport (100svh) on mobile. Without
+   env(safe-area-inset-*), content runs under the Dynamic Island (top) and
+   the home-indicator bar (bottom). viewport-fit=cover must be set in the
+   Next viewport export (F1 slice, app/layout.tsx) for env() to resolve.
+   Apply padding-top to the FIRST toolbar row so the row content clears the
+   notch/Dynamic Island; apply padding-bottom to the provenance footer so it
+   clears the home-indicator bar. Left/right safe areas are a no-op on the
+   editor shell (it doesn't have fixed horizontal edge chrome). */
+.ed-tb-row-1 {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.ed-prov {
+  padding-bottom: calc(7px + env(safe-area-inset-bottom, 0px));
 }
 
 /* ── breakpoints ───────────────────────────────────────────────────── */

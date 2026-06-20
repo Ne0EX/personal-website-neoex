@@ -1263,6 +1263,9 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
       lastX = e.clientX;
 
       // CW-11 touch direction guard: decide capture on first meaningful move.
+      // Belt-and-suspenders alongside touch-action:pan-y on the canvas (Betelgeuse S1 CSS):
+      // pan-y lets the browser own vertical scroll natively; this guard additionally
+      // prevents setPointerCapture from locking a vertical swipe into globe rotation.
       if (!captureDecided && e.pointerType === "touch" && captureId !== null) {
         const totalDx = Math.abs(e.clientX - startX);
         const totalDy = Math.abs(e.clientY - startY);
@@ -1968,7 +1971,12 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
     // Initial stratum.
     applyStratum("all");
 
-    // Render loop — setInterval for harness robustness.
+    // Render loop — converted from setInterval to requestAnimationFrame (S1 RAF pass).
+    // One synchronous tick() is called first so the harness can screenshot the initial frame
+    // without waiting for the first rAF callback (the original setInterval comment at this
+    // line noted "harness robustness" — the sync call preserves that guarantee).
+    // The CW-11 direction guard below (~onMoveDrag) remains as belt-and-suspenders;
+    // touch-action:pan-y (added by Betelgeuse in globals.css) now owns vertical scroll.
     let lastT = performance.now();
     const tick = () => {
       const now = performance.now();
@@ -2211,11 +2219,14 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
 
       renderer.render(scene, camera);
     };
-    const id = window.setInterval(tick, 16);
+    // Sync first frame — harness requires a rendered frame before its screenshot hook fires.
     tick();
+    let rafId = 0;
+    const loop = () => { tick(); rafId = requestAnimationFrame(loop); };
+    rafId = requestAnimationFrame(loop);
 
     return () => {
-      window.clearInterval(id);
+      cancelAnimationFrame(rafId);
       ro.disconnect();
       renderer.domElement.removeEventListener("pointerdown", onDown);
       renderer.domElement.removeEventListener("pointermove", onMoveDrag);
