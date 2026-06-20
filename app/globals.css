@@ -1691,6 +1691,71 @@ body {
 }
 
 /* =============================================================
+   S4 · STRATUM READOUT COLLAPSE — ≤600px expander
+   (mobile-native, α-VIS-04, 2026-06-21 · REVISED ancestor-class mechanism)
+
+   Philosophy: depth is earned. Globe + dock + current stratum card
+   are the primary mobile layer. Full telemetry (STRATUM READOUT block,
+   ATLAS FLOW steps, foot counts, NETRA console) is opt-in behind a
+   single tap. Always-visible: .atlas-current + .atlas-netra-voice.
+
+   MECHANISM: ancestor-class on .atlas-frame (no wrapper div).
+   aside.atlas-readout and footer > .atlas-foot-row are in DIFFERENT
+   parent elements (.atlas-content grid vs sibling footer), so a
+   single wrapper div is not feasible without DOM restructure.
+   Instead, Sirius toggles the class `readout-collapsed` on the
+   existing .atlas-frame element. CSS rules inside @media ≤600px
+   then target both elements directly.
+
+   CLASS-NAME CONTRACT (for Sirius / WorldlineGlobe.tsx):
+   ─────────────────────────────────────────────────────────────────
+   .atlas-readout-toggle
+     — The expander button. Mono instrument register. "§ READOUT ⌄".
+       Hidden on desktop (>600px, via base display:none rule below).
+       Shown on ≤600px (overridden to display:flex in @media ≤600).
+       Placement: immediately BEFORE aside.atlas-readout, inside the
+       .atlas-content flex column order on mobile. On ≤600px the
+       column reflow places it below .atlas-netra-voice and above
+       the readout block — exactly where the user expects the control.
+       Must carry: aria-expanded="false|true".
+       (No aria-controls needed without a wrapper id; aria-expanded
+       is sufficient. Sirius may add id="atlas-readout" on the aside
+       and aria-controls="atlas-readout" if desired — optional.)
+
+   readout-collapsed (class on .atlas-frame)
+     — Ancestor state class. Present by default on ≤600px (closed).
+       Removed when the user taps the toggle (open).
+       Sirius state: const [readoutOpen, setReadoutOpen] = useState(false);
+       className on .atlas-frame:
+         `atlas-frame${!readoutOpen ? ' readout-collapsed' : ''}`
+       On desktop (>600px): the class has NO effect — rules are scoped
+       inside @media (max-width: 600px). Desktop pixel-identical.
+
+   STATE CLASS:
+     · Closed (default ≤600): readout-collapsed on .atlas-frame
+     · Open: class absent from .atlas-frame
+
+   ARIA:
+     · Toggle button: aria-expanded={readoutOpen} ("false" / "true")
+     · Chevron: aria-hidden="true"
+   ─────────────────────────────────────────────────────────────────
+
+   DESKTOP: .atlas-readout-toggle is display:none (base rule, below).
+            readout-collapsed class has no effect outside ≤600px media.
+            All readout children render as today. Pixel-identical.
+
+   REDUCED-MOTION: display:none has no transition — no reduced-motion
+   special case needed. Content is hidden/shown instantly.
+   ============================================================= */
+
+/* Base: toggle button is hidden on desktop. */
+.atlas-readout-toggle {
+  display: none;
+}
+
+/* ≤600 · collapse rules live in the @media (max-width: 600px) block below */
+
+/* =============================================================
    Nav shell — top header with id strip / nav links / clock
    Replaces inline flex so it can reflow cleanly at mobile widths.
    ============================================================= */
@@ -1875,6 +1940,70 @@ body {
   .atlas-strata-head,
   .atlas-strata-list,
   .atlas-divider {
+    display: none;
+  }
+
+  /* ── S4 · STRATUM READOUT EXPANDER TOGGLE — ≤600px ──
+     The toggle button appears between .atlas-netra-voice and the
+     collapse wrapper. Instrument register: mono, 9px, uppercase,
+     dashed border seam, ink-soft default, orange on hover/focus.
+     ≥44px tap target enforced via min-height. The chevron glyph
+     (.arc-toggle-chevron) rotates 180° when the toggle carries
+     aria-expanded="true" (open state). */
+  .atlas-readout-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 44px;
+    padding: 0 12px;
+    margin-top: 6px;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    background: transparent;
+    border: none;
+    border-top: 1px dashed var(--ink-dashed);
+    cursor: pointer;
+    transition: color 140ms ease;
+    appearance: none;
+  }
+  .atlas-readout-toggle:hover,
+  .atlas-readout-toggle:focus-visible {
+    color: var(--accent-orange);
+    outline: none;
+  }
+  .atlas-readout-toggle:focus-visible {
+    outline: 1px dashed var(--accent-orange);
+    outline-offset: -2px;
+  }
+  /* Chevron glyph — rotates 180° when open */
+  .atlas-readout-toggle .arc-toggle-chevron {
+    font-size: 11px;
+    line-height: 1;
+    display: inline-block;
+    transition: transform 220ms cubic-bezier(0.4, 0, 0.2, 1);
+    margin-left: 8px;
+    flex-shrink: 0;
+  }
+  .atlas-readout-toggle[aria-expanded="true"] .arc-toggle-chevron {
+    transform: rotate(180deg);
+  }
+
+  /* ── S4 · ANCESTOR-CLASS COLLAPSE — ≤600px ──
+     When .atlas-frame carries readout-collapsed:
+       · aside.atlas-readout (inside .atlas-content grid) → hidden
+       · .atlas-foot-row (inside footer.atlas-foot, sibling of .atlas-content) → hidden
+     display:none is used: robust, no height-guessing, no transition
+     needed. Reduced-motion users get instant hide/show regardless.
+     The two elements are in DIFFERENT parent subtrees; targeting them
+     directly from the shared .atlas-frame ancestor is the only CSS
+     approach that doesn't require a DOM restructure. */
+  .atlas-frame.readout-collapsed .atlas-readout,
+  .atlas-frame.readout-collapsed .atlas-foot-row {
     display: none;
   }
 }
