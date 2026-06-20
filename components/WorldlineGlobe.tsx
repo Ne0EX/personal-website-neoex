@@ -850,12 +850,6 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
   // Branch voice — overrides stratum voice when NeX branching is active.
   // Q-F/Q-G lines from Vega (TASK-2026-05-17-VEGA-BRANCHING-VOICE).
   const [branchVoice, setBranchVoice] = useState<string | null>(null);
-  // Mobile readout expander — §STRATUM READOUT collapses on ≤600px, closed by
-  // default. CSS hides .atlas-readout + .atlas-foot-row via ancestor class;
-  // desktop ignores .readout-collapsed (the rule lives inside a ≤600 media
-  // block). docs/design/24-mobile-readout-collapse.md. α-SUR-01 2026-06-21.
-  const [readoutOpen, setReadoutOpen] = useState(false);
-
   const stratumRef = useRef<StratumKey>("all");
   const selectedIdRef = useRef<string | null>(null);
   // Mirror dig state for the once-bound keydown handler closure (same reason
@@ -2362,7 +2356,7 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
   }, [selectedId, placeSummaries]);
 
   return (
-    <div className={`atlas-frame${!readoutOpen ? " readout-collapsed" : ""}`}>
+    <div className="atlas-frame">
       {/* Frame head */}
       <header className="atlas-head">
         <div className="flex items-baseline gap-3">
@@ -2487,19 +2481,6 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
             ⟶ NEXT NODE
           </button>
         </div>
-
-        {/* Mobile readout expander — collapses §STRATUM READOUT + foot telemetry
-            behind a tap ≤600px (docs/design/24-mobile-readout-collapse.md). Hidden
-            >600 via CSS; desktop shows the full readout always. */}
-        <button
-          className="atlas-readout-toggle"
-          type="button"
-          aria-expanded={readoutOpen}
-          onClick={() => setReadoutOpen((o) => !o)}
-        >
-          <span>§ READOUT</span>
-          <span className="arc-toggle-chevron" aria-hidden="true">⌄</span>
-        </button>
 
         {/* RIGHT — stratum readout */}
         <aside className="atlas-readout">
