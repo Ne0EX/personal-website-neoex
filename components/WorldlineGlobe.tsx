@@ -1971,10 +1971,11 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
     // Initial stratum.
     applyStratum("all");
 
-    // Render loop — converted from setInterval to requestAnimationFrame (S1 RAF pass).
-    // One synchronous tick() is called first so the harness can screenshot the initial frame
-    // without waiting for the first rAF callback (the original setInterval comment at this
-    // line noted "harness robustness" — the sync call preserves that guarantee).
+    // Render loop — setInterval(tick, 16) for iOS Safari + harness robustness.
+    // rAF was tried in the S1 mobile pass but iOS Safari throttles/defers rAF under
+    // certain visibility conditions, leaving the canvas permanently blank after the sync
+    // first frame below. setInterval ticks unconditionally. One synchronous tick() is
+    // called first so the harness can screenshot the initial frame immediately.
     // The CW-11 direction guard below (~onMoveDrag) remains as belt-and-suspenders;
     // touch-action:pan-y (added by Betelgeuse in globals.css) now owns vertical scroll.
     let lastT = performance.now();
@@ -2221,12 +2222,15 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
     };
     // Sync first frame — harness requires a rendered frame before its screenshot hook fires.
     tick();
-    let rafId = 0;
-    const loop = () => { tick(); rafId = requestAnimationFrame(loop); };
-    rafId = requestAnimationFrame(loop);
+    // setInterval chosen over requestAnimationFrame for iOS Safari robustness:
+    // iOS Safari can throttle/defer rAF so only the sync first frame above paints,
+    // then rAF never advances → permanent blank canvas. setInterval ticks reliably
+    // regardless of visibility/throttle policy. Original intent preserved from
+    // pre-mobile-pass ("harness robustness" comment).
+    const intervalId = window.setInterval(tick, 16);
 
     return () => {
-      cancelAnimationFrame(rafId);
+      window.clearInterval(intervalId);
       ro.disconnect();
       renderer.domElement.removeEventListener("pointerdown", onDown);
       renderer.domElement.removeEventListener("pointermove", onMoveDrag);
