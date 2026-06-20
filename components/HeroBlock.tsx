@@ -30,7 +30,36 @@ export function HeroBlock({ alphaCoord }: HeroBlockProps = {}) {
 
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) return;
+    if (reduce) {
+      // Reduce-motion: reveal every animated target immediately to their final
+      // resting state. Without this, elements that ship with opacity:0 would
+      // stay invisible forever (the animate() calls below are skipped).
+      if (tagRowRef.current) {
+        tagRowRef.current.style.opacity = "1";
+        tagRowRef.current.style.transform = "none";
+      }
+      if (titleRef.current) {
+        titleRef.current.style.opacity = "1";
+        titleRef.current.style.transform = "none";
+        titleRef.current.style.filter = "none";
+      }
+      if (subRef.current) {
+        subRef.current.style.opacity = "1";
+        subRef.current.style.transform = "none";
+      }
+      if (stackRef.current) {
+        stackRef.current.querySelectorAll<HTMLSpanElement>(".hero-stack-item").forEach((el) => {
+          el.style.opacity = "1";
+        });
+      }
+      if (atlasRef.current) {
+        // Reveal the atlas wrapper so WorldlineGlobe is visible.
+        // The globe's own RAF/tendril breathing respects its own reduce-motion
+        // path independently of this reveal.
+        atlasRef.current.style.opacity = "1";
+      }
+      return;
+    }
 
     if (tagRowRef.current) {
       animate(tagRowRef.current, {

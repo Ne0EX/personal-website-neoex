@@ -18,9 +18,11 @@ export function FooterManifesto() {
     <footer
       id="transmit"
       data-section="03"
-      className="relative z-[3] grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-8 px-10 py-12 t-meta tracking-[0.1em]"
+      className="relative z-[3] grid grid-cols-2 md:grid-cols-[2fr_1fr_1fr] gap-8 px-10 py-12 t-meta tracking-[0.1em]"
     >
-      <div>
+      {/* mobile-layout: col-span-2 makes MANIFESTO full-width on the 2-col mobile
+          grid; md: resets to auto so the 3-col [2fr_1fr_1fr] desktop takes over. */}
+      <div className="col-span-2 md:col-span-1">
         <h4 className="t-meta tracking-[0.3em] mb-3">{"//"} MANIFESTO</h4>
         {/* Legibility-register pass (α-VIS-04 / α-SUR-01, 2026-06-01):
             Elevated from <p> + --ink-soft (squint-tier) to <blockquote> +

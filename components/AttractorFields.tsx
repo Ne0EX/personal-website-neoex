@@ -42,7 +42,10 @@ export function AttractorFields({ activeAttractor, onSelect, memberCounts }: Pro
         <span>ATTRACTOR FIELDS // BROWSE BY DOMAIN</span>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      {/* mobile-layout: 3-col uniform grid so pills align evenly and nothing
+          orphans. sm: reverts to the original flex-wrap for tablet+desktop.
+          Each cell is equal-width; pills fill the cell with w-full + justify-center. */}
+      <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:gap-2">
         {ATTRACTOR_FIELDS.map((tag) => {
           const isActive = tag === activeAttractor;
           const isEmpty = (memberCounts[tag] ?? 0) === 0;
@@ -57,7 +60,8 @@ export function AttractorFields({ activeAttractor, onSelect, memberCounts }: Pro
                 aria-disabled="true"
                 title={`${tag} — no entries yet`}
                 className="px-3 py-1.5 font-mono uppercase tracking-[0.15em] text-[10px] border
-                  border-[var(--ink-faint)] opacity-40 cursor-not-allowed select-none"
+                  border-[var(--ink-faint)] opacity-40 cursor-not-allowed select-none
+                  flex items-center justify-center w-full sm:w-auto"
                 style={{
                   fontFamily: "var(--font-mono)",
                   color: "var(--ink-faint)",
@@ -83,6 +87,7 @@ export function AttractorFields({ activeAttractor, onSelect, memberCounts }: Pro
               onClick={() => onSelect(tag)}
               aria-pressed={isActive}
               className={`attractor-pill px-3 py-1.5 font-mono uppercase tracking-[0.15em] text-[10px] border transition-colors
+                flex items-center justify-center w-full sm:w-auto
                 ${
                   isActive
                     ? "bg-[var(--ink-primary)] border-[var(--ink-primary)]"
@@ -92,8 +97,6 @@ export function AttractorFields({ activeAttractor, onSelect, memberCounts }: Pro
                 fontFamily: "var(--font-mono)",
                 color: isActive ? "var(--paper-base)" : "var(--ink-primary)",
                 fontWeight: isActive ? 500 : 400,
-                display: "flex",
-                alignItems: "center",
               }}
               onMouseEnter={(e) => {
                 if (!isActive) e.currentTarget.style.color = "var(--accent-orange)";
