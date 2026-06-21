@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useStratumKey, type StratumKey } from "@/lib/client-state/globe-store";
 import { LocaleSwitcher } from "./LocaleSwitcher";
+import { useThemeMode, toggleThemeMode } from "@/lib/useThemeMode";
 
 // ARCHIVE is a real route link per docs/design/21-archive-route.md §0 + §2.
 // Peat directive 2026-06-01 overrides VISION-2026-05-31 §1.1 Π1:
@@ -149,6 +150,7 @@ export function Nav() {
   // S3 · slim bar menu toggle state.
   // is-open class on .nav-slim drives the CSS-only panel expand (max-height).
   const [menuOpen, setMenuOpen] = useState(false);
+  const themeMode = useThemeMode();
 
   // Close the menu when the route changes (e.g. visitor taps a section link
   // then presses browser back and the component is still mounted).
@@ -266,6 +268,19 @@ export function Nav() {
             <div className="nav-slim-locale" suppressHydrationWarning>
               <LocaleSwitcher />
             </div>
+
+            {/* Theme toggle — ◆ night / ○ day. Mirrors the desktop REGISTER
+                panel; both write the same data-theme via setThemeMode. */}
+            <button
+              type="button"
+              className="nav-slim-theme"
+              aria-label="Toggle dark mode"
+              aria-pressed={themeMode === "dark"}
+              onClick={() => toggleThemeMode()}
+              suppressHydrationWarning
+            >
+              <span aria-hidden="true">{themeMode === "dark" ? "◆" : "○"}</span>
+            </button>
 
             {/* Search glyph — dispatches triangulate:open; TriangulateSearchPortal listens */}
             <button

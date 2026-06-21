@@ -30,6 +30,46 @@
 
 import * as THREE from 'three';
 
+// ─── Surface palette per theme mode ──────────────────────────────────────────
+// Canvas 2D cannot read CSS vars — these are the two branches of the
+// dark-mode recoloring. Light values are the existing ACTIVE palette
+// (TEAL — Re:Boot reference). Dark values are the starting-point night
+// palette; Betelgeuse will design-verify final hex against screenshots.
+export type SurfaceMode = 'light' | 'dark';
+
+interface SurfacePalette {
+  /** Gradient stop at poles (top + bottom). */
+  gradPole: string;
+  /** Gradient stop at equator (mid band). */
+  gradEquator: string;
+  /** Aging blotch tint — RGB only (alpha appended inline). */
+  blotchRGB: string;
+  /** Baked grid stroke — faint lines. */
+  gridFaint: string;
+  /** Baked grid stroke — equator line. */
+  gridEquator: string;
+}
+
+const SURFACE_PALETTES: Record<SurfaceMode, SurfacePalette> = {
+  light: {
+    // Existing TEAL / Re:Boot palette — pixel-identical to pre-dark-mode.
+    gradPole:    '#BDBBAF',
+    gradEquator: '#D2CFC4',
+    blotchRGB:   '70,95,108',
+    gridFaint:   'rgba(31,80,99,0.18)',
+    gridEquator: 'rgba(31,80,99,0.28)',
+  },
+  dark: {
+    // Night register — deep-ocean tones. Starting point for Betelgeuse review.
+    gradPole:    '#16242C',
+    gradEquator: '#1E2F37',
+    blotchRGB:   '120,150,165',
+    gridFaint:   'rgba(216,224,222,0.14)',
+    gridEquator: 'rgba(216,224,222,0.22)',
+  },
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
  * Procedural surface textures — paper-cream base with aging, baked lat/long
  * grid, and async-loaded real Earth coastline silhouette multiplied on top.
@@ -37,13 +77,16 @@ import * as THREE from 'three';
  * and calls `map.needsUpdate = true` once decoded, so callers should keep the
  * returned textures alive (do not dispose before the image lands).
  *
+ * @param mode  'light' (default) → original TEAL palette; 'dark' → night register.
+ *
  * Must be called in the browser (uses `document.createElement('canvas')`).
  */
-export function buildSurfaceTextures(): {
+export function buildSurfaceTextures(mode: SurfaceMode = 'light'): {
   map: THREE.CanvasTexture;
   rough: THREE.CanvasTexture;
   bump: THREE.CanvasTexture;
 } {
+  const pal = SURFACE_PALETTES[mode];
   const W = 2048, H = 1024;
   let seed = 9173;
   const rand = () => {
@@ -57,24 +100,24 @@ export function buildSurfaceTextures(): {
   const ctx = c.getContext("2d");
   if (!ctx) throw new Error("Canvas 2D context failed");
 
-  // Pale cream paper base — slightly cooler at poles, paler at equator
-  // (was olive #9E9377 / #B5AA8B; lifted to lose the brown weight)
+  // Surface base gradient — slightly cooler at poles, paler at equator.
+  // Light: cream paper (#BDBBAF → #D2CFC4). Dark: deep-ocean tones.
   const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, "#BDBBAF");
-  grad.addColorStop(0.45, "#D2CFC4");
-  grad.addColorStop(0.55, "#D2CFC4");
-  grad.addColorStop(1, "#BDBBAF");
+  grad.addColorStop(0, pal.gradPole);
+  grad.addColorStop(0.45, pal.gradEquator);
+  grad.addColorStop(0.55, pal.gradEquator);
+  grad.addColorStop(1, pal.gradPole);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, W, H);
 
-  // Subtle aging blotches — cool grey instead of brown
+  // Subtle aging blotches — same alpha for both modes; tint shifts.
   ctx.globalCompositeOperation = "multiply";
   for (let i = 0; i < 18; i++) {
     const x = rand() * W, y = rand() * H;
     const r = 200 + rand() * 300;
     const g2 = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g2.addColorStop(0, "rgba(70,95,108,0.08)");
-    g2.addColorStop(1, "rgba(70,95,108,0)");
+    g2.addColorStop(0, `rgba(${pal.blotchRGB},0.08)`);
+    g2.addColorStop(1, `rgba(${pal.blotchRGB},0)`);
     ctx.fillStyle = g2;
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
@@ -83,7 +126,7 @@ export function buildSurfaceTextures(): {
   ctx.globalCompositeOperation = "source-over";
 
   // Baked lat/long grid — faint dashed
-  ctx.strokeStyle = "rgba(31,80,99,0.18)";
+  ctx.strokeStyle = pal.gridFaint;
   ctx.lineWidth = 0.6;
   ctx.setLineDash([3, 4]);
   for (let lon = 0; lon < 360; lon += 30) {
@@ -99,7 +142,7 @@ export function buildSurfaceTextures(): {
     ctx.stroke();
   }
   ctx.setLineDash([]);
-  ctx.strokeStyle = "rgba(31,80,99,0.28)";
+  ctx.strokeStyle = pal.gridEquator;
   ctx.lineWidth = 0.8;
   ctx.beginPath();
   ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2);

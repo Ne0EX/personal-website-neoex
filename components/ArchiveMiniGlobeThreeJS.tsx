@@ -75,15 +75,43 @@ import {
   initialBearingDeg,
   bearingToCardinal,
 } from '@/lib/globe-coordinates';
-import { buildSurfaceTextures } from '@/lib/globe-surface';
+import { buildSurfaceTextures, type SurfaceMode } from '@/lib/globe-surface';
 import { WL_GLOBE_COORD_EVENT } from '@/lib/client-state/globe-store';
 import type { MiniGlobePin } from '@/lib/content';
+import { useThemeMode, type ThemeMode } from '@/lib/useThemeMode';
 
 // ── HARD-LOCK colour literals — token-sourced (see header block) ────────────
-const HEX_INK = 0x1f5063; // var(--ink-rgb) → ink / ink-faint / shell
-const HEX_ACCENT_ORANGE = 0xd4602a; // var(--accent-orange) — α + drift line
-const HEX_PAPER_BRIGHT = 0xf0ebdd; // ≈ var(--paper-bright)
-const HEX_RETICLE_TEAL = 0x4d7a92; // NETRA tracker teal (WL L659)
+// Light values are the existing TEAL palette — pixel-identical to pre-dark.
+// Dark values are the night register (starting point; Betelgeuse design-verifies).
+const HEX_INK = 0x1f5063; // var(--ink-rgb) → ink / ink-faint / shell — light default
+const HEX_ACCENT_ORANGE = 0xd4602a; // var(--accent-orange) — α + drift line — light default
+const HEX_PAPER_BRIGHT = 0xf0ebdd; // ≈ var(--paper-bright) — light default
+const HEX_RETICLE_TEAL = 0x4d7a92; // NETRA tracker teal (WL L659) — light default
+
+// ── Mini-globe dark-mode palette ─────────────────────────────────────────────
+// Mirrors GLOBE_PALETTES in WorldlineGlobe.tsx — must stay in sync if values change.
+interface MiniGlobePalette {
+  ink: number;
+  orange: number;
+  paperBright: number;
+  reticleTeal: number;
+}
+
+const MINI_GLOBE_PALETTES: Record<ThemeMode, MiniGlobePalette> = {
+  light: {
+    ink:         HEX_INK,
+    orange:      HEX_ACCENT_ORANGE,
+    paperBright: HEX_PAPER_BRIGHT,
+    reticleTeal: HEX_RETICLE_TEAL,
+  },
+  dark: {
+    // Night register — matches WorldlineGlobe.tsx GLOBE_PALETTES.dark.
+    ink:         0xD8E0DE,
+    orange:      0xE2743E,
+    paperBright: 0x2A3A44, // use dark ambient as paper-bright substitute
+    reticleTeal: 0x78A6BC,
+  },
+};
 
 const OUT_MEMBERSHIP_OPACITY = 0.32; // ink @ 0.32 (20-archive.md §5.3)
 const IN_MEMBERSHIP_OPACITY = 0.92; // teal @ 0.92 — node pins are NOT orange (#1)
@@ -181,8 +209,14 @@ function buildReadout(pin: MiniGlobePin | null, locked: boolean): MiniGlobeReado
  * a surveyed instrument, not a solid marble), the α orange halo, the teal NETRA
  * reticle group (hidden until a lock), and the orange drift LINE (hidden until a
  * target). Returns the scene + globe group + the instrument refs + a cleanup.
+ *
+ * @param palette  - Color set from MINI_GLOBE_PALETTES[mode].
+ * @param mode     - Theme mode string, forwarded to buildSurfaceTextures().
  */
-function buildScene(): {
+function buildScene(
+  palette: MiniGlobePalette,
+  mode: SurfaceMode,
+): {
   scene: THREE.Scene;
   globe: THREE.Group;
   sphere: THREE.Mesh;
@@ -195,17 +229,17 @@ function buildScene(): {
   const scene = new THREE.Scene();
   scene.background = null;
 
-  const ambient = new THREE.AmbientLight(HEX_PAPER_BRIGHT, 1.15);
+  const ambient = new THREE.AmbientLight(palette.paperBright, 1.15);
   scene.add(ambient);
-  const key = new THREE.DirectionalLight(HEX_PAPER_BRIGHT, 0.55);
+  const key = new THREE.DirectionalLight(palette.paperBright, 0.55);
   key.position.set(2, 2.5, 3);
   scene.add(key);
 
   const globe = new THREE.Group();
   scene.add(globe);
 
-  // ── Globe body — shared ATLAS surface texture ──
-  const surface = buildSurfaceTextures();
+  // ── Globe body — shared ATLAS surface texture (mode drives gradient/blotch palette) ──
+  const surface = buildSurfaceTextures(mode);
   const sphereGeo = new THREE.SphereGeometry(GLOBE_RADIUS, GEO_SEGMENTS, GEO_SEGMENTS);
   const paperMat = new THREE.MeshLambertMaterial({ map: surface.map });
   const sphere = new THREE.Mesh(sphereGeo, paperMat);
@@ -214,7 +248,7 @@ function buildScene(): {
   // ── Faint geodesic SHELL — WL makeShell pattern (the surveyed-instrument cue) ──
   const shellGeo = new THREE.SphereGeometry(1.02, 24, 16);
   const shellMat = new THREE.MeshBasicMaterial({
-    color: HEX_INK,
+    color: palette.ink,
     wireframe: true,
     transparent: true,
     opacity: 0.08,
@@ -227,7 +261,7 @@ function buildScene(): {
   const alphaVec = latLonToVec3(ALPHA_LAT, ALPHA_LON, 1.005);
   const alphaRingGeo = new THREE.RingGeometry(0.034, 0.044, 32);
   const alphaRingMat = new THREE.MeshBasicMaterial({
-    color: HEX_ACCENT_ORANGE,
+    color: palette.orange,
     side: THREE.DoubleSide,
     transparent: true,
     opacity: 0.85,
@@ -242,7 +276,7 @@ function buildScene(): {
 
   // α node-head dot (orange) so the observer locus reads even without a lock.
   const alphaDotGeo = new THREE.SphereGeometry(0.014, 12, 12);
-  const alphaDotMat = new THREE.MeshBasicMaterial({ color: HEX_ACCENT_ORANGE });
+  const alphaDotMat = new THREE.MeshBasicMaterial({ color: palette.orange });
   const alphaDot = new THREE.Mesh(alphaDotGeo, alphaDotMat);
   alphaDot.position.set(alphaVec.x, alphaVec.y, alphaVec.z);
   globe.add(alphaDot);
@@ -252,7 +286,7 @@ function buildScene(): {
   reticle.visible = false;
   const reticleRingGeo = new THREE.RingGeometry(0.045, 0.06, 48);
   const reticleRingMat = new THREE.MeshBasicMaterial({
-    color: HEX_RETICLE_TEAL,
+    color: palette.reticleTeal,
     side: THREE.DoubleSide,
     transparent: true,
     opacity: 0.92,
@@ -260,14 +294,14 @@ function buildScene(): {
   const reticleRing = new THREE.Mesh(reticleRingGeo, reticleRingMat);
   const reticleHaloGeo = new THREE.RingGeometry(0.075, 0.078, 64);
   const reticleHaloMat = new THREE.MeshBasicMaterial({
-    color: HEX_RETICLE_TEAL,
+    color: palette.reticleTeal,
     side: THREE.DoubleSide,
     transparent: true,
     opacity: 0.34,
   });
   const reticleHalo = new THREE.Mesh(reticleHaloGeo, reticleHaloMat);
   const reticleDotGeo = new THREE.SphereGeometry(0.009, 12, 12);
-  const reticleDotMat = new THREE.MeshBasicMaterial({ color: HEX_RETICLE_TEAL });
+  const reticleDotMat = new THREE.MeshBasicMaterial({ color: palette.reticleTeal });
   const reticleDot = new THREE.Mesh(reticleDotGeo, reticleDotMat);
   reticle.add(reticleRing, reticleHalo, reticleDot);
   globe.add(reticle); // child of globe → co-rotates with the surface
@@ -278,7 +312,7 @@ function buildScene(): {
     new THREE.Vector3(alphaVec.x, alphaVec.y, alphaVec.z),
   ]);
   const driftMat = new THREE.LineDashedMaterial({
-    color: HEX_ACCENT_ORANGE,
+    color: palette.orange,
     dashSize: 0.05,
     gapSize: 0.03,
     transparent: true,
@@ -320,8 +354,14 @@ function buildScene(): {
  * The hit-proxy (radius 0.05, opacity 0, renderOrder 999) is what the raycaster
  * tests so small pins are easy to hit. Returns aligned arrays + shared geometry
  * for disposal.
+ *
+ * @param pins    - Pin array.
+ * @param palette - Color set from MINI_GLOBE_PALETTES[mode].
  */
-function buildPinMeshes(pins: MiniGlobePin[]): {
+function buildPinMeshes(
+  pins: MiniGlobePin[],
+  palette: MiniGlobePalette,
+): {
   heads: THREE.Mesh[];
   hits: THREE.Mesh[];
   headGeo: THREE.SphereGeometry;
@@ -343,7 +383,7 @@ function buildPinMeshes(pins: MiniGlobePin[]): {
     // reserved for α (Peat #1). The membership effect re-colours out-of-set pins
     // to ink @ 0.32 on first paint.
     const material = new THREE.MeshBasicMaterial({
-      color: HEX_RETICLE_TEAL,
+      color: palette.reticleTeal,
       transparent: true,
       opacity: IN_MEMBERSHIP_OPACITY,
       depthWrite: false,
@@ -385,6 +425,14 @@ export default function ArchiveMiniGlobeThreeJS({
 }: MiniGlobeThreeJSProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const reducedMotionRef = useRef(false);
+
+  // Dark-mode recoloring — subscribe to <html data-theme> via MutationObserver.
+  // When mode changes, the scene effect re-runs (mode is in deps), tearing down
+  // and rebuilding with MINI_GLOBE_PALETTES[mode]. Consistent with WorldlineGlobe.tsx.
+  const mode = useThemeMode();
+  // activePaletteRef — written at scene-build time so independent recolor effects
+  // (membership, hover) always read the correct palette for the current mode.
+  const activePaletteRef = useRef<MiniGlobePalette>(MINI_GLOBE_PALETTES.light);
 
   // Imperative handles updated by the scene effect, read by the sync effects.
   const pinHeadsRef = useRef<THREE.Mesh[]>([]);
@@ -429,6 +477,10 @@ export default function ArchiveMiniGlobeThreeJS({
     const container = containerRef.current;
     if (!container) return;
 
+    // Resolve palette for this render (mode in deps triggers rebuild on toggle).
+    const palette = MINI_GLOBE_PALETTES[mode];
+    activePaletteRef.current = palette;
+
     reducedMotionRef.current =
       typeof window !== 'undefined' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -442,7 +494,7 @@ export default function ArchiveMiniGlobeThreeJS({
       reticle,
       reticleHalo,
       cleanup: cleanupScene,
-    } = buildScene();
+    } = buildScene(palette, mode);
     globe.rotation.y = INITIAL_ROTATION_Y;
     globeRef.current = globe;
     reticleRef.current = reticle;
@@ -465,7 +517,7 @@ export default function ArchiveMiniGlobeThreeJS({
 
     // ── Pins — heads + invisible hit-proxies, children of the globe group ──
     const { heads, hits, headGeo, hitGeo, materials, hitMaterials } =
-      buildPinMeshes(pins);
+      buildPinMeshes(pins, palette);
     for (const m of heads) globe.add(m);
     for (const h of hits) globe.add(h);
     pinHeadsRef.current = heads;
@@ -768,22 +820,26 @@ export default function ArchiveMiniGlobeThreeJS({
       renderOnceRef.current = null;
       applyTarget.current = () => {};
     };
-  }, [pins, size]);
+  // dark-mode: `mode` in deps causes a teardown+rebuild when the user toggles.
+  // The rAF loop in this component is already cancelAnimationFrame-safe in cleanup.
+  }, [pins, size, mode]);
 
   // ── Membership re-colour — REAL per-material color + opacity (§5.3, §9) ──
+  // Dark-mode: reads activePaletteRef so teal/ink map to current mode's values.
   useEffect(() => {
     const materials = pinMaterialsRef.current;
     if (materials.length === 0) return;
+    const pal = activePaletteRef.current;
     for (let i = 0; i < pins.length; i++) {
       const mat = materials[i];
       if (!mat) continue;
       const inMembership = activeIdSet.has(pins[i].id);
       if (inMembership) {
         // In-membership node pin — TEAL, NOT orange (#1). Orange is α only.
-        mat.color.setHex(HEX_RETICLE_TEAL);
+        mat.color.setHex(pal.reticleTeal);
         mat.opacity = IN_MEMBERSHIP_OPACITY;
       } else {
-        mat.color.setHex(HEX_INK);
+        mat.color.setHex(pal.ink);
         mat.opacity = OUT_MEMBERSHIP_OPACITY;
       }
     }
@@ -816,10 +872,12 @@ export default function ArchiveMiniGlobeThreeJS({
   }, [lockedEntryId, pins]);
 
   // ── Bidirectional hover — ledger row → globe pin (goal 2 forward) ──
+  // Dark-mode: reads activePaletteRef so teal/ink map to current mode's values.
   useEffect(() => {
     const heads = pinHeadsRef.current;
     const materials = pinMaterialsRef.current;
     if (heads.length === 0) return;
+    const pal = activePaletteRef.current;
 
     let hoveredIdx = -1;
     for (let i = 0; i < pins.length; i++) {
@@ -834,10 +892,10 @@ export default function ArchiveMiniGlobeThreeJS({
       // brightens opacity slightly. The teal reticle ring is the lock signal.
       mesh.scale.setScalar(isHovered ? PIN_HOVER_SCALE : 1);
       if (inMembership) {
-        mat.color.setHex(HEX_RETICLE_TEAL);
+        mat.color.setHex(pal.reticleTeal);
         mat.opacity = isHovered ? PIN_HOVER_OPACITY : IN_MEMBERSHIP_OPACITY;
       } else {
-        mat.color.setHex(HEX_INK);
+        mat.color.setHex(pal.ink);
         // A subtle brighten on hover even for out-of-set pins (legible nudge),
         // but never a recolour to orange.
         mat.opacity = isHovered ? OUT_MEMBERSHIP_OPACITY + 0.28 : OUT_MEMBERSHIP_OPACITY;

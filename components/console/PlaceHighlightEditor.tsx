@@ -237,7 +237,7 @@ const EDITOR_CSS = `
 /* Remove slot X button */
 .pe-photo-remove {
   position: absolute; top: 2px; right: 2px;
-  appearance: none; background: rgba(31,80,99,0.8);
+  appearance: none; background: rgb(var(--ink-rgb) / 0.8);
   border: none; color: var(--paper-warm); font-size: 10px;
   width: 16px; height: 16px; cursor: pointer; line-height: 1;
   display: flex; align-items: center; justify-content: center;

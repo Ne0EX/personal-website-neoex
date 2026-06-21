@@ -163,6 +163,49 @@
   --netra-rgb:     79 110 128;
 }
 
+/* ☾ NIGHT REGISTER — dark theme (opt-in, toggled via REGISTER control).
+   Set <html data-theme="dark"> (no-FOUC inline script in layout.tsx reads
+   localStorage['worldline-theme'] and applies this before first paint).
+
+   Dark mode is a TOKEN SWAP, not a re-skin: the cream paper surfaces darken
+   to a teal-charcoal "developing tray", --ink-rgb flips to a cool cream so
+   every ink tint (text, hairlines, dashed seams, the paper grain) becomes
+   light-on-dark, and the orange accent is brightened slightly to hold against
+   the dark field. Same teal · cream · orange triad — lightness inverted.
+
+   Because the whole palette is driven by these single-source variables, every
+   surface — including all mobile elements (nav-slim, atlas dock, NETRA strip,
+   hairline marginalia) — recolors automatically with no per-component work.
+   Source: Worldline Dark Mode PoC (Claude Design, 2026-06-18). */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* paper → deep teal-charcoal surfaces */
+  --paper-base:    #0E171C;   /* the night canvas */
+  --paper-warm:    #14222A;   /* raised panels */
+  --paper-deep:    #0A1015;   /* recessed / shaded */
+  --paper-bright:  #1E2F37;   /* lightest patches, selection */
+
+  /* ink → LIGHT foreground (cool cream). One line drives text, secondary,
+     hairlines, dashed seams, and the grain. */
+  --ink-rgb:       216 224 222;
+
+  /* NETRA companion accent — lifted for dark legibility */
+  --netra-rgb:     120 166 188;
+
+  /* accent — orange brightened so it holds against the dark field */
+  --accent-orange:      #E2743E;
+  --accent-orange-soft: rgba(226, 116, 62, 0.20);
+  --accent-orange-rgb:  226 116 62;
+
+  /* paper RGB channels — mirror the :root pattern so rgb(var(--paper-*-rgb)/α)
+     tints compose correctly on dark surfaces */
+  --paper-base-rgb:    14 23 28;
+  --paper-warm-rgb:    20 34 42;
+  --paper-deep-rgb:    10 16 21;
+  --paper-bright-rgb:  30 47 55;
+}
+
 @theme inline {
   --color-paper:         var(--paper-base);
   --color-paper-warm:    var(--paper-warm);
@@ -2124,9 +2167,12 @@ body {
   flex-shrink: 0;
 }
 
-/* Search + menu glyph buttons — 44×44px tap targets. */
+/* Search + menu + theme glyph buttons — 44×44px tap targets.
+   .nav-slim-theme is the phone presentation of the REGISTER toggle (the
+   desktop .register panel is display:none ≤600px). ◆ night / ○ day. */
 .nav-slim-search,
-.nav-slim-menu-btn {
+.nav-slim-menu-btn,
+.nav-slim-theme {
   appearance: none;
   background: transparent;
   border: none;
@@ -2146,14 +2192,96 @@ body {
 .nav-slim-search:hover,
 .nav-slim-search:focus-visible,
 .nav-slim-menu-btn:hover,
-.nav-slim-menu-btn:focus-visible {
+.nav-slim-menu-btn:focus-visible,
+.nav-slim-theme:hover,
+.nav-slim-theme:focus-visible {
   color: var(--accent-orange);
   outline: none;
 }
 .nav-slim-search:focus-visible,
-.nav-slim-menu-btn:focus-visible {
+.nav-slim-menu-btn:focus-visible,
+.nav-slim-theme:focus-visible {
   outline: 1px dashed var(--accent-orange);
   outline-offset: -2px;
+}
+/* Dark active → orange glyph, matching the REGISTER panel's active register. */
+.nav-slim-theme[aria-pressed="true"] {
+  color: var(--accent-orange);
+}
+
+/* =============================================================
+   REGISTER — desktop theme toggle (fixed bottom-right)
+   Ported from the Worldline Dark Mode PoC. ○ DAY / ◆ NIGHT, the
+   active button carries an orange underline. Hidden ≤600px — on
+   phone the toggle folds into .nav-slim-actions (.nav-slim-theme).
+   Component: components/ThemeToggle.tsx.
+   ============================================================= */
+.register {
+  position: fixed;
+  bottom: 18px;
+  right: 46px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1px solid rgb(var(--ink-rgb) / 0.3);
+  background: var(--paper-warm);
+  font-family: var(--font-mono);
+}
+.register .rlab {
+  font-size: 7px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  padding: 0 9px 0 11px;
+  white-space: nowrap;
+}
+.register button {
+  appearance: none;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-left: 1px solid rgb(var(--ink-rgb) / 0.18);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 150ms ease, background 150ms ease;
+}
+.register button .gl {
+  font-size: 10px;
+  line-height: 1;
+}
+.register button:hover {
+  color: var(--accent-orange);
+}
+.register button.is-active {
+  color: var(--accent-orange);
+  position: relative;
+}
+.register button.is-active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 100%;
+  background: var(--accent-orange);
+}
+.register button:focus-visible {
+  outline: 1px dashed var(--accent-orange);
+  outline-offset: -2px;
+}
+@media (max-width: 600px) {
+  /* Phone: the REGISTER panel folds into the nav-slim action cluster. */
+  .register {
+    display: none;
+  }
 }
 
 /* Locale switcher tap-target enlargement inside slim bar.

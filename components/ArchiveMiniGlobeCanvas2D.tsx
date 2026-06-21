@@ -32,6 +32,7 @@ import {
 } from '@/lib/globe-coordinates';
 import type { MiniGlobePin } from '@/lib/content';
 import type { MiniGlobeReadout } from './ArchiveMiniGlobeThreeJS';
+import { useThemeMode } from '@/lib/useThemeMode';
 
 // Observer α — Bangkok (fixed observer locus; drift-line + readout endpoint).
 const ALPHA_LAT = 13.7563;
@@ -85,6 +86,12 @@ export default function ArchiveMiniGlobeCanvas2D({
   onLockChange,
 }: MiniGlobeCanvas2DProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Dark-mode: useThemeMode() subscribes to <html data-theme> changes.
+  // The static draw effect already resolves CSS vars via getComputedStyle at
+  // draw time — it just needs to re-run when the theme toggles so it picks up
+  // the new token values. Adding `mode` to the effect deps achieves this.
+  const mode = useThemeMode();
 
   // Stable handler refs so the click listener uses the latest props. Synced
   // inside an effect — never mutated during render (react-hooks/refs).
@@ -160,8 +167,11 @@ export default function ArchiveMiniGlobeCanvas2D({
       ctx.fill();
     }
     // activeIdsKey is the stable scalar dependency for activePins membership.
+    // mode triggers a redraw when the user toggles dark/light — the CSS vars
+    // resolved by resolveCSSVar() update on the DOM, so redrawing picks up
+    // the new token values. No raw hex changes needed here (CSS vars handle it).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pins, size, activeIdsKey]);
+  }, [pins, size, activeIdsKey, mode]);
 
   // ── Click → pin pick (nearest visible pin within radius) or globe click ──
   const onCanvasClick = (ev: React.MouseEvent<HTMLCanvasElement>) => {

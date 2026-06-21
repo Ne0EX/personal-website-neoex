@@ -132,7 +132,7 @@ const PREVIEW_CSS = `
   font-size: 10px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  background: rgba(216,207,185,0.25); /* TOKEN-GAP: paper-tint — no token */
+  background: rgb(var(--paper-deep-rgb) / 0.25); /* paper-tint — tracks theme (was hardcoded cream) */
 }
 .wlc-preview-body strong {
   font-weight: 500;

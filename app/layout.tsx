@@ -54,6 +54,7 @@ import {
   Trirong,
 } from 'next/font/google'
 import './globals.css'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 // Version F: IBM Plex Mono — designed superfamily companion to IBM Plex Sans Thai
 const ibmPlexMono = IBM_Plex_Mono({
@@ -144,8 +145,21 @@ export default function RootLayout({
       lang="en"
       className={`${ibmPlexMono.variable} ${ibmPlexSansThai.variable} ${cormorant.variable} ${jetbrains.variable} ${elite.variable} ${trirong.variable} h-full antialiased`}
     >
+      <head>
+        {/* No-FOUC theme bootstrap — runs before first paint. Opt-in dark:
+            only applies data-theme="dark" when the visitor previously chose it.
+            Default (no stored value) stays light, so the common path never
+            flashes. Paired with useThemeMode / setThemeMode (lib/useThemeMode). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{if(localStorage.getItem('worldline-theme')==='dark'){document.documentElement.dataset.theme='dark';}}catch(e){}})();",
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col">
         {children}
+        <ThemeToggle />
       </body>
     </html>
   )

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import { useThemeMode, type ThemeMode } from "@/lib/useThemeMode";
 import {
   // OBSERVER_NODES: export kept in lib/entries.ts for harness/watchdog consumers;
   // the standalone observer-dot layer was removed 2026-06-15 (tokyo-alpha, α-SUR-01).
@@ -53,18 +54,75 @@ import { buildSurfaceTextures } from "@/lib/globe-surface";
  *
  * ─────────────────────────────────────────────────────────────────────────
  * PALETTE BACKUP — these values cannot read CSS vars (Three.js / canvas).
- * The rest of the palette swap lives in app/globals.css under the palette
- * toggle. To revert this file to the INK baseline, run two find/replaces:
+ * All Three.js material colors are driven by GLOBE_PALETTES[mode] so the
+ * scene rebuilds with the correct palette when the user toggles dark mode.
  *
- *   ACTIVE  (TEAL — Re:Boot reference)         BACKUP (INK — v2 navy)
- *   ────────────────────────────────────       ────────────────────────────
- *   line / material color   0x1f5063           0x1a2832
- *   surface gradient stops  #BDBBAF, #D2CFC4   #9E9377, #B5AA8B
- *   surface aging blotches  rgba(70,95,108,…)  rgba(120,100,70,…)
- *   inner-shade tint        0xb4bbc0           0xcfc4ad
- *   article shadow rgba     31,80,99           26,40,50
+ *   LIGHT (TEAL — Re:Boot ref · pixel-identical to pre-dark)
+ *   DARK  (night register — starting point; Betelgeuse design-verifies)
+ *
+ *   To revert to INK baseline replace GLOBE_PALETTES.light values with:
+ *   line / material color   0x1a2832
+ *   surface gradient stops  #9E9377, #B5AA8B  (in lib/globe-surface.ts)
+ *   surface aging blotches  rgba(120,100,70,…)  (lib/globe-surface.ts)
+ *   inner-shade tint        0xcfc4ad
+ *   article shadow rgba     26,40,50
  * ─────────────────────────────────────────────────────────────────────────
  */
+
+// ─── Dark-mode globe palette ──────────────────────────────────────────────────
+// Three.js materials cannot read CSS variables. GLOBE_PALETTES provides two
+// complete color sets keyed by ThemeMode. buildScene() receives the active palette
+// and replaces every hardcoded hex literal with palette.<name>.
+//
+// DARK values are a starting point derived from the task spec; Betelgeuse
+// must design-verify final hex values against rendered screenshots.
+//
+// LIGHT values are exact current hex literals — light output is pixel-identical
+// to the pre-dark-mode baseline.
+interface GlobePalette {
+  // Line / contour / grid / shell / axis / PLACE_INK color
+  ink: number;
+  // Arc / branch / pole beacon / accent color (orange)
+  orange: number;
+  // Inner-shade sphere tint
+  innerShade: number;
+  // NETRA tracker ring / halo / dot
+  netraTracker: number;
+  // Ambient light color
+  ambient: number;
+  // Key directional light color
+  key: number;
+  // Rim directional light color
+  rim: number;
+  // Article-panel shadow — rgb() components as a string "R,G,B"
+  articleShadowRGB: string;
+}
+
+const GLOBE_PALETTES: Record<ThemeMode, GlobePalette> = {
+  light: {
+    ink:              0x1f5063,
+    orange:           0xD4602A,
+    innerShade:       0xb4bbc0,
+    netraTracker:     0x4d7a92,
+    ambient:          0xefe7d6,
+    key:              0xfff4dd,
+    rim:              0x2a3a48,
+    articleShadowRGB: '31,80,99',
+  },
+  dark: {
+    // Night register — deep-ocean instrument colours.
+    // GUESS: ambient/key lifted slightly vs light to compensate for the
+    // darker surface (otherwise the globe reads as a near-black disc).
+    ink:              0xD8E0DE,
+    orange:           0xE2743E,
+    innerShade:       0x16242C,
+    netraTracker:     0x78A6BC,
+    ambient:          0x2A3A44,  // GUESS: slight lift from spec 0x2A3A44 → reasonable for dark
+    key:              0xBFD4D0,  // GUESS: cooler key light for night register
+    rim:              0x4F6E80,
+    articleShadowRGB: '216,224,222',
+  },
+};
 
 const GLOBE_RADIUS = 1;
 
@@ -73,7 +131,6 @@ const GLOBE_RADIUS = 1;
 // Token source: app/globals.css line 41–42 + branching spec §9.3.
 const SITE_ALPHA = 1.130426;           // observer α — spec §4.3 / Procyon SITE_ALPHA
 const NEX_SHELL_R = GLOBE_RADIUS * 1.18; // orbital shell radius — ontology §4.2
-const BRANCH_ORANGE_HEX = 0xD4602A;      // --accent-orange value (no opacity applied in hex)
 // Dashed tendril: 0.5px stroke, alpha 0.18 — spec §4.2 / §9.2
 const TENDRIL_ALPHA_BASE = 0.18;
 const TENDRIL_ALPHA_APEX = 0.22;       // breathing apex — spec §9.2
@@ -441,8 +498,10 @@ type PlaceNodeObject = {
 };
 
 // ─── Place-node glyph constants — spec §3.1 (extends arc-node + alpha-node halo) ───
-const PLACE_INK_HEX = 0x1f5063;       // --ink-primary (teal active palette)
-const PLACE_ACCENT_HEX = 0xd4602a;    // --accent-orange (selected state)
+// These module-level values are the light-mode defaults. At runtime, the scene
+// setup effect and recolor effects read from `activePaletteRef` (set at scene
+// build) so they always use the correct mode's colors.
+const PLACE_INK_HEX = 0x1f5063;       // --ink-primary (teal active palette) — light default
 const PLACE_RING_WEIGHT_2 = 3;        // ring-2 visible at weight >= 3 (spec §3.1)
 const PLACE_RING_WEIGHT_3 = 7;        // ring-3 visible at weight >= 7 (spec §3.1)
 // Ring geometry tuples [inner, outer, defaultOpacity] — spec §3.1 glyph block.
@@ -456,15 +515,22 @@ const PLACE_RING_GEO: [number, number, number][] = [
  * Build one place-node glyph (dot + weight-scaled survey rings) and its hit proxy,
  * append into `nodesGroup`, and return the registry object. Spec §3.1.
  * Rings face outward (lookAt origin + rotateY π) like the existing α halo (§3.1).
+ *
+ * @param inkHex    - The ink color for this mode (from GLOBE_PALETTES[mode].ink).
+ *                    Defaults to PLACE_INK_HEX (light mode) if omitted.
  */
-function buildPlaceNode(summary: PlaceSummary, nodesGroup: THREE.Group): PlaceNodeObject {
+function buildPlaceNode(
+  summary: PlaceSummary,
+  nodesGroup: THREE.Group,
+  inkHex: number = PLACE_INK_HEX
+): PlaceNodeObject {
   const { place, weight } = summary;
   const v = latLonToVec3(place.coord.lat, place.coord.lon, 1.005);
 
   // Center dot — slightly larger arc-node (spec §3.1: SphereGeometry(0.014)).
   const dot = new THREE.Mesh(
     new THREE.SphereGeometry(0.014, 12, 12),
-    new THREE.MeshBasicMaterial({ color: PLACE_INK_HEX })
+    new THREE.MeshBasicMaterial({ color: inkHex })
   );
   dot.position.copy(v);
   nodesGroup.add(dot);
@@ -478,7 +544,7 @@ function buildPlaceNode(summary: PlaceSummary, nodesGroup: THREE.Group): PlaceNo
     const ring = new THREE.Mesh(
       new THREE.RingGeometry(inner, outer, 32),
       new THREE.MeshBasicMaterial({
-        color: PLACE_INK_HEX,
+        color: inkHex,
         side: THREE.DoubleSide,
         transparent: true,
         opacity,
@@ -512,24 +578,43 @@ function buildPlaceNode(summary: PlaceSummary, nodesGroup: THREE.Group): PlaceNo
 // buildSurfaceTextures() so the world map cannot drift between the two globes.
 // Do not re-inline this function here — edit lib/globe-surface.ts.
 
-function buildScene(alphaLat: number, alphaLon: number): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs; cleanup: () => void } {
+/**
+ * Build the Three.js scene for the ATLAS globe.
+ *
+ * @param alphaLat   - Latitude of the α observer locus.
+ * @param alphaLon   - Longitude of the α observer locus.
+ * @param palette    - Color set from GLOBE_PALETTES[mode]. All hex literals
+ *                     are replaced by palette properties so light/dark modes
+ *                     produce correct colors without any other code changes.
+ * @param mode       - Theme mode string, forwarded to buildSurfaceTextures().
+ */
+function buildScene(
+  alphaLat: number,
+  alphaLon: number,
+  palette: GlobePalette,
+  mode: ThemeMode,
+): { root: THREE.Group; scene: THREE.Scene; refs: SceneRefs; cleanup: () => void } {
   const scene = new THREE.Scene();
   scene.background = null;
 
-  // Lights — paper material wants soft ambient + low-key key light.
-  scene.add(new THREE.AmbientLight(0xefe7d6, 1.15));
-  const key = new THREE.DirectionalLight(0xfff4dd, 0.18);
+  // Lights — driven by palette so dark mode gets a cooler ambient + key.
+  // Ambient intensity 1.15 stays unchanged; dark palette's lower-luminance color
+  // compensates. Key intensity: GUESS 0.22 in dark (vs 0.18 light) to recover
+  // some brightness lost from the darker ambient. Rim is accent-only at 0.08.
+  const isLight = mode === 'light';
+  scene.add(new THREE.AmbientLight(palette.ambient, 1.15));
+  const key = new THREE.DirectionalLight(palette.key, isLight ? 0.18 : 0.22);
   key.position.set(2, 2.5, 3);
   scene.add(key);
-  const rim = new THREE.DirectionalLight(0x2a3a48, 0.08);
+  const rim = new THREE.DirectionalLight(palette.rim, 0.08);
   rim.position.set(-3, -1, -2);
   scene.add(rim);
 
   const globe = new THREE.Group();
   scene.add(globe);
 
-  // ─── Cream paper sphere with procedural textures + earth coastline ───
-  const surface = buildSurfaceTextures();
+  // ─── Globe surface — cream paper (light) / deep-ocean (dark) ───
+  const surface = buildSurfaceTextures(mode);
   const sphereGeo = new THREE.SphereGeometry(GLOBE_RADIUS, 128, 128);
   const paperMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
@@ -543,16 +628,16 @@ function buildScene(alphaLat: number, alphaLon: number): { root: THREE.Group; sc
   const sphere = new THREE.Mesh(sphereGeo, paperMat);
   globe.add(sphere);
 
-  // Inner darker shell — gives depth at the rim.
+  // Inner shade shell — gives depth at the rim. Color from palette (darkens appropriately).
   const innerShade = new THREE.Mesh(
     new THREE.SphereGeometry(0.998, 64, 64),
-    new THREE.MeshBasicMaterial({ color: 0xb4bbc0, side: THREE.BackSide, transparent: true, opacity: 0.35 })
+    new THREE.MeshBasicMaterial({ color: palette.innerShade, side: THREE.BackSide, transparent: true, opacity: 0.35 })
   );
   globe.add(innerShade);
 
   // ─── Engraved lat/long lines (the user explicitly wanted line contour) ───
-  const lineMat = new THREE.LineBasicMaterial({ color: 0x1f5063, transparent: true, opacity: 0.55 });
-  const lineMatFaint = new THREE.LineBasicMaterial({ color: 0x1f5063, transparent: true, opacity: 0.3 });
+  const lineMat = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.55 });
+  const lineMatFaint = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.3 });
 
   const makeLatRing = (latDeg: number, mat: THREE.LineBasicMaterial) => {
     const lat = (latDeg * Math.PI) / 180;
@@ -588,7 +673,7 @@ function buildScene(alphaLat: number, alphaLon: number): { root: THREE.Group; sc
   // ─── Contour rings — irregular elevation lines on the surface ───
   const contoursGroup = new THREE.Group();
   globe.add(contoursGroup);
-  const contourMat = new THREE.LineBasicMaterial({ color: 0x1f5063, transparent: true, opacity: 0.7 });
+  const contourMat = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.7 });
   const makeContour = (latCenter: number, ampl: number, phase: number) => {
     const pts: THREE.Vector3[] = [];
     const segs = 256;
@@ -610,11 +695,11 @@ function buildScene(alphaLat: number, alphaLon: number): { root: THREE.Group; sc
   // ─── Ne0N — polar axis spine + survey-triangle caps + pole beacons ───
   const axisGroup = new THREE.Group();
   globe.add(axisGroup);
-  const axisCylinderMat = new THREE.MeshBasicMaterial({ color: 0x1f5063 });
+  const axisCylinderMat = new THREE.MeshBasicMaterial({ color: palette.ink });
   const axis = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 2.6, 16), axisCylinderMat);
   axisGroup.add(axis);
 
-  const axisLineMat = new THREE.LineBasicMaterial({ color: 0x1f5063 });
+  const axisLineMat = new THREE.LineBasicMaterial({ color: palette.ink });
   const axisCap = (yPos: number, dir: number) => {
     const g = new THREE.Group();
     const sz = 0.04;
@@ -639,14 +724,14 @@ function buildScene(alphaLat: number, alphaLon: number): { root: THREE.Group; sc
     const g = new THREE.Group();
     const ring = new THREE.Mesh(
       new THREE.RingGeometry(0.04, 0.05, 48),
-      new THREE.MeshBasicMaterial({ color: 0xd4602a, side: THREE.DoubleSide, transparent: true, opacity: 0.8 })
+      new THREE.MeshBasicMaterial({ color: palette.orange, side: THREE.DoubleSide, transparent: true, opacity: 0.8 })
     );
     ring.rotation.x = Math.PI / 2;
     ring.position.y = yPos;
     g.add(ring);
     const dot = new THREE.Mesh(
       new THREE.SphereGeometry(0.012, 12, 12),
-      new THREE.MeshBasicMaterial({ color: 0xd4602a })
+      new THREE.MeshBasicMaterial({ color: palette.orange })
     );
     dot.position.y = yPos;
     g.add(dot);
@@ -673,7 +758,7 @@ function buildScene(alphaLat: number, alphaLon: number): { root: THREE.Group; sc
   nexField.add(branchesGroup);
   const makeShell = (radius: number, opacity: number) => {
     const m = new THREE.MeshBasicMaterial({
-      color: 0x1f5063,
+      color: palette.ink,
       wireframe: true,
       transparent: true,
       opacity,
@@ -685,7 +770,7 @@ function buildScene(alphaLat: number, alphaLon: number): { root: THREE.Group; sc
 
   const raysGroup = new THREE.Group();
   nexField.add(raysGroup);
-  const rayMat = new THREE.LineBasicMaterial({ color: 0x1f5063, transparent: true, opacity: 0.35 });
+  const rayMat = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.35 });
   for (let i = 0; i < 48; i++) {
     const phi = Math.acos(1 - 2 * ((i + 0.5) / 48));
     const theta = Math.PI * (1 + Math.sqrt(5)) * i;
@@ -729,15 +814,15 @@ function buildScene(alphaLat: number, alphaLon: number): { root: THREE.Group; sc
   netraTracker.visible = false;
   const trackerRing = new THREE.Mesh(
     new THREE.RingGeometry(0.045, 0.06, 48),
-    new THREE.MeshBasicMaterial({ color: 0x4d7a92, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
+    new THREE.MeshBasicMaterial({ color: palette.netraTracker, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
   );
   const trackerHalo = new THREE.Mesh(
     new THREE.RingGeometry(0.075, 0.078, 64),
-    new THREE.MeshBasicMaterial({ color: 0x4d7a92, side: THREE.DoubleSide, transparent: true, opacity: 0.34 })
+    new THREE.MeshBasicMaterial({ color: palette.netraTracker, side: THREE.DoubleSide, transparent: true, opacity: 0.34 })
   );
   const trackerDot = new THREE.Mesh(
     new THREE.SphereGeometry(0.009, 12, 12),
-    new THREE.MeshBasicMaterial({ color: 0x4d7a92 })
+    new THREE.MeshBasicMaterial({ color: palette.netraTracker })
   );
   netraTracker.add(trackerRing, trackerHalo, trackerDot);
   globe.add(netraTracker);
@@ -751,7 +836,7 @@ function buildScene(alphaLat: number, alphaLon: number): { root: THREE.Group; sc
   const arcPts = arcCurve.getPoints(64);
   const arcGeo = new THREE.BufferGeometry().setFromPoints(arcPts);
   const arcMat = new THREE.LineDashedMaterial({
-    color: 0xd4602a,
+    color: palette.orange,
     dashSize: 0.05,
     gapSize: 0.03,
     transparent: true,
@@ -814,6 +899,21 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
   // without going stale across renders (the prop won't change after mount, but
   // the ref pattern is consistent with selectedIdRef / stratumRef).
   const alphaCoordRef = useRef({ lat: alphaLat, lon: alphaLon });
+
+  // Dark-mode recoloring — useThemeMode() subscribes to <html data-theme> via
+  // MutationObserver. The THREE setup effect depends on `mode` so it tears down
+  // and rebuilds the scene with the correct palette when the user toggles.
+  // Reads "light" until mounted (SSR-safe), then reflects the live attribute.
+  const mode = useThemeMode();
+  // Stable ref so the setInterval tick closure can read the current mode
+  // without stale-capture (the tick reads articleShadowRGB for the drop-shadow).
+  const modeRef = useRef<ThemeMode>(mode);
+  useEffect(() => { modeRef.current = mode; }, [mode]);
+  // activePaletteRef — written at the top of the THREE setup effect when palette
+  // is resolved. Recolor effects (selectedId, placeSummaries) read from it so
+  // they always apply the correct ink/orange for the current mode — not the
+  // module-level PLACE_INK_HEX / PLACE_ACCENT_HEX light defaults.
+  const activePaletteRef = useRef<GlobePalette>(GLOBE_PALETTES.light);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -1090,9 +1190,21 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
   }, [placeSummaries, rebuildJumpTargets]);
 
   // ─── THREE setup ───
+  // `mode` is in deps: when the user toggles dark mode, useThemeMode() returns a
+  // new value, this effect re-runs (cleanup → teardown → rebuild with new palette).
+  // The setInterval loop is preserved — clearInterval fires in cleanup, a fresh
+  // setInterval starts in the new run. This is intentional (iOS Safari robustness
+  // comment preserved; do NOT replace with requestAnimationFrame).
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+
+    // Resolve the active color palette for this render. All Three.js material
+    // hex literals in buildScene() come from this object — never hardcoded.
+    // activePaletteRef is updated immediately so recolor effects (selectedId /
+    // placeSummaries) that run after this setup can use the same palette.
+    const palette = GLOBE_PALETTES[mode];
+    activePaletteRef.current = palette;
 
     // Hydration-safe reduced-motion read — inside useEffect, not during render.
     // Per AGENTS.md quality bar: check prefers-reduced-motion in useEffect only.
@@ -1103,7 +1215,13 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
     // movable-alpha: pass current alpha coords into scene construction so the
     // observer α ring, the worldline arc, and camera framing all start at the
     // data-driven locus rather than the former Bangkok hardcode.
-    const { scene, refs, cleanup } = buildScene(alphaCoordRef.current.lat, alphaCoordRef.current.lon);
+    // Dark-mode: `mode` controls surface gradient + aging blotch palette.
+    const { scene, refs, cleanup } = buildScene(
+      alphaCoordRef.current.lat,
+      alphaCoordRef.current.lon,
+      palette,
+      mode,
+    );
     sceneRefsRef.current = refs;
 
     const camera = new THREE.PerspectiveCamera(36, 1, 0.01, 100);
@@ -1616,8 +1734,9 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
         const pts = curve.getPoints(32);
         const geo = new THREE.BufferGeometry().setFromPoints(pts);
         // LineDashedMaterial — dashed 4px / gap 3px per spec §4.2.
+        // Color from palette (orange shifts slightly between light/dark modes).
         const mat = new THREE.LineDashedMaterial({
-          color: BRANCH_ORANGE_HEX,
+          color: palette.orange,
           transparent: true,
           opacity: reducedMotionRef.current ? TENDRIL_ALPHA_BASE : 0,
           dashSize: 0.025,
@@ -1633,7 +1752,7 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
         // Variant endpoint halo — 3px open ring (geometry ~0.012 radius).
         // Per spec §4.4: RingGeometry, accent-orange at 0.6 alpha.
         const haloMat = new THREE.MeshBasicMaterial({
-          color: BRANCH_ORANGE_HEX,
+          color: palette.orange,
           transparent: true,
           opacity: reducedMotionRef.current ? ENDPOINT_ALPHA : 0,
           side: THREE.DoubleSide,
@@ -1683,7 +1802,7 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
           const pts = curve.getPoints(32);
           const geo = new THREE.BufferGeometry().setFromPoints(pts);
           const mat = new THREE.LineDashedMaterial({
-            color: BRANCH_ORANGE_HEX,
+            color: palette.orange,
             transparent: true,
             opacity: reducedMotionRef.current ? TENDRIL_ALPHA_BASE : 0,
             dashSize: 0.025,
@@ -1916,8 +2035,9 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
 
         // Build NeX orbital glyph for each fiction pin.
         // Hollow ring glyph — fiction node visual per ontology §4.5.
+        // Color from the current palette captured at scene build time.
         const glyphMat = new THREE.MeshBasicMaterial({
-          color: 0x1f5063,      // ink-primary teal (matches Ne0 surface pins)
+          color: palette.ink,
           transparent: true,
           opacity: 0.75,
           side: THREE.DoubleSide,
@@ -2264,8 +2384,15 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
     // it is captured once at mount inside the once-bound THREE scene closure and
     // called only when fiction nodes load. Adding it to deps would tear down the
     // entire THREE scene on every placeSummaries change — incorrect.
+    //
+    // dark-mode: `mode` IS in deps — when the user toggles dark/light, this
+    // effect tears down (clearInterval, dispose, removeChild) and rebuilds the
+    // scene with GLOBE_PALETTES[mode]. This is the correct and intended behavior:
+    // Three.js materials cannot hot-swap CSS vars, so a full scene rebuild is
+    // the only safe path. The setInterval loop restarts in the new run; the
+    // iOS Safari deliberate-setInterval choice (not rAF) is preserved.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [mode]);
 
   // Re-apply stratum / selection from React state to scene refs.
   useEffect(() => {
@@ -2282,11 +2409,13 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
   // Mirrors the async NeX fiction-glyph population: the scene mounts once, this
   // effect fills nodesGroup once summaries are loaded (whichever order they
   // resolve). Idempotent — only builds when placeObjects is still empty.
+  // Dark-mode: passes activePaletteRef.ink so nodes render in the correct color
+  // for the current mode (activePaletteRef is set at scene-build time).
   useEffect(() => {
     const refs = sceneRefsRef.current;
     if (!refs || placeSummaries.length === 0 || refs.placeObjects.length > 0) return;
     for (const summary of placeSummaries) {
-      refs.placeObjects.push(buildPlaceNode(summary, refs.nodesGroup));
+      refs.placeObjects.push(buildPlaceNode(summary, refs.nodesGroup, activePaletteRef.current.ink));
     }
   }, [placeSummaries]);
 
@@ -2297,23 +2426,25 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
   // selection recolor effect in dep-order; the selection effect (selectedId,
   // placeSummaries) handles a selected alpha place's own orange treatment already,
   // so this effect only applies the persistent accent when the place is NOT selected.
+  // Dark-mode: reads activePaletteRef so ink/orange use the current mode's values.
   useEffect(() => {
     const refs = sceneRefsRef.current;
     if (!refs || placeSummaries.length === 0) return;
+    const pal = activePaletteRef.current;
     for (const node of refs.placeObjects) {
       const isAlpha = node.summary.isAlpha;
       const isSel = node.summary.place.id === selectedId;
       if (isAlpha && !isSel) {
         // Persistent alpha accent — orange dot + ring-1 full / ring-2 mid.
-        (node.dot.material as THREE.MeshBasicMaterial).color.setHex(PLACE_ACCENT_HEX);
+        (node.dot.material as THREE.MeshBasicMaterial).color.setHex(pal.orange);
         node.rings.forEach((ring, i) => {
           const mat = ring.material as THREE.MeshBasicMaterial;
           const base = (ring.userData.baseOpacity as number) ?? PLACE_RING_GEO[i][2];
           if (i < 2) {
-            mat.color.setHex(PLACE_ACCENT_HEX);
+            mat.color.setHex(pal.orange);
             mat.opacity = i === 0 ? 0.95 : 0.6;
           } else {
-            mat.color.setHex(PLACE_INK_HEX);
+            mat.color.setHex(pal.ink);
             mat.opacity = base;
           }
         });
@@ -2328,16 +2459,18 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
   // tokyo-alpha exception: non-selected alpha place keeps its orange accent
   // (painted by the alpha-on-place effect above) — this effect must not wipe it.
   // Pure material mutation — no geometry rebuild, no re-render churn.
+  // Dark-mode: reads activePaletteRef so ink/orange use the current mode's values.
   useEffect(() => {
     const refs = sceneRefsRef.current;
     if (!refs) return;
+    const pal = activePaletteRef.current;
     for (const node of refs.placeObjects) {
       const isSel = node.summary.place.id === selectedId;
       const isAlpha = node.summary.isAlpha;
       // Non-selected alpha place: let the alpha-on-place effect own its color.
       if (isAlpha && !isSel) continue;
       (node.dot.material as THREE.MeshBasicMaterial).color.setHex(
-        isSel ? PLACE_ACCENT_HEX : PLACE_INK_HEX
+        isSel ? pal.orange : pal.ink
       );
       node.rings.forEach((ring, i) => {
         const mat = ring.material as THREE.MeshBasicMaterial;
@@ -2345,10 +2478,10 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
         // Spec §3.4: selected recolors ring-1 + ring-2 to orange (1.0 / 0.7);
         // ring-3 is "no change" — stays ink at its base opacity.
         if (isSel && i < 2) {
-          mat.color.setHex(PLACE_ACCENT_HEX);
+          mat.color.setHex(pal.orange);
           mat.opacity = i === 0 ? 1.0 : 0.7;
         } else {
-          mat.color.setHex(PLACE_INK_HEX);
+          mat.color.setHex(pal.ink);
           mat.opacity = base;
         }
       });
