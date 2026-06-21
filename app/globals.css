@@ -1890,24 +1890,33 @@ body {
     display: none !important;
   }
 
-  /* NETRA compact strip — reticle + id-box + readout, tidy on phone */
+  /* NETRA compact strip — reticle inline with id-box, readout tight below */
   .atlas-netra {
     grid-template-columns: auto 1fr;
     grid-template-rows: auto auto;
-    row-gap: 6px;
-    padding: 8px 10px;
+    row-gap: 3px;
+    padding: 6px 10px;
     border-top: 1px dashed var(--ink-dashed);
   }
+  /* reticle stays col1 row1 — no change needed; id-box moves to col2 row1 */
   .atlas-netra .id-box {
-    grid-column: 1 / -1;
+    grid-column: 2 / 3;
+    grid-row: 1;
     border-right: none;
     padding-right: 0;
+    align-self: center;
   }
+  /* readout spans full width on row2, pairs sit tight, no far-right float */
   .atlas-netra .readout {
     grid-column: 1 / -1;
-    flex-wrap: wrap;
-    gap: 4px 12px;
+    grid-row: 2;
+    display: flex;            /* override base display:grid */
+    flex-wrap: wrap;          /* wrap only if it truly overflows */
+    align-items: baseline;
+    justify-content: flex-start;
+    gap: 0 8px;              /* tight horizontal pairs, no big gaps */
   }
+  .atlas-netra .readout b { justify-self: auto; }
 }
 
 /* =============================================================
