@@ -195,8 +195,8 @@ export function ArchiveFilters({ counts, activeType, onTypeChange }: ArchiveFilt
                   onMouseEnter={(e) => {
                     if (isActive || isDisabled) return;
                     const el = e.currentTarget;
-                    // §6: inactive hover → border rgba(212,96,42,0.5) — literal per spec
-                    el.style.borderColor = 'rgba(212, 96, 42, 0.5)';
+                    // §6: inactive hover → accent border at 0.5; token-driven so it tracks dark mode
+                    el.style.borderColor = 'rgb(var(--accent-orange-rgb) / 0.5)';
                   }}
                   onMouseLeave={(e) => {
                     if (isActive || isDisabled) return;

@@ -109,7 +109,7 @@ export function ChapterIndex({ entries, activeAttractor }: Props) {
               {/* Diamond reticle */}
               <span
                 aria-hidden
-                className="absolute top-6 right-7 w-1.5 h-1.5 border border-[rgba(212,96,42,0.4)] rotate-45"
+                className="absolute top-6 right-7 w-1.5 h-1.5 border border-[rgb(var(--accent-orange-rgb)/0.4)] rotate-45"
               />
 
               <div className="t-meta tracking-[0.2em] mb-3 text-[var(--ink-faint)]">

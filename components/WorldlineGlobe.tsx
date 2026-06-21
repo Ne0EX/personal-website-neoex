@@ -2789,7 +2789,7 @@ function PlaceFrontDoorPanel(props: {
     background: "var(--paper-warm)",
     border: "1px solid var(--ink-primary)",
     padding: "18px 20px",
-    boxShadow: "3px 3px 0 rgba(31,80,99,0.16)",
+    boxShadow: "3px 3px 0 rgb(var(--ink-rgb) / 0.16)",
     opacity: open ? 1 : 0,
     transition: reducedMotion
       ? "none"

@@ -23,6 +23,7 @@ export function ThemeToggle() {
         aria-checked={mode === "light"}
         className={mode === "light" ? "is-active" : undefined}
         onClick={() => setThemeMode("light")}
+        suppressHydrationWarning
       >
         <span className="gl" aria-hidden="true">○</span> DAY
       </button>
@@ -32,6 +33,7 @@ export function ThemeToggle() {
         aria-checked={mode === "dark"}
         className={mode === "dark" ? "is-active" : undefined}
         onClick={() => setThemeMode("dark")}
+        suppressHydrationWarning
       >
         <span className="gl" aria-hidden="true">◆</span> NIGHT
       </button>
