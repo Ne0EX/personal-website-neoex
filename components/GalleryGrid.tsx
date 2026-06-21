@@ -571,6 +571,9 @@ export function GalleryGrid({
                                   {photo.caption && (
                                     <div
                                       aria-hidden
+                                      // gv-cap: Betelgeuse adds opacity:1 at ≤600px in GalleryGrid.css
+                                      // so captions are always visible on tap-less mobile.
+                                      className="gv-cap"
                                       style={{
                                         fontFamily: "var(--font-display)",
                                         fontStyle: "italic",
@@ -721,6 +724,9 @@ export function GalleryGrid({
                           {photo.caption && (
                             <div
                               aria-hidden
+                              // gv-cap: Betelgeuse adds opacity:1 at ≤600px in GalleryGrid.css
+                              // so captions are always visible on tap-less mobile.
+                              className="gv-cap"
                               style={{
                                 fontFamily: "var(--font-display)",
                                 fontStyle: "italic",
@@ -923,6 +929,9 @@ export function GalleryGrid({
                                 {photo.caption && (
                                   <div
                                     aria-hidden
+                                    // gv-cap: Betelgeuse adds opacity:1 at ≤600px in GalleryGrid.css
+                                    // so captions are always visible on tap-less mobile.
+                                    className="gv-cap"
                                     style={{
                                       fontFamily: "var(--font-display)",
                                       fontStyle: "italic",

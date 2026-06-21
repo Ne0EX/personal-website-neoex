@@ -87,16 +87,24 @@ export function AttractorFilterShell({ initialTag = "all" }: AttractorFilterShel
   }
 
   return (
-    <>
-      {/* §01 — filtered by activeAttractor */}
-      <ChapterIndex entries={filteredEntries} activeAttractor={activeAttractor} />
+    // flex-col wrapper enables CSS `order` to reorder children on mobile (≤600px)
+    // without touching the DOM order that screen readers and keyboard nav follow.
+    // Desktop order: §01 entries above §02 filter (order unchanged, both default order-2).
+    // Mobile (max-[600px]): filter pills move above entries so a tap shows immediate effect.
+    <div className="flex flex-col">
+      {/* §01 — filtered by activeAttractor; desktop-first (order-1 default) */}
+      <div className="max-[600px]:order-last">
+        <ChapterIndex entries={filteredEntries} activeAttractor={activeAttractor} />
+      </div>
 
-      {/* §02 — pill strip; drives filter */}
-      <AttractorFields
-        activeAttractor={activeAttractor}
-        onSelect={handleSelect}
-        memberCounts={memberCounts}
-      />
-    </>
+      {/* §02 — pill strip; drives filter; lifted above entries on mobile only */}
+      <div className="max-[600px]:order-first">
+        <AttractorFields
+          activeAttractor={activeAttractor}
+          onSelect={handleSelect}
+          memberCounts={memberCounts}
+        />
+      </div>
+    </div>
   );
 }

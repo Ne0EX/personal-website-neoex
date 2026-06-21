@@ -58,8 +58,10 @@ const CANVAS_CSS = `
 .canvas-viewport {
   position: absolute; inset: 0; overflow: hidden; touch-action: none;
 }
+/* A1: scale applied here — nodes/edges live inside this layer */
 .canvas-world {
   position: absolute; inset: 0; pointer-events: none; z-index: 3;
+  transform-origin: 0 0; /* zoom origin is top-left; offset via pan + mid math */
 }
 .canvas-edges {
   position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible;
@@ -147,6 +149,17 @@ const CANVAS_CSS = `
 .hud-btn:hover { border-color: var(--accent-orange); color: var(--accent-orange); }
 .hud-btn:focus-visible { outline: 1px dashed var(--accent-orange); outline-offset: 2px; }
 
+/* A1: zoom readout — monospace scale percentage beside ARRANGE/ORIGIN */
+.hud-zoom-readout {
+  font-family: var(--font-mono);
+  font-size: 7px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--ink-soft); white-space: nowrap;
+}
+.hud-zoom-readout b {
+  font-family: var(--font-type); font-size: 9px;
+  letter-spacing: 0.04em; color: var(--ink-primary); font-weight: 400;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .kn-card { transition-duration: 0.001ms; }
   .kn-card.is-arranging { transition-duration: 0.001ms; }
@@ -192,6 +205,10 @@ interface ConsoleCanvasProps {
 // ConsoleCanvas
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Pinch-zoom constants ──
+const SCALE_MIN = 0.3
+const SCALE_MAX = 3.0
+
 export function ConsoleCanvas({
   nodes, edges, selectedId, hoveredId, activeFilter, query,
   flyTarget, onSelect, onHover, onMoveNode, onCreateEdge,
@@ -202,6 +219,21 @@ export function ConsoleCanvas({
   const [conn,      setConn]      = useState<{ source: string; x: number; y: number } | null>(null)
   const [panning,   setPanning]   = useState<{ sx: number; sy: number; px: number; py: number } | null>(null)
   const [arranging, setArranging] = useState(false)
+
+  // A1: pinch-zoom state — default 1, clamped [SCALE_MIN, SCALE_MAX]
+  const [scale, setScale] = useState(1)
+  const scaleRef = useRef(scale)
+  scaleRef.current = scale
+
+  // A1: active pointer map for pinch detection (two-finger gesture needs both points)
+  const activePointers = useRef<Map<number, { x: number; y: number }>>(new Map())
+  // A1: pinch gesture baseline — recorded when the second pointer goes down
+  const pinchRef = useRef<{
+    startDist: number
+    startScale: number
+    startMid: { x: number; y: number }
+    startPan: { x: number; y: number }
+  } | null>(null)
 
   // Keep a ref for pan so pointer-move callbacks always see current value
   const panRef = useRef(pan)
@@ -234,7 +266,15 @@ export function ConsoleCanvas({
     const vp = vpRef.current
     if (!n || !vp) return
     const c = centerOf(n)
-    const target = { x: vp.clientWidth / 2 - c.x, y: vp.clientHeight / 2 - c.y }
+    // A1: scale-aware fly-to. The world → screen mapping is:
+    //   screen = pan + world * scale
+    // To centre a world point c on the viewport:
+    //   pan = vpCentre - c * scale
+    const s = scaleRef.current
+    const target = {
+      x: vp.clientWidth  / 2 - c.x * s,
+      y: vp.clientHeight / 2 - c.y * s,
+    }
     const start = { ...panRef.current }
     const t0 = performance.now()
     const dur = 350
@@ -252,37 +292,116 @@ export function ConsoleCanvas({
     return () => cancelAnimationFrame(raf)
   }, [flyTarget]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── World coordinate from pointer event ──
+  // ── World coordinate from screen coordinate ──
+  // A1: CRITICAL — divides by scaleRef.current so every screen↔world conversion
+  // stays correct under zoom. This is the SINGLE coord-conversion fn; all hit-tests
+  // (node drag, drag-to-link, conn snap) call this and inherit the division.
   const toWorld = (clientX: number, clientY: number) => {
     const r = vpRef.current!.getBoundingClientRect()
-    return { x: clientX - r.left - panRef.current.x, y: clientY - r.top - panRef.current.y }
+    const s = scaleRef.current
+    return {
+      x: (clientX - r.left - panRef.current.x) / s,
+      y: (clientY - r.top  - panRef.current.y) / s,
+    }
   }
 
+  // A1: viewport-space distance between two pointer positions
+  const pinchDist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+    Math.hypot(b.x - a.x, b.y - a.y)
+
+  // A1: midpoint of two pointer positions in viewport (screen) space
+  const pinchMid = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+    ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })
+
   // ── Pointer handlers ──
+  // A1: all pointer-down/move/up handlers maintain activePointers map so we can
+  // detect when exactly two fingers are down and start/update pinch-zoom.
+
   const onNodeDown = (e: React.PointerEvent<HTMLDivElement>, n: ConsoleNode) => {
     // If clicked on the link-drag handle, skip — handled by onHandleDown
     if ((e.target as HTMLElement).dataset.handle) return
     e.stopPropagation()
+    // A1: track pointer in the shared map
+    activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     onSelect(n.id)
     const w = toWorld(e.clientX, e.clientY)
     setDrag({ id: n.id, dx: w.x - n.x, dy: w.y - n.y, moved: false })
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId) } catch {}
   }
 
   const onHandleDown = (e: React.PointerEvent<HTMLSpanElement>, n: ConsoleNode) => {
     e.stopPropagation()
+    // A1: track pointer
+    activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     const w = toWorld(e.clientX, e.clientY)
     setConn({ source: n.id, x: w.x, y: w.y })
-    vpRef.current?.setPointerCapture(e.pointerId)
+    try { vpRef.current?.setPointerCapture(e.pointerId) } catch {}
   }
 
   const onBgDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // A1: track pointer; if this is the second finger, start pinch instead of pan
+    activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (activePointers.current.size === 2) {
+      // Two fingers — begin pinch gesture; cancel any in-progress pan
+      setPanning(null)
+      const pts = [...activePointers.current.values()]
+      const d = pinchDist(pts[0], pts[1])
+      const mid = pinchMid(pts[0], pts[1])
+      pinchRef.current = {
+        startDist:  d,
+        startScale: scaleRef.current,
+        startMid:   mid,
+        startPan:   { ...panRef.current },
+      }
+      // Capture the viewport so move events keep coming even if fingers leave it
+      try { vpRef.current?.setPointerCapture(e.pointerId) } catch {}
+      return
+    }
     onSelect(null)
     setPanning({ sx: e.clientX, sy: e.clientY, px: pan.x, py: pan.y })
-    vpRef.current?.setPointerCapture(e.pointerId)
+    try { vpRef.current?.setPointerCapture(e.pointerId) } catch {}
+  }
+
+  // A1: shared pointer-removal helper — called by up and cancel
+  const removePointer = (id: number) => {
+    activePointers.current.delete(id)
+    // If fewer than 2 fingers remain, end any pinch gesture cleanly
+    if (activePointers.current.size < 2) {
+      pinchRef.current = null
+    }
   }
 
   const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    // A1: update the pointer position in the map
+    if (activePointers.current.has(e.pointerId)) {
+      activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    }
+
+    // A1: pinch-zoom takes priority when exactly two pointers are down
+    if (pinchRef.current && activePointers.current.size === 2) {
+      const pts = [...activePointers.current.values()]
+      const newDist = pinchDist(pts[0], pts[1])
+      const { startDist, startScale, startPan } = pinchRef.current
+      if (startDist > 0) {
+        const raw = startScale * (newDist / startDist)
+        const newScale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, raw))
+        // Zoom about the original midpoint (viewport space) so that point stays fixed.
+        // pan' = mid - (mid - startPan) * (newScale / startScale)
+        const mid = pinchRef.current.startMid
+        const r = vpRef.current!.getBoundingClientRect()
+        // mid relative to viewport origin
+        const mx = mid.x - r.left
+        const my = mid.y - r.top
+        const ratio = newScale / startScale
+        const newPanX = mx - (mx - startPan.x) * ratio
+        const newPanY = my - (my - startPan.y) * ratio
+        scaleRef.current = newScale
+        setScale(newScale)
+        setPan({ x: newPanX, y: newPanY })
+      }
+      return
+    }
+
     if (drag) {
       const w = toWorld(e.clientX, e.clientY)
       onMoveNode(drag.id, Math.round(w.x - drag.dx), Math.round(w.y - drag.dy))
@@ -305,10 +424,46 @@ export function ConsoleCanvas({
       )
       if (hit) onCreateEdge(conn.source, hit.id)
     }
+    removePointer(e.pointerId)
     setDrag(null)
     setConn(null)
     setPanning(null)
   }
+
+  // A1: pointercancel — iOS fires this aggressively; clean up like onUp but without
+  // the drag-to-link commit (the gesture was interrupted, not completed intentionally)
+  const onCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    removePointer(e.pointerId)
+    setDrag(null)
+    setConn(null)
+    setPanning(null)
+  }
+
+  // A1: desktop wheel-zoom (nice-to-have per task spec).
+  // Attached via useEffect with { passive: false } so e.preventDefault() works —
+  // React 18+ registers synthetic onWheel as passive by default, which blocks
+  // preventDefault and lets the browser scroll instead of zooming the canvas.
+  useEffect(() => {
+    const vp = vpRef.current
+    if (!vp) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const r = vp.getBoundingClientRect()
+      const mx = e.clientX - r.left
+      const my = e.clientY - r.top
+      const delta = -e.deltaY * 0.001
+      const raw = scaleRef.current * (1 + delta)
+      const newScale = Math.min(SCALE_MAX, Math.max(SCALE_MIN, raw))
+      const ratio = newScale / scaleRef.current
+      const newPanX = mx - (mx - panRef.current.x) * ratio
+      const newPanY = my - (my - panRef.current.y) * ratio
+      scaleRef.current = newScale
+      setScale(newScale)
+      setPan({ x: newPanX, y: newPanY })
+    }
+    vp.addEventListener('wheel', onWheel, { passive: false })
+    return () => vp.removeEventListener('wheel', onWheel)
+  }, []) // vpRef.current is stable after mount; scaleRef/panRef are always current
 
   // ── Auto-arrange — tidy 3-column grid, 400ms animated ──
   const arrange = () => {
@@ -343,7 +498,9 @@ export function ConsoleCanvas({
 
   const nodeCount  = String(nodes.length).padStart(3, '0')
   const edgeCount  = String(edges.length).padStart(3, '0')
-  const isPinned   = pan.x === 0 && pan.y === 0
+  // A1: isPinned also checks scale — "ORIGIN" means pan at zero AND scale at 1
+  const isPinned   = pan.x === 0 && pan.y === 0 && scale === 1
+  const scalePct   = Math.round(scale * 100)
 
   return (
     <>
@@ -357,9 +514,12 @@ export function ConsoleCanvas({
           onPointerDown={onBgDown}
           onPointerMove={onMove}
           onPointerUp={onUp}
+          onPointerCancel={onCancel}
           style={{ cursor: panning ? 'grabbing' : 'default' }}
         >
-          {/* α watermark — 0.4× parallax, no CSS transition (synchronous per spec) */}
+          {/* α watermark — 0.4× parallax, no CSS transition (synchronous per spec).
+              A1: parallax stays in viewport (screen) space — pan.x already reflects
+              the viewport offset directly, so 0.4× remains correct under zoom. */}
           <div
             className="atlas-alpha-mark"
             style={{ transform: `translate(${pan.x * 0.4}px, ${pan.y * 0.4}px)` }}
@@ -368,8 +528,10 @@ export function ConsoleCanvas({
             α
           </div>
 
-          {/* World layer */}
-          <div className="canvas-world" style={{ transform: `translate(${pan.x}px, ${pan.y}px)` }}>
+          {/* World layer — A1: scale() applied here so all children (nodes + edges)
+              zoom together. transform-origin:0 0 on .canvas-world so the pan offset
+              is applied first, then scale expands from the top-left origin. */}
+          <div className="canvas-world" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }}>
             {/* Edges */}
             <svg className="canvas-edges" width="2600" height="1800" aria-hidden="true">
               {edges.map((e) => {
@@ -506,6 +668,10 @@ export function ConsoleCanvas({
               <span>NODES · <b>{nodeCount}</b></span>
               <span>EDGES · <b>{edgeCount}</b></span>
             </div>
+            {/* A1: zoom readout */}
+            <div className="hud-zoom-readout" aria-live="polite" aria-label={`zoom ${scalePct}%`}>
+              ZOOM · <b>{scalePct}%</b>
+            </div>
             <button
               type="button"
               className="hud-btn"
@@ -514,13 +680,15 @@ export function ConsoleCanvas({
             >
               ⟳ ARRANGE
             </button>
+            {/* A1: FIT / 100% reset — resets both pan and scale to origin */}
             <button
               type="button"
               className="hud-btn"
-              onClick={() => setPan({ x: 0, y: 0 })}
-              title="reset view to origin"
+              onClick={() => { setPan({ x: 0, y: 0 }); setScale(1); scaleRef.current = 1 }}
+              title={scale !== 1 ? 'reset zoom to 100%' : 'reset view to origin'}
+              aria-label="reset zoom and pan to origin"
             >
-              ⊕ ORIGIN
+              ⊕ {scale !== 1 ? '100%' : 'ORIGIN'}
             </button>
           </div>
 

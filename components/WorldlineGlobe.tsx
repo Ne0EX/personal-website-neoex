@@ -850,7 +850,6 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
   // Branch voice — overrides stratum voice when NeX branching is active.
   // Q-F/Q-G lines from Vega (TASK-2026-05-17-VEGA-BRANCHING-VOICE).
   const [branchVoice, setBranchVoice] = useState<string | null>(null);
-
   const stratumRef = useRef<StratumKey>("all");
   const selectedIdRef = useRef<string | null>(null);
   // Mirror dig state for the once-bound keydown handler closure (same reason
@@ -1263,6 +1262,9 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
       lastX = e.clientX;
 
       // CW-11 touch direction guard: decide capture on first meaningful move.
+      // Belt-and-suspenders alongside touch-action:pan-y on the canvas (Betelgeuse S1 CSS):
+      // pan-y lets the browser own vertical scroll natively; this guard additionally
+      // prevents setPointerCapture from locking a vertical swipe into globe rotation.
       if (!captureDecided && e.pointerType === "touch" && captureId !== null) {
         const totalDx = Math.abs(e.clientX - startX);
         const totalDy = Math.abs(e.clientY - startY);
@@ -1968,7 +1970,13 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
     // Initial stratum.
     applyStratum("all");
 
-    // Render loop — setInterval for harness robustness.
+    // Render loop — setInterval(tick, 16) for iOS Safari + harness robustness.
+    // rAF was tried in the S1 mobile pass but iOS Safari throttles/defers rAF under
+    // certain visibility conditions, leaving the canvas permanently blank after the sync
+    // first frame below. setInterval ticks unconditionally. One synchronous tick() is
+    // called first so the harness can screenshot the initial frame immediately.
+    // The CW-11 direction guard below (~onMoveDrag) remains as belt-and-suspenders;
+    // touch-action:pan-y (added by Betelgeuse in globals.css) now owns vertical scroll.
     let lastT = performance.now();
     const tick = () => {
       const now = performance.now();
@@ -2211,11 +2219,17 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
 
       renderer.render(scene, camera);
     };
-    const id = window.setInterval(tick, 16);
+    // Sync first frame — harness requires a rendered frame before its screenshot hook fires.
     tick();
+    // setInterval chosen over requestAnimationFrame for iOS Safari robustness:
+    // iOS Safari can throttle/defer rAF so only the sync first frame above paints,
+    // then rAF never advances → permanent blank canvas. setInterval ticks reliably
+    // regardless of visibility/throttle policy. Original intent preserved from
+    // pre-mobile-pass ("harness robustness" comment).
+    const intervalId = window.setInterval(tick, 16);
 
     return () => {
-      window.clearInterval(id);
+      window.clearInterval(intervalId);
       ro.disconnect();
       renderer.domElement.removeEventListener("pointerdown", onDown);
       renderer.domElement.removeEventListener("pointermove", onMoveDrag);
@@ -2435,6 +2449,39 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
               Rendering lat/lon here misframed α (identity-locus) as a Bangkok GPS pin. */}
         </div>
 
+        {/* Mobile dock — compact strata chips + NEXT NODE, co-located beneath the globe.
+            Spec: docs/design/23-mobile-atlas-reflow.md · α-VIS-04 · 2026-06-21
+            Hidden >600px via CSS. The verbose .atlas-strata-list is display:none ≤600px
+            (removed from a11y tree), so only one stratum control set is active per breakpoint. */}
+        <div className="atlas-mobile-dock" aria-label="STRATUM CONTROLS">
+          {STRATA_BUTTONS.map((b) => {
+            const active = stratum === b.key;
+            return (
+              <button
+                key={b.key}
+                type="button"
+                onClick={() => setStratum(active ? "all" : b.key)}
+                className={`atlas-mobile-dock-chip${active ? " is-active" : ""}`}
+                aria-pressed={active}
+              >
+                <span className="glyph" aria-hidden>{b.glyph}</span>
+                <span>{b.id}</span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            className="atlas-mobile-dock-jump"
+            aria-label="Jump to next node"
+            onClick={() => {
+              const fn = (window as unknown as { __atlasNetraJump?: () => void }).__atlasNetraJump;
+              if (fn) fn();
+            }}
+          >
+            ⟶ NEXT NODE
+          </button>
+        </div>
+
         {/* RIGHT — stratum readout */}
         <aside className="atlas-readout">
           <div className="atlas-readout-head">§ STRATUM READOUT</div>
@@ -2592,32 +2639,67 @@ function PlaceFrontDoorPanel(props: {
 
   const panelLabel = place ? `${place.name} highlights` : "place highlights";
 
+  // Mobile bottom-sheet: detect viewport ≤600px. Hydration-safe — starts false
+  // on server, corrects on mount (panel only shows after user interaction, so
+  // the one-frame mismatch is invisible). α-SUR-01 2026-06-21.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width:600px)");
+    const on = () => setIsMobile(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+
+  // Shared tokens — identical on both form factors.
+  const sharedStyle = {
+    background: "var(--paper-warm)",
+    border: "1px solid var(--ink-primary)",
+    padding: "18px 20px",
+    boxShadow: "3px 3px 0 rgba(31,80,99,0.16)",
+    opacity: open ? 1 : 0,
+    transition: reducedMotion
+      ? "none"
+      : "transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 320ms ease-out",
+    pointerEvents: (open ? "auto" : "none") as React.CSSProperties["pointerEvents"],
+  };
+
+  // Desktop right-rail — pixel-identical to the pre-mobile-native state.
+  const desktopStyle: React.CSSProperties = {
+    ...sharedStyle,
+    position: "absolute",
+    top: 78,
+    right: 22,
+    // Fix #1: panel must not cover the NEXT NODE (⟶) button in atlas-foot.
+    // The footer (atlas-foot-row + atlas-netra-voice) sits at the bottom of the
+    // frame. We anchor the panel above it with bottom: 124 so the full NETRA
+    // console + voice strip remain fully visible and clickable when a panel is open.
+    bottom: 124,
+    width: "min(46%, 360px)",
+    transform: open ? "translateX(0)" : "translateX(calc(100% + 30px))",
+  };
+
+  // Mobile bottom-sheet — escapes the atlas-frame via position:fixed (the frame
+  // has no CSS transform, so fixed is viewport-relative). Slides from the bottom.
+  // maxHeight is short for the summary state; expands to scroll when dig is open.
+  const mobileStyle: React.CSSProperties = {
+    ...sharedStyle,
+    position: "fixed",
+    left: "max(8px, env(safe-area-inset-left))",
+    right: "max(8px, env(safe-area-inset-right))",
+    bottom: "max(8px, env(safe-area-inset-bottom))",
+    top: "auto",
+    width: "auto",
+    maxHeight: digOpen ? "72vh" : "46vh",
+    transform: open ? "translateY(0)" : "translateY(110%)",
+  };
+
   return (
     <section
-      className="absolute z-[6] flex flex-col overflow-y-auto"
+      className="z-[6] flex flex-col overflow-y-auto"
       aria-label={panelLabel}
       aria-hidden={!open}
-      style={{
-        top: 78,
-        right: 22,
-        // Fix #1: panel must not cover the NEXT NODE (⟶) button in atlas-foot.
-        // The footer (atlas-foot-row + atlas-netra-voice) sits at the bottom of the
-        // frame. We anchor the panel above it with bottom: 124 so the full NETRA
-        // console + voice strip remain fully visible and clickable when a panel is open.
-        bottom: 124,
-        width: "min(46%, 360px)",
-        background: "var(--paper-warm)",
-        border: "1px solid var(--ink-primary)",
-        padding: "18px 20px",
-        boxShadow: "3px 3px 0 rgba(31,80,99,0.16)",
-        transform: open ? "translateX(0)" : "translateX(calc(100% + 30px))",
-        opacity: open ? 1 : 0,
-        // Spec §8: reduced motion → instant (no slide/fade).
-        transition: reducedMotion
-          ? "none"
-          : "transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 320ms ease-out",
-        pointerEvents: open ? "auto" : "none",
-      }}
+      style={isMobile ? mobileStyle : desktopStyle}
     >
       {/* CW-15 · ESC button touch target (ux-journey, α-SUR-01, 2026-06-14)
           Was 44×17px. minHeight:44px + display:flex + alignItems:center → ≥44px.

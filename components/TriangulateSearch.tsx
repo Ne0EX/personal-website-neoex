@@ -930,12 +930,13 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
           }
         >
           {/* ── Overlay header ─────────────────────────────────────────── */}
+          {/* S5 safe-area: paddingTop absorbs Dynamic Island / notch on iPhone. */}
           <header
             style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              padding: "12px 16px",
+              padding: "max(12px, env(safe-area-inset-top)) 16px 12px",
               borderBottom: "1px dashed var(--ink-dashed)",
               background: "var(--paper-warm)",
               position: "relative",

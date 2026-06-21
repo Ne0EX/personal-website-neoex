@@ -198,10 +198,16 @@ function LocaleButton({
         color: active ? "var(--ink-primary)" : "var(--ink-soft)",
         // Hover lifts inactive to accent-orange; active stays ink-primary.
         transition: "color 120ms ease",
-        // Minimum 44px tap target height per a11y floor.
-        // The nav-clock line-height already gives vertical space; we extend
-        // the touch target with padding without shifting layout.
-        paddingBlock: "4px",
+        // S3 mobile-native: bump tap target to ≥44px.
+        // minHeight:44px + display:inline-flex + align-items:center is the
+        // primary guarantee; paddingBlock:17px adds extra touch surface
+        // without changing visible text baseline position in the desktop layout
+        // (the parent span is inline-flex + align-items:baseline, so the extra
+        // block padding extends the click area outward, not between characters).
+        minHeight: "44px",
+        display: "inline-flex",
+        alignItems: "center",
+        paddingBlock: "17px",
         // Visible focus ring — do not suppress. Browser :focus-visible is
         // sufficient here (no outline: none anywhere).
         outlineOffset: "2px",

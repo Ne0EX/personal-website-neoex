@@ -184,7 +184,9 @@ export function GalleryLightbox({
 
   const overlayStyle: React.CSSProperties = {
     position: "fixed",
-    inset: 0,
+    // S5 safe-area: env() insets keep content clear of the Dynamic Island / home bar.
+    // top/bottom use safe-area-inset-*; left/right already fill edge-to-edge.
+    inset: "env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)",
     zIndex: 1000,
     // var(--paper-base) at 96% opacity via rgb() + CSS var
     background: "rgb(var(--paper-base-rgb) / 0.96)",
@@ -222,6 +224,7 @@ export function GalleryLightbox({
       `}</style>
 
       {/* ── Top bar: [⇋ OPEN ENTRY] (left) + [ESC] (right) ── */}
+      {/* S5 safe-area: paddingTop absorbs the Dynamic Island / notch height. */}
       <div
         style={{
           position: "absolute",
@@ -231,7 +234,7 @@ export function GalleryLightbox({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          padding: "16px 24px",
+          padding: "max(16px, env(safe-area-inset-top)) 24px 16px",
         }}
       >
         {/* [⇋ OPEN ENTRY] — t-mono 9px ink-soft — links to per-photo entry */}

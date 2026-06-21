@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { useStratumKey, type StratumKey } from "@/lib/client-state/globe-store";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 
@@ -145,70 +146,174 @@ export function Nav() {
     return () => clearInterval(id);
   }, []);
 
+  // S3 · slim bar menu toggle state.
+  // is-open class on .nav-slim drives the CSS-only panel expand (max-height).
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Close the menu when the route changes (e.g. visitor taps a section link
+  // then presses browser back and the component is still mounted).
+  const pathname = usePathname();
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
   return (
-    <div className="nav-shell relative z-[3] section-rule">
-      <div className="nav-id t-meta">
+    <>
+      {/* ── Desktop nav — visible >600px, hidden ≤600px by Betelgeuse CSS ── */}
+      <div className="nav-shell relative z-[3] section-rule">
+        <div className="nav-id t-meta">
+          {/*
+           * CW-05 (name "· Peat" in nav-id) REVERTED by Polaris 2026-06-14 — surfacing the
+           * real name in the persistent nav is an identity/aesthetic call that overlaps the
+           * deferred NP-01 (about/resume signpost prominence) and the deliberate ∇ NEOSPIRIT /
+           * Ne0EX persona mythology. Peat is building a separate about-me + resume.neoex.com for
+           * the real-identity audience; whether his name belongs in the main-site nav is HIS call.
+           * Deferred into NP-01 for his decision on return.
+           */}
+          <div>
+            <span className="t-meta-accent">∇ NEOSPIRIT {"//"} WORLDLINE 1.130426</span>
+          </div>
+          <div className="mt-1.5 text-[var(--ink-soft)]">
+            EST. 2026 — BANGKOK / THAILAND
+          </div>
+        </div>
+
+        <nav className="nav-links t-meta">
+          {NAV_ITEMS.map(({ label, href: navHref }) => (
+            <a
+              key={label}
+              href={navHref}
+              className="text-[var(--ink-primary)] hover:text-[var(--accent-orange)] transition-colors"
+            >
+              ◇ {label}
+            </a>
+          ))}
+        </nav>
+
         {/*
-         * CW-05 (name "· Peat" in nav-id) REVERTED by Polaris 2026-06-14 — surfacing the
-         * real name in the persistent nav is an identity/aesthetic call that overlaps the
-         * deferred NP-01 (about/resume signpost prominence) and the deliberate ∇ NEOSPIRIT /
-         * Ne0EX persona mythology. Peat is building a separate about-me + resume.neoex.com for
-         * the real-identity audience; whether his name belongs in the main-site nav is HIS call.
-         * Deferred into NP-01 for his decision on return.
-         */}
-        <div>
-          <span className="t-meta-accent">∇ NEOSPIRIT {"//"} WORLDLINE 1.130426</span>
-        </div>
-        <div className="mt-1.5 text-[var(--ink-soft)]">
-          EST. 2026 — BANGKOK / THAILAND
-        </div>
-      </div>
+          Right-side readout (nav-clock) — per journey-arch §3.6:
+          SYS // CALIBRATED on the first line; time + stratum indicator on the
+          second line. flex + justify-end keeps both right-aligned within the
+          nav-clock text-align:right container. items-baseline aligns the
+          9px mono indicator with the clock text.
 
-      <nav className="nav-links t-meta">
-        {NAV_ITEMS.map(({ label, href: navHref }) => (
-          <a
-            key={label}
-            href={navHref}
-            className="text-[var(--ink-primary)] hover:text-[var(--accent-orange)] transition-colors"
+          suppressHydrationWarning: the clock (Date.now()) resolves in useEffect
+          so server and client render differ. suppressHydrationWarning on the
+          div prevents the warning without hiding real bugs.
+        */}
+        {/*
+          P6b (Sirius, α-SUR-01) — LocaleSwitcher added as a third row in
+          the nav-clock cell, below UTC+7 // HH:MM + StratumIndicator.
+          The switcher is a control, not translated chrome — it stays in the
+          English-register t-meta instrument style per SPEC-2026-06-18 §6.3 / DL3.
+          flex justify-end keeps it right-aligned to match the rest of nav-clock.
+          suppressHydrationWarning: LocaleSwitcher renders null until useEffect
+          reads window.location (client-only), so no SSR/client mismatch.
+        */}
+        <div className="nav-clock t-meta">
+          <div>SYS {"//"} CALIBRATED</div>
+          <div
+            className="flex justify-end items-baseline gap-3"
+            suppressHydrationWarning
           >
-            ◇ {label}
-          </a>
-        ))}
-      </nav>
-
-      {/*
-        Right-side readout (nav-clock) — per journey-arch §3.6:
-        SYS // CALIBRATED on the first line; time + stratum indicator on the
-        second line. flex + justify-end keeps both right-aligned within the
-        nav-clock text-align:right container. items-baseline aligns the
-        9px mono indicator with the clock text.
-
-        suppressHydrationWarning: the clock (Date.now()) resolves in useEffect
-        so server and client render differ. suppressHydrationWarning on the
-        div prevents the warning without hiding real bugs.
-      */}
-      {/*
-        P6b (Sirius, α-SUR-01) — LocaleSwitcher added as a third row in
-        the nav-clock cell, below UTC+7 // HH:MM + StratumIndicator.
-        The switcher is a control, not translated chrome — it stays in the
-        English-register t-meta instrument style per SPEC-2026-06-18 §6.3 / DL3.
-        flex justify-end keeps it right-aligned to match the rest of nav-clock.
-        suppressHydrationWarning: LocaleSwitcher renders null until useEffect
-        reads window.location (client-only), so no SSR/client mismatch.
-      */}
-      <div className="nav-clock t-meta">
-        <div>SYS {"//"} CALIBRATED</div>
-        <div
-          className="flex justify-end items-baseline gap-3"
-          suppressHydrationWarning
-        >
-          <span>{`UTC+7 // ${time}`}</span>
-          <StratumIndicator />
-        </div>
-        <div className="flex justify-end items-baseline" suppressHydrationWarning>
-          <LocaleSwitcher />
+            <span>{`UTC+7 // ${time}`}</span>
+            <StratumIndicator />
+          </div>
+          <div className="flex justify-end items-baseline" suppressHydrationWarning>
+            <LocaleSwitcher />
+          </div>
         </div>
       </div>
-    </div>
+
+      {/*
+        S3 · Slim bar — visible ≤600px, hidden >600px by Betelgeuse CSS.
+        Both structures always render in the DOM so the CSS toggle is pure
+        CSS (no JS breakpoint) — zero hydration flash.
+
+        .nav-slim.is-open: adds is-open to the root when menuOpen is true,
+        which the pre-written CSS uses to expand .nav-slim-menu (max-height).
+
+        Clock/stratum readout: reuses the same `time` state from the shared
+        setInterval above — both bars stay in sync without a second interval.
+        StratumIndicator is a separate instance but reads the same store value
+        (useStratumKey) so they remain in sync.
+      */}
+      <div className={`nav-slim${menuOpen ? " is-open" : ""}`}>
+        {/* Single-row inner bar */}
+        <div className="nav-slim-bar">
+          {/* Wordmark — left */}
+          <a href="/" className="nav-slim-wordmark">
+            ∇ NEOSPIRIT
+          </a>
+
+          {/*
+            Centre readout — reuses `time` state (same interval as desktop bar).
+            suppressHydrationWarning: time is "--:--" on SSR, real value after
+            useEffect, same pattern as desktop nav-clock.
+          */}
+          <div className="nav-slim-readout" suppressHydrationWarning>
+            {`UTC+7 // ${time}`}
+          </div>
+
+          {/* Right cluster: locale + search + menu */}
+          <div className="nav-slim-actions">
+            {/*
+              Locale switcher wrapper — .nav-slim-locale scopes the CSS tap-target
+              override (.nav-slim-locale button { min-height: 44px }) written by
+              Betelgeuse. suppressHydrationWarning: LocaleSwitcher renders null
+              until useEffect reads window.location (same pattern as desktop).
+            */}
+            <div className="nav-slim-locale" suppressHydrationWarning>
+              <LocaleSwitcher />
+            </div>
+
+            {/* Search glyph — dispatches triangulate:open; TriangulateSearchPortal listens */}
+            <button
+              type="button"
+              className="nav-slim-search"
+              aria-label="OPEN GLOBAL SEARCH"
+              onClick={() =>
+                window.dispatchEvent(new CustomEvent("triangulate:open"))
+              }
+            >
+              <span aria-hidden="true">⌖</span>
+            </button>
+
+            {/* Menu glyph — toggles the collapsible links panel */}
+            <button
+              type="button"
+              className="nav-slim-menu-btn"
+              aria-label={menuOpen ? "CLOSE SECTION MENU" : "OPEN SECTION MENU"}
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((prev) => !prev)}
+            >
+              <span aria-hidden="true">☰</span>
+            </button>
+          </div>
+        </div>
+
+        {/*
+          Collapsible links panel — CSS-driven open/close via .nav-slim.is-open
+          (max-height: 0 → 320px). Position:absolute so it overlays content
+          below the bar rather than pushing the page layout.
+          aria-label announces to SR that this is the site sections nav.
+          Links close the menu onClick so the panel collapses after navigation.
+        */}
+        <nav className="nav-slim-menu" aria-label="SITE SECTIONS">
+          <div className="nav-slim-menu-inner">
+            {NAV_ITEMS.map(({ label, href: navHref }) => (
+              <a
+                key={label}
+                href={navHref}
+                className="nav-slim-link"
+                onClick={() => setMenuOpen(false)}
+              >
+                ◇ {label}
+              </a>
+            ))}
+          </div>
+        </nav>
+      </div>
+    </>
   );
 }
