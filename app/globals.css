@@ -1170,9 +1170,9 @@ body {
   color: var(--accent-orange);
 }
 .af-pill.is-active {
-  background: var(--ink-primary);
-  border-color: var(--ink-primary);
-  color: var(--paper-base);
+  background: var(--ctl-pill-bg-active);
+  border-color: var(--ctl-pill-border-active);
+  color: var(--ctl-pill-fg-active);
   font-weight: 500;
 }
 
@@ -2385,10 +2385,10 @@ body {
   line-height: 1;
 }
 .register button:hover {
-  color: var(--accent-orange);
+  color: var(--ctl-reg-fg-hover);
 }
 .register button.is-active {
-  color: var(--accent-orange);
+  color: var(--ctl-reg-fg-active);
   position: relative;
 }
 .register button.is-active::after {
@@ -2398,7 +2398,7 @@ body {
   bottom: 0;
   height: 2px;
   width: 100%;
-  background: var(--accent-orange);
+  background: var(--ctl-reg-bar);
 }
 .register button:focus-visible {
   outline: 1px dashed var(--accent-orange);
