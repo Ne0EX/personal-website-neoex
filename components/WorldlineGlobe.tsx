@@ -96,10 +96,11 @@ interface GlobePalette {
   rim: number;
   // Article-panel shadow — rgb() components as a string "R,G,B"
   articleShadowRGB: string;
-  // Global multiplier on graticule / contour / field-shell / ray line opacities.
-  // In dark mode the cream lines read at much higher contrast against the deep
-  // sphere than teal-on-cream does in light, so the instrument looks denser.
-  // Scaling dark down restores light-mode's calm density.
+  // Multiplier on the ON-GLOBE curvation lines ONLY — the lat/long graticule
+  // (lineMat/lineMatFaint) + contour rings (contourMat). NOT the orbital NeX
+  // field (shells/rays), which keep full opacity. In dark the cream curvation
+  // lines read far hotter against the deep sphere than teal-on-cream does in
+  // light; scaling dark down restores light-mode's calm surface density.
   lineOpacityScale: number;
 }
 
@@ -773,12 +774,11 @@ function buildScene(
     });
     return new THREE.Mesh(new THREE.SphereGeometry(radius, 24, 16), m);
   };
-  const shellScale = palette.lineOpacityScale;
-  nexField.add(makeShell(1.18, 0.1 * shellScale), makeShell(1.32, 0.07 * shellScale), makeShell(1.48, 0.05 * shellScale));
+  nexField.add(makeShell(1.18, 0.1), makeShell(1.32, 0.07), makeShell(1.48, 0.05));
 
   const raysGroup = new THREE.Group();
   nexField.add(raysGroup);
-  const rayMat = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.35 * palette.lineOpacityScale });
+  const rayMat = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.35 });
   for (let i = 0; i < 48; i++) {
     const phi = Math.acos(1 - 2 * ((i + 0.5) / 48));
     const theta = Math.PI * (1 + Math.sqrt(5)) * i;
