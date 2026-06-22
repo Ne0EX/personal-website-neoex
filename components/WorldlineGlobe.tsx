@@ -110,17 +110,17 @@ const GLOBE_PALETTES: Record<ThemeMode, GlobePalette> = {
     articleShadowRGB: '31,80,99',
   },
   dark: {
-    // Night register — deep-ocean instrument colours.
-    // GUESS: ambient/key lifted slightly vs light to compensate for the
-    // darker surface (otherwise the globe reads as a near-black disc).
-    ink:              0xD8E0DE,
-    orange:           0xE2743E,
-    innerShade:       0x16242C,
-    netraTracker:     0x78A6BC,
-    ambient:          0x2A3A44,  // GUESS: slight lift from spec 0x2A3A44 → reasonable for dark
-    key:              0xBFD4D0,  // GUESS: cooler key light for night register
-    rim:              0x4F6E80,
-    articleShadowRGB: '216,224,222',
+    // Night register — deep-ocean instrument colours. Design-verified by Betelgeuse.
+    // Surface stops raised in lib/globe-surface.ts (gradPole #243E4C, gradEquator #2E5060)
+    // so this ambient/key/rim set reads against a visible teal field, not a black void.
+    ink:              0xC8D8D4,   // cooler/dimmer than 0xD8E0DE — night lines, not blown-out
+    orange:           0xE87840,   // warmer, brighter orange — legible on deep teal
+    innerShade:       0x1A303A,   // deep inner shadow, slightly warmer than prior 0x16242C
+    netraTracker:     0x7AB8CC,   // brighter teal tracker for dark-field visibility
+    ambient:          0x3A5562,   // raised from 0x2A3A44 — moonlit instrument illumination
+    key:              0xD0E4E0,   // slightly brighter cool key light
+    rim:              0x5A7A8C,   // lifted rim for edge definition
+    articleShadowRGB: '36,62,76',
   },
 };
 
@@ -603,7 +603,7 @@ function buildScene(
   // some brightness lost from the darker ambient. Rim is accent-only at 0.08.
   const isLight = mode === 'light';
   scene.add(new THREE.AmbientLight(palette.ambient, 1.15));
-  const key = new THREE.DirectionalLight(palette.key, isLight ? 0.18 : 0.22);
+  const key = new THREE.DirectionalLight(palette.key, isLight ? 0.18 : 0.28);
   key.position.set(2, 2.5, 3);
   scene.add(key);
   const rim = new THREE.DirectionalLight(palette.rim, 0.08);

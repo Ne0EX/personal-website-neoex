@@ -105,11 +105,11 @@ const MINI_GLOBE_PALETTES: Record<ThemeMode, MiniGlobePalette> = {
     reticleTeal: HEX_RETICLE_TEAL,
   },
   dark: {
-    // Night register — matches WorldlineGlobe.tsx GLOBE_PALETTES.dark.
-    ink:         0xD8E0DE,
-    orange:      0xE2743E,
-    paperBright: 0x2A3A44, // use dark ambient as paper-bright substitute
-    reticleTeal: 0x78A6BC,
+    // Night register — synced with WorldlineGlobe.tsx GLOBE_PALETTES.dark (Betelgeuse).
+    ink:         0xC8D8D4,   // matches WorldlineGlobe GLOBE_PALETTES.dark.ink
+    orange:      0xE87840,   // matches WorldlineGlobe GLOBE_PALETTES.dark.orange
+    paperBright: 0x3A5562,   // raised ambient — matches WorldlineGlobe dark ambient
+    reticleTeal: 0x7AB8CC,   // matches WorldlineGlobe GLOBE_PALETTES.dark.netraTracker
   },
 };
 

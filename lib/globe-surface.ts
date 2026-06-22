@@ -60,12 +60,15 @@ const SURFACE_PALETTES: Record<SurfaceMode, SurfacePalette> = {
     gridEquator: 'rgba(31,80,99,0.28)',
   },
   dark: {
-    // Night register — deep-ocean tones. Starting point for Betelgeuse review.
-    gradPole:    '#16242C',
-    gradEquator: '#1E2F37',
-    blotchRGB:   '120,150,165',
-    gridFaint:   'rgba(216,224,222,0.14)',
-    gridEquator: 'rgba(216,224,222,0.22)',
+    // Night register — deep-ocean tones. Design-verified by Betelgeuse.
+    // Raised surface stops so the coastline multiply blend produces visible contrast
+    // (prior #16242C/#1E2F37 crushed the earth_specular image to near-black).
+    // Grid alpha lifted for readability against the deeper teal field.
+    gradPole:    '#2A4A5C',
+    gradEquator: '#345A6E',
+    blotchRGB:   '80,120,135',
+    gridFaint:   'rgba(192,218,214,0.22)',
+    gridEquator: 'rgba(192,218,214,0.38)',
   },
 };
 // ─────────────────────────────────────────────────────────────────────────────

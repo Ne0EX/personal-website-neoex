@@ -1,0 +1,25 @@
+design(theme): finalize dark globe palette — coastline definition + night intensities
+
+Root cause: surface gradient stops (#16242C/#1E2F37) were too dark for the
+multiply-blend coastline pass. The earth_specular texture multiplied over a
+near-zero base collapses to black — no continent contrast was possible.
+
+Fix applied (Betelgeuse design-verify):
+- lib/globe-surface.ts SURFACE_PALETTES.dark: raised gradPole #16242C→#2A4A5C,
+  gradEquator #1E2F37→#345A6E. Grid alpha lifted (faint 0.14→0.22, equator
+  0.22→0.38) for legibility on the deeper teal field.
+- components/WorldlineGlobe.tsx GLOBE_PALETTES.dark: ambient #2A3A44→#3A5562
+  (moonlit instrument illumination), key #BFD4D0→#D0E4E0, key intensity
+  0.22→0.28, rim #4F6E80→#5A7A8C, ink #D8E0DE→#C8D8D4 (cooler night lines),
+  orange #E2743E→#E87840 (brighter on dark field), netraTracker #78A6BC→#7AB8CC,
+  innerShade #16242C→#1A303A.
+- components/ArchiveMiniGlobeThreeJS.tsx MINI_GLOBE_PALETTES.dark: synced to
+  match WorldlineGlobe (ink, orange, paperBright raised to #3A5562, reticleTeal).
+
+Light palette untouched — pixel-identical to pre-dark baseline verified by
+screenshot qa-globe-darkverify-04-light-verify.png.
+
+Build: ✓ Compiled successfully.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016tEBxKHkRiaGrWYrXzNsDM
