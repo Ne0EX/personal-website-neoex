@@ -1,0 +1,20 @@
+fix(theme): kill the dark-globe "moon" — dim the key light (Peat review)
+
+Peat spotted a bright white dot fixed in screen-position on the dark globe (it
+stayed put while the sphere auto-rotated — i.e. light-relative, not a node).
+
+Cause: the dark DirectionalLight key intensity had been raised to 0.28. Ambient
+(1.15) already carries the globe's overall illumination, and the coastline
+contrast now comes from the surface texture (coastlineAlpha 0.7), so the strong
+key only produced a concentrated bright diffuse/specular peak on the dark sphere
+— reading as a stray "moon". On the cream light-mode sphere the same peak is
+invisible, so light is unaffected.
+
+Fix: dark key intensity 0.28 -> 0.12 (build + recolor effect). The bright peak
+is gone, the globe is evenly lit, continents + place nodes still read. Light
+mode keeps its original 0.18.
+
+Verified via live dev (chrome-devtools): bright dot gone, globe legible.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016tEBxKHkRiaGrWYrXzNsDM

@@ -114,7 +114,7 @@ select.ef-input {
 .ef-btn.is-dirty { border-color: var(--accent-orange); }
 .ef-btn:disabled { opacity: 0.5; pointer-events: none; }
 .ef-commit {
-  background: var(--btn-fill); border-color: var(--btn-fill); color: var(--btn-fill-fg); /* semantic fill token */
+  background: var(--ctl-fill-bg); border-color: var(--ctl-fill-bg); color: var(--ctl-fill-fg); /* ctl-fill: primary action filled-ink */
 }
 .ef-commit:hover { background: var(--accent-orange); border-color: var(--accent-orange); color: var(--paper-bright); }
 .ef-hint {

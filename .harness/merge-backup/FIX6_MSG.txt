@@ -1,0 +1,22 @@
+fix(theme): place nodes survive theme toggle (rebuild dep bug)
+
+Bug (Peat): toggling theme made the globe's place nodes disappear.
+
+Root cause: the [mode] setup effect rebuilds the whole scene on a theme toggle
+(fresh, empty nodesGroup + placeObjects — buildScene allocates a new
+placeObjects array each call). But the Ne0 place-node FILL effect — and the
+alpha-accent + selection-recolor effects that operate on those nodes — were
+keyed only on [placeSummaries] / [selectedId], which don't change on a toggle.
+So after rebuild the new empty nodesGroup was never repopulated → nodes gone.
+(Fiction/NeX nodes were unaffected: they're built inside the [mode] setup
+effect itself, so they already rebuild.)
+
+Fix: add `mode` to the three place-node effect dep arrays so they re-run after
+a toggle-driven rebuild. Definition order (fill -> alpha-accent -> selection)
+runs after the setup effect, so nodes are rebuilt then recolored correctly.
+
+Verified via live dev (chrome-devtools): toggled dark<->light repeatedly —
+place nodes persist in both modes.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016tEBxKHkRiaGrWYrXzNsDM

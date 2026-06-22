@@ -420,9 +420,11 @@ function KindChip({
         letterSpacing: "0.3em",
         textTransform: "uppercase",
         padding: "0.4em 0.75em",
-        background: active ? "var(--ink-primary)" : "transparent",
-        border: `1px solid ${active ? "var(--ink-primary)" : "var(--ink-dashed)"}`,
-        color: active ? "var(--paper-bright)" : "var(--ink-primary)",
+        /* ctl-pill: active = filled-ink (--ctl-pill-bg-active / --ctl-pill-fg-active);
+           inactive = transparent + dashed seam (--ctl-pill-border / --ctl-pill-fg). */
+        background: active ? "var(--ctl-pill-bg-active)" : "transparent",
+        border: `1px solid ${active ? "var(--ctl-pill-border-active)" : "var(--ctl-pill-border)"}`,
+        color: active ? "var(--ctl-pill-fg-active)" : "var(--ctl-pill-fg)",
         cursor: "pointer",
         transition: reducedMotion
           ? "none"

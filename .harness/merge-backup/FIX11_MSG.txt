@@ -1,0 +1,20 @@
+fix(theme): replace tacky rim-ring with soft silhouette (no border)
+
+The additive rim-glow shell read as a hard drawn outline ring around the globe
+— looked like a tacky border. Removed that approach.
+
+Real fix (no outline): the edge was vanishing because the innerShade BackSide
+shell DARKENS the rim, pushing it toward the page background in dark mode. Cut
+the dark innerShade opacity from 0.35 to 0.05 so the lighter ocean disc reaches
+the edge — the silhouette now reads as a soft lighter-disc-on-darker-bg
+transition (anti-aliased sphere edge), natural and borderless. Light mode keeps
+innerShade 0.35 (rim depth on the cream sphere) untouched.
+
+- edgeGlowOpacity dark 0.55 -> 0 (ring disabled both modes; infra kept inert).
+- innerShade opacity now mode-aware in build + recolor effect.
+
+Verified via live dev: dark globe edge soft + clearly defined, no ring;
+continents legible; light unchanged.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016tEBxKHkRiaGrWYrXzNsDM

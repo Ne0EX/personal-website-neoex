@@ -272,8 +272,8 @@ const EDITOR_CSS = `
 .ed-kindtab + .ed-kindtab { border-left: 1px solid var(--ink-hairline); }
 .ed-kindtab:hover:not(.is-on) { color: var(--ink-primary); }
 .ed-kindtab.is-on {
-  background: var(--btn-fill);   /* semantic fill: dark-teal light / paper-bright dark */
-  color: var(--btn-fill-fg);
+  background: var(--ctl-fill-bg);   /* ctl-seg active: filled-ink light / paper-bright dark */
+  color: var(--ctl-fill-fg);
 }
 .ed-kindtab:focus-visible {
   outline: none;
@@ -347,9 +347,9 @@ const EDITOR_CSS = `
   outline: none;
 }
 .ed-tb-action.is-primary {
-  background: var(--btn-fill);                     /* semantic fill token */
-  border: 1px solid var(--btn-fill);
-  color: var(--btn-fill-fg);
+  background: var(--ctl-fill-bg);                  /* ctl-fill: filled-ink active */
+  border: 1px solid var(--ctl-fill-bg);
+  color: var(--ctl-fill-fg);
 }
 .ed-tb-action.is-primary:hover,
 .ed-tb-action.is-primary:focus-visible {
@@ -440,7 +440,7 @@ const EDITOR_CSS = `
   text-transform: uppercase;
 }
 .ed-mode + .ed-mode { border-left: 1px solid var(--ink-hairline); }
-.ed-mode.is-on { background: var(--btn-fill); color: var(--btn-fill-fg); } /* semantic fill */
+.ed-mode.is-on { background: var(--ctl-seg-active-bg); color: var(--ctl-seg-active-fg); } /* ctl-seg active */
 .ed-mode:focus-visible { outline: 1px dashed var(--accent-orange); outline-offset: 2px; }
 
 /* ── pane grid ─────────────────────────────────────────────────────── */
@@ -693,15 +693,15 @@ const EDITOR_CSS = `
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* state badge — DRAFT = ink-faint, SETTLED = ink-primary (contract //CHAPTERS) */
+/* state badge — DRAFT = --ctl-status-draft-fg (ink-faint), SETTLED = --ctl-status-settled-fg (ink-primary) */
 .ch-badge {
   flex-shrink: 0;
   font-size: 7.5px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
-.ch-badge.is-draft   { color: var(--ink-faint); }
-.ch-badge.is-settled { color: var(--ink-primary); }
+.ch-badge.is-draft   { color: var(--ctl-status-draft-fg); }
+.ch-badge.is-settled { color: var(--ctl-status-settled-fg); }
 
 /* ── //STATE rail — DRAFT ⇄ SETTLED instrument switch ─────────────────────────
    Two labels flanking a ⇄ glyph; active filled-ink, inactive ink-faint (contract
@@ -725,7 +725,7 @@ const EDITOR_CSS = `
   text-transform: uppercase;
   transition: background 120ms ease, color 120ms ease;
 }
-.st-btn.is-on { background: var(--btn-fill); color: var(--btn-fill-fg); } /* semantic fill */
+.st-btn.is-on { background: var(--ctl-seg-active-bg); color: var(--ctl-seg-active-fg); } /* ctl-seg active */
 .st-btn:focus-visible { outline: 1px dashed var(--accent-orange); outline-offset: 2px; }
 .st-glyph {
   font-family: var(--font-mono);
@@ -857,11 +857,11 @@ const EDITOR_CSS = `
   opacity: 0.45;
   cursor: not-allowed;
 }
-/* published state — filled active; semantic token so dark mode doesn't glare */
+/* published state — filled active; ctl-status-pub-* so dark mode doesn't glare */
 .ed-lc-toggle.is-published {
-  background: var(--btn-fill);
-  border-color: var(--btn-fill);
-  color: var(--btn-fill-fg);
+  background: var(--ctl-status-pub-bg);
+  border-color: var(--ctl-status-pub-bg);
+  color: var(--ctl-status-pub-fg);
 }
 .ed-lc-toggle.is-published:hover:not(:disabled),
 .ed-lc-toggle.is-published:focus-visible:not(:disabled) {
@@ -1196,9 +1196,9 @@ const EDITOR_CSS = `
   outline: none;
 }
 .lc-chip.is-active {
-  background: var(--btn-fill);       /* semantic fill token */
-  border-color: var(--btn-fill);
-  color: var(--btn-fill-fg);
+  background: var(--ctl-fill-bg);    /* ctl-fill: active lang chip filled-ink */
+  border-color: var(--ctl-fill-bg);
+  color: var(--ctl-fill-fg);
   cursor: default;
 }
 /* Add-translation affordance chip — orange accent to signal it's an ADD action. */

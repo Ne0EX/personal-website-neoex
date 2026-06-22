@@ -1,0 +1,21 @@
+fix(theme): really kill the dark-globe "moon" — matte sphere (no specular)
+
+The previous key-light dim (0.12) reduced but did not remove the bright white
+spots — Peat confirmed they persisted. They were specular glints, not the
+diffuse peak: the roughnessMap makes LAND glossier than ocean (bright albedo ->
+higher roughness map value -> more matte ocean; dark land -> lower -> glossier),
+so the directional key produced sharp white highlights over the continents on
+the dark sphere.
+
+Definitive fix: dark sphere is fully matte — roughness 1 + roughnessMap null
+(pure Lambertian, zero specular). Continents still read from the albedo map +
+coastline multiply; nodes/graticule unaffected. Light keeps its textured
+roughness (0.95 + map) — the cream sphere never showed glints. Applied in both
+the initial build and the recolor effect; the dark recolor disposes the unused
+freshly-built roughness texture to avoid a leak.
+
+Verified via live dev (chrome-devtools): dark globe matte, no white spots,
+continents legible; light mode unchanged.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016tEBxKHkRiaGrWYrXzNsDM

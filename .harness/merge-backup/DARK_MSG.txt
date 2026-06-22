@@ -1,0 +1,53 @@
+feat(theme): dark mode — opt-in night register + globe recolor
+
+Worldline Dark Mode PoC (Claude Design, 2026-06-18) implemented. Dark is a
+token swap, not a re-skin: cream paper surfaces darken to teal-charcoal,
+--ink-rgb flips to cool cream so every ink tint goes light-on-dark, accent
+orange brightened (#D4602A → #E2743E) to hold against the dark field.
+
+Mechanism (opt-in, no provider):
+- [data-theme="dark"] token block in globals.css — single-source swap; all
+  UI (incl. mobile nav-slim, atlas dock, NETRA strip, hairline marginalia)
+  recolors automatically via existing tokens.
+- No-FOUC inline script in layout.tsx <head>: applies data-theme from
+  localStorage['worldline-theme'] before first paint. Default = light, so the
+  common path never flashes (pure opt-in, no prefers-color-scheme).
+- lib/useThemeMode.ts: useThemeMode() (MutationObserver on data-theme) +
+  setThemeMode/toggleThemeMode. No React context — DOM attr is the source of
+  truth, both toggle presentations + the globes subscribe.
+
+Toggle UI (two presentations, one state):
+- Desktop: REGISTER panel fixed bottom-right (ThemeToggle.tsx) — ○ DAY / ◆
+  NIGHT, active carries orange underline. Hidden ≤600px.
+- Mobile: .nav-slim-theme button folded into nav-slim-actions (44×44, ◆/○),
+  beside locale/search/menu. Class mirrored in Nav.tsx + globals.css
+  (mobile-touch-contract test e parity).
+
+Globe recolor (Three.js can't read CSS vars):
+- GLOBE_PALETTES{light,dark} in WorldlineGlobe.tsx + MINI_GLOBE_PALETTES in
+  ArchiveMiniGlobeThreeJS.tsx; SURFACE_PALETTES in lib/globe-surface.ts. Every
+  hardcoded hex replaced with palette lookup. Light values are pixel-identical
+  to pre-dark baseline. Scene rebuilds on theme change (effect dep [mode],
+  dispose+rebuild; setInterval loop preserved for iOS). Canvas2D mini-globe
+  redraws on mode (already reads CSS vars).
+
+Hardcoded-hex audit (direction-breakers fixed):
+- ArticlePreview paper-tint rgba(216,207,185)→rgb(var(--paper-deep-rgb)/.25)
+- PlaceHighlightEditor remove-X bg rgba(31,80,99,.8)→rgb(var(--ink-rgb)/.8)
+
+Verified (chrome-devtools, localhost:3000): desktop + mobile (390px) recolor
+incl. globe; REGISTER bottom-right + nav-slim-theme 44×44 present w/ correct
+aria state; no-FOUC + persistence across reload; real toggle round-trips
+light↔dark. next build clean (TS, 27/27 pages); mobile-touch-contract 12/12.
+
+FOLLOW-UP (Betelgeuse design-verify, not blockers):
+- Dark globe surface stops (#16242C/#1E2F37) make coastline faint vs light —
+  tune for definition.
+- Dark light intensities (ambient/key/rim) + key intensity 0.22 are derived
+  guesses — sign final hex against the PoC.
+- accent-orange rgba(212,96,42,α) literals across console components not
+  converted (subtle low-alpha hue shift, auth-gated surface) — sweep later if
+  desired.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016tEBxKHkRiaGrWYrXzNsDM

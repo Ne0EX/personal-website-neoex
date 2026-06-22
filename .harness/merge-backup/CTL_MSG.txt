@@ -1,0 +1,31 @@
+feat(design): interactive-state token system (--ctl-*) — single source for control variants/states
+
+Root of the recurring dark-mode button bugs: no systematic interactive-state
+tokens, so every surface invented its own active/hover treatment (often
+background:var(--ink-primary), which flips to glaring near-white in dark).
+
+Adds a coherent semantic token set in app/globals.css covering every control
+variant × state × theme — so there's one place to pick from, no guessing:
+- fill (primary/active filled), ghost (outline/dashed), segment (mutually-
+  exclusive view modes), text-link, register toggle, status pill, focus ring,
+  disabled. Each with rest/hover/active values.
+- Light values reproduce the current look exactly (fill = ink-primary/paper-base).
+- Dark: only --ctl-fill-bg/-fg are overridden (→ paper-bright #1E2F37 raised
+  surface + cream text); every other --ctl token derives from those + the
+  already-theming --ink-*/--accent-* tokens, so the whole set flips coherently
+  and non-glaringly.
+- Folds the earlier stopgap --btn-fill into the system (kept as an alias).
+
+Migrated the photo gallery view-mode segment (.gv-mode.is-on) to
+--ctl-seg-active-* — fixes the glaring TIMELINE/FLAT/PLACE active item in dark
+that Peat flagged on /photos.
+
+Verify: next build clean (TS, 27 pages). Light pixel-identical.
+
+FOLLOW-UP (next): design-system doc + soul-atom gallery showcase of all
+variants×states (the "no guessing" reference Peat asked for) + migrate the
+remaining offenders (console --btn-fill sites already token-backed, EN/TH
+toggle, DAY/NIGHT register, status pills) onto the --ctl-* system.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016tEBxKHkRiaGrWYrXzNsDM

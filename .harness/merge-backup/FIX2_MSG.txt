@@ -1,0 +1,24 @@
+fix(theme): dark panels track theme + globe coastline legible (Peat review)
+
+Two issues from Peat's dark-mode review screenshot:
+
+1. Rectangular panels (DIVERGENCE meter, STRATUM READOUT rows, NETRA bar) kept
+   a light paper-ish background in dark mode — looked out of place. Cause:
+   hardcoded paper-tint literals that don't track the theme. Converted to the
+   paper-rgb tokens so they darken with [data-theme="dark"]:
+   - rgba(240,235,221,α) -> rgb(var(--paper-bright-rgb)/α)  (diverge-panel)
+   - rgba(232,226,213,α) -> rgb(var(--paper-base-rgb)/α)    (readout, NETRA, scanline)
+   - rgba(237,231,218,α) -> rgb(var(--paper-warm-rgb)/α)    (readout row)
+   Light is pixel-identical (the paper-rgb token values equal the old literals).
+
+2. Globe world map not clearly visible in dark. Betelgeuse had raised the base
+   surface stops (sphere no longer black), but the Earth coastline itself still
+   multiplied at a hardcoded 0.28 — too faint on the deeper teal field to read
+   continents. Added per-mode coastlineAlpha to SURFACE_PALETTES (light 0.28
+   unchanged, dark 0.55) so landmasses print ~2x stronger and the map reads.
+
+Verified via live dev (chrome-devtools): diverge-panel bg now
+rgba(30,47,55,0.45), readout-row rgba(20,34,42,0.35); globe continents legible.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016tEBxKHkRiaGrWYrXzNsDM

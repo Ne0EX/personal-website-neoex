@@ -1,0 +1,24 @@
+fix(theme): dark globe edge definition — rim glow + dimmer orbital field
+
+Peat: continents now read, but the globe's silhouette was blurry/ambiguous
+(dark sphere on dark bg, with the bright orbital web crossing the limb) — hard
+to tell where the edge is, esp. upper-left near the north pole.
+
+Two changes, dark-only (light untouched):
+- Edge/rim glow: a BackSide additive sphere a hair larger than the globe
+  (r=1.015, palette.netraTracker teal). The part beyond the opaque globe's
+  silhouette reads as a faint halo ring → crisps the edge against the dark
+  background. New palette field edgeGlowOpacity (light 0, dark 0.55).
+- Orbital field dimmed: new palette field orbitOpacityScale (light 1.0, dark
+  0.5), applied to the NeX field shells + rays so the web stops competing with
+  and blurring the edge. (Peat now explicitly OK'd touching the orbital field;
+  earlier the curvation-only scoping kept it full.)
+
+Both wired into the recolor-in-place effect (edgeGlowMat added to ThemeMaterials)
+so they update correctly on theme toggle without a rebuild.
+
+Verified via live dev (chrome-devtools): dark globe edge clearly defined, orbital
+web calmer, continents still legible; light mode unchanged (orbit full, no glow).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016tEBxKHkRiaGrWYrXzNsDM

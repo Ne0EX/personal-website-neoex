@@ -1,0 +1,22 @@
+fix(theme): invert dark-globe land polarity — light-on-dark continents
+
+The real cause of "can't see the continents in dark" was contrast polarity, not
+strength (per a perceptual-contrast analysis Peat shared, and his own eyes).
+Light mode draws land DARK on a light sphere (dark-on-light — what human vision
+reads best). Dark mode kept the same polarity: land darkened (multiply) on an
+already-dark sphere = dark-on-dark, near-zero luminance separation = invisible
+continents. Raising coastlineAlpha only made land darker = worse.
+
+Fix: in dark mode invert the land encoding. The Earth specular image (ocean
+bright, land dark) is inverted (land→bright, ocean→dark), tinted to a mid-teal
+(landTint #7AA8BC), and `lighten`-composited onto the base so continents are
+raised LIGHTER than the ocean (light-on-dark) while the ocean keeps the base
+gradient. Continents now read by luminance without squinting. Light mode keeps
+its original dark-on-light multiply (untouched). Pairs with the matte dark
+sphere (no specular) from the prior fix.
+
+Verified via live dev (chrome-devtools): dark continents clearly legible as
+lighter landmasses; light mode unchanged.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016tEBxKHkRiaGrWYrXzNsDM

@@ -194,9 +194,9 @@ function LocaleButton({
         fontSize: "inherit",
         letterSpacing: "inherit",
         textTransform: "inherit",
-        // Active = emphasized (ink-primary); inactive = ambient (ink-soft).
-        color: active ? "var(--ink-primary)" : "var(--ink-soft)",
-        // Hover lifts inactive to accent-orange; active stays ink-primary.
+        // ctl-text: active = --ctl-text-fg-active (ink-primary); inactive = --ctl-text-fg (ink-soft).
+        color: active ? "var(--ctl-text-fg-active)" : "var(--ctl-text-fg)",
+        // Hover lifts inactive to --ctl-text-fg-hover (accent-orange); active stays on active token.
         transition: "color 120ms ease",
         // S3 mobile-native: bump tap target to ≥44px.
         // minHeight:44px + display:inline-flex + align-items:center is the
@@ -218,12 +218,14 @@ function LocaleButton({
       }}
       onMouseEnter={(e) => {
         if (!active) {
-          e.currentTarget.style.color = "var(--accent-orange)";
+          /* ctl-text hover: --ctl-text-fg-hover (accent-orange) */
+          e.currentTarget.style.color = "var(--ctl-text-fg-hover)";
         }
       }}
       onMouseLeave={(e) => {
         if (!active) {
-          e.currentTarget.style.color = "var(--ink-soft)";
+          /* ctl-text rest: --ctl-text-fg (ink-soft) */
+          e.currentTarget.style.color = "var(--ctl-text-fg)";
         }
       }}
     >

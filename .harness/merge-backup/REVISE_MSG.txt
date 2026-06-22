@@ -1,0 +1,31 @@
+fix(theme): resolve Algol dark-mode REVISE (direction-breakers + hue + hydration)
+
+Algol gauntlet on c228317 returned REVISE. Addressed the code findings:
+
+- #2 WorldlineGlobe place-panel boxShadow used hardcoded light-ink
+  rgba(31,80,99,0.16) -> rgb(var(--ink-rgb)/0.16). Was a wrong-direction shadow
+  (warm teal) on the dark panel; now tracks the theme. Public surface.
+- #3 ArchiveFilters inactive-pill hover border (JS-set inline style)
+  rgba(212,96,42,0.5) -> rgb(var(--accent-orange-rgb)/0.5). Public (/archive);
+  was in the plan audit list and missed.
+- #6 public accent-orange literals >=0.4 -> token: ATLAS sidebar .key (0.55),
+  atlas-mobile-dock-chip hover (0.5) + active bg (0.06), ChapterIndex diamond
+  reticle border (0.4). Now track dark-mode orange. Negligible <0.1 hover tints
+  left as-is.
+- #8 ThemeToggle REGISTER buttons given suppressHydrationWarning -- is-active
+  className differs SSR(light)/client(dark-stored).
+
+Verify: next build clean (TS, 27/27 pages).
+
+ROUTED, not fixed here:
+- #4 --ink-soft 4.22:1 on dark paper fails AA 4.5 for .t-meta; .register .rlab
+  at --ink-faint (2.31:1). Systemic design-tier decision (ambient vs read-tier),
+  NOT introduced by dark mode (dark ink-soft 4.22 > light ~3.7). .rlab matches
+  the PoC + ambient-tier intent. -> Betelgeuse design call.
+- #7 globe light intensities / key 0.22 guess -> Betelgeuse sign vs PoC.
+- #1 missing signature record -> Polaris/Peat protocol.
+- #5 duplicate .atlas-mobile-dock base block (merge residue, harmless same-value
+  cascade) -> deferred dedup; low risk, not blocking.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016tEBxKHkRiaGrWYrXzNsDM

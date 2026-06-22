@@ -1,0 +1,13 @@
+fix(theme): migrate site+console controls onto --ctl-* state tokens
+
+- TriangulateSearch.tsx KindChip: background/border/color → --ctl-pill-bg-active / --ctl-pill-border-active / --ctl-pill-fg-active (active) and --ctl-pill-border / --ctl-pill-fg (rest)
+- LocaleSwitcher.tsx: active/inactive/hover inline color → --ctl-text-fg-active / --ctl-text-fg / --ctl-text-fg-hover
+- EntryEditor.tsx: --btn-fill/--btn-fill-fg renamed to canonical --ctl-fill-bg/--ctl-fill-fg across .ed-kindtab.is-on, .ed-tb-action.is-primary; .ed-mode.is-on and .st-btn.is-on → --ctl-seg-active-bg/--ctl-seg-active-fg; .ed-lc-toggle.is-published → --ctl-status-pub-bg/--ctl-status-pub-fg; .lc-chip.is-active → --ctl-fill-bg/--ctl-fill-fg; .ch-badge → --ctl-status-draft-fg / --ctl-status-settled-fg
+- ConsoleEntryForm.tsx .ef-commit: --btn-fill/--btn-fill-fg → --ctl-fill-bg/--ctl-fill-fg
+- GalleryGrid.css .gv-mode.is-on already used --ctl-seg-active-bg/fg (verified, unchanged)
+- globals.css not touched (Betelgeuse concurrent); .register/.nav-slim-theme/.af-pill.is-active noted for Betelgeuse
+
+All surfaces verified light + dark via chrome-devtools. Build clean (TS + 27 pages). Tests 12/12.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016tEBxKHkRiaGrWYrXzNsDM

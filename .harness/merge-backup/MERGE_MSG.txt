@@ -1,0 +1,31 @@
+merge(mobile): land genesis/mobile-native into store-as-source
+
+Mobile UI concept (mobile-native ladder + ATLAS reflow + readout collapse,
+nav-slim bar, PhotoSwipeViewer, safe-area insets) merged forward as the base
+for dark mode. Resolution rules applied:
+
+- layout.tsx: auto-merged clean — store-as-source Version F fonts (IBM Plex
+  Mono EN + IBM Plex Sans Thai + Trirong display, Peat-confirmed 2026-06-21)
+  kept; mobile-native viewportFit:'cover' grafted in. All 6 font vars present.
+- globals.css: one content conflict. Dropped store-as-source's earlier
+  duplicate ATLAS mobile-reflow block (order:-1, min-height:300px) in favor of
+  mobile-native's authoritative reflow (order:-2 globe / -1 dock + S4 cut).
+  Kept mobile-native's S2 marginalia slim-to-hairline (matches the actual
+  .marginalia{width:1px} rule + touch-contract test d); dropped the stale
+  "hide on tiny screens" comment. Consumer font tokens (--font-thai-body,
+  --font-thai-display, --font-body-en) are stable across both branches, so
+  mobile typography rebases onto IBM Plex automatically.
+- tests/mobile-touch-contract.test.mjs (f): was inverted — asserted
+  requestAnimationFrame while mobile-native deliberately reverted the globe
+  loop to setInterval (commit 432d94b, iOS Safari blank-canvas fix). Test went
+  stale when the iOS fix landed without updating it. Corrected (f) to enforce
+  the intended setInterval + clearInterval contract.
+
+NOTE: an uncommitted 236-line working-tree draft of docs/design/23-mobile-
+atlas-reflow.md (fuller than mobile-native's tracked 120-line version) was
+preserved at .harness/merge-backup/ — Peat to decide whether to promote it.
+
+Verify: next build clean; node --test mobile-touch-contract → 12/12 pass.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016tEBxKHkRiaGrWYrXzNsDM

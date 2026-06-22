@@ -1,0 +1,19 @@
+fix(theme): dark globe — stronger continents + calmer line web (Peat review 2)
+
+Peat's second review: continents still needed squinting; the graticule/field
+curvature lines read at too-high contrast, making the dark globe feel denser
+and busier than the light theme.
+
+- Continents: dark coastlineAlpha 0.55 -> 0.7 (light unchanged 0.28). Land
+  prints clearly without squinting.
+- Line density: added lineOpacityScale to GLOBE_PALETTES (light 1.0, dark 0.6),
+  applied to the graticule (lat/long), contour rings, NeX field shells, and the
+  247 rays. On the dark field cream lines read far hotter than teal-on-cream does
+  in light; scaling them down restores light-mode's calm density.
+- Baked surface grid dialed back for the same reason (gridFaint 0.22->0.15,
+  gridEquator 0.38->0.26).
+
+Light mode untouched (all scales = 1.0 / 0.28). Verified via live dev.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016tEBxKHkRiaGrWYrXzNsDM
