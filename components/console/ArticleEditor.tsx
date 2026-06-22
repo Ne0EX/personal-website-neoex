@@ -207,8 +207,8 @@ const EDITOR_CSS = `
   text-transform: uppercase;
 }
 .ed-mode.is-on {
-  background: var(--ink-primary);
-  color: var(--paper-base);
+  background: var(--btn-fill);   /* semantic fill token */
+  color: var(--btn-fill-fg);
 }
 .ed-mode:focus-visible {
   outline: 1px dashed var(--accent-orange);

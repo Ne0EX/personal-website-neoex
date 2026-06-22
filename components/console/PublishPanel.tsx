@@ -285,9 +285,9 @@ const PUBLISHPANEL_CSS = `
 /* ── instrument buttons (token-driven; mirror ImportZone .ed-btn-* values) ─ */
 .pub-btn-primary {
   appearance: none;
-  background: var(--ink-primary);
-  border: 1px solid var(--ink-primary);
-  color: var(--paper-base);
+  background: var(--btn-fill);          /* semantic fill token */
+  border: 1px solid var(--btn-fill);
+  color: var(--btn-fill-fg);
   font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: 0.2em;

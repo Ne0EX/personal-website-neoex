@@ -154,6 +154,21 @@
      add --place-thumb-viewer-size: 80px when the front-door panel
      is built). Authoring surface only — dev-only guarded component. */
   --place-thumb-editor-size: 72px;
+
+  /* Semantic filled-button tokens — console active/primary button fills.
+     Light: dark-teal fill + cream text (current behavior; unchanged).
+     Dark:  see [data-theme="dark"] override — paper-bright surface + ink-primary text.
+     Consumers: every console active tab, primary action, PUBLISHED pill,
+     EN/TH toggle, HUD buttons (.ed-kindtab.is-on, .ed-lc-toggle.is-published,
+     .lc-chip.is-active, .ficm-tab.is-on, .ficm-state.is-on, .pub-btn-primary,
+     ImportZone .ed-btn-primary, PlaceHighlightEditor .pe-btn-save,
+     ConsoleEntryForm .ef-commit, ConsoleCanvas .hud-btn). */
+  --btn-fill:    var(--ink-primary);   /* dark teal in light; overridden in dark */
+  --btn-fill-fg: var(--paper-base);    /* cream in light; overridden in dark */
+
+  /* HUD button background (graph ARRANGE / zoom / ORIGIN row).
+     Light: translucent paper-base cream. Dark: see [data-theme="dark"]. */
+  --hud-btn-bg:  rgba(232,226,213,0.85); /* = paper-base #E8E2D5 @ 85% */
 }
 
 /* INK palette (archive navy — v2 baseline backup).
@@ -204,6 +219,16 @@
   --paper-warm-rgb:    20 34 42;
   --paper-deep-rgb:    10 16 21;
   --paper-bright-rgb:  30 47 55;
+
+  /* Semantic filled-button tokens — dark overrides.
+     paper-bright (#1E2F37) background + ink-primary (cream) text reads as
+     a clearly elevated "selected" surface in the night register — raised
+     from the canvas without the glare of full cream fill. */
+  --btn-fill:    var(--paper-bright);  /* raised surface, not cream */
+  --btn-fill-fg: var(--ink-primary);   /* cream text on dark fill */
+
+  /* HUD buttons on dark canvas: paper-warm translucent panel tint */
+  --hud-btn-bg:  rgba(20,34,42,0.85);  /* = paper-warm #14222A @ 85% */
 }
 
 @theme inline {

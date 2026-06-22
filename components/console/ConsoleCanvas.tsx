@@ -17,7 +17,7 @@
  *
  * TOKEN-GAPS (documented per spec §token gaps):
  *   rgb(var(--ink-rgb) / 0.22) — canvas-frame dashed border (--ink-canvas-frame)
- *   rgba(232,226,213,0.85) — HUD button background (--hud-btn-bg)
+ *   --hud-btn-bg resolved (light: cream tint, dark: paper-warm tint)
  *   158px — node card width (--node-w)
  *   70px — node card min-height (--node-h)
  *   280px — α watermark font-size (--alpha-mark-size)
@@ -140,7 +140,7 @@ const CANVAS_CSS = `
 }
 .hud-btn {
   appearance: none;
-  background: rgba(232,226,213,0.85); /* TOKEN-GAP: --hud-btn-bg */
+  background: var(--hud-btn-bg);  /* light: cream paper-base tint; dark: paper-warm tint */
   border: 1px solid var(--ink-hairline); color: var(--ink-soft);
   font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.18em;
   text-transform: uppercase; padding: 5px 9px; cursor: pointer;

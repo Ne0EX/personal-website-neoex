@@ -86,9 +86,9 @@ const IMPORTZONE_CSS = `
 .iz .ed-btn-primary,
 .iz-reimport .ed-btn-primary {
   appearance: none;
-  background: var(--ink-primary);
-  border: 1px solid var(--ink-primary);
-  color: var(--paper-base);
+  background: var(--btn-fill);          /* semantic fill token */
+  border: 1px solid var(--btn-fill);
+  color: var(--btn-fill-fg);
   font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: 0.2em;

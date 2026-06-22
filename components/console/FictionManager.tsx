@@ -126,11 +126,11 @@ const FICM_CSS = `
   gap: 6px;
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
 }
-/* filled-ink active — drift-correction (prototype used orange) */
+/* filled active — semantic token prevents glare in dark mode */
 .ficm-tab.is-on {
-  background: var(--ink-primary);
-  border-color: var(--ink-primary);
-  color: var(--paper-base);
+  background: var(--btn-fill);
+  border-color: var(--btn-fill);
+  color: var(--btn-fill-fg);
 }
 .ficm-tab:hover:not(.is-on),
 .ficm-tab:focus-visible:not(.is-on) {
@@ -245,10 +245,10 @@ const FICM_CSS = `
   text-transform: uppercase;
   transition: background 120ms ease, color 120ms ease;
 }
-/* filled-ink active — drift-correction (prototype used orange fill) */
+/* filled active — semantic token prevents glare in dark mode */
 .ficm-state.is-on {
-  background: var(--ink-primary);
-  color: var(--paper-base);
+  background: var(--btn-fill);
+  color: var(--btn-fill-fg);
 }
 .ficm-state:focus-visible {
   outline: 1px dashed var(--accent-orange);

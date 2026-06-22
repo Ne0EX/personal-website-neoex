@@ -1,0 +1,19 @@
+fix(theme): console dark-mode button fills — semantic --btn-fill token
+
+Add --btn-fill / --btn-fill-fg / --hud-btn-bg semantic tokens to
+app/globals.css. Light values alias ink-primary + paper-base (no
+visual change). Dark override uses paper-bright (#1E2F37) fill +
+ink-primary (cream) text — raised surface, not glaring cream.
+
+Replace all 13 background:var(--ink-primary) button-fill sites across
+7 console components with the semantic tokens. Also resolve the
+ConsoleCanvas TOKEN-GAP: --hud-btn-bg (ARRANGE / zoom row) now tracks
+the theme (cream tint light / paper-warm tint dark).
+
+ConsoleLogin rgba(255,...) intentionally left — it is a standalone
+always-dark surface that predates the theme system.
+
+Build clean (TS + 27 pages). Tests 12/12.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016tEBxKHkRiaGrWYrXzNsDM

@@ -272,8 +272,8 @@ const EDITOR_CSS = `
 .ed-kindtab + .ed-kindtab { border-left: 1px solid var(--ink-hairline); }
 .ed-kindtab:hover:not(.is-on) { color: var(--ink-primary); }
 .ed-kindtab.is-on {
-  background: var(--ink-primary);
-  color: var(--paper-base);
+  background: var(--btn-fill);   /* semantic fill: dark-teal light / paper-bright dark */
+  color: var(--btn-fill-fg);
 }
 .ed-kindtab:focus-visible {
   outline: none;
@@ -347,9 +347,9 @@ const EDITOR_CSS = `
   outline: none;
 }
 .ed-tb-action.is-primary {
-  background: var(--ink-primary);
-  border: 1px solid var(--ink-primary);
-  color: var(--paper-base);
+  background: var(--btn-fill);                     /* semantic fill token */
+  border: 1px solid var(--btn-fill);
+  color: var(--btn-fill-fg);
 }
 .ed-tb-action.is-primary:hover,
 .ed-tb-action.is-primary:focus-visible {
@@ -440,7 +440,7 @@ const EDITOR_CSS = `
   text-transform: uppercase;
 }
 .ed-mode + .ed-mode { border-left: 1px solid var(--ink-hairline); }
-.ed-mode.is-on { background: var(--ink-primary); color: var(--paper-base); }
+.ed-mode.is-on { background: var(--btn-fill); color: var(--btn-fill-fg); } /* semantic fill */
 .ed-mode:focus-visible { outline: 1px dashed var(--accent-orange); outline-offset: 2px; }
 
 /* ── pane grid ─────────────────────────────────────────────────────── */
@@ -725,7 +725,7 @@ const EDITOR_CSS = `
   text-transform: uppercase;
   transition: background 120ms ease, color 120ms ease;
 }
-.st-btn.is-on { background: var(--ink-primary); color: var(--paper-base); }
+.st-btn.is-on { background: var(--btn-fill); color: var(--btn-fill-fg); } /* semantic fill */
 .st-btn:focus-visible { outline: 1px dashed var(--accent-orange); outline-offset: 2px; }
 .st-glyph {
   font-family: var(--font-mono);
@@ -857,11 +857,11 @@ const EDITOR_CSS = `
   opacity: 0.45;
   cursor: not-allowed;
 }
-/* published state — filled-ink active */
+/* published state — filled active; semantic token so dark mode doesn't glare */
 .ed-lc-toggle.is-published {
-  background: var(--ink-primary);
-  border-color: var(--ink-primary);
-  color: var(--paper-base);
+  background: var(--btn-fill);
+  border-color: var(--btn-fill);
+  color: var(--btn-fill-fg);
 }
 .ed-lc-toggle.is-published:hover:not(:disabled),
 .ed-lc-toggle.is-published:focus-visible:not(:disabled) {
@@ -1196,9 +1196,9 @@ const EDITOR_CSS = `
   outline: none;
 }
 .lc-chip.is-active {
-  background: var(--ink-primary);
-  border-color: var(--ink-primary);
-  color: var(--paper-base);
+  background: var(--btn-fill);       /* semantic fill token */
+  border-color: var(--btn-fill);
+  color: var(--btn-fill-fg);
   cursor: default;
 }
 /* Add-translation affordance chip — orange accent to signal it's an ADD action. */

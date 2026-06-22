@@ -363,8 +363,8 @@ const EDITOR_CSS = `
 .pe-btn:focus-visible { outline: 1px dashed var(--accent-orange); outline-offset: 2px; }
 .pe-btn:disabled { opacity: 0.5; pointer-events: none; }
 .pe-btn-save {
-  background: var(--ink-primary); border-color: var(--ink-primary);
-  color: var(--paper-base);
+  background: var(--btn-fill); border-color: var(--btn-fill); /* semantic fill token */
+  color: var(--btn-fill-fg);
 }
 .pe-btn-save:hover {
   background: var(--accent-orange); border-color: var(--accent-orange);
