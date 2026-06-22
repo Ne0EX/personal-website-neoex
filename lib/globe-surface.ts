@@ -48,6 +48,11 @@ interface SurfacePalette {
   gridFaint: string;
   /** Baked grid stroke — equator line. */
   gridEquator: string;
+  /** Coastline multiply opacity — how strongly the Earth landmass silhouette
+   *  prints onto the base. Dark needs more than light: on the deep-teal night
+   *  field a 0.28 multiply barely separates land from ocean, so the map reads as
+   *  a near-flat disc. Raising it makes continents legible. */
+  coastlineAlpha: number;
 }
 
 const SURFACE_PALETTES: Record<SurfaceMode, SurfacePalette> = {
@@ -58,6 +63,7 @@ const SURFACE_PALETTES: Record<SurfaceMode, SurfacePalette> = {
     blotchRGB:   '70,95,108',
     gridFaint:   'rgba(31,80,99,0.18)',
     gridEquator: 'rgba(31,80,99,0.28)',
+    coastlineAlpha: 0.28,
   },
   dark: {
     // Night register — deep-ocean tones. Design-verified by Betelgeuse.
@@ -69,6 +75,8 @@ const SURFACE_PALETTES: Record<SurfaceMode, SurfacePalette> = {
     blotchRGB:   '80,120,135',
     gridFaint:   'rgba(192,218,214,0.22)',
     gridEquator: 'rgba(192,218,214,0.38)',
+    // Land prints ~2x stronger than light so continents read on the teal field.
+    coastlineAlpha: 0.55,
   },
 };
 // ─────────────────────────────────────────────────────────────────────────────
@@ -200,7 +208,7 @@ export function buildSurfaceTextures(mode: SurfaceMode = 'light'): {
   const earthImg = new Image();
   earthImg.onload = () => {
     ctx.globalCompositeOperation = "multiply";
-    ctx.globalAlpha = 0.28;
+    ctx.globalAlpha = pal.coastlineAlpha;
     ctx.filter = "blur(1.2px)";
     ctx.drawImage(earthImg, 0, 0, W, H);
     ctx.filter = "none";
