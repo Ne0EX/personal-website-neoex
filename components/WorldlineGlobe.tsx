@@ -102,6 +102,13 @@ interface GlobePalette {
   // lines read far hotter against the deep sphere than teal-on-cream does in
   // light; scaling dark down restores light-mode's calm surface density.
   lineOpacityScale: number;
+  // Multiplier on the ORBITAL NeX field (shells + rays). Dimmed in dark so the
+  // bright web stops competing with — and blurring — the globe's silhouette.
+  orbitOpacityScale: number;
+  // Edge/rim glow opacity — a faint additive halo just outside the sphere that
+  // crisps the silhouette against the dark background (light-mode edge reads
+  // fine on cream, so it's 0 there).
+  edgeGlowOpacity: number;
 }
 
 const GLOBE_PALETTES: Record<ThemeMode, GlobePalette> = {
@@ -115,6 +122,8 @@ const GLOBE_PALETTES: Record<ThemeMode, GlobePalette> = {
     rim:              0x2a3a48,
     articleShadowRGB: '31,80,99',
     lineOpacityScale: 1,
+    orbitOpacityScale: 1,
+    edgeGlowOpacity: 0,
   },
   dark: {
     // Night register — deep-ocean instrument colours. Design-verified by Betelgeuse.
@@ -128,7 +137,9 @@ const GLOBE_PALETTES: Record<ThemeMode, GlobePalette> = {
     key:              0xD0E4E0,   // slightly brighter cool key light
     rim:              0x5A7A8C,   // lifted rim for edge definition
     articleShadowRGB: '36,62,76',
-    lineOpacityScale: 0.6,        // calm the cream graticule/shell/ray web on the dark field
+    lineOpacityScale: 0.6,        // calm the cream curvation lines on the dark field
+    orbitOpacityScale: 0.5,       // dim the orbital web so it stops blurring the globe edge
+    edgeGlowOpacity: 0.55,        // additive rim halo to crisp the dark silhouette
   },
 };
 
@@ -489,6 +500,8 @@ type ThemeMaterials = {
   netraTrackerMats: THREE.MeshBasicMaterial[];
   /** Primary sphere MeshStandardMaterial — for texture map swap on mode change. */
   sphereMat: THREE.MeshStandardMaterial;
+  /** Edge/rim glow BackSide sphere material — color + opacity per mode. */
+  edgeGlowMat: THREE.MeshBasicMaterial;
 };
 
 type SceneRefs = {
@@ -692,6 +705,21 @@ function buildScene(
   );
   globe.add(innerShade);
 
+  // Edge/rim glow — a BackSide sphere a hair larger than the globe, additive,
+  // bright teal. The part that extends beyond the opaque globe's silhouette
+  // reads as a faint halo ring → crisps the edge against the dark background.
+  // Opacity is palette-driven (0 in light, where the cream sphere edge is fine).
+  const edgeGlowMat = new THREE.MeshBasicMaterial({
+    color: palette.netraTracker,
+    side: THREE.BackSide,
+    transparent: true,
+    opacity: palette.edgeGlowOpacity,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const edgeGlow = new THREE.Mesh(new THREE.SphereGeometry(1.015, 64, 64), edgeGlowMat);
+  globe.add(edgeGlow);
+
   // ─── Engraved lat/long lines (the user explicitly wanted line contour) ───
   const lineMat = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.55 * palette.lineOpacityScale });
   const lineMatFaint = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.3 * palette.lineOpacityScale });
@@ -827,11 +855,12 @@ function buildScene(
     shellMatsCollected.push(m);
     return new THREE.Mesh(new THREE.SphereGeometry(radius, 24, 16), m);
   };
-  nexField.add(makeShell(1.18, 0.1), makeShell(1.32, 0.07), makeShell(1.48, 0.05));
+  const os = palette.orbitOpacityScale;
+  nexField.add(makeShell(1.18, 0.1 * os), makeShell(1.32, 0.07 * os), makeShell(1.48, 0.05 * os));
 
   const raysGroup = new THREE.Group();
   nexField.add(raysGroup);
-  const rayMat = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.35 });
+  const rayMat = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.35 * palette.orbitOpacityScale });
   for (let i = 0; i < 48; i++) {
     const phi = Math.acos(1 - 2 * ((i + 0.5) / 48));
     const theta = Math.PI * (1 + Math.sqrt(5)) * i;
@@ -963,6 +992,7 @@ function buildScene(
         arcMat,
         netraTrackerMats: netraTrackerMatsCollected,
         sphereMat: paperMat,
+        edgeGlowMat,
       },
       lights: { ambient: ambientLight, key, rim },
     },
@@ -2562,11 +2592,21 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
     tm.poleRingMats.forEach((m) => { m.color.setHex(palette.orange); });
     tm.poleDotMats.forEach((m) => { m.color.setHex(palette.orange); });
 
-    // ── NeX field shells — full opacity (NOT lineOpacityScale) ──
-    tm.shellMats.forEach((m) => { m.color.setHex(palette.ink); });
+    // ── NeX field shells — orbitOpacityScale (dimmed in dark so the web stops
+    //    blurring the globe edge). Base opacities by shell index: 0.1/0.07/0.05.
+    const shellBase = [0.1, 0.07, 0.05];
+    tm.shellMats.forEach((m, i) => {
+      m.color.setHex(palette.ink);
+      m.opacity = (shellBase[i] ?? 0.07) * palette.orbitOpacityScale;
+    });
 
-    // ── NeX rays — full opacity 0.35 (NOT scaled) ──
+    // ── NeX rays — base 0.35 × orbitOpacityScale ──
     tm.rayMat.color.setHex(palette.ink);
+    tm.rayMat.opacity = 0.35 * palette.orbitOpacityScale;
+
+    // ── Edge/rim glow — color + per-mode opacity (0 in light, halo in dark) ──
+    tm.edgeGlowMat.color.setHex(palette.netraTracker);
+    tm.edgeGlowMat.opacity = palette.edgeGlowOpacity;
 
     // ── Worldline arc ──
     tm.arcMat.color.setHex(palette.orange);
