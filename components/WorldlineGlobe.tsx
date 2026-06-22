@@ -2425,7 +2425,10 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
     for (const summary of placeSummaries) {
       refs.placeObjects.push(buildPlaceNode(summary, refs.nodesGroup, activePaletteRef.current.ink));
     }
-  }, [placeSummaries]);
+    // `mode` dep: a theme toggle rebuilds the scene (fresh empty nodesGroup +
+    // placeObjects) via the [mode] setup effect; this fill must re-run to
+    // repopulate the new scene, else the place nodes vanish on toggle.
+  }, [placeSummaries, mode]);
 
   // ─── Alpha-on-place accent: paint the isAlpha place node ORANGE (data-driven) ───
   // tokyo-alpha (2026-06-15, α-SUR-01): the separate observer α dot is gone.
@@ -2460,7 +2463,8 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
       // When alpha place IS selected, the selection recolor effect above has already
       // applied orange — no double-paint needed. Non-alpha nodes handled by that effect.
     }
-  }, [placeSummaries, selectedId]);
+    // `mode`: re-apply the alpha accent after a theme-toggle scene rebuild.
+  }, [placeSummaries, selectedId, mode]);
 
   // ─── Recolor place-node dot + rings on selection (spec §3.4 states table) ───
   // Selected place: dot + visible rings → accent-orange. Others: ink, base opacity.
@@ -2494,7 +2498,8 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
         }
       });
     }
-  }, [selectedId, placeSummaries]);
+    // `mode`: re-apply selection highlight after a theme-toggle scene rebuild.
+  }, [selectedId, placeSummaries, mode]);
 
   return (
     <div className="atlas-frame">
