@@ -133,8 +133,8 @@
   border-left: 1px solid var(--ink-hairline);
 }
 .gv-mode.is-on {
-  background: var(--ink-primary);
-  color: var(--paper-base);
+  background: var(--ctl-seg-active-bg);   /* semantic token: fills dark correctly */
+  color: var(--ctl-seg-active-fg);
 }
 .gv-mode:hover:not(.is-on) {
   color: var(--ink-primary);

@@ -155,16 +155,110 @@
      is built). Authoring surface only — dev-only guarded component. */
   --place-thumb-editor-size: 72px;
 
-  /* Semantic filled-button tokens — console active/primary button fills.
-     Light: dark-teal fill + cream text (current behavior; unchanged).
-     Dark:  see [data-theme="dark"] override — paper-bright surface + ink-primary text.
-     Consumers: every console active tab, primary action, PUBLISHED pill,
-     EN/TH toggle, HUD buttons (.ed-kindtab.is-on, .ed-lc-toggle.is-published,
-     .lc-chip.is-active, .ficm-tab.is-on, .ficm-state.is-on, .pub-btn-primary,
-     ImportZone .ed-btn-primary, PlaceHighlightEditor .pe-btn-save,
-     ConsoleEntryForm .ef-commit, ConsoleCanvas .hud-btn). */
-  --btn-fill:    var(--ink-primary);   /* dark teal in light; overridden in dark */
-  --btn-fill-fg: var(--paper-base);    /* cream in light; overridden in dark */
+  /* ═══════════════════════════════════════════════════════════════════
+     § INTERACTIVE ELEMENT TOKEN SYSTEM  (spec: docs/design/80-interactive-states.md)
+     Five variant families × five states × two themes — one source of truth.
+     Nothing in components/** invents its own active color. All cite these.
+     ─────────────────────────────────────────────────────────────────────
+     VARIANT FAMILIES
+       fill     — single primary action; active/selected segment in a
+                  segmented-control. Filled ink. The heaviest weight.
+       ghost    — secondary action or cancel. Transparent rest, orange hover.
+       segment  — mutually-exclusive view-mode tab row (no outer border on
+                  individual items; the rail carries the border).
+       text     — locale toggle (EN·TH), inline nav. No border, no fill.
+                  Active = ink-primary emphasis; inactive = ink-soft ambient.
+       pill     — attractor domain pills, kind-filter radio pills. Transparent
+                  rest, orange hover, filled-ink active (base atom).
+       status   — read-only PUBLISHED / DRAFT badge. Not a button. Two
+                  variants: published (filled-ink) and draft (ink-faint text).
+     ─────────────────────────────────────────────────────────────────────
+     STATES (per variant where applicable)
+       rest        default unpressed state
+       hover       cursor over the control
+       active      selected / pressed / is-on / is-active state
+       disabled    pointer-events: none; opacity 0.45
+       focus       1px dashed accent-orange at -2px offset (all variants)
+     ─────────────────────────────────────────────────────────────────────
+     BACKWARD COMPATIBILITY
+       --btn-fill and --btn-fill-fg are canonical fill variant tokens.
+       They ARE the system; they are not aliases. Any existing consumer
+       (.ed-kindtab.is-on, .ef-commit, .pub-btn-primary, etc.) already
+       uses the correct token. Do not rename them.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  /* ── FILL variant (primary action · active segment) ── */
+  --ctl-fill-bg:           var(--ink-primary);     /* resting: transparent; active = this */
+  --ctl-fill-fg:           var(--paper-base);      /* text on filled state */
+  --ctl-fill-bg-hover:     var(--accent-orange);   /* hover on filled state (e.g. commit btn) */
+  --ctl-fill-fg-hover:     var(--paper-bright);    /* text on filled-orange hover */
+  /* Backward compat aliases — same values, different names used in existing CSS */
+  --btn-fill:              var(--ctl-fill-bg);
+  --btn-fill-fg:           var(--ctl-fill-fg);
+
+  /* ── GHOST variant (secondary action · cancel · outline button) ── */
+  --ctl-ghost-border:      var(--ink-hairline);    /* rest: barely-there 1px solid */
+  --ctl-ghost-fg:          var(--ink-primary);     /* rest text */
+  --ctl-ghost-border-hover: var(--accent-orange);  /* hover: orange outline */
+  --ctl-ghost-fg-hover:    var(--accent-orange);   /* hover text */
+  --ctl-ghost-border-dashed: var(--ink-dashed);    /* dashed-border variant (pub-btn-ghost) */
+  --ctl-ghost-fg-dashed:   var(--ink-faint);       /* dashed rest text */
+
+  /* ── SEGMENT variant (segmented control row — TIMELINE·FLAT·PLACE, SOURCE·PREVIEW·SPLIT) ── */
+  /* The segment rail (.gv-modes, .ed-modes, .ed-kindtabs) carries a 1px solid
+     ink-hairline outer border. Individual items have no border of their own —
+     dividers are border-left: 1px solid ink-hairline between items only. */
+  --ctl-seg-bg:            transparent;
+  --ctl-seg-fg:            var(--ink-soft);        /* inactive item */
+  --ctl-seg-fg-hover:      var(--ink-primary);     /* hover lift */
+  --ctl-seg-active-bg:     var(--ctl-fill-bg);     /* filled-ink when selected */
+  --ctl-seg-active-fg:     var(--ctl-fill-fg);
+  --ctl-seg-divider:       var(--ink-hairline);    /* between-item border */
+
+  /* ── TEXT variant (locale EN·TH, plain nav links as buttons) ── */
+  --ctl-text-fg:           var(--ink-soft);        /* inactive / secondary */
+  --ctl-text-fg-active:    var(--ink-primary);     /* active / current locale */
+  --ctl-text-fg-hover:     var(--accent-orange);   /* hover accent */
+
+  /* ── REGISTER variant (DAY·NIGHT — underline-bar active, no fill) ── */
+  /* DAY·NIGHT is intentionally different: it lives in the instrument chrome,
+     uses accent-orange underline to signal "current mode" without blocking
+     paper texture behind a fill. Use for exactly this pattern. */
+  --ctl-reg-fg:            var(--ink-soft);        /* inactive */
+  --ctl-reg-fg-hover:      var(--accent-orange);
+  --ctl-reg-fg-active:     var(--accent-orange);
+  --ctl-reg-bar:           var(--accent-orange);   /* 2px bottom bar on active */
+
+  /* ── PILL variant (attractor pills, kind-filter pills) ── */
+  /* Base atom: .af-pill in globals.css §AF-PILL. Tokens named here for
+     any future surface that needs to re-derive without importing .af-pill. */
+  --ctl-pill-border:       var(--ink-faint);       /* rest 1px solid */
+  --ctl-pill-fg:           var(--ink-primary);
+  --ctl-pill-border-hover: var(--accent-orange);
+  --ctl-pill-fg-hover:     var(--accent-orange);
+  --ctl-pill-bg-active:    var(--ctl-fill-bg);     /* filled-ink */
+  --ctl-pill-border-active: var(--ctl-fill-bg);
+  --ctl-pill-fg-active:    var(--ctl-fill-fg);
+
+  /* ── STATUS badge (read-only PUBLISHED / DRAFT) ── */
+  --ctl-status-pub-bg:     var(--ctl-fill-bg);     /* filled-ink = PUBLISHED */
+  --ctl-status-pub-fg:     var(--ctl-fill-fg);
+  --ctl-status-draft-fg:   var(--ink-faint);       /* DRAFT = ambient, no fill */
+  --ctl-status-settled-fg: var(--ink-primary);     /* SETTLED = full ink emphasis */
+
+  /* ── SHARED: focus ring, disabled ── */
+  --ctl-focus-ring:        var(--accent-orange);   /* 1px dashed, -2px offset, all variants */
+  --ctl-disabled-opacity:  0.45;                   /* opacity when pointer-events: none */
+
+  /* ── STATUS tokens for upload/validation feedback (QuickUploadBar) ── */
+  /* These are not interactive-control tokens but belong in the same
+     semantic block. Named separately so they are easy to find. */
+  --status-error:          #C0392B;   /* upload failed, validation error */
+  --status-warn:           #D68000;   /* upload warning, partial */
+  /* Note: these are intentional divergences from the teal/cream/orange triad.
+     Error red and warning amber have universal semantic meaning; using the
+     orange accent for errors would break the orange = selected-state convention.
+     Dark mode override is in [data-theme="dark"] below. */
 
   /* HUD button background (graph ARRANGE / zoom / ORIGIN row).
      Light: translucent paper-base cream. Dark: see [data-theme="dark"]. */
@@ -220,12 +314,20 @@
   --paper-deep-rgb:    10 16 21;
   --paper-bright-rgb:  30 47 55;
 
-  /* Semantic filled-button tokens — dark overrides.
-     paper-bright (#1E2F37) background + ink-primary (cream) text reads as
-     a clearly elevated "selected" surface in the night register — raised
-     from the canvas without the glare of full cream fill. */
-  --btn-fill:    var(--paper-bright);  /* raised surface, not cream */
-  --btn-fill-fg: var(--ink-primary);   /* cream text on dark fill */
+  /* ── Interactive element system — dark overrides ──────────────────────
+     All --ctl-* tokens that derive from --ink-primary / --paper-base flip
+     automatically because those primitives are overridden above.
+     The only tokens that need an explicit dark override are those that
+     reference paper-bright (the raised-selection surface) directly. */
+
+  /* FILL variant — raised paper-bright surface instead of glaring cream fill */
+  --ctl-fill-bg:           var(--paper-bright);   /* #1E2F37 — elevated, not cream */
+  --ctl-fill-fg:           var(--ink-primary);    /* cream text on dark fill */
+  /* backward compat aliases follow automatically via :root var() chains */
+
+  /* Status error/warn — darkened slightly for dark-mode legibility */
+  --status-error:          #E05C4B;
+  --status-warn:           #E8960A;
 
   /* HUD buttons on dark canvas: paper-warm translucent panel tint */
   --hud-btn-bg:  rgba(20,34,42,0.85);  /* = paper-warm #14222A @ 85% */
