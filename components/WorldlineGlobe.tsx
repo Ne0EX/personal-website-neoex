@@ -653,7 +653,10 @@ function buildScene(
   const isLight = mode === 'light';
   const ambientLight = new THREE.AmbientLight(palette.ambient, 1.15);
   scene.add(ambientLight);
-  const key = new THREE.DirectionalLight(palette.key, isLight ? 0.18 : 0.28);
+  // Dark key kept low (0.12): ambient (1.15) carries overall illumination and the
+  // coastline contrast comes from the surface texture, so a strong dark key only
+  // produced a bright "moon" peak on the dark sphere. Light keeps original 0.18.
+  const key = new THREE.DirectionalLight(palette.key, isLight ? 0.18 : 0.12);
   key.position.set(2, 2.5, 3);
   scene.add(key);
   const rim = new THREE.DirectionalLight(palette.rim, 0.08);
@@ -2591,7 +2594,7 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
     // ── Lights ──
     lights.ambient.color.setHex(palette.ambient);
     lights.key.color.setHex(palette.key);
-    lights.key.intensity = mode === 'dark' ? 0.28 : 0.18;
+    lights.key.intensity = mode === 'dark' ? 0.12 : 0.18;
     lights.rim.color.setHex(palette.rim);
 
     // ── Surface texture swap ──
