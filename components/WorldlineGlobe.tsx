@@ -669,11 +669,15 @@ function buildScene(
   // ─── Globe surface — cream paper (light) / deep-ocean (dark) ───
   const surface = buildSurfaceTextures(mode);
   const sphereGeo = new THREE.SphereGeometry(GLOBE_RADIUS, 128, 128);
+  // Dark = fully matte (roughness 1, no roughnessMap): the roughnessMap makes
+  // land glossier than ocean, which on the dark sphere produced bright white
+  // specular glints ("moons") over the continents. Light keeps the textured
+  // roughness (0.95 + map) — no glints on the cream sphere. metalness 0 both.
   const paperMat = new THREE.MeshStandardMaterial({
     color: 0xffffff,
     map: surface.map,
-    roughnessMap: surface.rough,
-    roughness: 0.95,
+    roughnessMap: isLight ? surface.rough : null,
+    roughness: isLight ? 0.95 : 1,
     bumpMap: surface.bump,
     bumpScale: 0.008,
     metalness: 0,
@@ -2607,7 +2611,10 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
 
     const newSurface = buildSurfaceTextures(mode);
     tm.sphereMat.map          = newSurface.map;
-    tm.sphereMat.roughnessMap = newSurface.rough;
+    // Dark = matte (no roughnessMap, roughness 1) to kill land-glint "moons";
+    // light keeps the textured roughness. See paperMat build comment.
+    tm.sphereMat.roughnessMap = mode === 'dark' ? null : newSurface.rough;
+    tm.sphereMat.roughness    = mode === 'dark' ? 1 : 0.95;
     tm.sphereMat.bumpMap      = newSurface.bump;
     tm.sphereMat.needsUpdate  = true;
 
@@ -2616,6 +2623,9 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
     if (oldMap)   oldMap.dispose();
     if (oldRough) oldRough.dispose();
     if (oldBump)  oldBump.dispose();
+    // Dark doesn't use the roughness texture (matte) — dispose the freshly built
+    // one so it doesn't leak.
+    if (mode === 'dark') newSurface.rough.dispose();
   }, [mode]);
 
   // ─── Build Ne0 place-nodes into the live scene when summaries resolve ───
