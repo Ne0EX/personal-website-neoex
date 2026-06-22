@@ -96,6 +96,11 @@ interface GlobePalette {
   rim: number;
   // Article-panel shadow — rgb() components as a string "R,G,B"
   articleShadowRGB: string;
+  // Global multiplier on graticule / contour / field-shell / ray line opacities.
+  // In dark mode the cream lines read at much higher contrast against the deep
+  // sphere than teal-on-cream does in light, so the instrument looks denser.
+  // Scaling dark down restores light-mode's calm density.
+  lineOpacityScale: number;
 }
 
 const GLOBE_PALETTES: Record<ThemeMode, GlobePalette> = {
@@ -108,6 +113,7 @@ const GLOBE_PALETTES: Record<ThemeMode, GlobePalette> = {
     key:              0xfff4dd,
     rim:              0x2a3a48,
     articleShadowRGB: '31,80,99',
+    lineOpacityScale: 1,
   },
   dark: {
     // Night register — deep-ocean instrument colours. Design-verified by Betelgeuse.
@@ -121,6 +127,7 @@ const GLOBE_PALETTES: Record<ThemeMode, GlobePalette> = {
     key:              0xD0E4E0,   // slightly brighter cool key light
     rim:              0x5A7A8C,   // lifted rim for edge definition
     articleShadowRGB: '36,62,76',
+    lineOpacityScale: 0.6,        // calm the cream graticule/shell/ray web on the dark field
   },
 };
 
@@ -636,8 +643,8 @@ function buildScene(
   globe.add(innerShade);
 
   // ─── Engraved lat/long lines (the user explicitly wanted line contour) ───
-  const lineMat = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.55 });
-  const lineMatFaint = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.3 });
+  const lineMat = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.55 * palette.lineOpacityScale });
+  const lineMatFaint = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.3 * palette.lineOpacityScale });
 
   const makeLatRing = (latDeg: number, mat: THREE.LineBasicMaterial) => {
     const lat = (latDeg * Math.PI) / 180;
@@ -673,7 +680,7 @@ function buildScene(
   // ─── Contour rings — irregular elevation lines on the surface ───
   const contoursGroup = new THREE.Group();
   globe.add(contoursGroup);
-  const contourMat = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.7 });
+  const contourMat = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.7 * palette.lineOpacityScale });
   const makeContour = (latCenter: number, ampl: number, phase: number) => {
     const pts: THREE.Vector3[] = [];
     const segs = 256;
@@ -766,11 +773,12 @@ function buildScene(
     });
     return new THREE.Mesh(new THREE.SphereGeometry(radius, 24, 16), m);
   };
-  nexField.add(makeShell(1.18, 0.1), makeShell(1.32, 0.07), makeShell(1.48, 0.05));
+  const shellScale = palette.lineOpacityScale;
+  nexField.add(makeShell(1.18, 0.1 * shellScale), makeShell(1.32, 0.07 * shellScale), makeShell(1.48, 0.05 * shellScale));
 
   const raysGroup = new THREE.Group();
   nexField.add(raysGroup);
-  const rayMat = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.35 });
+  const rayMat = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.35 * palette.lineOpacityScale });
   for (let i = 0; i < 48; i++) {
     const phi = Math.acos(1 - 2 * ((i + 0.5) / 48));
     const theta = Math.PI * (1 + Math.sqrt(5)) * i;

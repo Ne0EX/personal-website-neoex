@@ -73,10 +73,11 @@ const SURFACE_PALETTES: Record<SurfaceMode, SurfacePalette> = {
     gradPole:    '#2A4A5C',
     gradEquator: '#345A6E',
     blotchRGB:   '80,120,135',
-    gridFaint:   'rgba(192,218,214,0.22)',
-    gridEquator: 'rgba(192,218,214,0.38)',
-    // Land prints ~2x stronger than light so continents read on the teal field.
-    coastlineAlpha: 0.55,
+    gridFaint:   'rgba(192,218,214,0.15)',
+    gridEquator: 'rgba(192,218,214,0.26)',
+    // Land prints much stronger than light so continents read clearly on the
+    // teal field without squinting (0.28 light → 0.7 dark).
+    coastlineAlpha: 0.7,
   },
 };
 // ─────────────────────────────────────────────────────────────────────────────
