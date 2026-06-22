@@ -459,6 +459,38 @@ const STRATA_BUTTONS: { key: StratumKey; id: string; role: string; numKey: strin
   },
 ];
 
+// ─── Theme-recolor bag — populated by buildScene, consumed by the recolor effect ───
+// Every material that carries a palette-driven color is collected here so the
+// recolor-in-place effect can iterate them without traversing the scene graph.
+// recolor-in-place (α-SUR-01 2026-06-22): the main THREE setup no longer tears
+// down on mode change; instead this bag is mutated in a separate [mode] effect.
+type ThemeMaterials = {
+  /** Graticule lat/lon lines — lineMat (opacity 0.55×scale) + lineMatFaint (0.3×scale). */
+  lineMats: THREE.LineBasicMaterial[];
+  /** Contour ring materials — opacity 0.7×scale each. */
+  contourMats: THREE.LineBasicMaterial[];
+  /** Inner-shade BackSide sphere — color = palette.innerShade. */
+  innerShade: THREE.MeshBasicMaterial;
+  /** Axis spine cylinder — color = palette.ink. */
+  axisCylinder: THREE.MeshBasicMaterial;
+  /** Axis cap survey-triangle line segments — color = palette.ink. */
+  axisLineMat: THREE.LineBasicMaterial;
+  /** Pole beacon ring materials (north ring, south ring). */
+  poleRingMats: THREE.MeshBasicMaterial[];
+  /** Pole beacon dot materials (north dot, south dot). */
+  poleDotMats: THREE.MeshBasicMaterial[];
+  /** NeX field wireframe shell materials — opacity kept full (NOT lineOpacityScale). */
+  shellMats: THREE.MeshBasicMaterial[];
+  /** NeX ray line material — opacity 0.35 full (NOT lineOpacityScale). */
+  rayMat: THREE.LineBasicMaterial;
+  /** Worldline arc dashed material — color = palette.orange. */
+  arcMat: THREE.LineDashedMaterial;
+  /** NETRA tracker: [ring, halo, dot] — color = palette.netraTracker. */
+  netraTrackerMats: THREE.MeshBasicMaterial[];
+  /** Primary sphere MeshStandardMaterial — for texture map swap on mode change. */
+  sphereMat: THREE.MeshStandardMaterial;
+};
+
 type SceneRefs = {
   globe: THREE.Group;
   // The primary sphere mesh — exposed so pointer-move raycasting can hit-test
@@ -489,6 +521,15 @@ type SceneRefs = {
   // data loads. Each mesh carries userData.fictionSlug for click routing.
   // (fiction-node-click fix — wired to onClick + onHover with occlusion guard.)
   fictionHitObjects: THREE.Mesh[];
+  // recolor-in-place: palette-driven materials + lights bag. Populated by
+  // buildScene; mutated by the standalone [mode] recolor effect. Never null
+  // after buildScene returns.
+  themeMaterials: ThemeMaterials;
+  lights: {
+    ambient: THREE.AmbientLight;
+    key: THREE.DirectionalLight;
+    rim: THREE.DirectionalLight;
+  };
 };
 
 /**
@@ -610,7 +651,8 @@ function buildScene(
   // compensates. Key intensity: GUESS 0.22 in dark (vs 0.18 light) to recover
   // some brightness lost from the darker ambient. Rim is accent-only at 0.08.
   const isLight = mode === 'light';
-  scene.add(new THREE.AmbientLight(palette.ambient, 1.15));
+  const ambientLight = new THREE.AmbientLight(palette.ambient, 1.15);
+  scene.add(ambientLight);
   const key = new THREE.DirectionalLight(palette.key, isLight ? 0.18 : 0.28);
   key.position.set(2, 2.5, 3);
   scene.add(key);
@@ -682,6 +724,8 @@ function buildScene(
   const contoursGroup = new THREE.Group();
   globe.add(contoursGroup);
   const contourMat = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.7 * palette.lineOpacityScale });
+  // recolor-in-place: each contour uses contourMat.clone() so we collect them
+  // individually after the group is built — iterating contoursGroup.children.
   const makeContour = (latCenter: number, ampl: number, phase: number) => {
     const pts: THREE.Vector3[] = [];
     const segs = 256;
@@ -764,6 +808,7 @@ function buildScene(
   scene.add(nexField);
   nexField.add(nexFictionGlyphs);
   nexField.add(branchesGroup);
+  const shellMatsCollected: THREE.MeshBasicMaterial[] = [];
   const makeShell = (radius: number, opacity: number) => {
     const m = new THREE.MeshBasicMaterial({
       color: palette.ink,
@@ -772,6 +817,7 @@ function buildScene(
       opacity,
       depthWrite: false,
     });
+    shellMatsCollected.push(m);
     return new THREE.Mesh(new THREE.SphereGeometry(radius, 24, 16), m);
   };
   nexField.add(makeShell(1.18, 0.1), makeShell(1.32, 0.07), makeShell(1.48, 0.05));
@@ -854,6 +900,25 @@ function buildScene(
   arcLine.computeLineDistances();
   scene.add(arcLine);
 
+  // ─── Collect theme materials for recolor-in-place (α-SUR-01 2026-06-22) ───
+  // Every palette-driven material is bagged here so the standalone [mode] recolor
+  // effect can mutate them without traversing the whole scene graph.
+  const innerShadeMat = innerShade.material as THREE.MeshBasicMaterial;
+  const contourMatsCollected = contoursGroup.children.map(
+    (c) => (c as THREE.Line).material as THREE.LineBasicMaterial
+  );
+  const poleRingMatsCollected: THREE.MeshBasicMaterial[] = [
+    northPole.children[0] as THREE.Mesh,
+    southPole.children[0] as THREE.Mesh,
+  ].map((m) => m.material as THREE.MeshBasicMaterial);
+  const poleDotMatsCollected: THREE.MeshBasicMaterial[] = [
+    northPole.children[1] as THREE.Mesh,
+    southPole.children[1] as THREE.Mesh,
+  ].map((m) => m.material as THREE.MeshBasicMaterial);
+  const netraTrackerMatsCollected = [trackerRing, trackerHalo, trackerDot].map(
+    (m) => m.material as THREE.MeshBasicMaterial
+  );
+
   return {
     root: globe,
     scene,
@@ -877,6 +942,22 @@ function buildScene(
       placeObjects,
       observerObjects,
       fictionHitObjects,
+      // recolor-in-place: all palette-driven materials + lights in one bag.
+      themeMaterials: {
+        lineMats: [lineMat, lineMatFaint],
+        contourMats: contourMatsCollected,
+        innerShade: innerShadeMat,
+        axisCylinder: axisCylinderMat,
+        axisLineMat,
+        poleRingMats: poleRingMatsCollected,
+        poleDotMats: poleDotMatsCollected,
+        shellMats: shellMatsCollected,
+        rayMat,
+        arcMat,
+        netraTrackerMats: netraTrackerMatsCollected,
+        sphereMat: paperMat,
+      },
+      lights: { ambient: ambientLight, key, rim },
     },
     cleanup: () => {
       scene.traverse((o) => {
@@ -1198,20 +1279,30 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
   }, [placeSummaries, rebuildJumpTargets]);
 
   // ─── THREE setup ───
-  // `mode` is in deps: when the user toggles dark mode, useThemeMode() returns a
-  // new value, this effect re-runs (cleanup → teardown → rebuild with new palette).
-  // The setInterval loop is preserved — clearInterval fires in cleanup, a fresh
-  // setInterval starts in the new run. This is intentional (iOS Safari robustness
-  // comment preserved; do NOT replace with requestAnimationFrame).
+  // Built ONCE on mount (deps: []). Theme color changes are handled by the
+  // standalone recolor-in-place effect below — no teardown/rebuild needed.
+  // recolor-in-place (α-SUR-01 2026-06-22): switching `mode` no longer tears
+  // down the scene; it mutates palette-driven materials in place so camera
+  // position / globe rotation / selection / dig / stratum all persist.
+  //
+  // INITIAL MODE: read from modeRef.current at mount time. The no-FOUC script
+  // has already set <html data-theme> before React mounts; useThemeMode() writes
+  // to modeRef.current synchronously before this effect runs so we get the right
+  // initial palette even on first paint.
+  //
+  // iOS Safari: setInterval chosen over rAF — see comment near intervalId below.
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    // Resolve the active color palette for this render. All Three.js material
-    // hex literals in buildScene() come from this object — never hardcoded.
-    // activePaletteRef is updated immediately so recolor effects (selectedId /
-    // placeSummaries) that run after this setup can use the same palette.
-    const palette = GLOBE_PALETTES[mode];
+    // Resolve initial color palette from modeRef (set synchronously by the
+    // `useEffect(() => { modeRef.current = mode }, [mode])` effect above this
+    // one, but at mount time modeRef.current was initialised to `mode` — so
+    // the first paint always uses the correct palette (no FOUC).
+    // activePaletteRef is updated here AND by the recolor effect on every
+    // subsequent toggle so downstream effects always see the live palette.
+    const initialMode = modeRef.current;
+    const palette = GLOBE_PALETTES[initialMode];
     activePaletteRef.current = palette;
 
     // Hydration-safe reduced-motion read — inside useEffect, not during render.
@@ -1223,12 +1314,12 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
     // movable-alpha: pass current alpha coords into scene construction so the
     // observer α ring, the worldline arc, and camera framing all start at the
     // data-driven locus rather than the former Bangkok hardcode.
-    // Dark-mode: `mode` controls surface gradient + aging blotch palette.
+    // Dark-mode: `initialMode` controls the first-paint surface gradient palette.
     const { scene, refs, cleanup } = buildScene(
       alphaCoordRef.current.lat,
       alphaCoordRef.current.lon,
       palette,
-      mode,
+      initialMode,
     );
     sceneRefsRef.current = refs;
 
@@ -2137,10 +2228,13 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
         }
       }
 
-      // Breathing on contour opacity.
+      // Breathing on contour opacity — scale by the active palette's lineOpacityScale
+      // (dark mode scales down curvation lines; the breath amp is also scaled so it
+      // doesn't punch through the ceiling in dark mode).
+      const lineScale = activePaletteRef.current.lineOpacityScale;
       refs.contoursGroup.children.forEach((c, i) => {
         const m = (c as THREE.Line).material as THREE.LineBasicMaterial;
-        m.opacity = 0.55 + Math.sin(now * 0.001 + i) * 0.12;
+        m.opacity = (0.55 + Math.sin(now * 0.001 + i) * 0.12) * lineScale;
       });
       // Pulse pole beacons.
       const pulse = 0.55 + 0.45 * Math.sin(now * 0.004);
@@ -2393,14 +2487,12 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
     // called only when fiction nodes load. Adding it to deps would tear down the
     // entire THREE scene on every placeSummaries change — incorrect.
     //
-    // dark-mode: `mode` IS in deps — when the user toggles dark/light, this
-    // effect tears down (clearInterval, dispose, removeChild) and rebuilds the
-    // scene with GLOBE_PALETTES[mode]. This is the correct and intended behavior:
-    // Three.js materials cannot hot-swap CSS vars, so a full scene rebuild is
-    // the only safe path. The setInterval loop restarts in the new run; the
-    // iOS Safari deliberate-setInterval choice (not rAF) is preserved.
+    // recolor-in-place (α-SUR-01 2026-06-22): `mode` removed from deps. The scene
+    // is built ONCE. Theme color changes are handled by the standalone recolor
+    // effect below which mutates palette-driven materials without tearing down the
+    // scene, so camera/selection/rotation/dig state all survive a toggle.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode]);
+  }, []);
 
   // Re-apply stratum / selection from React state to scene refs.
   useEffect(() => {
@@ -2413,22 +2505,132 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
     if (apply) apply(selectedId);
   }, [selectedId]);
 
+  // ─── Recolor-in-place on theme toggle (α-SUR-01 2026-06-22) ─────────────────
+  // This effect fires on every `mode` change and mutates all palette-driven
+  // materials in the LIVE scene without tearing it down.  Camera position, globe
+  // rotation, selection highlight, dig state, stratum framing, NeX field /
+  // branching animation state — all survive the toggle untouched.
+  //
+  // The previous approach (mode in [] deps → full teardown → rebuild) was the
+  // sole cause of the "theme toggle resets all globe interaction state" bug.
+  //
+  // Color-change taxonomy:
+  //   • THREE.MeshBasicMaterial / LineBasicMaterial / LineDashedMaterial:
+  //     .color.setHex() is sufficient. needsUpdate is NOT required for color-only
+  //     changes on Basic/Line materials.
+  //   • THREE.MeshStandardMaterial (paperMat / sphere surface):
+  //     texture map swap via new buildSurfaceTextures(mode), then needsUpdate=true
+  //     on the material. Old textures must be .dispose()d to avoid a GPU leak.
+  useEffect(() => {
+    const refs = sceneRefsRef.current;
+    // Guard: scene not yet built (first mount, setup effect hasn't run).
+    if (!refs) return;
+
+    const palette = GLOBE_PALETTES[mode];
+    activePaletteRef.current = palette;
+    const { themeMaterials: tm, lights } = refs;
+
+    // ── Graticule lines (lineMat + lineMatFaint) ──
+    // lineOpacityScale is a CURVATION-ONLY multiplier: lat/lon grid + contours.
+    // Shells and rays keep full opacity (NOT scaled) per palette comment.
+    tm.lineMats.forEach((m, i) => {
+      m.color.setHex(palette.ink);
+      m.opacity = (i === 0 ? 0.55 : 0.3) * palette.lineOpacityScale;
+    });
+
+    // ── Contour rings ──
+    tm.contourMats.forEach((m) => {
+      m.color.setHex(palette.ink);
+      m.opacity = 0.7 * palette.lineOpacityScale;
+    });
+
+    // ── Inner-shade sphere ──
+    tm.innerShade.color.setHex(palette.innerShade);
+
+    // ── Polar axis (cylinder + survey-cap line segments) ──
+    tm.axisCylinder.color.setHex(palette.ink);
+    tm.axisLineMat.color.setHex(palette.ink);
+
+    // ── Pole beacons (ring + dot, north + south) ──
+    tm.poleRingMats.forEach((m) => { m.color.setHex(palette.orange); });
+    tm.poleDotMats.forEach((m) => { m.color.setHex(palette.orange); });
+
+    // ── NeX field shells — full opacity (NOT lineOpacityScale) ──
+    tm.shellMats.forEach((m) => { m.color.setHex(palette.ink); });
+
+    // ── NeX rays — full opacity 0.35 (NOT scaled) ──
+    tm.rayMat.color.setHex(palette.ink);
+
+    // ── Worldline arc ──
+    tm.arcMat.color.setHex(palette.orange);
+
+    // ── NETRA tracker (ring, halo, dot) ──
+    tm.netraTrackerMats.forEach((m) => { m.color.setHex(palette.netraTracker); });
+
+    // ── NeX fiction glyphs — each glyph uses a cloned MeshBasicMaterial ──
+    refs.nexFictionGlyphs.children.forEach((child) => {
+      const mesh = child as THREE.Mesh;
+      if (!mesh.material) return;
+      const mat = mesh.material as THREE.MeshBasicMaterial;
+      // Hit proxies are transparent (opacity 0) — skip them; color irrelevant.
+      if (mat.opacity === 0 && mat.transparent) return;
+      mat.color.setHex(palette.ink);
+    });
+
+    // ── Place-node dots + rings ──
+    // The selection / alpha-accent effects re-run immediately after this effect
+    // (they share [mode] dep), so here we only paint the neutral ink state for
+    // ALL nodes. The dependent effects override selected + alpha nodes afterward.
+    refs.placeObjects.forEach((node) => {
+      (node.dot.material as THREE.MeshBasicMaterial).color.setHex(palette.ink);
+      node.rings.forEach((ring) => {
+        (ring.material as THREE.MeshBasicMaterial).color.setHex(palette.ink);
+      });
+    });
+
+    // ── Lights ──
+    lights.ambient.color.setHex(palette.ambient);
+    lights.key.color.setHex(palette.key);
+    lights.key.intensity = mode === 'dark' ? 0.28 : 0.18;
+    lights.rim.color.setHex(palette.rim);
+
+    // ── Surface texture swap ──
+    // Dispose old textures FIRST (before overwriting refs) to avoid a GPU leak.
+    // buildSurfaceTextures() creates a new set of CanvasTextures with the new
+    // palette; the old set is no longer referenced after the swap.
+    const oldMap   = tm.sphereMat.map;
+    const oldRough = tm.sphereMat.roughnessMap;
+    const oldBump  = tm.sphereMat.bumpMap;
+
+    const newSurface = buildSurfaceTextures(mode);
+    tm.sphereMat.map          = newSurface.map;
+    tm.sphereMat.roughnessMap = newSurface.rough;
+    tm.sphereMat.bumpMap      = newSurface.bump;
+    tm.sphereMat.needsUpdate  = true;
+
+    // Dispose after assignment (Three.js holds no internal reference to these
+    // after the material.map pointers are swapped above).
+    if (oldMap)   oldMap.dispose();
+    if (oldRough) oldRough.dispose();
+    if (oldBump)  oldBump.dispose();
+  }, [mode]);
+
   // ─── Build Ne0 place-nodes into the live scene when summaries resolve ───
   // Mirrors the async NeX fiction-glyph population: the scene mounts once, this
   // effect fills nodesGroup once summaries are loaded (whichever order they
   // resolve). Idempotent — only builds when placeObjects is still empty.
   // Dark-mode: passes activePaletteRef.ink so nodes render in the correct color
-  // for the current mode (activePaletteRef is set at scene-build time).
+  // for the current mode (activePaletteRef is set at mount or recolor time).
+  // recolor-in-place: `mode` removed from deps — the scene is never torn down,
+  // so placeObjects persists across toggles. The recolor effect above handles
+  // repainting; this effect only runs when summaries first arrive.
   useEffect(() => {
     const refs = sceneRefsRef.current;
     if (!refs || placeSummaries.length === 0 || refs.placeObjects.length > 0) return;
     for (const summary of placeSummaries) {
       refs.placeObjects.push(buildPlaceNode(summary, refs.nodesGroup, activePaletteRef.current.ink));
     }
-    // `mode` dep: a theme toggle rebuilds the scene (fresh empty nodesGroup +
-    // placeObjects) via the [mode] setup effect; this fill must re-run to
-    // repopulate the new scene, else the place nodes vanish on toggle.
-  }, [placeSummaries, mode]);
+  }, [placeSummaries]);
 
   // ─── Alpha-on-place accent: paint the isAlpha place node ORANGE (data-driven) ───
   // tokyo-alpha (2026-06-15, α-SUR-01): the separate observer α dot is gone.
@@ -2463,8 +2665,11 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
       // When alpha place IS selected, the selection recolor effect above has already
       // applied orange — no double-paint needed. Non-alpha nodes handled by that effect.
     }
-    // `mode`: re-apply the alpha accent after a theme-toggle scene rebuild.
-  }, [placeSummaries, selectedId, mode]);
+    // recolor-in-place: `mode` removed from deps. The recolor effect above resets
+    // all nodes to ink first; this effect then over-paints the alpha accent. The
+    // recolor effect runs before this one (React effects run in declaration order),
+    // so the two-pass "ink all → accent alpha" sequence is preserved.
+  }, [placeSummaries, selectedId]);
 
   // ─── Recolor place-node dot + rings on selection (spec §3.4 states table) ───
   // Selected place: dot + visible rings → accent-orange. Others: ink, base opacity.
@@ -2498,8 +2703,10 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
         }
       });
     }
-    // `mode`: re-apply selection highlight after a theme-toggle scene rebuild.
-  }, [selectedId, placeSummaries, mode]);
+    // recolor-in-place: `mode` removed from deps. The recolor effect handles
+    // restoring ink colors on toggle; this effect then re-applies selection orange
+    // on top (selection state unchanged across toggle — no camera/state loss).
+  }, [selectedId, placeSummaries]);
 
   return (
     <div className="atlas-frame">

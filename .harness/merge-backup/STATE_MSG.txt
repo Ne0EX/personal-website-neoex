@@ -1,0 +1,51 @@
+fix(theme): recolor globe in place on toggle — preserve camera/selection/dig state
+
+Root cause: the main THREE setup effect had `mode` in its deps array. A theme
+toggle triggered full teardown (clearInterval, renderer.dispose, removeChild)
+and rebuild from scratch, discarding camera position/quaternion, globe rotation,
+selected-node focus, dig-panel state, and NeX field/branching animation state.
+
+Fix (α-SUR-01 2026-06-22): recolor-in-place approach:
+
+1. THREE setup effect deps: `[mode]` → `[]`. Scene built ONCE on mount.
+   Initial palette read from `modeRef.current` (synchronously correct at mount
+   — the no-FOUC script sets data-theme before React mounts).
+
+2. `ThemeMaterials` type + `lights` field added to `SceneRefs`. `buildScene`
+   now collects every palette-driven material into `refs.themeMaterials`:
+   lineMats, contourMats, innerShade, axisCylinder, axisLineMat, poleRingMats,
+   poleDotMats, shellMats, rayMat, arcMat, netraTrackerMats, sphereMat.
+   Lights (ambient/key/rim) exposed as `refs.lights`.
+
+3. New standalone recolor effect `useEffect(() => { ... }, [mode])`:
+   - Updates `activePaletteRef`
+   - `.color.setHex()` on all theme materials (ink/orange/innerShade/netraTracker)
+   - Re-applies lineOpacityScale on lineMats + contourMats (curvation-only)
+   - Swaps surface textures via buildSurfaceTextures(mode); disposes old textures
+   - Updates light colors + key intensity (dark 0.28, light 0.18)
+   - Repaints NeX fiction glyph clones + place-node dots/rings (ink baseline;
+     alpha-accent + selection effects re-run immediately after to re-apply orange)
+
+4. Place-node build effect: `[placeSummaries, mode]` → `[placeSummaries]`.
+   Scene never torn down, so placeObjects persists; no rebuild needed.
+
+5. Alpha-accent effect: `[placeSummaries, selectedId, mode]` → same without mode.
+6. Selection recolor effect: `[selectedId, placeSummaries, mode]` → without mode.
+
+7. Contour breathing in tick: opacity now multiplied by `lineOpacityScale` from
+   `activePaletteRef` so dark mode's scale=0.6 is respected each frame.
+
+State preserved across toggle (verified in Chrome):
+  - Camera position/quaternion (Bangkok focus survives toggle)
+  - Globe rotation angle
+  - NETRA tracker ring visibility + position
+  - Selected place highlight
+  - setInterval render loop (never interrupted)
+  - NeX field / branching animation state
+
+Light mode first-paint: correct (dark palette on reload-in-dark-mode also correct).
+Light mode after toggle: pixel-identical to pre-fix baseline.
+Rapid multi-toggle (4×): no node disappearance, no state loss.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016tEBxKHkRiaGrWYrXzNsDM
