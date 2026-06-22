@@ -1,0 +1,27 @@
+feat(globe): extract reusable standalone <Globe> component + shared globe-palettes
+
+- lib/globe-palettes.ts: new single source of truth for GlobePalette interface
+  + GLOBE_PALETTES (light/dark). Extracted verbatim from WorldlineGlobe.tsx so
+  both consumers share identical values and palette drift becomes impossible.
+
+- components/Globe.tsx: new standalone reusable sphere component. Includes:
+  procedural sphere via buildSurfaceTextures(mode) (lib/globe-surface.ts reused),
+  matte-dark material (roughness 1, no roughnessMap to kill specular "moon" glints),
+  engraved lat/lon graticule + wavy contour rings (lineOpacityScale),
+  inner-shade shell (light 0.35 / dark 0.05 — soft-borderless-edge fix),
+  ambient 1.15 / key (0.18 light, 0.12 dark) / rim 0.08 lights, auto-rotation,
+  recolor-in-place on theme toggle (no scene teardown — mirrors WorldlineGlobe),
+  setInterval render loop (iOS Safari robustness), prefers-reduced-motion guard,
+  proper cleanup on unmount (clearInterval + traverse dispose + renderer.dispose).
+  Props: size?, autoRotate?, className?.
+
+- components/WorldlineGlobe.tsx: pure import refactor — GlobePalette interface and
+  GLOBE_PALETTES const removed from local declaration, imported from globe-palettes.ts.
+  Zero behavior change; pixel-identical output verified by screenshot comparison.
+
+QA: build clean (TS 0 errors, 27 pages), tests 12/12 (setInterval assert f passes),
+screenshots: .harness/merge-backup/qa-globe-component-{light,dark}.png (standalone
+Globe), qa-worldlineglobe-{light,dark}.png (ATLAS unchanged post-extraction).
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016tEBxKHkRiaGrWYrXzNsDM

@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useThemeMode, type ThemeMode } from "@/lib/useThemeMode";
+// Palette shared with Globe.tsx — single source of truth (lib/globe-palettes.ts).
+// Extracted 2026-06-22 (α-SUR-01 globe-component task). Behavior unchanged.
+import { type GlobePalette, GLOBE_PALETTES } from "@/lib/globe-palettes";
 import {
   // OBSERVER_NODES: export kept in lib/entries.ts for harness/watchdog consumers;
   // the standalone observer-dot layer was removed 2026-06-15 (tokyo-alpha, α-SUR-01).
@@ -70,79 +73,10 @@ import { buildSurfaceTextures } from "@/lib/globe-surface";
  */
 
 // ─── Dark-mode globe palette ──────────────────────────────────────────────────
-// Three.js materials cannot read CSS variables. GLOBE_PALETTES provides two
-// complete color sets keyed by ThemeMode. buildScene() receives the active palette
-// and replaces every hardcoded hex literal with palette.<name>.
-//
-// DARK values are a starting point derived from the task spec; Betelgeuse
-// must design-verify final hex values against rendered screenshots.
-//
-// LIGHT values are exact current hex literals — light output is pixel-identical
-// to the pre-dark-mode baseline.
-interface GlobePalette {
-  // Line / contour / grid / shell / axis / PLACE_INK color
-  ink: number;
-  // Arc / branch / pole beacon / accent color (orange)
-  orange: number;
-  // Inner-shade sphere tint
-  innerShade: number;
-  // NETRA tracker ring / halo / dot
-  netraTracker: number;
-  // Ambient light color
-  ambient: number;
-  // Key directional light color
-  key: number;
-  // Rim directional light color
-  rim: number;
-  // Article-panel shadow — rgb() components as a string "R,G,B"
-  articleShadowRGB: string;
-  // Multiplier on the ON-GLOBE curvation lines ONLY — the lat/long graticule
-  // (lineMat/lineMatFaint) + contour rings (contourMat). NOT the orbital NeX
-  // field (shells/rays), which keep full opacity. In dark the cream curvation
-  // lines read far hotter against the deep sphere than teal-on-cream does in
-  // light; scaling dark down restores light-mode's calm surface density.
-  lineOpacityScale: number;
-  // Multiplier on the ORBITAL NeX field (shells + rays). Dimmed in dark so the
-  // bright web stops competing with — and blurring — the globe's silhouette.
-  orbitOpacityScale: number;
-  // Edge/rim glow opacity — a faint additive halo just outside the sphere that
-  // crisps the silhouette against the dark background (light-mode edge reads
-  // fine on cream, so it's 0 there).
-  edgeGlowOpacity: number;
-}
-
-const GLOBE_PALETTES: Record<ThemeMode, GlobePalette> = {
-  light: {
-    ink:              0x1f5063,
-    orange:           0xD4602A,
-    innerShade:       0xb4bbc0,
-    netraTracker:     0x4d7a92,
-    ambient:          0xefe7d6,
-    key:              0xfff4dd,
-    rim:              0x2a3a48,
-    articleShadowRGB: '31,80,99',
-    lineOpacityScale: 1,
-    orbitOpacityScale: 1,
-    edgeGlowOpacity: 0,
-  },
-  dark: {
-    // Night register — deep-ocean instrument colours. Design-verified by Betelgeuse.
-    // Surface stops raised in lib/globe-surface.ts (gradPole #243E4C, gradEquator #2E5060)
-    // so this ambient/key/rim set reads against a visible teal field, not a black void.
-    ink:              0xC8D8D4,   // cooler/dimmer than 0xD8E0DE — night lines, not blown-out
-    orange:           0xE87840,   // warmer, brighter orange — legible on deep teal
-    innerShade:       0x1A303A,   // deep inner shadow, slightly warmer than prior 0x16242C
-    netraTracker:     0x7AB8CC,   // brighter teal tracker for dark-field visibility
-    ambient:          0x3A5562,   // raised from 0x2A3A44 — moonlit instrument illumination
-    key:              0xD0E4E0,   // slightly brighter cool key light
-    rim:              0x5A7A8C,   // lifted rim for edge definition
-    articleShadowRGB: '36,62,76',
-    lineOpacityScale: 0.6,        // calm the cream curvation lines on the dark field
-    orbitOpacityScale: 0.5,       // dim the orbital web so it stops blurring the globe edge
-    edgeGlowOpacity: 0,           // hard rim ring looked like a tacky border — disabled.
-                                  // Edge now reads from the un-darkened lighter disc (see innerShade).
-  },
-};
+// Moved to lib/globe-palettes.ts (α-SUR-01 2026-06-22, globe-component task).
+// GlobePalette + GLOBE_PALETTES are imported above — see the import block.
+// Both WorldlineGlobe and the new standalone Globe.tsx share that single source.
+// ─────────────────────────────────────────────────────────────────────────────
 
 const GLOBE_RADIUS = 1;
 
