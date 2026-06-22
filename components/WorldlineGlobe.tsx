@@ -139,7 +139,8 @@ const GLOBE_PALETTES: Record<ThemeMode, GlobePalette> = {
     articleShadowRGB: '36,62,76',
     lineOpacityScale: 0.6,        // calm the cream curvation lines on the dark field
     orbitOpacityScale: 0.5,       // dim the orbital web so it stops blurring the globe edge
-    edgeGlowOpacity: 0.55,        // additive rim halo to crisp the dark silhouette
+    edgeGlowOpacity: 0,           // hard rim ring looked like a tacky border — disabled.
+                                  // Edge now reads from the un-darkened lighter disc (see innerShade).
   },
 };
 
@@ -698,10 +699,13 @@ function buildScene(
   const sphere = new THREE.Mesh(sphereGeo, paperMat);
   globe.add(sphere);
 
-  // Inner shade shell — gives depth at the rim. Color from palette (darkens appropriately).
+  // Inner shade shell — darkens the rim for depth in LIGHT mode. In DARK it's
+  // nearly off: darkening the rim there pushed it toward the page background so
+  // the silhouette vanished. Keeping it low lets the lighter ocean disc reach
+  // the edge → soft natural silhouette (lighter disc on darker bg), no outline.
   const innerShade = new THREE.Mesh(
     new THREE.SphereGeometry(0.998, 64, 64),
-    new THREE.MeshBasicMaterial({ color: palette.innerShade, side: THREE.BackSide, transparent: true, opacity: 0.35 })
+    new THREE.MeshBasicMaterial({ color: palette.innerShade, side: THREE.BackSide, transparent: true, opacity: isLight ? 0.35 : 0.05 })
   );
   globe.add(innerShade);
 
@@ -2583,6 +2587,7 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
 
     // ── Inner-shade sphere ──
     tm.innerShade.color.setHex(palette.innerShade);
+    tm.innerShade.opacity = mode === 'dark' ? 0.05 : 0.35;
 
     // ── Polar axis (cylinder + survey-cap line segments) ──
     tm.axisCylinder.color.setHex(palette.ink);
