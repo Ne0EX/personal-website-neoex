@@ -1201,7 +1201,12 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
 
               {/* Results list */}
               <div style={{ flex: 1, overflowY: "auto" }}>
-                {searchState.phase === "loading" && (
+                {/* Loading only shows the bare "surveying" state on the FIRST
+                    search (no prior items). On subsequent keystrokes the list
+                    below stays mounted (items.length > 0) so it doesn't flicker
+                    in/out — and the layout doesn't snap — between debounced
+                    searches. */}
+                {searchState.phase === "loading" && items.length === 0 && (
                   <div
                     style={{
                       padding: "16px",
@@ -1256,7 +1261,10 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
                   </div>
                 )}
 
-                {searchState.phase === "results" && (
+                {/* Show the list whenever there are items — including during a
+                    "loading" re-search (keeps prior results on screen, no
+                    flicker). Empty/idle/failure handled by the blocks above. */}
+                {items.length > 0 && (
                   <ol
                     ref={resultsListRef}
                     id={`${uid}-results`}
