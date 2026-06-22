@@ -1,0 +1,17 @@
+docs(design): interactive-state system doc + gallery showcase
+
+Adds docs/design/80-interactive-states.md — canonical reference for every
+--ctl-* token: seven variant families (fill, ghost, segment, text, register,
+pill, status), all states (rest/hover/active/disabled/focus), light vs dark
+value table with rationale (why dark fill = paper-bright not ink-primary),
+decision guide (when to use which), and the "DO NOT use --ink-primary as a
+control background" rule with explanation.
+
+Extends .claude/visual-diffs/soul-atlas/gallery.html with atom A18
+(interactive-state-system): live DAY/NIGHT toggle, all seven variant families
+rendered in every state, segmented-control interactivity, fully token-driven
+CSS (zero raw hex in the atom CSS block). Flips with the global data-theme
+toggle.
+
+Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_016tEBxKHkRiaGrWYrXzNsDM

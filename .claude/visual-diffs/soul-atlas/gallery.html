@@ -1021,6 +1021,179 @@
     </div>
   </section>
 
+  <!-- ═══════════════════ ATOM · interactive-state-system ═══════════════════ -->
+  <section class="atom" id="atom-interactive-state-system" data-atom-id="interactive-state-system">
+    <div class="atom-head">
+      <span class="atom-id">A18</span>
+      <span class="atom-name">Interactive State System</span>
+      <span class="atom-desc">Seven --ctl-* variant families × rest / hover / active / disabled / focus states × DAY / NIGHT themes — one source of truth. Nothing in components/** invents its own active color.</span>
+    </div>
+    <div class="atom-body">
+      <p class="atom-rationale">Every interactive control — fill button, ghost button, segmented tabs, locale toggle, register toggle, attractor pills, status badge — draws from one semantic token set. The instrument has controls, not affordances. They are functional but quiet; they belong to the paper, not to a UI kit. Spec: docs/design/80-interactive-states.md.</p>
+
+      <!-- ── THEME TOGGLE ── lives here so Peat can flip and see all controls respond -->
+      <div style="margin-bottom:28px;">
+        <div class="ctl-showcase-register" aria-label="Theme toggle for gallery preview">
+          <button class="ctl-reg-btn" id="ctl-day-btn" aria-pressed="true" onclick="setGalleryTheme('light')">DAY</button>
+          <button class="ctl-reg-btn" id="ctl-night-btn" aria-pressed="false" onclick="setGalleryTheme('dark')">NIGHT</button>
+        </div>
+        <div class="variant-note" style="margin-top:8px;">Toggle applies <code>data-theme</code> to the gallery root. All seven families respond below.</div>
+      </div>
+
+      <div class="variant-grid" style="gap:40px 32px;">
+
+        <!-- ── 1. FILL ── -->
+        <div class="variant" data-atom-variant="fill">
+          <span class="variant-label"><b>fill</b> · primary action / active segment</span>
+          <div class="stage" style="flex-direction:column; gap:14px; min-width:280px;">
+            <div class="ctl-row-label">REST</div>
+            <button class="ctl-demo-fill">COMMIT DRAFT</button>
+            <div class="ctl-row-label">HOVER — cursor over the button above</div>
+            <button class="ctl-demo-fill ctl-demo-fill--hover-hint">COMMIT DRAFT (hover)</button>
+            <div class="ctl-row-label">DISABLED</div>
+            <button class="ctl-demo-fill" disabled>COMMIT DRAFT</button>
+            <div class="ctl-row-label">FOCUS (keyboard Tab)</div>
+            <button class="ctl-demo-fill ctl-demo-focus-hint">COMMIT DRAFT</button>
+          </div>
+          <span class="variant-note">Rest = filled ink · Hover = accent-orange fill · Disabled = 0.45 opacity · Focus = 1px dashed accent-orange ring at −2px offset</span>
+        </div>
+
+        <!-- ── 2. GHOST ── -->
+        <div class="variant" data-atom-variant="ghost">
+          <span class="variant-label"><b>ghost</b> · secondary action / cancel</span>
+          <div class="stage" style="flex-direction:column; gap:14px; min-width:280px;">
+            <div class="ctl-row-label">REST</div>
+            <button class="ctl-demo-ghost">CANCEL</button>
+            <div class="ctl-row-label">HOVER — cursor over button above</div>
+            <button class="ctl-demo-ghost ctl-demo-ghost--hover-hint">CANCEL (hover)</button>
+            <div class="ctl-row-label">DASHED SUB-VARIANT (less authority)</div>
+            <button class="ctl-demo-ghost ctl-demo-ghost--dashed">PUBLISH AS DRAFT</button>
+            <div class="ctl-row-label">DISABLED</div>
+            <button class="ctl-demo-ghost" disabled>CANCEL</button>
+          </div>
+          <span class="variant-note">Rest = ink-hairline border · Hover = accent-orange border + fg · Dashed = 25% ink border, 30% ink fg</span>
+        </div>
+
+        <!-- ── 3. SEGMENT ── -->
+        <div class="variant" data-atom-variant="segment">
+          <span class="variant-label"><b>segment</b> · mutually exclusive view modes</span>
+          <div class="stage" style="flex-direction:column; gap:20px; min-width:320px;">
+            <div>
+              <div class="ctl-row-label" style="margin-bottom:10px;">ARCHIVE VIEW MODES</div>
+              <div class="ctl-demo-seg-rail" role="radiogroup" aria-label="Archive view mode">
+                <button class="ctl-demo-seg" aria-checked="true" onclick="segSelect(this)">TIMELINE</button>
+                <button class="ctl-demo-seg" aria-checked="false" onclick="segSelect(this)">FLAT</button>
+                <button class="ctl-demo-seg" aria-checked="false" onclick="segSelect(this)">PLACE</button>
+              </div>
+            </div>
+            <div>
+              <div class="ctl-row-label" style="margin-bottom:10px;">EDITOR VIEW MODES</div>
+              <div class="ctl-demo-seg-rail" role="radiogroup" aria-label="Editor view mode">
+                <button class="ctl-demo-seg" aria-checked="true" onclick="segSelect(this)">SOURCE</button>
+                <button class="ctl-demo-seg" aria-checked="false" onclick="segSelect(this)">PREVIEW</button>
+                <button class="ctl-demo-seg" aria-checked="false" onclick="segSelect(this)">SPLIT</button>
+              </div>
+            </div>
+          </div>
+          <span class="variant-note">Rail carries ink-hairline border. Items: inactive = ink-soft, hover = ink-primary, selected = fill-bg/fg. Between-item dividers only, no individual item borders.</span>
+        </div>
+
+        <!-- ── 4. TEXT ── -->
+        <div class="variant" data-atom-variant="text">
+          <span class="variant-label"><b>text</b> · locale toggle / inline nav</span>
+          <div class="stage" style="flex-direction:column; gap:14px; min-width:240px;">
+            <div class="ctl-row-label">ACTIVE (current locale)</div>
+            <div class="ctl-demo-text-row">
+              <button class="ctl-demo-text ctl-demo-text--active">EN</button>
+              <button class="ctl-demo-text">TH</button>
+            </div>
+            <div class="ctl-row-label">HOVER on inactive (cursor over TH)</div>
+            <div class="ctl-demo-text-row">
+              <button class="ctl-demo-text ctl-demo-text--active">EN</button>
+              <button class="ctl-demo-text ctl-demo-text--hover-hint">TH</button>
+            </div>
+          </div>
+          <span class="variant-note">No border, no fill at any state. Active = ink-primary. Inactive = ink-soft. Hover = accent-orange.</span>
+        </div>
+
+        <!-- ── 5. REGISTER ── -->
+        <div class="variant" data-atom-variant="register">
+          <span class="variant-label"><b>register</b> · DAY · NIGHT theme toggle</span>
+          <div class="stage" style="flex-direction:column; gap:14px; min-width:240px;">
+            <div class="ctl-row-label">DAY ACTIVE</div>
+            <div class="ctl-demo-reg-row">
+              <button class="ctl-demo-reg ctl-demo-reg--active">DAY</button>
+              <button class="ctl-demo-reg">NIGHT</button>
+            </div>
+            <div class="ctl-row-label">NIGHT ACTIVE</div>
+            <div class="ctl-demo-reg-row">
+              <button class="ctl-demo-reg">DAY</button>
+              <button class="ctl-demo-reg ctl-demo-reg--active">NIGHT</button>
+            </div>
+          </div>
+          <span class="variant-note">Active = accent-orange 2px bottom bar, no fill. Paper shows through. Distinct from segment — used only for this register switch.</span>
+        </div>
+
+        <!-- ── 6. PILL ── -->
+        <div class="variant" data-atom-variant="pill">
+          <span class="variant-label"><b>pill</b> · attractor pills / kind-filter pills</span>
+          <div class="stage" style="flex-direction:column; gap:14px; min-width:280px;">
+            <div class="ctl-row-label">REST</div>
+            <div class="ctl-demo-pill-row">
+              <button class="ctl-demo-pill">PHOTOGRAPHY</button>
+              <button class="ctl-demo-pill">SYSTEMS</button>
+              <button class="ctl-demo-pill">TRAVEL</button>
+            </div>
+            <div class="ctl-row-label">ONE ACTIVE</div>
+            <div class="ctl-demo-pill-row">
+              <button class="ctl-demo-pill ctl-demo-pill--active">PHOTOGRAPHY</button>
+              <button class="ctl-demo-pill">SYSTEMS</button>
+              <button class="ctl-demo-pill">TRAVEL</button>
+            </div>
+            <div class="ctl-row-label">HOVER on inactive (cursor over SYSTEMS)</div>
+            <div class="ctl-demo-pill-row">
+              <button class="ctl-demo-pill ctl-demo-pill--active">PHOTOGRAPHY</button>
+              <button class="ctl-demo-pill ctl-demo-pill--hover-hint">SYSTEMS</button>
+              <button class="ctl-demo-pill">TRAVEL</button>
+            </div>
+          </div>
+          <span class="variant-note">Rest = ink-faint border, ink-primary fg · Hover = accent-orange border + fg · Active = fill-bg (same weight as a fill button)</span>
+        </div>
+
+        <!-- ── 7. STATUS BADGE ── -->
+        <div class="variant" data-atom-variant="status">
+          <span class="variant-label"><b>status badge</b> · read-only · never interactive</span>
+          <div class="stage" style="flex-direction:column; gap:14px; min-width:280px; align-items:flex-start;">
+            <div class="ctl-row-label">PUBLISHED (terminal committed state)</div>
+            <span class="ctl-demo-status ctl-demo-status--pub">PUBLISHED</span>
+            <div class="ctl-row-label">DRAFT (ambient — barely visible by design)</div>
+            <span class="ctl-demo-status ctl-demo-status--draft">DRAFT</span>
+            <div class="ctl-row-label">SETTLED (full ink emphasis — entry has landed)</div>
+            <span class="ctl-demo-status ctl-demo-status--settled">SETTLED</span>
+          </div>
+          <span class="variant-note">PUBLISHED = fill-bg weight. DRAFT = ink-faint (ambient). SETTLED = ink-primary. No hover, no pointer — display only.</span>
+        </div>
+
+      </div><!-- /variant-grid -->
+
+      <div class="cite">
+        <span class="ttl">token_refs</span>
+        <code>--ctl-fill-bg</code> · <code>--ctl-fill-fg</code> · <code>--ctl-fill-bg-hover</code> · <code>--ctl-fill-fg-hover</code> ·
+        <code>--ctl-ghost-border</code> · <code>--ctl-ghost-fg</code> · <code>--ctl-ghost-border-hover</code> · <code>--ctl-ghost-fg-hover</code> ·
+        <code>--ctl-ghost-border-dashed</code> · <code>--ctl-ghost-fg-dashed</code> ·
+        <code>--ctl-seg-bg</code> · <code>--ctl-seg-fg</code> · <code>--ctl-seg-fg-hover</code> · <code>--ctl-seg-active-bg</code> · <code>--ctl-seg-active-fg</code> · <code>--ctl-seg-divider</code> ·
+        <code>--ctl-text-fg</code> · <code>--ctl-text-fg-active</code> · <code>--ctl-text-fg-hover</code> ·
+        <code>--ctl-reg-fg</code> · <code>--ctl-reg-fg-hover</code> · <code>--ctl-reg-fg-active</code> · <code>--ctl-reg-bar</code> ·
+        <code>--ctl-pill-border</code> · <code>--ctl-pill-fg</code> · <code>--ctl-pill-border-hover</code> · <code>--ctl-pill-fg-hover</code> · <code>--ctl-pill-bg-active</code> · <code>--ctl-pill-border-active</code> · <code>--ctl-pill-fg-active</code> ·
+        <code>--ctl-status-pub-bg</code> · <code>--ctl-status-pub-fg</code> · <code>--ctl-status-draft-fg</code> · <code>--ctl-status-settled-fg</code> ·
+        <code>--ctl-focus-ring</code> · <code>--ctl-disabled-opacity</code> ·
+        <code>--btn-fill</code> · <code>--btn-fill-fg</code> (backward-compat aliases → ctl-fill-*)
+        <span class="ttl">main_branch_refs</span>
+        globals.css L158–334 (complete --ctl-* block) · spec docs/design/80-interactive-states.md · impl_refs: <code>components/console/ConsoleApp.tsx</code> · <code>components/console/ConsoleEntryForm.tsx</code> · <code>components/ArchiveFilters.tsx</code> · <code>components/Nav.tsx</code>
+      </div>
+    </div>
+  </section>
+
 </div>
 
 <!-- ============================================================
@@ -1478,6 +1651,119 @@
   #atom-paper-mount .paper-mount-wrap{ display:inline-block; padding:12px; background:var(--paper-warm); }
   #atom-paper-mount .paper-mount-image-box{ border:1px solid var(--ink-faint); }
   #atom-paper-mount .paper-mount-label-text{ color:var(--ink-soft); }
+
+  /* ── A18 · interactive-state-system ──────────────────────────────────────
+     All appearance values are --ctl-* tokens (or their base primitives).
+     Scaffold sizing (button dimensions, row gaps) is gate-exempt per Path A.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  /* theme toggle row (catalog scaffold — mirrors Nav DAY·NIGHT register) */
+  .ctl-showcase-register{
+    display:inline-flex; gap:0; border-bottom:1px solid var(--ink-hairline); padding-bottom:2px;
+  }
+  .ctl-reg-btn{
+    font-family:var(--font-mono); font-size:9px; letter-spacing:0.3em; text-transform:uppercase;
+    background:none; border:none; cursor:pointer; padding:4px 14px 6px;
+    color:var(--ctl-reg-fg); transition:color 120ms;
+  }
+  .ctl-reg-btn[aria-pressed="true"]{ color:var(--ctl-reg-fg-active); border-bottom:2px solid var(--ctl-reg-bar); margin-bottom:-3px; }
+  .ctl-reg-btn:hover{ color:var(--ctl-reg-fg-hover); }
+
+  /* shared label between state rows */
+  .ctl-row-label{
+    font-family:var(--font-mono); font-size:8px; letter-spacing:0.22em;
+    text-transform:uppercase; color:var(--ink-faint); margin-bottom:2px;
+  }
+
+  /* ── fill variant ── */
+  .ctl-demo-fill{
+    font-family:var(--font-mono); font-size:9px; letter-spacing:0.28em; text-transform:uppercase;
+    background:var(--ctl-fill-bg); color:var(--ctl-fill-fg);
+    border:none; cursor:pointer; padding:8px 18px; transition:background 120ms, color 120ms;
+  }
+  .ctl-demo-fill:hover{ background:var(--ctl-fill-bg-hover); color:var(--ctl-fill-fg-hover); }
+  .ctl-demo-fill:disabled{ opacity:var(--ctl-disabled-opacity); pointer-events:none; }
+  .ctl-demo-fill:focus-visible{ outline:1px dashed var(--ctl-focus-ring); outline-offset:-2px; }
+  /* hover-hint: simulated hover for the static "HOVER" row */
+  .ctl-demo-fill--hover-hint{ background:var(--ctl-fill-bg-hover); color:var(--ctl-fill-fg-hover); }
+  /* focus-hint: simulated focus ring for the static "FOCUS" row */
+  .ctl-demo-focus-hint{ outline:1px dashed var(--ctl-focus-ring); outline-offset:-2px; }
+
+  /* ── ghost variant ── */
+  .ctl-demo-ghost{
+    font-family:var(--font-mono); font-size:9px; letter-spacing:0.28em; text-transform:uppercase;
+    background:none; border:1px solid var(--ctl-ghost-border); color:var(--ctl-ghost-fg);
+    cursor:pointer; padding:8px 18px; transition:border-color 120ms, color 120ms;
+  }
+  .ctl-demo-ghost:hover{ border-color:var(--ctl-ghost-border-hover); color:var(--ctl-ghost-fg-hover); }
+  .ctl-demo-ghost:disabled{ opacity:var(--ctl-disabled-opacity); pointer-events:none; }
+  .ctl-demo-ghost:focus-visible{ outline:1px dashed var(--ctl-focus-ring); outline-offset:-2px; }
+  .ctl-demo-ghost--hover-hint{ border-color:var(--ctl-ghost-border-hover); color:var(--ctl-ghost-fg-hover); }
+  /* dashed sub-variant */
+  .ctl-demo-ghost--dashed{ border:1px dashed var(--ctl-ghost-border-dashed); color:var(--ctl-ghost-fg-dashed); }
+  .ctl-demo-ghost--dashed:hover{ border-color:var(--ctl-ghost-border-hover); color:var(--ctl-ghost-fg-hover); }
+
+  /* ── segment variant ── */
+  .ctl-demo-seg-rail{
+    display:inline-flex; border:1px solid var(--ctl-seg-divider);
+  }
+  .ctl-demo-seg{
+    font-family:var(--font-mono); font-size:9px; letter-spacing:0.28em; text-transform:uppercase;
+    background:var(--ctl-seg-bg); color:var(--ctl-seg-fg);
+    border:none; border-left:1px solid var(--ctl-seg-divider); cursor:pointer;
+    padding:7px 14px; transition:background 120ms, color 120ms;
+  }
+  .ctl-demo-seg:first-child{ border-left:none; }
+  .ctl-demo-seg:hover{ color:var(--ctl-seg-fg-hover); }
+  .ctl-demo-seg[aria-checked="true"]{ background:var(--ctl-seg-active-bg); color:var(--ctl-seg-active-fg); }
+  .ctl-demo-seg:focus-visible{ outline:1px dashed var(--ctl-focus-ring); outline-offset:-2px; }
+
+  /* ── text variant ── */
+  .ctl-demo-text-row{ display:inline-flex; gap:0px; }
+  .ctl-demo-text{
+    font-family:var(--font-mono); font-size:9px; letter-spacing:0.3em; text-transform:uppercase;
+    background:none; border:none; cursor:pointer; padding:6px 12px; color:var(--ctl-text-fg);
+    transition:color 120ms;
+  }
+  .ctl-demo-text:hover{ color:var(--ctl-text-fg-hover); }
+  .ctl-demo-text--active{ color:var(--ctl-text-fg-active); }
+  .ctl-demo-text--hover-hint{ color:var(--ctl-text-fg-hover); }
+  .ctl-demo-text:focus-visible{ outline:1px dashed var(--ctl-focus-ring); outline-offset:-2px; }
+
+  /* ── register variant (demo pair — separate from the showcase toggle above) ── */
+  .ctl-demo-reg-row{ display:inline-flex; gap:0; border-bottom:1px solid var(--ink-hairline); padding-bottom:2px; }
+  .ctl-demo-reg{
+    font-family:var(--font-mono); font-size:9px; letter-spacing:0.3em; text-transform:uppercase;
+    background:none; border:none; cursor:default; padding:4px 14px 6px; color:var(--ctl-reg-fg);
+  }
+  .ctl-demo-reg--active{ color:var(--ctl-reg-fg-active); border-bottom:2px solid var(--ctl-reg-bar); margin-bottom:-3px; }
+
+  /* ── pill variant ── */
+  .ctl-demo-pill-row{ display:flex; flex-wrap:wrap; gap:8px; }
+  .ctl-demo-pill{
+    font-family:var(--font-mono); font-size:8px; letter-spacing:0.22em; text-transform:uppercase;
+    background:none; border:1px solid var(--ctl-pill-border); color:var(--ctl-pill-fg);
+    cursor:pointer; padding:4px 12px; transition:border-color 120ms, color 120ms, background 120ms;
+  }
+  .ctl-demo-pill:hover{ border-color:var(--ctl-pill-border-hover); color:var(--ctl-pill-fg-hover); }
+  .ctl-demo-pill--active{ background:var(--ctl-pill-bg-active); border-color:var(--ctl-pill-border-active); color:var(--ctl-pill-fg-active); }
+  .ctl-demo-pill--hover-hint{ border-color:var(--ctl-pill-border-hover); color:var(--ctl-pill-fg-hover); }
+  .ctl-demo-pill:focus-visible{ outline:1px dashed var(--ctl-focus-ring); outline-offset:-2px; }
+
+  /* ── status badge variant (non-interactive) ── */
+  .ctl-demo-status{
+    font-family:var(--font-mono); font-size:8px; letter-spacing:0.22em; text-transform:uppercase;
+    display:inline-block; padding:3px 10px; cursor:default;
+  }
+  .ctl-demo-status--pub{ background:var(--ctl-status-pub-bg); color:var(--ctl-status-pub-fg); }
+  .ctl-demo-status--draft{ color:var(--ctl-status-draft-fg); }
+  .ctl-demo-status--settled{ color:var(--ctl-status-settled-fg); }
+
+  /* A18 stage override — column layout for the state rows */
+  #atom-interactive-state-system .stage{
+    display:flex; align-items:flex-start; min-height:auto;
+    padding:20px 22px;
+  }
 </style>
 
 <!-- ============================================================
@@ -2102,6 +2388,50 @@
     // dispose handle for production reuse (React effect cleanup):
     return () => { ro.disconnect(); renderer.dispose(); };
   }
+</script>
+
+<!-- A18 · interactive-state-system — theme toggle + segment interaction -->
+<script data-gate-exempt="true">
+  /* setGalleryTheme: applies data-theme to the document root so all
+     --ctl-* tokens that derive from dark overrides flip simultaneously.
+     Mirrors the production pattern in app/layout.tsx (localStorage key
+     'worldline-theme', applied before first paint to prevent FOUC). */
+  function setGalleryTheme(mode) {
+    if (mode === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+    // Update aria-pressed on the register toggle buttons
+    var dayBtn   = document.getElementById('ctl-day-btn');
+    var nightBtn = document.getElementById('ctl-night-btn');
+    if (dayBtn && nightBtn) {
+      dayBtn.setAttribute('aria-pressed',   mode === 'light' ? 'true' : 'false');
+      nightBtn.setAttribute('aria-pressed', mode === 'dark'  ? 'true' : 'false');
+    }
+  }
+
+  /* segSelect: radio-group behavior for segment demo rails.
+     Clears aria-checked on siblings, sets it on the clicked item. */
+  function segSelect(btn) {
+    var rail = btn.closest('[role="radiogroup"]');
+    if (!rail) return;
+    rail.querySelectorAll('.ctl-demo-seg').forEach(function(b) {
+      b.setAttribute('aria-checked', 'false');
+    });
+    btn.setAttribute('aria-checked', 'true');
+  }
+
+  // Initialise: read current theme from html attribute (if any)
+  // so the DAY/NIGHT toggle reflects the actual state on load.
+  (function() {
+    var current = document.documentElement.getAttribute('data-theme');
+    if (current === 'dark') {
+      setGalleryTheme('dark');
+    } else {
+      setGalleryTheme('light');
+    }
+  })();
 </script>
 </body>
 </html>
