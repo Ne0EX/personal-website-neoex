@@ -48,11 +48,16 @@ interface SurfacePalette {
   gridFaint: string;
   /** Baked grid stroke — equator line. */
   gridEquator: string;
-  /** Coastline multiply opacity — how strongly the Earth landmass silhouette
-   *  prints onto the base. Dark needs more than light: on the deep-teal night
-   *  field a 0.28 multiply barely separates land from ocean, so the map reads as
-   *  a near-flat disc. Raising it makes continents legible. */
+  /** Coastline multiply opacity (LIGHT mode only) — how strongly the Earth
+   *  landmass darkens the cream base (dark-on-light, the polarity human vision
+   *  reads best). Unused in dark mode (see landTint). */
   coastlineAlpha: number;
+  /** DARK mode land colour. Dark inverts the polarity: instead of darkening land
+   *  (which on a dark sphere gives dark-on-dark = invisible continents), it
+   *  paints land a mid-tone LIGHTER than the ocean (light-on-dark). This is the
+   *  fix for the "can't see continents" perceptual-contrast problem — luminance
+   *  separation, not hue. Undefined in light mode. */
+  landTint?: string;
 }
 
 const SURFACE_PALETTES: Record<SurfaceMode, SurfacePalette> = {
@@ -75,9 +80,11 @@ const SURFACE_PALETTES: Record<SurfaceMode, SurfacePalette> = {
     blotchRGB:   '80,120,135',
     gridFaint:   'rgba(192,218,214,0.15)',
     gridEquator: 'rgba(192,218,214,0.26)',
-    // Land prints much stronger than light so continents read clearly on the
-    // teal field without squinting (0.28 light → 0.7 dark).
+    // Unused in dark (landTint path) — kept for type completeness.
     coastlineAlpha: 0.7,
+    // Continents lighter than the ocean base (#2A4A5C/#345A6E) → light-on-dark,
+    // legible without squinting. Mid-teal, not white (stays in the palette).
+    landTint:    '#7AA8BC',
   },
 };
 // ─────────────────────────────────────────────────────────────────────────────
@@ -208,13 +215,36 @@ export function buildSurfaceTextures(mode: SurfaceMode = 'light'): {
   // + baked graticule) — no JS error, no console spam loop, no broken render.
   const earthImg = new Image();
   earthImg.onload = () => {
-    ctx.globalCompositeOperation = "multiply";
-    ctx.globalAlpha = pal.coastlineAlpha;
-    ctx.filter = "blur(1.2px)";
-    ctx.drawImage(earthImg, 0, 0, W, H);
-    ctx.filter = "none";
-    ctx.globalAlpha = 1;
-    ctx.globalCompositeOperation = "source-over";
+    if (mode === "dark" && pal.landTint) {
+      // DARK — light-on-dark continents. The specular image has ocean=bright,
+      // land=dark. Invert it (land→bright, ocean→dark), tint that to a mid-teal,
+      // then `lighten`-composite onto the base: land is raised to landTint while
+      // the ocean (now black) leaves the base untouched. Result: continents
+      // LIGHTER than the ocean → legible by luminance, the polarity dark UIs need.
+      const tmp = document.createElement("canvas");
+      tmp.width = W; tmp.height = H;
+      const tctx = tmp.getContext("2d");
+      if (tctx) {
+        tctx.filter = "invert(1) blur(1.2px)";
+        tctx.drawImage(earthImg, 0, 0, W, H);   // land→white, ocean→black
+        tctx.filter = "none";
+        tctx.globalCompositeOperation = "multiply";
+        tctx.fillStyle = pal.landTint;          // land→landTint, ocean→black
+        tctx.fillRect(0, 0, W, H);
+        ctx.globalCompositeOperation = "lighten";
+        ctx.drawImage(tmp, 0, 0);               // raise land, leave ocean
+        ctx.globalCompositeOperation = "source-over";
+      }
+    } else {
+      // LIGHT — dark-on-light continents (multiply darkens land into the cream).
+      ctx.globalCompositeOperation = "multiply";
+      ctx.globalAlpha = pal.coastlineAlpha;
+      ctx.filter = "blur(1.2px)";
+      ctx.drawImage(earthImg, 0, 0, W, H);
+      ctx.filter = "none";
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+    }
     map.needsUpdate = true;
 
     // Re-derive bump and roughness from updated albedo.
