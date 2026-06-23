@@ -1305,3 +1305,21 @@ closure note · 2026-05-17 evening · Polaris (α-OPS-00) — Phase 2 wave essen
 ---
 
 *last update · 2026-05-17 evening · Polaris (α-OPS-00) — Phase 2 design wave essentially COMPLETE · 17 tasks signed-clean · 3 surface prototypes shipped + branching renderer merge-ready · SAVE-POINT-2026-05-17.md written for next-Polaris resume · Peat-pending: browse + tune + Q-A v1.1 + Q-G coverage*
+
+---
+
+## TASK-2026-06-22-DARK-MODE · **closed 2026-06-22 (logged 2026-06-24)** · branch `genesis/store-as-source` · 21 commits · per-fix Chrome-verified + Algol gauntlet on the feature
+
+scope · Peat shared a Claude Design "Worldline Dark Mode PoC" → implement dark mode (theme colours + globe night palette). Grew into: merge the mobile-native branch first, ship dark mode site+console+mobile, a long Peat-eye globe-tuning tail, a design-system upgrade Peat directed, and a triangulate bugfix. Session log: `docs/team/SESSION-LOG-2026-06-22-dark-mode.md`.
+
+shipped · ① **merge `genesis/mobile-native`** into store-as-source (`ed17348`) — kept Version-F IBM Plex fonts + grafted viewportFit; corrected stale test (f). ② **Dark mode** opt-in night register (`c228317` + Algol REVISE `0a79acb`): `[data-theme=dark]` token swap, no-FOUC script, `lib/useThemeMode.ts` (MutationObserver, no provider), REGISTER toggle desktop + nav-slim mobile. ③ **Globe** recolor-IN-PLACE on toggle (preserves camera/selection/dig) `4291903`; matte dark sphere (no specular "moon") `14a1780`; **light-on-dark land polarity** `e2e3d87` (the key lesson); soft borderless edge `7ca65f8`; + Peat-review chain (`9040663` `98142d5` `c629d8b` `3a1c1a1` `105c7c8`). ④ **Reusable `<Globe>`** `components/Globe.tsx` + shared `lib/globe-palettes.ts` (`8f47377`) — PARKED, not wired. ⑤ **--ctl-* interactive-state design system** (`87c5e30`) + doc `docs/design/80-interactive-states.md` + soul-atom gallery A18 (`e648bb6`) + migration (`f59fe4e` `a8fcd7e`) — kills the dark-mode button-glare whack-a-mole. ⑥ **Triangulate flicker** fixed `2bfd5ac`. Every commit: build clean (27 pages) + mobile-touch-contract 12/12 + chrome-devtools ground-truth.
+
+held-pending (Peat) · ① **push + main merge** (web-only policy — dark+mobile go to main at deploy) — blocked_on: Peat · block_until: 2026-07-15. ② Peat said "เก็บไว้ต่อวันหลัง" — nothing else blocks.
+
+flagged · **Algol #4** — `--ink-soft` (ink/0.5) = 4.22:1 on dark `--paper-base`, AA-borderline for 9px `.t-meta` labels; `.register .rlab` at `--ink-faint` = 2.31:1. Systemic design-tier (ambient vs read register), NOT introduced by dark (dark 4.22 > light ~3.7). owner: betelgeuse · must_close_by: 2026-07-15. · **Algol #1** — no signature record exists for this task (sign-work not run). owner: polaris/canopus · must_close_by: 2026-07-15. · **ImportZone aria-dropeffect/aria-grabbed deprecated** — pre-existing, not this work. owner: sirius · must_close_by: 2026-07-31.
+
+housekeeping · `genesis/mobile-native` branch merged → deletable. 236-line draft of `23-mobile-atlas-reflow.md` preserved in `.harness/merge-backup/` (Peat: promote or discard). `.harness/merge-backup/` also holds this session's commit-message files + QA screenshots (untracked, disposable).
+
+---
+
+*last update · 2026-06-24 · Polaris (α-OPS-00) — dark mode + --ctl-* design system + reusable <Globe> closed on genesis/store-as-source (21 commits, NOT pushed); Peat returning later; push + main-merge + Algol #4/#1 are the open seams*
