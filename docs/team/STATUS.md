@@ -1325,4 +1325,18 @@ housekeeping · `genesis/mobile-native` branch merged → deletable. 236-line dr
 
 ---
 
-*last update · 2026-06-25 · Polaris (α-OPS-00) — dark-mode seam-closing wave: Algol #1 (signature) + #4 (contrast) + ImportZone aria ALL CLOSED (commit `a818f0a`, Algol PASS). Open: ① branch push (gated → Peat-hand) ② main-merge SPLIT to own session (= first web-only release slice of full store-as-source foundation + Vercel link, NOT a dark-mode merge)*
+---
+
+## TASK-2026-06-25-ARTICLE-UX · **closed 2026-06-25** · branch `genesis/store-as-source` · commit `bec2912` · Algol PASS (gauntlet + 1 revise round)
+
+scope · Peat ran `/ux-heuristics` on `/[lang]/articles/001` (th + en). Polaris drove chrome-devtools audit (desktop+mobile, both langs, 0 console err). Findings → Peat decided → built. Screenshots `.harness/ux-audit/`.
+
+Peat decisions (2026-06-25) · ① **bilingual = article CONTENT translation only**; chrome/metadata stays mono-EN brand register (re-affirms [[project_bilingual_switch]] v1 scope — B2/B3 audit findings CLOSED as informed-accept, not bugs). ② **MIN READ = auto-compute + manual override**. ③ **recommend-next = worldline_links first, fallback chronological**.
+
+shipped · **§ THE THREAD CONTINUES** (new `ContinueSection.tsx`, Betelgeuse spec `docs/design/SPEC-2026-06-25-article-continuation.md`, Vega copy) — single on-soul continuation after § PATCHES via `getNextEntries` (worldline_links→chrono; published-only; self-excluded); **lang-aware href bug caught by Algol + fixed** (used target row `.lang`=en-fallback → `/articles/NNN`; now caller `lang` → `/th/articles/NNN`). · **Folio "FILE NNN OF N"** orient readout in header strip → `/[lang]/archive` (`getPublishedArticleCount`=4, dedup siblings; aria-label Vega-locked). · **MIN READ auto-compute** in `map.ts` (EN words/225wpm · Thai codepoints/650cpm · served-lang body · null=auto, manual override wins — FILE 001 keeps its 15). · **Patch i18n** — th sibling empty patches → en patch fallback (no extra query, no body leak; closes audit B1 content gap). · **Locale toggle 44px** scoped to mobile bar only (desktop compact — avoided the prior all-viewport density regression). Chrome-verified both langs + dark + 390px; tsc 0; 0 console errors; mobile targets 44–46px.
+
+audit findings still OPEN (not built — lower priority, await Peat) · **B3** "REFINED"/status-label jargon (plain-language/tooltip) — Sev 1. · **G3** header metadata-row ambient contrast — Sev 1, ties to the register/dark-mode contrast work. owner: betelgeuse · must_close_by: 2026-07-15.
+
+---
+
+*last update · 2026-06-25 · Polaris (α-OPS-00) — two tasks closed on genesis/store-as-source: (1) dark-mode seams Algol #1/#4 + ImportZone aria (`a818f0a`); (2) article-UX from /ux-heuristics audit — continuation + folio + auto-readtime + patch-i18n + locale-44px (`bec2912`, Algol PASS). Open: ① branch push (gated → Peat-hand: `git push -u origin genesis/store-as-source`) ② main-merge SPLIT to own session (first web-only release slice of full store-as-source + Vercel link) ③ audit B3/G3 minor, await Peat*
