@@ -3,6 +3,8 @@
 Worldline design operates on three layers. This document is the precedence map.
 Whenever any layer conflicts with a higher layer, the higher layer wins — no exceptions.
 
+Install manifest for these sources: see `CRAFT-SKILLS.md`.
+
 ---
 
 ## Standing Policy — Auto-Fold Rule
