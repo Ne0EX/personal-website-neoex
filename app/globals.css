@@ -331,6 +331,23 @@
 
   /* HUD buttons on dark canvas: paper-warm translucent panel tint */
   --hud-btn-bg:  rgba(20,34,42,0.85);  /* = paper-warm #14222A @ 85% */
+
+  /* ── Ambient-tier legibility floor — dark only ────────────────────
+     --ink-faint at 0.30 alpha gives 1.61:1 on light paper — intentionally
+     sub-threshold: it is the SQUINT tier (purely structural labels: FILE,
+     TYPE, REGISTER, dashed-border pill outlines). That reads fine in light
+     because the cream field itself is high-luminance.
+     On dark (#0E171C / #14222A), 0.30 computes to 2.31–2.32:1, which is
+     below the ambient-tier defensible floor of ~3:1 for any rendered text.
+     Fix: raise --ink-faint to 0.40 in dark only → 3.09:1 on paper-warm
+     (#14222A, the .register background) and 3.14:1 on paper-base.
+     Light theme is UNAFFECTED (stays rgb(var(--ink-rgb)/0.30)).
+     Selectors affected: .register .rlab (7px, 0.28em tracking, uppercase),
+     --ctl-ghost-fg-dashed, --ctl-pill-border, --ctl-status-draft-fg,
+     and any other ink-faint use on dark surfaces.
+     Tier gap preserved: ink-soft dark = 4.24:1 · ink-faint dark = 3.09:1.
+     Algol seam #4 · TASK-2026-06-22-DARK-MODE · resolved 2026-06-25. */
+  --ink-faint: rgb(var(--ink-rgb) / 0.40);
 }
 
 @theme inline {

@@ -11,8 +11,9 @@
  *      content: "IMPORT ZONE" head · [↑ IMPORT ENTRY] button (.ed-btn-primary) ·
  *      Cormorant-italic descriptive copy. Drag-over → dashed border turns
  *      var(--accent-orange) with NO fill (orange is an interaction signal, not a
- *      static decoration). role="region" aria-label="Import zone",
- *      aria-dropeffect="copy", aria-grabbed="false".
+ *      static decoration). role="region" aria-label="Import zone" on the outer
+ *      section; inner drop target role="button" with keyboard and drag handlers.
+ *      (aria-dropeffect / aria-grabbed were removed — deprecated in WAI-ARIA 1.1.)
  *
  *   2. RE-IMPORT helper  (hasContent === true)
  *      A toolbar-row control: `↻ RE-IMPORT` (.ed-btn-ghost). On click it does NOT
@@ -364,8 +365,6 @@ export function ImportZone({ onImport, hasContent, onReImport, reading }: Import
           className={'iz-drop' + (drag ? ' is-drag' : '')}
           role="button"
           tabIndex={0}
-          aria-dropeffect="copy"
-          aria-grabbed="false"
           onClick={pickFile}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {

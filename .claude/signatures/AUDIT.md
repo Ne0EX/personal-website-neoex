@@ -2,6 +2,56 @@
 
 ---
 
+## 2026-06-25 · TASK-2026-06-22-DARK-MODE seam-closing wave · PASS
+
+**auditor** · Algol (α-VER-06)
+**scope** · seam-close wave: `app/globals.css` dark --ink-faint lift · `docs/design/80-interactive-states.md` a11y rationale · `components/console/ImportZone.tsx` aria-dropeffect removal · `components/console/QuickUploadBar.tsx` aria-dropeffect removal
+**base commit** · `2e49b26` (what the three retroactive signatures pin)
+**verdict** · PASS
+
+### Signature integrity
+
+All three retroactive signatures produced self_hash values verified CLEAN under the canonical Python method (sort_keys, compact separators, no trailing newline, sha256):
+
+- `TASK-2026-06-22-DARK-MODE--sirius.json` · α-SUR-01 · pre_cutover=Pico (AGENTS.md MATCH) · self_hash `702d5535…` MATCH · `next_recipient` α-VER-06 MATCH · 17/18 files_sha256 match HEAD; 1 mismatch (`app/globals.css`) is the seam-wave edit itself, hash at HEAD matches stored value — CLEAN
+- `TASK-2026-06-22-DARK-MODE--betelgeuse.json` · α-VIS-04 · pre_cutover=Iris (AGENTS.md MATCH) · self_hash `d2e1c88a…` MATCH · `next_recipient` α-VER-06 MATCH · 10/13 files_sha256 match HEAD; 3 mismatches (`app/globals.css`, `components/console/ImportZone.tsx`, `docs/design/80-interactive-states.md`) are the seam-wave edits, all three hashes at HEAD match stored values — CLEAN
+- `TASK-2026-06-22-DARK-MODE--polaris.json` · α-OPS-00 · pre_cutover=Mira (AGENTS.md MATCH) · self_hash `9629b6e9…` MATCH · `next_recipient` α-VER-06 MATCH · 2/2 files_sha256 MATCH — CLEAN
+
+files_sha256 "mismatches" confirmed as seam-wave edits on top of `2e49b26` — not tampering. Git-show at HEAD confirms every signed hash is the correct pre-seam value.
+
+`QuickUploadBar.tsx` is not listed in any signature's files_touched — it was not touched by the signed work; the aria removal there is a fresh seam-wave edit, correctly unlisted.
+
+### A11y checks
+
+**aria-dropeffect / aria-grabbed removal (ImportZone.tsx, QuickUploadBar.tsx)**
+Both deprecated WAI-ARIA 1.1 attributes removed. Accessible names verified in working tree:
+- ImportZone: outer `<section role="region" aria-label="Import zone">` + inner drop target `<div role="button" tabIndex={0} onKeyDown={...}>` with Enter/Space activation. Keyboard path intact.
+- QuickUploadBar: outer `<section role="region" aria-label="Quick photo upload">` + inner drop target `<div role="button" tabIndex={0} aria-label="Drop photos here or click to pick" onKeyDown={...}>`. Keyboard path intact. No regression.
+
+**--ink-faint dark contrast (app/globals.css)**
+Independent WCAG 2.1 contrast recompute (sRGB linear, alpha-composited over solid bg):
+
+| token / alpha | bg | old (0.30) | new (0.40) | delta |
+|---|---|---|---|---|
+| --ink-faint dark | paper-base #0E171C | 2.312:1 | 3.149:1 | +0.84 |
+| --ink-faint dark | paper-warm #14222A | 2.319:1 | 3.094:1 | +0.77 |
+| --ink-soft dark (unchanged) | paper-warm #14222A | — | 4.059:1 | — |
+
+Tier gap preserved: ink-soft 4.06:1 · ink-faint 3.09:1 on paper-warm. Register distinction maintained.
+Light theme --ink-faint unchanged at 0.30 (1.610:1 on paper-base cream — intentional ambient floor, light high-luminance field).
+Dark scope verified: override is the last declaration inside `[data-theme="dark"]` block (line 350 of globals.css, block closes line 351). Cannot leak to :root.
+
+### Build and regression scan
+
+`npm run build` → ✓ Compiled successfully in 5.7s · ✓ 27/27 pages generated. Zero new errors.
+`node --test tests/mobile-touch-contract.test.mjs` → 12/12 pass. No regression.
+
+### Cross-impact
+
+All 12 `color: var(--ink-faint)` text consumers in globals.css are uppercase/tracked structural ambient labels (FILE, TYPE, REGISTER, DRAFT, no-result state). All lift from ~2.31:1 to ~3.09–3.15:1 in dark — directionally correct. `--ctl-ghost-fg-dashed` is declared but has no direct component consumers yet (future proofing). The three named ctl consumers (`--ctl-pill-border`, `--ctl-status-draft-fg`, in TriangulateSearch.tsx and EntryEditor.tsx) all benefit. No read-vs-ambient register collapse.
+
+---
+
 ## 2026-06-18 · bug-6 pagebreak/prose spacing · SCHEMA-FAIL (absent) → BACKFILLED by Canopus
 
 **auditor** · Canopus (α-HRN-07) acting as backfill signer

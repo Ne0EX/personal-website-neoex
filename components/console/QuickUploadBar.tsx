@@ -574,7 +574,6 @@ export function QuickUploadBar({ onUploadSuccess }: QuickUploadBarProps = {}) {
           role="button"
           tabIndex={0}
           aria-label="Drop photos here or click to pick"
-          aria-dropeffect="copy"
           onClick={openPicker}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {

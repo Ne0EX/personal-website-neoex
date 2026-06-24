@@ -301,6 +301,42 @@ Everything else:
 
 ---
 
+## a11y rationale — two-register contrast (Algol seam #4, 2026-06-25)
+
+**Decision: HYBRID.**
+
+The system deliberately maintains two contrast tiers for text:
+
+| tier | token | alpha | dark contrast | role |
+|------|-------|-------|---------------|------|
+| read-intentional | `--ink-soft` | 0.50 | 4.24:1 vs `--paper-base` | `.t-meta` labels, segment inactive, `DAY`/`NIGHT` button text |
+| ambient/squint | `--ink-faint` | 0.40 (dark) / 0.30 (light) | 3.09:1 vs `--paper-warm` | `.register .rlab`, pill borders, `DRAFT` badge, dashed-ghost text |
+
+**ink-soft at 4.24:1 — INFORMED-ACCEPT.**
+`.t-meta` at 9px / 0.3em tracking / all-caps is the ambient label class. 4.24:1
+is AA-borderline. It is intentionally below AAA because it is NOT read-tier
+content — it labels structure, not content. Raising it to 4.5+ would compress the
+gap with `--ink-body` (4.56:1) and collapse the read vs ambient distinction.
+The register system is load-bearing soul design; the sub-4.5 contrast at this tier
+is an informed override, not a defect. (Memory ref: `feedback_legibility_registers`.)
+
+**ink-faint at 2.31:1 dark — FIXED.**
+`.register .rlab` ("REGISTER" label beside the DAY·NIGHT toggle) is 7px / 0.28em
+tracking / all-caps — the purest ambient label on the site. 2.31:1 was too low even
+for ambient tier: any rendered text should clear ~3:1 as a minimum floor. Fix: dark
+theme overrides `--ink-faint` from `rgb(var(--ink-rgb)/0.30)` to
+`rgb(var(--ink-rgb)/0.40)`, achieving 3.09:1 vs `--paper-warm`. Light theme
+remains at 0.30 (1.61:1 on the high-luminance cream field, tolerable ambient).
+The tier gap (ink-soft 4.24 · ink-faint 3.09) is maintained: registers stay
+visually distinguishable on both themes.
+
+**Scope of the dark `--ink-faint` lift.**
+Every selector using `--ink-faint` benefits in dark mode:
+`.register .rlab` · `--ctl-ghost-fg-dashed` · `--ctl-pill-border` · `--ctl-status-draft-fg` · dot-grid / dashed borders (non-text, no WCAG requirement but improved).
+Light theme is unaffected — the override is scoped to `[data-theme="dark"]`.
+
+---
+
 ## non-goals
 
 - This system does not cover form inputs (text fields, selects, textareas).
