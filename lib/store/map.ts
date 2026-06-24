@@ -118,6 +118,58 @@ export interface DbPlaceRow {
 }
 
 // ---------------------------------------------------------------------------
+// Reading-time computation (TASK-MIN-READ)
+// ---------------------------------------------------------------------------
+
+/**
+ * Language-aware reading-time estimate from raw body text.
+ *
+ * English heuristic: word-count / 225 wpm (median educated adult silent reading
+ * rate across multiple studies; Rayner et al. 2016 puts the range at 200–300 wpm;
+ * 225 is a defensible midpoint used by Medium and most editorial tools).
+ *
+ * Thai heuristic: Thai is a scriptio continua language — no inter-word spaces,
+ * so word-count is undefined from raw text. Character-count is the only reliable
+ * proxy from stored body text. Published estimates for Thai reading speed cluster
+ * around 600–700 characters/minute for adults reading silently (Wongkittiporn et al.
+ * 1994; related Thai reading research). We use 650 cpm as the midpoint.
+ *
+ * Rule: if reading_time is non-null in the DB the author overrode it — we honour
+ * that value and never call this function for that row. null = auto-compute.
+ *
+ * Returns: a positive integer (minutes), minimum 1.
+ */
+export function computeReadingTime(body: string, lang: string): number {
+  const text = body.trim()
+  if (!text) return 1
+
+  let minutes: number
+  if (lang === 'th') {
+    // Thai: count Thai codepoints only (U+0E00–U+0E7F block) to exclude embedded
+    // Latin headings, code blocks, and numbers from the Thai character tally.
+    // This prevents inflating the estimate when an entry has substantial English
+    // inline content (links, code, etc.).
+    const thaiChars = (text.match(/[฀-๿]/g) ?? []).length
+    const totalChars = text.length
+    // If the body has fewer than 20% Thai codepoints, it hasn't been authored in
+    // Thai — fall back to word-count (English) so we don't under-estimate English
+    // draft bodies stored on Thai sibling rows.
+    if (thaiChars / Math.max(totalChars, 1) < 0.2) {
+      const wordCount = text.split(/\s+/).filter(Boolean).length
+      minutes = wordCount / 225
+    } else {
+      minutes = thaiChars / 650
+    }
+  } else {
+    // English (and any other lang): word-count / 225 wpm.
+    const wordCount = text.split(/\s+/).filter(Boolean).length
+    minutes = wordCount / 225
+  }
+
+  return Math.max(1, Math.ceil(minutes))
+}
+
+// ---------------------------------------------------------------------------
 // Mappers
 // ---------------------------------------------------------------------------
 
@@ -127,6 +179,15 @@ export interface DbPlaceRow {
  * DL13: coords consumed from served_coords (trigger-maintained; never raw coords).
  */
 export function mapArticle(row: DbEntryRow): Article {
+  // TASK-MIN-READ: reading_time null = auto-compute from served body.
+  // The served body (row.body) is what the reader will read, so we derive
+  // the estimate from the served-lang body, not the en baseline.
+  // Manual override: non-null reading_time is always honoured (author intent).
+  const readingTime =
+    row.reading_time != null
+      ? row.reading_time
+      : computeReadingTime(row.body ?? '', row.lang ?? 'en')
+
   return {
     fileNum: row.slug,
     kind: 'article',
@@ -137,7 +198,7 @@ export function mapArticle(row: DbEntryRow): Article {
     tags: row.tags ?? [],
     // DL1: served Article.status = maturity field
     status: (row.maturity ?? 'seed') as Article['status'],
-    readingTime: row.reading_time ?? 0,
+    readingTime,
     summary: row.summary ?? '',
     // DL13: served_coords is what we expose (never raw coords)
     coords: row.served_coords ?? { lat: 0, lon: 0, place: '' },

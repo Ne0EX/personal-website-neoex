@@ -29,6 +29,8 @@ import { Nav } from '@/components/Nav'
 import { MarginaliaHUD, ScrollMeter } from '@/components/MarginaliaHUD'
 import { CornerMarks } from '@/components/CornerMarks'
 import { WorldlineLinks } from '@/components/WorldlineLinks'
+import { ContinueSection } from '@/components/ContinueSection'
+import type { NextEntry } from '@/lib/content'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NETRA L1 bay — conditional on shareLocation + coords.
@@ -125,6 +127,25 @@ interface EntryShellProps {
   coords?: { lat: number; lon: number; place: string }
   /** File number for header (article: "FILE · 001", fiction: displayed differently). */
   fileNum?: string
+  /**
+   * SPEC 1 — CONTINUE: Recommended next entries from getNextEntries().
+   * ContinueSection renders the first entry only (spec §1 "single primary continuation").
+   * When undefined or empty, ContinueSection renders nothing (spec §1.5 empty state).
+   * Article pages only — fiction/photo pages pass undefined.
+   */
+  nextEntries?: NextEntry[]
+  /**
+   * SPEC 2 — ORIENT: Total published article count for the folio readout.
+   * Renders as "FILE NNN OF N" in the header strip, linking to /[lang]/archive.
+   * Spec: SPEC-2026-06-25-article-continuation.md §2.
+   * When undefined, folio readout is absent (spec §2.8 "total unknown → absent").
+   */
+  articlesCount?: number
+  /**
+   * Current language — used for the folio link's lang-aware archive href.
+   * Matches the [lang] segment: 'en' | 'th'.
+   */
+  lang?: string
   /** H1 title node — allows the kind-specific component to pass an already-styled title. */
   children: React.ReactNode
 }
@@ -144,6 +165,9 @@ export function EntryShell({
   shareLocation,
   coords,
   fileNum,
+  nextEntries,
+  articlesCount,
+  lang,
   children,
 }: EntryShellProps) {
   // FILE number display — article: "FILE · NNN", fiction: "TRANSMISSION · slug"
@@ -160,8 +184,55 @@ export function EntryShell({
   // Reading time label (article only)
   const readLabel = readingTime ? `${readingTime} MIN READ` : null
 
+  // SPEC 2 — ORIENT: folio orient readout.
+  // "FILE NNN OF N" — links to /[lang]/archive.
+  // Only for article kind when articlesCount is defined (spec §2.8 absent-on-unknown).
+  const fileNumPadded = fileNum ? fileNum.padStart(3, '0') : null
+  // Archive href: lang-aware — 'en' uses /archive (proxy canonicalises); 'th' → /th/archive
+  const archiveHref = (!lang || lang === 'en') ? '/archive' : `/${lang}/archive`
+  // Folio aria-label — LOCKED copy: `FILE ${fileNum} of ${articlesCount} — Archive`
+  // Source: docs/voice/MICROCOPY.md folio.link.ariaLabel · vega α-VOX-08 · 2026-06-25
+  const folioAriaLabel =
+    fileNum && articlesCount !== undefined
+      ? `FILE ${fileNumPadded} of ${articlesCount} — Archive`
+      : null
+
   return (
     <PageShell>
+      {/*
+       * SPEC 2 folio-locator hover + mobile responsive CSS.
+       * Embedded inline (no CSS module — selectors scoped by .folio-locator class).
+       *
+       * Hover: "OF" connector shifts to --accent-orange; numbers stay orange (always).
+       * spec §2.5 tokens: "folio link hover — numbers stay --accent-orange; OF shifts
+       *   to --accent-orange". The connective text is the only element that changes.
+       *
+       * Mobile sub-row spec §2.4: at ≤600px the folio readout wraps to a new sub-row
+       * (flexWrap:wrap on the row container handles the wrap; the <a> becomes full-width
+       * so it occupies its own line). min-height: 44px + display:flex for 44px touch target.
+       *
+       * Focus ring: 2px dashed var(--accent-orange), offset 2px — spec §2.8 + §2.9.
+       */}
+      <style>{`
+        .folio-locator:hover .folio-of {
+          color: var(--accent-orange);
+          transition: color 150ms ease;
+        }
+        .folio-locator:focus-visible {
+          outline: 2px dashed var(--accent-orange);
+          outline-offset: 2px;
+          border-radius: 0;
+        }
+        @media (max-width: 600px) {
+          .folio-locator {
+            min-height: 44px;
+            display: flex !important;
+            align-items: center;
+            width: 100%;
+          }
+        }
+      `}</style>
+
       {/*
        * Chrome reuse: PageShell, Nav, MarginaliaHUD, ScrollMeter, CornerMarks.
        * paper-canvas grain + pr-7 marginalia gutter — same as all routes.
@@ -207,7 +278,12 @@ export function EntryShell({
             style={{ position: 'absolute', inset: '8px', zIndex: 4, pointerEvents: 'none' }}
           />
 
-          {/* Row 1: OBSERVATORY · FILE — NNN · date · STATUS · N MIN */}
+          {/*
+           * Row 1: OBSERVATORY · FILE — NNN · date · STATUS · N MIN
+           * Right side: folio readout "NNN OF N" (SPEC 2 — ORIENT affordance).
+           * justify-content: space-between pushes folio to flush-right (spec §2.3).
+           * flexWrap: wrap allows folio to stack below on narrow viewports.
+           */}
           <div
             style={{
               fontFamily: 'var(--font-mono)',
@@ -219,40 +295,124 @@ export function EntryShell({
               gap: '10px',
               alignItems: 'baseline',
               flexWrap: 'wrap',
+              justifyContent: 'space-between',
             }}
           >
-            <span>OBSERVATORY</span>
-            <span style={{ color: 'var(--ink-faint)' }}>·</span>
-            {/* FILE / TRANSMISSION — accent-orange per spec (file number in orange) */}
-            <span
-              style={{
-                color: 'var(--accent-orange)',
-                fontWeight: 500,
-                letterSpacing: '0.26em',
-              }}
-            >
-              {fileLabel}
-            </span>
-            <span style={{ color: 'var(--ink-faint)' }}>·</span>
-            {/* date — Special Elite (value role) */}
-            <span
-              style={{
-                fontFamily: 'var(--font-type)',
-                fontSize: '9px',
-                letterSpacing: '0.04em',
-                textTransform: 'none',
-                color: 'var(--ink-primary)',
-              }}
-            >
-              {date}
-            </span>
-            <span style={{ color: 'var(--ink-faint)' }}>·</span>
-            <span>{statusDisplay}</span>
-            {readLabel && (
-              <>
-                <span style={{ color: 'var(--ink-faint)' }}>·</span>
-                <span>{readLabel}</span>
-              </>
+            {/* Left cluster — existing labels (unchanged) */}
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'baseline', flexWrap: 'wrap' }}>
+              <span>OBSERVATORY</span>
+              <span style={{ color: 'var(--ink-faint)' }}>·</span>
+              {/* FILE / TRANSMISSION — accent-orange per spec (file number in orange) */}
+              <span
+                style={{
+                  color: 'var(--accent-orange)',
+                  fontWeight: 500,
+                  letterSpacing: '0.26em',
+                }}
+              >
+                {fileLabel}
+              </span>
+              <span style={{ color: 'var(--ink-faint)' }}>·</span>
+              {/* date — Special Elite (value role) */}
+              <span
+                style={{
+                  fontFamily: 'var(--font-type)',
+                  fontSize: '9px',
+                  letterSpacing: '0.04em',
+                  textTransform: 'none',
+                  color: 'var(--ink-primary)',
+                }}
+              >
+                {date}
+              </span>
+              <span style={{ color: 'var(--ink-faint)' }}>·</span>
+              <span>{statusDisplay}</span>
+              {readLabel && (
+                <>
+                  <span style={{ color: 'var(--ink-faint)' }}>·</span>
+                  <span>{readLabel}</span>
+                </>
+              )}
+            </div>
+
+            {/*
+             * Right side: SPEC 2 folio readout — "NNN OF N" linking to /[lang]/archive.
+             * Only rendered for article kind when articlesCount is defined.
+             * spec §2.3: flush-right on row 1 (desktop); spec §2.4: sub-row on mobile.
+             *
+             * Folio numbers (fileNum + articlesCount): Special Elite .t-type 9px,
+             *   var(--accent-orange) — folio numbers follow orange file-number rule.
+             * Connector "OF": JetBrains Mono 9px 0.3em UPPER var(--ink-soft).
+             *
+             * Hover spec §2.5: numbers stay --accent-orange; "OF" shifts to --accent-orange.
+             * Implemented via CSS :hover inline state (JS-free per server component rule).
+             *
+             * aria-label: LOCKED copy from MICROCOPY.md folio.link.ariaLabel (Vega 2026-06-25)
+             * Each <span> is aria-hidden — aria-label carries the SR output (spec §2.9).
+             *
+             * Desktop: inline in row 1 flex container (justifyContent: space-between).
+             * Mobile ≤600px: wraps to its own sub-row (flexWrap: wrap on parent + full-width
+             *   container below via @media block in the style tag below).
+             */}
+            {kind === 'article' && folioAriaLabel && fileNumPadded && articlesCount !== undefined && (
+              <a
+                href={archiveHref}
+                aria-label={folioAriaLabel}
+                className="folio-locator"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  textDecoration: 'none',
+                  color: 'inherit',
+                  outline: 'none',
+                  flexShrink: 0,
+                }}
+              >
+                {/* FILE number (this entry) — Special Elite, accent-orange */}
+                <span
+                  aria-hidden
+                  className="t-type"
+                  style={{
+                    fontFamily: 'var(--font-type)',
+                    fontSize: '9px',
+                    letterSpacing: '0.04em',
+                    color: 'var(--accent-orange)',
+                    fontWeight: 400,
+                  }}
+                >
+                  {fileNumPadded}
+                </span>
+                {/* Connector "OF" — JetBrains Mono ink-soft */}
+                <span
+                  aria-hidden
+                  className="t-meta folio-of"
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '9px',
+                    letterSpacing: '0.3em',
+                    textTransform: 'uppercase',
+                    color: 'var(--ink-soft)',
+                    fontWeight: 400,
+                  }}
+                >
+                  OF
+                </span>
+                {/* Corpus total — Special Elite, accent-orange */}
+                <span
+                  aria-hidden
+                  className="t-type"
+                  style={{
+                    fontFamily: 'var(--font-type)',
+                    fontSize: '9px',
+                    letterSpacing: '0.04em',
+                    color: 'var(--accent-orange)',
+                    fontWeight: 400,
+                  }}
+                >
+                  {articlesCount}
+                </span>
+              </a>
             )}
           </div>
 
@@ -313,6 +473,15 @@ export function EntryShell({
           identifier={identifier}
           title={title}
         />
+
+        {/*
+         * SPEC 1 — § CONTINUE affordance.
+         * Position: after § WORLDLINE, before footer (spec §1.2).
+         * Renders the first entry from getNextEntries() — single primary continuation.
+         * Absent when nextEntries is empty (spec §1.5 empty state: section absent).
+         * Article pages only — fiction/photo pages pass undefined, renders nothing.
+         */}
+        <ContinueSection nextEntry={nextEntries?.[0]} />
 
         {/* Footer — dashed top hairline, instrument register */}
         <footer

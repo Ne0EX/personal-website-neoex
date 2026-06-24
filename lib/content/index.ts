@@ -38,7 +38,11 @@ export {
   getArticleByFileNum,
   getRecentArticles,
   getRelatedArticles,
+  getPublishedArticleCount,
+  getNextEntries,
 } from './articles'
+
+export type { NextEntry } from './articles'
 
 // ---------------------------------------------------------------------------
 // Fiction

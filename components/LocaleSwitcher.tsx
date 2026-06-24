@@ -198,16 +198,11 @@ function LocaleButton({
         color: active ? "var(--ctl-text-fg-active)" : "var(--ctl-text-fg)",
         // Hover lifts inactive to --ctl-text-fg-hover (accent-orange); active stays on active token.
         transition: "color 120ms ease",
-        // S3 mobile-native: bump tap target to ≥44px.
-        // minHeight:44px + display:inline-flex + align-items:center is the
-        // primary guarantee; paddingBlock:17px adds extra touch surface
-        // without changing visible text baseline position in the desktop layout
-        // (the parent span is inline-flex + align-items:baseline, so the extra
-        // block padding extends the click area outward, not between characters).
-        minHeight: "44px",
-        display: "inline-flex",
-        alignItems: "center",
-        paddingBlock: "17px",
+        // Touch-target enlargement is scoped to mobile ONLY via .nav-slim-locale button
+        // in globals.css (min-height:44px, min-width:36px, display:flex, align-items:center).
+        // That rule only has visual effect inside .nav-slim (display:none >600px), so
+        // desktop is never bloated. Do NOT add minHeight/paddingBlock here — that was
+        // the prior all-viewport regression (Peat reject). CSS class = the right lever.
         // Visible focus ring — do not suppress. Browser :focus-visible is
         // sufficient here (no outline: none anywhere).
         outlineOffset: "2px",

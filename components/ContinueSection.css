@@ -1,0 +1,56 @@
+/**
+ * ContinueSection.css — co-located side-effect CSS for ContinueSection.tsx
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Non-module: global selectors scoped to [data-continue-section].
+ * Imported as a side-effect from ContinueSection.tsx.
+ *
+ * Covers:
+ *   - Entry-card hover: glyph + caret color shift to --accent-orange
+ *   - Focus ring: 2px dashed var(--accent-orange), offset 2px
+ *   - entry-glitch marching-dash: inherits from worldline-atoms.css (already wired);
+ *     triggered by .entry-card:hover .entry-glitch::after
+ *   - Mobile ≤600px: meta strip date drops; min-height 44px on <a>; caret at end
+ *   - prefers-reduced-motion: entry-glitch transition collapses via worldline-atoms.css
+ *     global rule (0.001ms) — no override needed here
+ *
+ * Design spec: SPEC-2026-06-25-article-continuation.md §1
+ * Owner: Sirius (α-SUR-01)
+ */
+
+/* ── Glyph + caret color shift on row hover ──────────────────── */
+/* Both shift to --accent-orange on hover (spec §1.6 tokens + §1.9 states). */
+[data-continue-section] .entry-card:hover .cs-glyph {
+  color: var(--accent-orange);
+  transition: color 150ms ease;
+}
+
+[data-continue-section] .entry-card:hover .cs-caret {
+  color: var(--accent-orange);
+  transition: color 150ms ease;
+}
+
+/* ── Focus ring ──────────────────────────────────────────────── */
+/* 2px dashed var(--accent-orange), offset 2px — spec §1.10 focus state. */
+[data-continue-section] .entry-card:focus-visible {
+  outline: 2px dashed var(--accent-orange);
+  outline-offset: 2px;
+  border-radius: 0; /* no rounded corners per design non-negotiables */
+}
+
+/* ── Mobile ≤600px ───────────────────────────────────────────── */
+/* Spec §1.4: min-height 44px touch target; date drops from meta strip. */
+@media (max-width: 600px) {
+  [data-continue-section] .entry-card {
+    min-height: 44px;
+  }
+
+  /* Date in meta strip: hidden at mobile (space-economy rule per spec §1.4) */
+  [data-continue-section] .cs-meta-date {
+    display: none;
+  }
+
+  /* Dot separator adjacent to the hidden date: also hidden at mobile */
+  [data-continue-section] .cs-meta-date-sep {
+    display: none;
+  }
+}

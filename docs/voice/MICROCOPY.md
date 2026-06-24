@@ -7,6 +7,40 @@ format: key · string · register · location reference
 
 ---
 
+## article-entry · continuation + orientation affordances
+
+added: 2026-06-25 · vega α-VOX-08
+source: docs/design/SPEC-2026-06-25-article-continuation.md §1–2 · task 2026-06-25
+surface: /[lang]/articles/[fileNum] — after § WORLDLINE (§ CONTINUE section) and .entry-head header strip (folio locator)
+chrome note: both strings are site chrome, English-only — content translates, chrome does not (Peat 2026-06-25)
+
+### § CONTINUE — section label and accessibility wrapper
+
+| key | string | register |
+|-----|--------|----------|
+| `continue.section.label` | `THE THREAD CONTINUES` | Instrument — JetBrains Mono 9px, 0.3em tracking, ink-soft, uppercase; renders as `<h2 class="t-meta">` per spec §1.10 |
+| `continue.section.ariaLabel` | `continue reading` | accessibility — `<section aria-label="continue reading">` wraps the section; screen-reader only; lowercase per SR convention |
+
+copy notes:
+- `THE THREAD CONTINUES` is indicative (third-person "continues"), not imperative. style guide permits indicative verb in instrument labels; imperative is forbidden.
+- "THE" (definite article) follows the instrument-label pattern established by OBSERVATORY, THE ARCHIVE, etc.
+- "THREAD" carries the worldline/archive register without cosmological exposition.
+- empty state: section absent entirely (per spec §1.5) — no empty-state string needed.
+
+### folio locator — aria-label (screen reader only)
+
+| key | string | register |
+|-----|--------|----------|
+| `folio.link.ariaLabel` | `` `FILE ${fileNum} of ${articlesCount} — Archive` `` | accessibility — interpolated; lowercase "of" and "Archive" are intentional (SR renders all-caps strings as spelled-out letters in some readers; CSS handles uppercase/orange on the visible element) |
+
+copy notes:
+- visible element is `aria-hidden` (each `<span>` per spec §2.9) — this string is the sole SR output.
+- "FILE … of … — Archive" pattern: position first (FILE NNN of NNN), destination second (Archive), no verb, no redundancy.
+- "Archive" is a proper noun; capitalized mid-label is correct; all-caps ARCHIVE is avoided in the SR string.
+- supersedes Betelgeuse's draft candidate `"FILE 003 of 047 entries — return to ARCHIVE"`: "entries" is redundant, "return to" assumes prior visit.
+
+---
+
 ## atlas-console · places-curation-surface
 
 added: 2026-06-08 · vega α-VOX-08

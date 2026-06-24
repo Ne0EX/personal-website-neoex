@@ -21,7 +21,11 @@ export {
   getArticleByFileNum,
   getRecentArticles,
   getRelatedArticles,
+  getPublishedArticleCount,
+  getNextEntries,
 } from '../store/reads'
+
+export type { NextEntry } from '../store/reads'
 
 // NOTE: getAllArticles (admin, draft-inclusive) is NOT re-exported here.
 // Import directly from '@/lib/store/admin-reads' in server-only contexts

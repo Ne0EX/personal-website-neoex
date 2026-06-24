@@ -34,13 +34,25 @@
  * Owner: Sirius (α-SUR-01) · S2 entry-routes (VISION-2026-05-31)
  */
 
-import type { Article } from '@/lib/content/types'
+import type { Article, NextEntry } from '@/lib/content'
 import { EntryShell } from '@/components/EntryShell'
 
 interface ArticleEntryProps {
   article: Article
   /** Optional rendered MDX body (DL4 store-as-source S3). When omitted, falls back to summary placeholder. */
   body?: React.ReactNode
+  /**
+   * SPEC 1 — CONTINUE affordance: recommended next entries from getNextEntries().
+   * Passed down to EntryShell → ContinueSection.
+   * When undefined, ContinueSection renders nothing (spec §1.5 empty state).
+   */
+  nextEntries?: NextEntry[]
+  /**
+   * SPEC 2 — ORIENT affordance: total published article count for folio readout.
+   * Passed down to EntryShell for the "FILE NNN OF N" header strip readout.
+   * When undefined, folio readout is absent (spec §2.8 "total unknown → absent").
+   */
+  articlesCount?: number
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -413,7 +425,7 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
 // ArticleEntry — public page component (byte-identical to pre-refactor output)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function ArticleEntry({ article, body }: ArticleEntryProps) {
+export function ArticleEntry({ article, body, nextEntries, articlesCount }: ArticleEntryProps) {
   const {
     fileNum,
     title,
@@ -423,6 +435,7 @@ export function ArticleEntry({ article, body }: ArticleEntryProps) {
     tags,
     shareLocation,
     coords,
+    lang,
   } = article
 
   return (
@@ -437,6 +450,9 @@ export function ArticleEntry({ article, body }: ArticleEntryProps) {
       shareLocation={shareLocation}
       coords={coords}
       fileNum={fileNum}
+      nextEntries={nextEntries}
+      articlesCount={articlesCount}
+      lang={lang}
     >
       {/* DL4: body prop threads the MDX-rendered ReactNode from the store down
           to ArticleEntryContent. When null/undefined, the summary placeholder renders. */}

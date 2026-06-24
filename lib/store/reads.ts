@@ -26,7 +26,6 @@ import {
   type DbPlaceRow,
 } from './map'
 import type { Article, Fiction, Photo, PhotoSidecar, Place } from './types'
-import type { WorldlineLink, FictionVariant } from '../content/types'
 
 // ---------------------------------------------------------------------------
 // Shared column enumerations (DL13 — never select('*') for anon)
@@ -156,6 +155,14 @@ export async function getArticles(requestedLang = 'en'): Promise<Article[]> {
  * more than one sibling row matches (both en + th for one slug), which is
  * exactly the bilingual case. Instead we fetch 0..2 candidate rows via .in()
  * and pick the best in JS. (§3.2 SPEC)
+ *
+ * TASK-PATCH-TRANSLATION: patch note fallback.
+ * A newly-seeded Thai sibling starts with patches: [] (no Thai patch notes yet).
+ * When the served row has an empty patches array and the en sibling is also
+ * present in the fetched rows, we fall back to the en sibling's patches.
+ * Fallback text is in English — but it is better than showing nothing for
+ * content that describes real revisions. Authors explicitly providing Thai patch
+ * notes (non-empty patches on the th sibling) always win over this fallback.
  */
 export async function getArticleByFileNum(
   fileNum: string,
@@ -172,9 +179,27 @@ export async function getArticleByFileNum(
     .in('lang', Array.from(new Set([requestedLang, 'en'])))
 
   if (error) throw new Error(`getArticleByFileNum: ${error.message}`)
-  const row = pickSibling((data ?? []) as unknown as DbEntryRow[], requestedLang)
+  const rows = (data ?? []) as unknown as DbEntryRow[]
+  const row = pickSibling(rows, requestedLang)
   if (!row) return undefined
-  return mapArticle(row)
+
+  // TASK-PATCH-TRANSLATION: if the served row has no patch notes, fall back
+  // to the en sibling's patches (which were already fetched above).
+  // This applies only when requestedLang !== 'en' and a th sibling was served.
+  // When requestedLang === 'en', rows contains only the en row — no fallback needed.
+  let patchFallback: Array<{ n: number; date: string; note: string }> | undefined
+  if (row.lang !== 'en' && (!row.patches || row.patches.length === 0)) {
+    const enRow = rows.find((r) => r.lang === 'en')
+    if (enRow && enRow.patches && enRow.patches.length > 0) {
+      patchFallback = enRow.patches
+    }
+  }
+
+  const article = mapArticle(row)
+  if (patchFallback) {
+    return { ...article, patches: patchFallback }
+  }
+  return article
 }
 
 /**
@@ -236,6 +261,37 @@ export async function getRelatedArticles(
     .sort((a, b) => b.overlap - a.overlap || b.article.isoDate.localeCompare(a.article.isoDate))
     .slice(0, limit)
     .map(({ article }) => article)
+}
+
+/**
+ * Count of PUBLISHED articles in the corpus — distinct slugs only.
+ *
+ * This is the denominator for the ORIENT folio readout: `FILE 003 OF <total>`.
+ * It mirrors the exact set `getArticles()` returns: published rows, deduped by
+ * slug (each article is one folio regardless of how many translation siblings it
+ * has). The count is NOT the max fileNum — fileNums are non-contiguous and cosmology
+ * entries share the slug-space.
+ *
+ * Implementation: fetches slug + lang columns only (minimal payload), then applies
+ * the same dedupBySlug logic as getArticles. Supabase PostgREST does not expose
+ * COUNT(DISTINCT) directly; the in-JS dedup is a faithful match of the display set.
+ *
+ * Consumer: article page (app/[lang]/articles/[fileNum]/page.tsx) — called in
+ * parallel with getArticleByFileNum; no extra sequential round-trip.
+ *
+ * Spec: SPEC-2026-06-25-article-continuation.md §2 "ORIENT affordance".
+ */
+export async function getPublishedArticleCount(requestedLang = 'en'): Promise<number> {
+  const { data, error } = await anonClient
+    .from('entries')
+    .select('slug,lang')
+    .eq('kind', 'article')
+    .eq('status', 'published')
+
+  if (error) throw new Error(`getPublishedArticleCount: ${error.message}`)
+  // Reuse dedupBySlug: count distinct slugs after lang-preference dedup.
+  // This is identical to getArticles() minus column fetch + mapping.
+  return dedupBySlug((data ?? []) as unknown as DbEntryRow[], requestedLang).length
 }
 
 // ---------------------------------------------------------------------------
@@ -506,6 +562,163 @@ export async function getPhotosByRoll(roll: string): Promise<Photo[]> {
 
   if (error) throw new Error(`getPhotosByRoll: ${error.message}`)
   return (data as unknown as DbRollRow[]).map(mapRoll)
+}
+
+// ---------------------------------------------------------------------------
+// Next-entry resolver (TASK-RECOMMEND-NEXT)
+// ---------------------------------------------------------------------------
+
+/**
+ * Slim record for a recommended-next entry card.
+ * Carries just what the UI needs — no body, no coords.
+ */
+export interface NextEntry {
+  kind: 'article' | 'fiction'
+  /** article → fileNum (e.g. "001"); fiction → slug */
+  identifier: string
+  title: string
+  domain: string
+  summary: string
+  /** ISO 8601 date for sort (YYYY-MM-DD). */
+  isoDate: string
+  /**
+   * Lang-aware public href for this entry.
+   * articles  → /[lang]/articles/[fileNum]   (or /articles/[fileNum] for 'en')
+   * fiction   → /[lang]/fiction/[slug]       (or /fiction/[slug] for 'en')
+   */
+  href: string
+  /**
+   * Maturity status of the entry ('seed'|'ongoing'|'refined'|'settled').
+   * Renders in the meta strip as the status label.
+   * Spec: SPEC-2026-06-25-article-continuation.md §1 — meta strip "domain · status · reading-time"
+   */
+  status: string
+  /**
+   * Computed reading time in minutes.
+   * Spec: SPEC-2026-06-25-article-continuation.md §1 — meta strip "N MIN" readout.
+   */
+  readingTime: number
+  /**
+   * Optional worldline edge label from the source entry.
+   * Present only when the link is a declared worldline_link AND carries a label field.
+   * Absent for chronological-fallback entries (spec §1.3 — silence where no explicit label).
+   * Renders in Cormorant italic below the main row (spec §1 edge annotation).
+   */
+  label?: string
+}
+
+/**
+ * Build the public href for a NextEntry.
+ *
+ * Convention (from proxy.ts / bilingual spec):
+ *   lang='en' → no lang prefix (proxy canonicalises /articles/... internally
+ *                to /en/articles/... but /articles/... is the public URL).
+ *   lang='th' → /th/articles/... or /th/fiction/...
+ */
+function nextEntryHref(kind: 'article' | 'fiction', identifier: string, lang: string): string {
+  const prefix = lang === 'en' ? '' : `/${lang}`
+  if (kind === 'article') return `${prefix}/articles/${identifier}`
+  return `${prefix}/fiction/${identifier}`
+}
+
+/**
+ * Returns 1–4 recommended next entries for `currentEntry`.
+ *
+ * Priority:
+ *   1. Entries explicitly referenced by currentEntry.worldline_links (outgoing edges).
+ *      These are author-curated connections — always preferred.
+ *   2. Chronological prev/next articles when worldline_links is empty or yields no
+ *      resolved targets (fallback). Returns at most 2 in fallback mode: the
+ *      immediately older article and the immediately newer article (if they exist).
+ *      No attractor / tag filter on the fallback — the worldline is chronological.
+ *
+ * lang param: used for hrefs and for dedupBySlug preference when fetching the
+ * full article list for fallback (each article appears once, preferred in lang).
+ *
+ * Constraint: never includes currentEntry itself.
+ *
+ * NOTE: does not import lib/content/worldline.ts (which imports from this file
+ * via lib/content/articles.ts — circular). Instead uses `currentEntry.worldline_links`
+ * directly and resolves targets with targeted DB fetches.
+ */
+export async function getNextEntries(
+  currentEntry: Article,
+  lang = 'en',
+): Promise<NextEntry[]> {
+  const links = currentEntry.worldline_links ?? []
+
+  // ── Priority 1: worldline_links ──────────────────────────────────────────
+  // Resolve only article targets (fiction links are in the corpus but article
+  // pages are the primary surface; fiction support is forward-compatible).
+  const articleLinks = links.filter((l) => l.to.startsWith('article/'))
+
+  if (articleLinks.length > 0) {
+    const resolved: NextEntry[] = []
+    for (const link of articleLinks) {
+      const targetFileNum = link.to.replace(/^article\//, '')
+      const article = await getArticleByFileNum(targetFileNum, lang)
+      if (!article || article.draft || article.fileNum === currentEntry.fileNum) continue
+      resolved.push({
+        kind: 'article',
+        identifier: article.fileNum,
+        title: article.title,
+        domain: article.domain,
+        summary: article.summary,
+        isoDate: article.isoDate,
+        href: nextEntryHref('article', article.fileNum, lang),
+        status: article.status,
+        readingTime: article.readingTime,
+        // edge annotation: present only when the worldline_link carries a label
+        // (spec §1.3 — worldline-link case vs chronological-fallback case)
+        label: link.label,
+      })
+    }
+    if (resolved.length > 0) return resolved
+    // All links resolved to nothing (broken links or drafts) — fall through to chronological.
+  }
+
+  // ── Priority 2: chronological prev/next ──────────────────────────────────
+  // getArticles returns newest-first (iso_date DESC). We need the full list so
+  // we can find immediate neighbours of currentEntry.
+  const all = await getArticles(lang)
+  // Sort ascending by iso_date for prev/next index logic.
+  const sorted = [...all].sort((a, b) => a.isoDate.localeCompare(b.isoDate))
+  const idx = sorted.findIndex((a) => a.fileNum === currentEntry.fileNum)
+
+  const neighbours: NextEntry[] = []
+  // Next in time (newer) — the entry published after current.
+  if (idx !== -1 && idx < sorted.length - 1) {
+    const newer = sorted[idx + 1]
+    neighbours.push({
+      kind: 'article',
+      identifier: newer.fileNum,
+      title: newer.title,
+      domain: newer.domain,
+      summary: newer.summary,
+      isoDate: newer.isoDate,
+      href: nextEntryHref('article', newer.fileNum, lang),
+      status: newer.status,
+      readingTime: newer.readingTime,
+      // chronological fallback — no label (silence per spec §1.3)
+    })
+  }
+  // Prev in time (older) — the entry published before current.
+  if (idx > 0) {
+    const older = sorted[idx - 1]
+    neighbours.push({
+      kind: 'article',
+      identifier: older.fileNum,
+      title: older.title,
+      domain: older.domain,
+      summary: older.summary,
+      isoDate: older.isoDate,
+      href: nextEntryHref('article', older.fileNum, lang),
+      status: older.status,
+      readingTime: older.readingTime,
+      // chronological fallback — no label (silence per spec §1.3)
+    })
+  }
+  return neighbours
 }
 
 // ---------------------------------------------------------------------------

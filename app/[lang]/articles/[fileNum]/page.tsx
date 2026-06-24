@@ -32,7 +32,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 
 import { ArticleEntry } from '@/components/ArticleEntry'
-import { getArticles, getArticleByFileNum } from '@/lib/content'
+import { getArticles, getArticleByFileNum, getNextEntries, getPublishedArticleCount } from '@/lib/content'
 import { renderMdxBody } from '@/lib/store/mdx'
 import { anonClient } from '@/lib/store/supabase/anon'
 
@@ -163,7 +163,13 @@ export default async function ArticlePage({
   }
 
   // DL4: render MDX body from the store (falls back to null → ArticleEntry shows placeholder)
-  const body = await renderMdxBody(article.body)
+  // SPEC 1+2: run getNextEntries + getPublishedArticleCount in parallel with the body render.
+  // All three are independent reads — no sequential dependency.
+  const [body, nextEntries, articlesCount] = await Promise.all([
+    renderMdxBody(article.body),
+    getNextEntries(article, requestedLang),
+    getPublishedArticleCount(requestedLang),
+  ])
 
-  return <ArticleEntry article={article} body={body} />
+  return <ArticleEntry article={article} body={body} nextEntries={nextEntries} articlesCount={articlesCount} />
 }
