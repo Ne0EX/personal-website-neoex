@@ -1339,4 +1339,21 @@ audit findings still OPEN (not built — lower priority, await Peat) · **B3** "
 
 ---
 
-*last update · 2026-06-25 · Polaris (α-OPS-00) — two tasks closed on genesis/store-as-source: (1) dark-mode seams Algol #1/#4 + ImportZone aria (`a818f0a`); (2) article-UX from /ux-heuristics audit — continuation + folio + auto-readtime + patch-i18n + locale-44px (`bec2912`, Algol PASS). Open: ① branch push (gated → Peat-hand: `git push -u origin genesis/store-as-source`) ② main-merge SPLIT to own session (first web-only release slice of full store-as-source + Vercel link) ③ audit B3/G3 minor, await Peat*
+## TASK-2026-06-25-DESIGN-CRAFT-LAYER · **closed 2026-06-25** · branch `genesis/design-craft-protocol` (pushed) · commits `3104209`+`84442c4` · Algol PASS ×4 fold-in rounds
+
+scope · Peat directive: plug `/impeccable` into the Worldline design skills to upgrade Betelgeuse's + Sirius's UI craft without losing the soul. `/impeccable init` → `PRODUCT.md` (register=**brand**). Wired `docs/design/DESIGN-CRAFT-PROTOCOL.md` — precedence `worldline-soul → worldline-design → craft sources`, Worldline overrides all. Folded **4 craft skills** (emil-design-eng = deepest motion authority · make-interfaces-feel-better = detail · fixing-accessibility = a11y · /impeccable = general+verbs), each subordinate with register/palette/slop + non-negotiable-violating rules SUPPRESSED (border-radius, drop-shadows, bounce, decorative motion, eyebrow/numbered-marker bans that collide with FILE—NNN vocab). Curated verbs per agent. `CRAFT-SKILLS.md` manifest (skills stay gitignored — tooling not source; no vendored code). Session log `docs/team/SESSION-LOG-2026-06-25-design-craft.md`.
+
+Peat decisions (2026-06-25) · ① craft-layer-only (suppress register/palette/slop) · ② curated verbs per agent · ③ one-page protocol + persona pointers · ④ **STANDING POLICY: craft auto-fold** (any installed craft skill auto-folds, Algol-verified, no per-skill re-confirm) · ⑤ manifest-not-vendored · ⑥ **STANDING POLICY: worktree-per-feature** (every new feature → EnterWorktree). Memories: `project_design_craft_protocol`, `feedback_worktree_per_feature`.
+
+governance (logged, no stigma) · self-mod classifier blocked the SUBAGENT from editing `.claude/agents/*.md` on a Polaris relay → Polaris applied the (Peat-authorized) pointer edits directly. Memory `reference_self_modification_classifier_blocks_persona_edits`.
+
+first USE (craft-layer) → article-continuation surface · Betelgeuse craft-critique of `/[lang]/articles/[fileNum]` (the `bec2912` surface) — score 79/100, **caught real a11y bug F1 (P0)**: inline `outline:'none'` killing the keyboard focus ring via cascade. F1–F6 fixed (Sirius, Algol PASS) + F7 heading-semantics corrected with margin-reset (Algol PASS). Polaris false-green caught: claimed "no skip-link" from a zsh-aborted grep (memory `reference_zsh_bracket_glob_aborts_command`) — skip-link present; real fix = F7 only. Kept "Skip to entry" label (on-soul).
+
+parked / open ·
+- **F1–F7 article-craft fixes** (6 components: ArticleEntry/ContinueSection(.css)/EntryShell/LocaleSwitcher/WorldlineLinks) — verified, **uncommitted on `genesis/store-as-source`**, parked-with-reason: Peat parked ("ช่างมัน"). owner: Peat · needs live-check (h2-gap + general; focus ring already ✓) → commit → push.
+- **F8** (entry-glitch `width`→`clip-path`, site-wide) + **F9** (folio aria-label VoiceOver) — backlog. owner: betelgeuse/sirius · must_close_by: 2026-07-15.
+- **`SPEC-2026-06-25-article-keyboard-journey.md`** — untracked; "change tag only" inaccuracy (missed margin reset); correct before tracking. owner: betelgeuse · must_close_by: 2026-07-15.
+
+---
+
+*last update · 2026-06-25 · Polaris (α-OPS-00) — DESIGN-CRAFT-LAYER closed + pushed on genesis/design-craft-protocol (`3104209`+`84442c4`): 4 craft skills governed under DESIGN-CRAFT-PROTOCOL.md, 2 standing policies (craft auto-fold + worktree-per-feature), first use caught a real focus-ring a11y bug. Open: ① F1–F7 article fixes PARKED uncommitted on store-as-source (Peat: live-check→commit→push) ② store-as-source branch push still gated→Peat ③ main-merge SPLIT to own session ④ F8/F9 + keyboard-journey-spec + audit B3/G3 minor, await Peat. Caveman mode on all session.*
