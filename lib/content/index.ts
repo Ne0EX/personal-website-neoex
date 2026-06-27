@@ -42,6 +42,12 @@ export {
   getNextEntries,
 } from './articles'
 
+// ---------------------------------------------------------------------------
+// Worldline Stats — STRATUM READOUT aggregate (home observatory)
+// ---------------------------------------------------------------------------
+
+export { getWorldlineStats } from '../store/reads'
+
 export type { NextEntry } from './articles'
 
 // ---------------------------------------------------------------------------

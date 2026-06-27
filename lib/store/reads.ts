@@ -722,6 +722,66 @@ export async function getNextEntries(
 }
 
 // ---------------------------------------------------------------------------
+// Worldline Stats (home observatory STRATUM READOUT)
+// ---------------------------------------------------------------------------
+
+/**
+ * Aggregate counts for the home observatory's STRATUM READOUT.
+ *
+ * surveyed = total published content entries, by source unit:
+ *   • articles  — distinct published slugs (translation siblings deduped)
+ *   • fiction   — distinct published slugs (translation siblings deduped)
+ *   • photos    — published photo entries (kind='photo'; no lang siblings)
+ *
+ * active = number of globe place-nodes registered in the places table.
+ *   Derived from getAllPlacesFromStore().length — each row is one node.
+ *   No filtering: all registered places are globe-eligible by definition.
+ *
+ * All four sub-queries run in parallel (Promise.all).
+ * Anon client — RLS returns published rows only.
+ *
+ * Consumer: app/[lang]/page.tsx + components/WorldlineGlobe.tsx (Sirius).
+ * Import via '@/lib/content' barrel.
+ *
+ * Spec: home-observatory STRATUM READOUT, surveyed≈articles+fiction+photos,
+ * active≈place-nodes.
+ */
+export async function getWorldlineStats(lang = 'en'): Promise<{ surveyed: number; active: number }> {
+  const [articleCount, fictionResult, photoResult, places] = await Promise.all([
+    // articles: reuse the deduped slug-count that already exists
+    getPublishedArticleCount(lang),
+    // fiction: minimal fetch — slug + lang columns only for dedup
+    anonClient
+      .from('entries')
+      .select('slug,lang')
+      .eq('kind', 'fiction')
+      .eq('status', 'published'),
+    // photos: minimal fetch — id column only (no lang siblings for photos)
+    anonClient
+      .from('entries')
+      .select('id')
+      .eq('kind', 'photo')
+      .eq('status', 'published'),
+    // active: all place nodes
+    getAllPlacesFromStore(),
+  ])
+
+  if (fictionResult.error) throw new Error(`getWorldlineStats/fiction: ${fictionResult.error.message}`)
+  if (photoResult.error) throw new Error(`getWorldlineStats/photos: ${photoResult.error.message}`)
+
+  const fictionCount = dedupBySlug(
+    (fictionResult.data ?? []) as unknown as DbEntryRow[],
+    lang,
+  ).length
+  const photoCount = photoResult.data?.length ?? 0
+
+  return {
+    surveyed: articleCount + fictionCount + photoCount,
+    active: places.length,
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Places
 // ---------------------------------------------------------------------------
 

@@ -1338,26 +1338,33 @@ body {
 /* =============================================================
    Divergence panel — featured compact display in the hero header
    ============================================================= */
+/* ── Divergence panel — FOCAL HOOK variant (compact, hero masthead)
+   Number is the dominant element; head + meta are quiet instrument labels.
+   HUD lock-box frame: crisper border + orange corner brackets anchor the reading.
+   All values token-only — no raw hex, no gradient, no glass.
+   atom refs: corner-reticle · dashed-hairline · diverge-panel (worldline-atoms)
+   ────────────────────────────────────────────────────────────────────────────── */
 .diverge-panel {
   position: relative;
   display: grid;
   grid-template-columns: auto auto;
   grid-template-rows: auto auto;
-  column-gap: 18px;
-  row-gap: 4px;
-  align-items: baseline;
-  padding: 9px 16px 10px;
-  border: 1px solid rgb(var(--ink-rgb) / 0.22);
-  background: rgb(var(--paper-bright-rgb) / 0.45);
-  min-width: 280px;
+  column-gap: 12px;
+  row-gap: 0;
+  align-items: end;
+  padding: 8px 14px 10px;
+  border: 1.5px solid rgb(var(--ink-rgb) / 0.38);
+  background: rgb(var(--ink-rgb) / 0.035);
+  min-width: 300px;
 }
+/* Corner bracket marks — 4-point lock-box reticle (atom: corner-reticle) */
 .diverge-panel::before,
 .diverge-panel::after {
   content: '';
   position: absolute;
-  width: 8px;
-  height: 8px;
-  border: 1px solid var(--accent-orange);
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--accent-orange);
 }
 .diverge-panel::before {
   top: -1px; left: -1px;
@@ -1367,6 +1374,7 @@ body {
   bottom: -1px; right: -1px;
   border-left: none; border-top: none;
 }
+/* Head row — spans full width above the number */
 .diverge-panel-head {
   grid-column: 1 / -1;
   display: flex;
@@ -1377,6 +1385,9 @@ body {
   letter-spacing: 0.32em;
   text-transform: uppercase;
   color: var(--ink-soft);
+  padding-bottom: 5px;
+  border-bottom: 1px dashed var(--ink-dashed);
+  margin-bottom: 5px;
 }
 .diverge-panel-label b {
   color: var(--accent-orange);
@@ -1400,21 +1411,30 @@ body {
   font-size: 9px;
   line-height: 1;
 }
+/* Number — dominant: instrument readout at focal scale.
+   Special Elite (--font-type) gives typewriter-tabular feel.
+   .acc mid-digits stay orange; head/tail stay --ink-primary.
+   dm-digit spans are inline children mutated by JS — untouched by this rule. */
 .diverge-panel-num {
   font-family: var(--font-type);
-  font-size: 26px;
+  font-size: 30px;
   letter-spacing: 0.04em;
   line-height: 1;
   color: var(--ink-primary);
   white-space: nowrap;
+  grid-column: 1;
+  grid-row: 2;
+  align-self: end;
 }
 .diverge-panel-num .acc {
   color: var(--accent-orange);
 }
+/* Meta — quiet instrument labels, right-aligned beside the number */
 .diverge-panel-meta {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  justify-content: flex-end;
+  gap: 2px;
   font-family: var(--font-mono);
   font-size: 7.5px;
   letter-spacing: 0.18em;
@@ -1422,12 +1442,15 @@ body {
   color: var(--ink-faint);
   text-align: right;
   white-space: nowrap;
+  grid-column: 2;
+  grid-row: 2;
+  padding-bottom: 2px;
 }
 .diverge-panel-meta b {
-  color: var(--ink-primary);
+  color: var(--ink-soft);
   font-weight: 400;
   font-family: var(--font-type);
-  font-size: 9px;
+  font-size: 8.5px;
   letter-spacing: 0.04em;
   text-transform: none;
 }
@@ -1444,8 +1467,8 @@ body {
   border: 1px solid rgb(var(--ink-rgb) / 0.18);
   display: grid;
   grid-template-rows: auto 1fr auto;
-  padding: 18px 22px 16px;
-  gap: 10px;
+  padding: 12px 22px 12px;
+  gap: 8px;
   overflow: hidden;
 }
 
@@ -1784,11 +1807,11 @@ body {
 .atlas-foot {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
   font-family: var(--font-mono);
   font-size: 8.5px; letter-spacing: 0.1em;
   color: var(--ink-soft);
-  padding-top: 10px; border-top: 1px dashed rgb(var(--ink-rgb) / 0.28);
+  padding-top: 5px; border-top: 1px dashed rgb(var(--ink-rgb) / 0.28);
   text-transform: uppercase;
 }
 .atlas-foot-row {
@@ -1813,13 +1836,13 @@ body {
   display: flex;
   align-items: baseline;
   gap: 12px;
-  padding: 7px 11px 8px;
+  padding: 3px 11px 3px;
   border-left: 2px solid var(--netra);
   background: rgba(79, 110, 128, 0.07);
 }
 .atlas-netra-voice .voice-tag {
   font-family: var(--font-mono);
-  font-size: 7.5px;
+  font-size: 8.5px;
   letter-spacing: 0.32em;
   color: var(--netra);
   text-transform: uppercase;
@@ -1830,7 +1853,7 @@ body {
 .atlas-netra-voice .voice-body {
   font-family: var(--font-display);
   font-style: italic;
-  font-size: 12px;
+  font-size: 12.5px;
   letter-spacing: 0.005em;
   line-height: 1.35;
   color: var(--ink-primary);
@@ -1842,7 +1865,7 @@ body {
   display: grid;
   grid-template-columns: auto auto 1fr auto; gap: 0 10px;
   align-items: center;
-  padding: 5px 9px;
+  padding: 4px 9px;
   border: 1px solid var(--netra-soft);
   background: rgb(var(--paper-base-rgb) / 0.92);
   font-family: var(--font-mono);
@@ -1881,7 +1904,7 @@ body {
   border: 1px solid var(--netra-soft);
   color: var(--netra); font-family: var(--font-mono);
   font-size: 8px; letter-spacing: 0.22em;
-  padding: 5px 8px; cursor: pointer; text-transform: uppercase;
+  padding: 4px 10px; cursor: pointer; text-transform: uppercase;
   transition: background 0.2s;
 }
 .atlas-netra .jump:hover { background: rgb(var(--netra-rgb) / 0.12); }

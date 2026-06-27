@@ -951,13 +951,21 @@ function buildScene(
  * the places table (is_alpha=true). Falls back to Bangkok if omitted. */
 interface WorldlineGlobeProps {
   alphaCoord?: { lat: number; lon: number };
+  /** Live content counts from getWorldlineStats() — passed from the server page. */
+  stats?: { surveyed: number; active: number };
 }
 
-export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
+export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) {
   // Resolve effective alpha coords — data-driven from prop, fallback to Bangkok.
   // movable-alpha: these values replace the former ALPHA_LAT / ALPHA_LON constants.
   const alphaLat = alphaCoord?.lat ?? ALPHA_LAT_FALLBACK;
   const alphaLon = alphaCoord?.lon ?? ALPHA_LON_FALLBACK;
+
+  // Live content counts — safe defaults so the readout never shows NaN.
+  // Supplied by getWorldlineStats() on the server page; undefined = not yet wired.
+  // Zero-padded to 3 digits to match the instrument register (047/012/000 style).
+  const surveyed = String(stats?.surveyed ?? 0).padStart(3, "0");
+  const activeCount = String(stats?.active ?? 0).padStart(3, "0");
 
   // Stable ref so the once-bound THREE effect closure can read the live alpha
   // without going stale across renders (the prop won't change after mount, but
@@ -2838,8 +2846,8 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
           </div>
 
           <div className="atlas-readout-row is-trio">
-            <div><span className="key">SURVEYED</span><span className="val acc">047</span></div>
-            <div><span className="key">ACTIVE</span><span className="val">012</span></div>
+            <div><span className="key">SURVEYED</span><span className="val acc">{surveyed}</span></div>
+            <div><span className="key">ACTIVE</span><span className="val">{activeCount}</span></div>
             <div><span className="key">BRANCHES</span><span className="val">∞</span></div>
           </div>
 
@@ -2871,7 +2879,7 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
         <div className="atlas-foot-row">
           <div className="cell"><span>NeX · FIELD</span><b>247 RAYS</b></div>
           <div className="cell"><span>Ne0N · POLE</span><b>+90°N</b></div>
-          <div className="cell"><span>Ne0 · NODES</span><b className="acc">047</b></div>
+          <div className="cell"><span>Ne0 · NODES</span><b className="acc">{activeCount}</b></div>
 
           <div className="atlas-netra" role="status" aria-live="polite">
             <span className="reticle" aria-hidden>
@@ -2894,11 +2902,14 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
             </span>
             {/* CW-15 · NEXT NODE touch target (ux-journey, α-SUR-01, 2026-06-14)
                 Was 94×24px. minHeight:44px + display:flex + alignItems:center → ≥44px.
-                Visual label and class unchanged. */}
+                2026-06-26 · Peat requested desktop-density reduction: minHeight 44→36px.
+                Still ≥ WCAG AA 24px minimum pointer target; desktop pointer context only
+                (mobile dock keeps 44px via atlas-mobile-dock-jump CSS). Visual label
+                and class unchanged. */}
             <button
               className="jump"
               type="button"
-              style={{ minHeight: "44px", display: "flex", alignItems: "center" }}
+              style={{ minHeight: "36px", display: "flex", alignItems: "center" }}
               onClick={() => {
                 const fn = (window as unknown as { __atlasNetraJump?: () => void }).__atlasNetraJump;
                 if (fn) fn();

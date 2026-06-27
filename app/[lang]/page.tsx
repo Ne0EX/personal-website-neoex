@@ -14,11 +14,11 @@ import { Nav } from '@/components/Nav'
 import { HeroBlock } from '@/components/HeroBlock'
 import { AttractorFilterShell } from '@/components/AttractorFilterShell'
 import { FooterManifesto } from '@/components/FooterManifesto'
-import { DivergenceMeter } from '@/components/DivergenceMeter'
 import { PageShell } from '@/components/PageShell'
 import { SurveyCursor } from '@/components/SurveyCursor'
 import { MarginaliaHUD, ScrollMeter } from '@/components/MarginaliaHUD'
 import { getAlphaPlace } from '@/lib/store/reads'
+import { getWorldlineStats } from '@/lib/content'
 
 // CW-10 · tag pill /?tag= routing (ux-journey, α-SUR-01, 2026-06-14)
 interface HomeSearchParams {
@@ -31,7 +31,11 @@ export default async function Home({
   searchParams: Promise<HomeSearchParams>
 }) {
   const resolvedParams = await searchParams
-  const alphaPlace = await getAlphaPlace()
+  // Parallel server data fetches — alphaPlace + content stats.
+  const [alphaPlace, stats] = await Promise.all([
+    getAlphaPlace(),
+    getWorldlineStats(),
+  ])
   const alphaCoord = { lat: alphaPlace.coord.lat, lon: alphaPlace.coord.lon }
   const initialTag = resolvedParams.tag ?? 'all'
 
@@ -44,16 +48,7 @@ export default async function Home({
         <SurveyCursor />
 
         <Nav />
-        <HeroBlock alphaCoord={alphaCoord} />
-
-        {/* Divergence band — full-width, ink-tinted strip per v2 mockup */}
-        <section
-          data-section="hero"
-          className="relative z-[3] px-10 py-9 section-rule"
-          style={{ background: 'rgb(var(--ink-rgb) / 0.03)' }}
-        >
-          <DivergenceMeter size="lg" />
-        </section>
+        <HeroBlock alphaCoord={alphaCoord} stats={stats} />
 
         {/* attractor-filter: shell holds the shared activeAttractor state */}
         <AttractorFilterShell initialTag={initialTag} />
