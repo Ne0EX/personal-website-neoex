@@ -85,6 +85,9 @@ const GLOBE_RADIUS = 1;
 // Token source: app/globals.css line 41–42 + branching spec §9.3.
 const SITE_ALPHA = 1.130426;           // observer α — spec §4.3 / Procyon SITE_ALPHA
 const NEX_SHELL_R = GLOBE_RADIUS * 1.18; // orbital shell radius — ontology §4.2
+// NeX possibility-field ray count — single source of truth for the rendered rays
+// AND the foot label / NETRA voice, so the readout never drifts from the scene.
+const NEX_RAY_COUNT = 48;
 // Dashed tendril: 0.5px stroke, alpha 0.18 — spec §4.2 / §9.2
 const TENDRIL_ALPHA_BASE = 0.18;
 const TENDRIL_ALPHA_APEX = 0.22;       // breathing apex — spec §9.2
@@ -304,7 +307,7 @@ const STRATA: Record<StratumKey, Stratum> = {
     netraCoord: "—",
     netraRange: "3.10",
     voice:
-      "possibility shells, 247 rays emitting outward. hypotheses accrete here before they patch into the archive.",
+      `possibility shells, ${NEX_RAY_COUNT} rays emitting outward. hypotheses accrete here before they patch into the archive.`,
     hudCam: "WIDE · POSSIBILITY",
     hudRadius: "1.48",
     hudDepth: "+0.48",
@@ -799,8 +802,8 @@ function buildScene(
   const raysGroup = new THREE.Group();
   nexField.add(raysGroup);
   const rayMat = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.35 * palette.orbitOpacityScale });
-  for (let i = 0; i < 48; i++) {
-    const phi = Math.acos(1 - 2 * ((i + 0.5) / 48));
+  for (let i = 0; i < NEX_RAY_COUNT; i++) {
+    const phi = Math.acos(1 - 2 * ((i + 0.5) / NEX_RAY_COUNT));
     const theta = Math.PI * (1 + Math.sqrt(5)) * i;
     const dx = Math.sin(phi) * Math.cos(theta);
     const dy = Math.cos(phi);
@@ -1249,6 +1252,10 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
   // Reduced-motion preference — read once in useEffect, stable for session.
   // Per spec §10.2: no fade animations, instant alpha, no breathing.
   const reducedMotionRef = useRef(false);
+
+  // Arc reveal animation state — drives the draw-in from α outward on NeX entry.
+  // active=false when settled (or not in NeX). Tick reads this every frame.
+  const arcRevealRef = useRef<{ startMs: number; active: boolean }>({ startMs: 0, active: false });
 
   // Live scene refs — set inside the THREE setup effect so the place-node
   // build/recolor effect (which depends on async data + selection) can reach
@@ -1720,7 +1727,28 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
       refs.nexField.visible = T.showField;
       refs.axisGroup.visible = T.showAxis;
       refs.contoursGroup.visible = T.showContours;
-      refs.arcLine.visible = key !== "neon" && key !== "neo";
+      // Arc is NeX-only — hidden in FULL (all) and all other strata.
+      // On NeX entry: animated draw-in from α outward (arc reveal).
+      // Reduced-motion: instant full reveal, no draw animation.
+      if (key === "nex") {
+        refs.arcLine.visible = true;
+        const arcM = refs.arcLine.material as THREE.LineDashedMaterial;
+        const vertexCount = refs.arcLine.geometry.attributes.position.count;
+        if (reducedMotionRef.current) {
+          // Instant reveal — skip animation per prefers-reduced-motion.
+          refs.arcLine.geometry.setDrawRange(0, vertexCount);
+          arcM.opacity = 0.95;
+          arcRevealRef.current = { startMs: 0, active: false };
+        } else {
+          // Animated draw-in: start from zero vertices, opacity 0.
+          refs.arcLine.geometry.setDrawRange(0, 0);
+          arcM.opacity = 0;
+          arcRevealRef.current = { startMs: performance.now(), active: true };
+        }
+      } else {
+        refs.arcLine.visible = false;
+        arcRevealRef.current.active = false;
+      }
     };
     // Expose for state changes from outside the effect.
     (window as unknown as { __atlasApplyStratum?: (k: StratumKey) => void }).__atlasApplyStratum = applyStratum;
@@ -2232,8 +2260,27 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
       if (refs.netraTracker.visible) {
         refs.netraTracker.scale.setScalar(1 + 0.08 * Math.sin(now * 0.006));
       }
-      // Arc dash march.
+      // Arc reveal draw-in — drives animated extension from α outward on NeX entry.
+      // Runs only while arcRevealRef.active; settles in ~700ms then goes dormant.
+      // Recomputes lineDistances each frame during draw so dashes render correctly
+      // over the partial geometry. computeLineDistances is cheap on 65 vertices.
+      const arcReveal = arcRevealRef.current;
       const arcM = refs.arcLine.material as THREE.LineDashedMaterial;
+      if (arcReveal.active) {
+        const vertexCount = refs.arcLine.geometry.attributes.position.count;
+        const p = Math.min(1, (now - arcReveal.startMs) / 700);
+        const eased = easeOutQuad(p);
+        refs.arcLine.geometry.setDrawRange(0, Math.ceil(eased * vertexCount));
+        arcM.opacity = eased * 0.95;
+        refs.arcLine.computeLineDistances();
+        if (p >= 1) {
+          arcReveal.active = false;
+          // Ensure full draw settled precisely.
+          refs.arcLine.geometry.setDrawRange(0, vertexCount);
+          arcM.opacity = 0.95;
+        }
+      }
+      // Arc dash march — subtle dashSize breathing. Runs whenever arc is visible.
       arcM.dashSize = 0.04 + Math.sin(now * 0.002) * 0.005;
 
       // ─── Worldline Branching tick — §13.2 steps 3–6 + §7.1 breathing ───
@@ -2877,7 +2924,7 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
       {/* Frame foot */}
       <footer className="atlas-foot">
         <div className="atlas-foot-row">
-          <div className="cell"><span>NeX · FIELD</span><b>247 RAYS</b></div>
+          <div className="cell"><span>NeX · FIELD</span><b>{String(NEX_RAY_COUNT).padStart(3, "0")} RAYS</b></div>
           <div className="cell"><span>Ne0N · POLE</span><b>+90°N</b></div>
           <div className="cell"><span>Ne0 · NODES</span><b className="acc">{activeCount}</b></div>
 
