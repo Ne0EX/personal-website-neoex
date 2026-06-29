@@ -352,7 +352,7 @@ const STRATA: Record<StratumKey, Stratum> = {
     netraCoord: `${ALPHA_LAT_FALLBACK.toFixed(2)}°N, ${ALPHA_LON_FALLBACK.toFixed(2)}°E`,
     netraRange: "1.42",
     voice:
-      "surface archive · 047 patches anchored. α holds the observer locus; the rest are repaired memories at real coordinates.",
+      "surface archive · patches anchored at real coordinates. α holds the observer locus; the rest are repaired memories.",
     hudCam: "SURFACE · α",
     hudRadius: "1.00",
     hudDepth: "−0.05",
