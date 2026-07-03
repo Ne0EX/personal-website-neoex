@@ -94,6 +94,14 @@ body {
 }
 
 /* =============================================================
+   Focus-visible — keyboard focus ring (resume.neoex.dev a11y pass)
+   ============================================================= */
+:focus-visible {
+  outline: 1px solid var(--accent-orange);
+  outline-offset: 2px;
+}
+
+/* =============================================================
    Ambient texture — paper grain + scanlines
    Applied via two stacked pseudo elements on .paper-canvas
    ============================================================= */
@@ -172,6 +180,47 @@ body {
   color: var(--ink-soft);
 }
 .t-meta-accent { color: var(--accent-orange); font-weight: 500; }
+
+/* =============================================================
+   Semantic heading roles — VOICE register (Cormorant italic)
+   Ported verbatim from soul-atlas design-system colors_and_type.css
+   for the résumé survey ledger (resume.neoex.dev).
+   ============================================================= */
+.wl-h1 {
+  font-family: var(--font-display);
+  font-style: italic; font-weight: 400;
+  font-size: var(--h1-size);
+  line-height: var(--h1-leading);
+  letter-spacing: var(--h1-tracking);
+  color: var(--ink-primary);
+}
+.wl-h2 {
+  font-family: var(--font-display);
+  font-style: italic; font-weight: 500;
+  font-size: 30px; line-height: 1.15;
+  color: var(--ink-primary);
+}
+.wl-h3 {
+  font-family: var(--font-display);
+  font-style: italic; font-weight: 500;
+  font-size: 22px; line-height: 1.2;
+  color: var(--ink-primary);
+}
+/* Reflective body / lede — VOICE register */
+.wl-lede {
+  font-family: var(--font-display);
+  font-style: italic; font-weight: 400;
+  font-size: 18px; line-height: 1.55;
+  color: var(--ink-soft);
+}
+/* Reading body — the one place mono is set lower-case for legibility */
+.wl-body {
+  font-family: var(--font-mono);
+  font-size: var(--body-size);
+  line-height: 1.75;
+  letter-spacing: 0.01em;
+  color: var(--ink-primary);
+}
 
 /* =============================================================
    Worldline section divider — dashed hairline
@@ -772,6 +821,88 @@ body {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }
 }
+
+/* ── Attractor pill — domain-browse tag (résumé strata console) ─
+   Ported verbatim from soul-atlas design-system worldline-atoms.css. */
+.af-pill {
+  appearance: none; cursor: pointer; font-family: var(--font-mono); text-transform: uppercase;
+  font-size: 10px; letter-spacing: 0.15em; padding: 0.6em 0.9em;
+  background: transparent; border: 1px solid var(--ink-faint); color: var(--ink-primary);
+  transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+}
+.af-pill:hover, .af-pill.is-hover { border-color: var(--accent-orange); color: var(--accent-orange); }
+.af-pill.is-active { background: var(--ink-primary); border-color: var(--ink-primary); color: var(--paper-base); font-weight: 500; }
+
+/* =============================================================
+   CANON v1.0 ADDITIONS (soul-atlas) — Lifecycle · Dossier head ·
+   NETRA tool-call · Survey field / empty — ported verbatim from
+   worldline-atoms.css for the résumé survey ledger + NETRA bay.
+   "Agents may compress scope, but must not compress soul."
+   ============================================================= */
+
+/* ── Lifecycle marks — seed · ongoing · refined · settled ─────
+   An entry GROWS; it is never workflow-managed. The SaaS set
+   (draft · published · archived · pending) is forbidden. */
+.lifecycle {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 8.5px; letter-spacing: 0.24em;
+  text-transform: uppercase; color: var(--ink-soft);
+  border: 1px solid var(--ink-hairline); padding: 5px 10px 5px 9px;
+  background: rgba(240, 235, 221, 0.5);
+}
+.lifecycle .glyph { font-size: 10px; line-height: 1; letter-spacing: 0; color: var(--ink-faint); }
+.lifecycle--ongoing { border-style: dashed; border-color: var(--ink-dashed); color: var(--ink-primary); }
+.lifecycle--ongoing .glyph { color: var(--accent-orange); }
+.lifecycle--refined .glyph { color: var(--ink-soft); }
+.lifecycle--settled { color: var(--ink-primary); }
+.lifecycle--settled .glyph { color: var(--ink-primary); }
+
+/* ── NETRA tool-call block — 2-line instrument status ─────────
+   ALWAYS two lines, ALWAYS before the companion reply:
+   line 1 — SURVEYING ARCHIVE · the call · line 2 — resolved + counts.
+   Never a single-line status. Never a typing indicator. */
+.netra-toolcall {
+  display: grid; gap: 3px; padding: 7px 11px 8px;
+  border-left: 2px dashed rgb(var(--netra-rgb) / 0.45);
+  background: rgb(var(--netra-rgb) / 0.05);
+  font-family: var(--font-mono); text-transform: uppercase;
+}
+.netra-toolcall .call { font-size: 8px; letter-spacing: 0.24em; color: var(--netra); font-weight: 500; }
+.netra-toolcall .call code { font-family: var(--font-type); font-size: 9.5px; letter-spacing: 0.03em; text-transform: none; color: var(--ink-primary); }
+.netra-toolcall .result { font-size: 7.5px; letter-spacing: 0.22em; color: var(--ink-faint); }
+
+/* ── Survey field — search is SURVEY ARCHIVE, never "Search" ── */
+.survey-field {
+  position: relative; display: grid; grid-template-columns: auto 1fr auto;
+  align-items: center; gap: 14px; padding: 12px 16px;
+  border: 1px solid rgb(var(--ink-rgb) / 0.25); background: rgba(240, 235, 221, 0.6);
+}
+.survey-field::before, .survey-field::after {
+  content: ''; position: absolute; width: 8px; height: 8px;
+  border: 1px solid var(--accent-orange);
+}
+.survey-field::before { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+.survey-field::after  { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+.survey-field .lab { font-family: var(--font-mono); font-size: 8px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--accent-orange); font-weight: 500; white-space: nowrap; }
+.survey-field input { font-family: var(--font-type); font-size: 15px; letter-spacing: 0.04em; background: transparent; border: none; outline: none; color: var(--ink-primary); width: 100%; }
+.survey-field input::placeholder { color: var(--ink-faint); }
+.survey-field .key { font-family: var(--font-type); font-size: 8.5px; letter-spacing: 0.05em; color: var(--ink-faint); border: 1px solid rgb(var(--ink-rgb) / 0.18); padding: 2px 5px; }
+/* Empty state — an instrument coordinate, terse. Never "No results
+   found", never an apology opener, never an expansion. */
+.survey-empty { display: grid; gap: 6px; padding: 18px 16px; border: 1px dashed var(--ink-dashed); text-align: center; }
+.survey-empty .verdict { font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--ink-primary); font-weight: 500; }
+.survey-empty .coords { font-family: var(--font-type); font-size: 10px; letter-spacing: 0.05em; color: var(--ink-faint); }
+
+/* ── Dossier head — FILE · coordinates · lifecycle BEFORE title ─
+   An entry is a dossier surface, not a blog post. The word
+   "article" never appears as visible copy. */
+.dossier-head {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 14px;
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.22em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.dossier-head .file { color: var(--accent-orange); font-weight: 500; }
+.dossier-head .coords { font-family: var(--font-type); font-size: 10px; letter-spacing: 0.05em; text-transform: none; color: var(--ink-soft); }
 
 /* =============================================================
    Nav shell — top header with id strip / nav links / clock

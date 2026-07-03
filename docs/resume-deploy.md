@@ -1,74 +1,66 @@
 # resume.neoex.dev — deployment notes
 
-## Route
+**v2 · revised 2026-07-02 · provenance: Peat**
 
-The resume page lives at `/resume` in the main Worldline repo
-(`app/resume/page.tsx`). It is a Next.js App Router server component
-with no dynamic data — statically generated at build time.
+v1 assumed the résumé lived at `/resume` inside the main Worldline repo and
+reached `resume.neoex.dev` via a host-based rewrite into that path. That
+model is retired. **Root `/` of this standalone app IS the résumé now** —
+there is no rewrite, no path prefix, no shared deployment with the main
+Worldline site.
 
-## Subdomain wiring (not yet wired — action required at deploy time)
+## App and route
 
-### Option A — Vercel host-based rewrite (recommended)
+This app lives in its own worktree/repo (`worktree-genesis+resume-neoex`),
+separate from the main Worldline codebase. `app/page.tsx` is the NETRA
+Survey ledger — server-rendered, recruiter fast-scan surface. The old
+observatory globe landing moved to `app/atlas/page.tsx`; `/resume` is a
+permanent redirect to `/` (kept for any links already pointing at the old
+path).
 
-Add a rewrite in `next.config.*` (if present) or in `vercel.json`:
+No host-based rewrite is needed and none should be added — the domain
+points straight at this app's root.
 
-```json
-{
-  "rewrites": [
-    {
-      "source": "/:path*",
-      "has": [{ "type": "host", "value": "resume.neoex.dev" }],
-      "destination": "/resume/:path*"
-    }
-  ]
-}
-```
+## Deployment target
 
-Then add `resume.neoex.dev` as an alias domain in the Vercel project
-settings pointing at the same deployment as `neoex.dev`.
-
-### Option B — Next.js middleware rewrite
-
-Add to `middleware.ts` (Altair's territory — request to Altair):
-
-```ts
-import { NextRequest, NextResponse } from "next/server";
-
-export function middleware(request: NextRequest) {
-  const host = request.headers.get("host") ?? "";
-  if (host.startsWith("resume.")) {
-    const url = request.nextUrl.clone();
-    if (url.pathname === "/" || url.pathname === "") {
-      url.pathname = "/resume";
-      return NextResponse.rewrite(url);
-    }
-  }
-  return NextResponse.next();
-}
-
-export const config = {
-  matcher: ["/((?!_next|api|favicon.ico).*)"],
-};
-```
+**Own Vercel project, not an alias/rewrite off `neoex.dev`.** Create a new
+Vercel project for this repo/worktree; deploy it independently of the main
+Worldline project.
 
 ### DNS
 
-Point `resume.neoex.dev` CNAME → `cname.vercel-dns.com` (same as
-`neoex.dev`). Vercel handles routing per the rewrite above.
+Point `resume.neoex.dev` CNAME → `cname.vercel-dns.com`, then add
+`resume.neoex.dev` as the production domain on this app's own Vercel
+project (not as an alias domain on the `neoex.dev` project — the two are
+now separate deployments).
+
+## Environment variables
+
+`AI_GATEWAY_API_KEY` is required in the Vercel project's environment
+(Production + Preview) for NETRA's real LLM path (`/api/chat`, Vercel AI
+Gateway, `anthropic/claude-haiku-4.5`). Documented in `.env.example`;
+`.env.local` stays untracked. Without this key, NETRA degrades honestly to
+the local keyword-retrieval fallback — it does not fail closed on the page.
 
 ## Page metadata
 
-Set in `app/resume/page.tsx` via the `metadata` export:
+Set in `app/page.tsx` via the `metadata` export (or `app/layout.tsx` for
+site-wide defaults):
 
-- `title`: "Krittiphong Manachamni — AI Engineer"
-- `description`: AI Engineer in Bangkok...
+- `title`: `Krittiphong "Peat" Manachamni — AI Engineer`
+- `description`: the Summary line in `docs/resume-content.md` / the
+  `lede` field in `lib/resume-data.ts` — the two must not drift.
+- `metadataBase`: `https://resume.neoex.dev`
+- `alternates.canonical`: `https://resume.neoex.dev/`
+- OpenGraph `type`: `profile`
 
-If the subdomain is live, consider adding an `alternates.canonical`
-pointing to `https://resume.neoex.dev/` so search engines attribute
-the page to the subdomain rather than `neoex.dev/resume`.
+No phone number appears in metadata, structured data, or any string
+rendered on this surface — contact is email only.
 
 ## Print / PDF
 
-The page ships a `@media print` stylesheet in `app/resume/resume.css`.
-Chrome "Save as PDF" → A4 → renders ink-on-white with full content and
-clean pagination. No additional tooling required.
+The ledger ships a `@media print` stylesheet (ported from the old
+`app/resume/resume.css` print rules into `app/survey-ledger.css`): bay,
+strata console, and clearance are suppressed in print (`display: none
+!important`), the "SURVEY FULL TRACE" `<details>` sections are forced open,
+A4 layout, white paper / near-black ink. Chrome "Save as PDF" → A4 renders
+clean pagination with no additional tooling.
