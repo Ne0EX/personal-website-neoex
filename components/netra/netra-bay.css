@@ -1,0 +1,178 @@
+/**
+ * components/netra/netra-bay.css — NetraBay + SurveyTranscript layout.
+ *
+ * Ported from the inline styles + <helmet> <style> block in
+ * NETRA Bay.dc.html (lines 14-92). Reuses globals.css atoms (`.atlas-netra`,
+ * `.atlas-netra-voice`, `.survey-field`, `.survey-empty`, `.netra-toolcall`,
+ * `.t-meta`) — this file only adds bay-specific structure, the two
+ * standalone "jump" buttons that live outside `.atlas-netra` (globals.css
+ * only styles `.atlas-netra .jump` as a descendant selector), and the
+ * responsive/print rules the plan calls for.
+ *
+ * Override selectors below are written as `<base-class>[data-hook]` (e.g.
+ * `.atlas-netra[data-bay-console]`) rather than a second bare class so
+ * their specificity (0,2,0) beats the base atom's (0,1,0) regardless of
+ * Next's CSS chunk order — see AGENTS.md CSS-ordering caveat.
+ */
+
+/* ── L1+L2 root — fixed to the viewport bottom, above page content ── */
+[data-netra-root] {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;
+  background: var(--paper-base);
+  border-top: 1px dashed rgb(var(--netra-rgb) / 0.55);
+}
+
+/* ── L2 · transcript ── */
+[data-netra-transcript] {
+  max-height: min(44dvh, calc(100dvh - 150px));
+  overflow-y: auto;
+  border-bottom: 1px dashed var(--ink-dashed);
+  background: rgba(237, 231, 218, 0.55);
+  scrollbar-width: thin;
+  scrollbar-color: rgb(77 122 146 / 0.4) transparent;
+}
+
+.netra-bay-transcript-inner {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 14px 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.netra-bay-transcript-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.netra-bay-transcript-title {
+  font-size: 7.5px;
+  letter-spacing: 0.3em;
+  color: var(--netra);
+}
+
+.netra-bay-clear {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 2px 0;
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.netra-bay-clear:hover {
+  color: var(--accent-orange);
+}
+
+.netra-bay-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.netra-bay-visitor {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding-top: 2px;
+}
+
+.netra-bay-visitor-tag {
+  font-size: 7.5px;
+  letter-spacing: 0.28em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.netra-bay-visitor-q {
+  font-family: var(--font-type);
+  font-size: 13px;
+  letter-spacing: 0.03em;
+  color: var(--ink-primary);
+}
+
+/* ── L1 · console row ── */
+[data-bay-row] {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  padding: 10px 24px calc(12px + env(safe-area-inset-bottom, 0px));
+  max-width: 1240px;
+  margin: 0 auto;
+}
+
+.atlas-netra[data-bay-console] {
+  grid-template-columns: auto auto auto;
+  gap: 0 12px;
+  min-width: 300px;
+}
+
+.survey-field[data-bay-field] {
+  flex: 1;
+  min-width: 220px;
+  padding: 8px 14px;
+  gap: 12px;
+}
+
+/* Standalone "jump" button — globals.css only styles `.atlas-netra .jump`
+   as a descendant selector, and POINT/LOG live outside `.atlas-netra`. */
+.netra-bay-jump {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--netra-soft);
+  color: var(--netra);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 0.22em;
+  padding: 5px 8px;
+  cursor: pointer;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+.netra-bay-jump:hover {
+  background: rgb(var(--netra-rgb) / 0.12);
+}
+/* TODO(S9): armed point-mode state — add a `[aria-pressed="true"]` variant
+   here (background/border/color → --accent-orange, per the prototype's
+   `pointBtnStyle`) once point-mode exists. */
+
+/* ── responsive ── */
+@media (max-width: 860px) {
+  [data-bay-row] {
+    flex-wrap: wrap;
+  }
+  .atlas-netra[data-bay-console] {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .atlas-netra[data-bay-console] .readout {
+    display: none;
+  }
+}
+
+@media (pointer: coarse) {
+  /* iOS zooms the viewport on any input with font-size < 16px on focus. */
+  [data-netra-input-el] {
+    font-size: 16px;
+  }
+}
+
+@media print {
+  [data-netra-root] {
+    display: none !important;
+  }
+}

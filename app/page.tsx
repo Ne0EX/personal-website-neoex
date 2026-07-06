@@ -1,39 +1,75 @@
+import type { Metadata } from "next";
 import { CornerMarks } from "@/components/CornerMarks";
-import { Nav } from "@/components/Nav";
-import { HeroBlock } from "@/components/HeroBlock";
-import { ChapterIndex } from "@/components/ChapterIndex";
-import { AttractorFields } from "@/components/AttractorFields";
-import { FooterManifesto } from "@/components/FooterManifesto";
-import { DivergenceMeter } from "@/components/DivergenceMeter";
-import { PageShell } from "@/components/PageShell";
-import { SurveyCursor } from "@/components/SurveyCursor";
-import { MarginaliaHUD, ScrollMeter } from "@/components/MarginaliaHUD";
+import { Colophon } from "@/components/resume/Colophon";
+import { ExperienceSection } from "@/components/resume/ExperienceSection";
+import { LedgerFooter } from "@/components/resume/LedgerFooter";
+import { LedgerHero } from "@/components/resume/LedgerHero";
+import { LedgerTopBar } from "@/components/resume/LedgerTopBar";
+import { ProvenanceSection } from "@/components/resume/ProvenanceSection";
+import { SkillsRack } from "@/components/resume/SkillsRack";
+import { WorksSection } from "@/components/resume/WorksSection";
+import { HERO } from "@/lib/resume-data";
+import "./survey-ledger.css";
 
-export default function Home() {
+/**
+ * `/` — resume.neoex.dev's NETRA Survey ledger. Root swap (S5): this
+ * replaced the observatory landing, which now lives verbatim at `/atlas`.
+ *
+ * Recruiter-facing metadata per the plan: title names the observer, the
+ * description IS `HERO.lede` (not a rewrite of it — one copy of that
+ * sentence, not two that can drift), canonical + openGraph point at the
+ * production domain. `metadataBase` (app/layout.tsx) lets `canonical`/
+ * `url` below stay absolute without duplicating the domain string.
+ */
+export const metadata: Metadata = {
+  title: 'Krittiphong "Peat" Manachamni — AI Engineer',
+  description: HERO.lede,
+  alternates: {
+    canonical: "https://resume.neoex.dev",
+  },
+  openGraph: {
+    type: "profile",
+    title: 'Krittiphong "Peat" Manachamni — AI Engineer',
+    description: HERO.lede,
+    url: "https://resume.neoex.dev",
+    firstName: HERO.firstName,
+    lastName: HERO.lastName,
+  },
+};
+
+/**
+ * Composition is fully server-rendered — no client shell yet. This is
+ * deliberately the STATIC slice: `data-stratum-root` is the seam S7's
+ * `SurveyLedgerShell` wraps with `"use client"` state (it sets the live
+ * `data-stratum` attribute survey-ledger.css §8 dims against, mounts
+ * `<StrataConsole>` right after `<LedgerHero>`, and docks `<NetraBay>` +
+ * its clearance spacer at the end of `<main>`, per the plan's component
+ * tree). Nothing here re-renders on stratum change; only that wrapper will.
+ *
+ * `main.paper-canvas.ledger-root` is the exact hook survey-ledger.css's
+ * `@media print` block (`main.paper-canvas.ledger-root`) and `.ledger-root`
+ * entrance animation (§2) both target — the two classes must land on the
+ * same element, not split across a wrapper.
+ */
+export default function ResumeLedgerPage() {
   return (
-    <PageShell>
-      <main className="paper-canvas min-h-screen overflow-hidden pr-7">
-        <CornerMarks />
-        <ScrollMeter />
-        <MarginaliaHUD />
-        <SurveyCursor />
+    <main
+      className="paper-canvas ledger-root relative min-h-screen"
+      data-screen-label="RÉSUMÉ · NETRA SURVEY"
+    >
+      <CornerMarks />
+      <LedgerTopBar />
+      <LedgerHero />
 
-        <Nav />
-        <HeroBlock />
+      <div data-stratum-root>
+        <ExperienceSection />
+        <SkillsRack />
+        <WorksSection />
+        <ProvenanceSection />
+        <Colophon />
+      </div>
 
-        {/* Divergence band — full-width, ink-tinted strip per v2 mockup */}
-        <section
-          data-section="hero"
-          className="relative z-[3] px-10 py-9 section-rule"
-          style={{ background: "rgb(var(--ink-rgb) / 0.03)" }}
-        >
-          <DivergenceMeter size="lg" />
-        </section>
-
-        <ChapterIndex />
-        <AttractorFields />
-        <FooterManifesto />
-      </main>
-    </PageShell>
+      <LedgerFooter />
+    </main>
   );
 }
