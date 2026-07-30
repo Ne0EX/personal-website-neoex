@@ -20,7 +20,8 @@
  *   1. `<details class="wl-more">` disclosure — ported from the design's
  *      <helmet> <style> block; without this the SUMMARY FULL TRACE toggle
  *      shows a native marker AND both "wc"/"wo" labels at once.
- *   2. Ledger root — page-level gutter hook + entrance motion.
+ *   2. Ledger root — page-level gutter hook, 3-group entrance stagger, and
+ *      NETRA bay bottom clearance (`--bay-clearance`).
  *   3. Hero stack (lede + channels).
  *   4. Experience — .ledger-entry (200px + 1fr) + KEY RESULT margin block.
  *   5. Skills rack — .ledger-skills dl grid.
@@ -69,13 +70,54 @@ details.wl-more:not([open]) > summary .wo {
       transform: none;
     }
   }
-  .ledger-root {
+  /* Entrance stagger (S10 polish) — 3 section-groups max, nothing
+     per-item: (1) topbar+hero, (2) strata console + stratum-root content,
+     (3) footer. All three are direct children of `main.ledger-root` (see
+     app/page.tsx — `<SurveyLedgerShell>`'s `StratumContext.Provider`
+     doesn't render its own DOM node, so its children flatten straight
+     into `<main>`), so a plain child combinator reaches them without any
+     new className. Entirely inert outside `no-preference`: every selector
+     below sits at its natural opacity 1 / untransformed position by
+     default (reduced-motion REVEALS — house rule); this block only ever
+     adds a temporary from-state on top of that baseline. Same duration/
+     easing as the original single-group fade this replaces. */
+  .ledger-topbar,
+  .ledger-root > header {
     animation: wl-ledger-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  [data-strata-console],
+  [data-stratum-root] {
+    animation: wl-ledger-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+  }
+  .ledger-footer {
+    animation: wl-ledger-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.16s both;
   }
 }
 
 /* =============================================================
-   2b · Section divider — border-TOP, not globals.css's `.section-rule`
+   2b · NETRA bay bottom clearance
+   NetraBay (components/netra/NetraBay.tsx) docks `position: fixed` to the
+   viewport bottom (netra-bay.css `[data-netra-root]`) — page content
+   needs reserved bottom space so the fixed dock never occludes the last
+   section. `--bay-clearance` is a layout measurement (not a globals.css
+   design token), so it's declared here rather than proposed to
+   Betelgeuse. The ≤860px override below matches netra-bay.css's own
+   console-wrap breakpoint (the bay grows a second row there and needs
+   more clearance) rather than this file's own 880/600 grid breakpoints.
+   Print zeroes it out (§10) since the bay is hidden on paper.
+   ============================================================= */
+.ledger-root {
+  padding-bottom: var(--bay-clearance, 96px);
+}
+
+@media (max-width: 860px) {
+  .ledger-root {
+    --bay-clearance: 150px;
+  }
+}
+
+/* =============================================================
+   2c · Section divider — border-TOP, not globals.css's `.section-rule`
    The design puts `border-top` on Skills/Works/Recognition-Origin (dividers
    sit at Experience|Skills, Skills|Works, Works|Provenance — none before
    Colophon). globals.css's shared `.section-rule` atom is `border-bottom`
@@ -310,6 +352,15 @@ details.wl-more:not([open]) > summary .wo {
     grid-template-columns: 1fr;
     align-items: start;
   }
+  /* Channels block is right-aligned on desktop (paired beside the lede at
+     the row's end); stacked under the lede at this breakpoint, right-
+     alignment reads as a stray indent in a single column, so flip it
+     left. Targeted structurally (`:last-child`) rather than a new
+     className — the div's only other hook, `data-survey="channels"`, is
+     a NETRA point-mode/print concern, not a styling one. */
+  .ledger-hero-stack > div:last-child {
+    text-align: left;
+  }
 
   .ledger-skills {
     grid-template-columns: 1fr;
@@ -356,6 +407,11 @@ details.wl-more:not([open]) > summary .wo {
 @media print {
   main.paper-canvas.ledger-root {
     background: #fff !important;
+    /* §2c reserves live-viewport space for the fixed NETRA bay; the bay
+       (and the strata console, point overlay) are all hidden on paper
+       below, so the reserved space would otherwise print as a blank
+       band under the last section. */
+    padding-bottom: 0 !important;
   }
   main.paper-canvas.ledger-root::before,
   main.paper-canvas.ledger-root::after {
@@ -367,9 +423,10 @@ details.wl-more:not([open]) > summary .wo {
     display: none !important;
   }
 
-  /* Seams: StrataConsole (S7) and the point-mode overlay (S9) don't exist
-     in this slice. Whichever component mounts them MUST carry these data
-     attributes for this rule to hide them in print — the bay itself
+  /* StrataConsole (components/resume/StrataConsole.tsx) carries
+     `data-strata-console`; PointModeOverlay (components/netra/
+     PointModeOverlay.tsx) carries `data-point-overlay` (S10 wiring —
+     both landed after this rule was first written). The bay itself
      already self-hides via [data-netra-root] in netra-bay.css. */
   [data-strata-console],
   [data-point-overlay] {

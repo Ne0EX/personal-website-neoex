@@ -104,7 +104,19 @@ export function PointModeOverlay({ ref }: { ref?: React.Ref<PointModeOverlayHand
   if (!mounted) return null;
 
   return createPortal(
-    <div ref={containerRef} className="netra-point-overlay" aria-hidden="true" style={{ display: "none" }}>
+    // `data-point-overlay` is the print-hiding hook survey-ledger.css's
+    // `@media print` block targets (`[data-point-overlay] { display: none
+    // !important }`) — the overlay is normally `display: none` already via
+    // the inline style above, but that gets toggled to `block` imperatively
+    // by `show`/`flash`, so a session mid-point-mode when print fires needs
+    // its own hard print override rather than relying on JS-driven state.
+    <div
+      ref={containerRef}
+      className="netra-point-overlay"
+      data-point-overlay
+      aria-hidden="true"
+      style={{ display: "none" }}
+    >
       <span className="netra-point-corner netra-point-corner-tl" />
       <span className="netra-point-corner netra-point-corner-tr" />
       <span className="netra-point-corner netra-point-corner-bl" />

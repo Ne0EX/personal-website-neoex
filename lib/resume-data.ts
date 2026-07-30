@@ -433,6 +433,6 @@ export interface Colophon {
 
 export const COLOPHON: Colophon = {
   text:
-    "this résumé — and the worldline surface around it — was designed & engineered end-to-end by the observer: one engineer directing an agent harness to designer-quality output. read it as the system-design sample it is.",
+    "this résumé — and the worldline surface around it — was designed & engineered end-to-end by the observer: one engineer directing an agent harness to designer-quality output. the résumé is itself the system-design sample.",
   stack: ["NEXT.JS", "THREE.JS", "HARNESS-ENGINEERED", "NO TEMPLATE"],
 };
