@@ -26,7 +26,7 @@
  */
 
 import { ARCHIVE } from "@/lib/netra/archive";
-import { REFUSAL_OUT_OF_FRAME } from "@/lib/netra/constants";
+import { NO_TRACE } from "@/lib/netra/constants";
 import { scoreArchive } from "@/lib/netra/retrieval";
 
 const STORAGE_KEY = "wl-netra-log-v1";
@@ -138,7 +138,7 @@ export function askOffline(query: string): { ms: number; count: number; answer: 
   const answer = hits.length
     ? hits[0].node.brief +
       (hits.length > 1 ? ` — ${hits.length - 1} related file${hits.length > 2 ? "s" : ""} nearby.` : "")
-    : REFUSAL_OUT_OF_FRAME;
+    : NO_TRACE;
   return { ms, count: hits.length, answer };
 }
 

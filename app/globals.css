@@ -337,7 +337,15 @@ body {
   left: 0;
   bottom: -0.18em;
   height: 1px;
-  width: 0;
+  /* Box is always full-width; `clip-path` reveals it left-to-right instead
+     of animating `width` (impeccable design-hook "layout-transition" fix —
+     width/height/padding/margin transitions cause layout thrash). `inset()`
+     clips paint only, never triggers reflow, and — unlike a `scaleX()`
+     transform — doesn't stretch the repeating-linear-gradient dash pattern
+     mid-transition, so the marching-dash reveal looks pixel-identical to
+     the original width animation at every frame. */
+  width: 100%;
+  clip-path: inset(0 100% 0 0);
   background:
     repeating-linear-gradient(
       90deg,
@@ -346,11 +354,11 @@ body {
       transparent 4px,
       transparent 7px
     );
-  transition: width 460ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: clip-path 460ms cubic-bezier(0.2, 0.8, 0.2, 1);
   pointer-events: none;
 }
 .entry-card:hover .entry-glitch::after {
-  width: 100%;
+  clip-path: inset(0 0 0 0);
 }
 
 /* =============================================================
@@ -832,6 +840,34 @@ body {
 }
 .af-pill:hover, .af-pill.is-hover { border-color: var(--accent-orange); color: var(--accent-orange); }
 .af-pill.is-active { background: var(--ink-primary); border-color: var(--ink-primary); color: var(--paper-base); font-weight: 500; }
+
+/* ── Touch target bump — coarse pointers only, desktop stays instrument-
+   compact. `.af-pill`'s painted box is ~26px tall (0.6em vertical padding
+   at 10px font + 1px border) — under the ~44px touch-target floor (S13
+   Betelgeuse review finding, MEDIUM). Rather than growing the pill's own
+   padding (which would visibly bloat StrataConsole's tight flex-wrap row
+   on every touch device), an invisible `::before` extends the tappable
+   zone while the painted pill stays pixel-identical to desktop — radius 0
+   canon holds (the extension is a plain rectangle, no border-radius).
+   Vertical-only inset (`-10px 0`): height is the failing axis (~26px),
+   width already clears 44px on every pill's text content, so only
+   top/bottom get the hit-area bump — 26px + 20px (10px × 2) ≈ 46px
+   effective height, comfortably ≥44px allowing for per-browser
+   line-height variance. Same technique/scale as `.netra-bay-jump` in
+   components/netra/netra-bay.css (Sirius — `inset: -12px 0` there, its
+   ~24px box needing slightly more lift to clear 48px+) — converged per
+   Polaris sync so the pair reads as one system; keep them in sync if
+   either changes. */
+@media (pointer: coarse) {
+  .af-pill {
+    position: relative;
+  }
+  .af-pill::before {
+    content: '';
+    position: absolute;
+    inset: -10px 0;
+  }
+}
 
 /* =============================================================
    CANON v1.0 ADDITIONS (soul-atlas) — Lifecycle · Dossier head ·

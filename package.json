@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "eval:netra": "tsx --conditions react-server scripts/eval-netra.ts",
+    "audit:voice": "tsx --conditions react-server scripts/audit-voice.ts"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.7",

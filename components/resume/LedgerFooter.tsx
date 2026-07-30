@@ -16,8 +16,10 @@
  * component that already made this call).
  *
  * Does NOT render the design's "clearance for the NETRA bay" spacer div —
- * NetraBay isn't mounted on this page in this slice (that's S7's
- * SurveyLedgerShell). S7 owns adding that spacer alongside `<NetraBay>`.
+ * that clearance is handled by `--bay-clearance` padding-bottom on
+ * `.ledger-root` (app/survey-ledger.css), not a footer-local spacer.
+ * `<NetraBay>` has been mounted alongside this footer since S7
+ * (SurveyLedgerShell).
  */
 export function LedgerFooter() {
   return (

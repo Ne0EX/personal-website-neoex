@@ -145,6 +145,23 @@
   background: rgb(var(--netra-rgb) / 0.12);
 }
 
+/* Coarse-pointer touch-target bump (Betelgeuse S13 finding) — the visual
+   button stays instrument-compact (≈21-22px tall) on every pointer type;
+   this only extends the actual tappable region to the 44px floor via an
+   invisible `::before`, scoped to `pointer: coarse` so desktop density is
+   untouched. Mirrors the same hit-area-extension technique Betelgeuse
+   applies to `.af-pill` in globals.css. */
+@media (pointer: coarse) {
+  .netra-bay-jump {
+    position: relative;
+  }
+  .netra-bay-jump::before {
+    content: "";
+    position: absolute;
+    inset: -12px 0;
+  }
+}
+
 /* X-NETRA-Remaining readout — reuses .netra-bay-visitor-tag's instrument
    typography (see the transcript's VISITOR ⟶ tag); this is a flex sibling
    of the POINT/LOG buttons rather than inside the transcript, so it needs
