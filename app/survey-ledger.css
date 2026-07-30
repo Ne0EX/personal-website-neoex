@@ -1,0 +1,516 @@
+/**
+ * app/survey-ledger.css — the résumé ledger's own stylesheet (resume.neoex.dev, `/`).
+ *
+ * Sirius-owned. Betelgeuse owns app/globals.css (soul-atlas atoms: .wl-h1/
+ * .wl-h2/.wl-h3/.wl-lede/.wl-body, .lifecycle, .dossier-head, .af-pill,
+ * .survey-field/.survey-empty, .netra-toolcall, .atlas-netra*, :focus-visible,
+ * .paper-canvas, .corner-marks, .entry-glitch, .section-rule/-dashed). This
+ * file adds only what's specific to the ledger PAGE: the layout grids named
+ * in the plan (.ledger-entry, .ledger-skills, .ledger-works, .ledger-provenance),
+ * the KEY RESULT margin block, strata dimming, mobile collapse, and print.
+ *
+ * Does NOT duplicate components/netra/netra-bay.css (bay/transcript layout —
+ * that file already owns [data-netra-root] and its own print/mobile rules).
+ *
+ * Ported from `Worldline Résumé - NETRA Survey.dc.html` (helmet <style> block
+ * + every inline style on `[data-stack]`/`.entry-card`/`.key-result`-shaped
+ * divs) and `app/resume/resume.css` §4 (print — before that route was retired).
+ *
+ * Section map:
+ *   1. `<details class="wl-more">` disclosure — ported from the design's
+ *      <helmet> <style> block; without this the SUMMARY FULL TRACE toggle
+ *      shows a native marker AND both "wc"/"wo" labels at once.
+ *   2. Ledger root — page-level gutter hook, 3-group entrance stagger, and
+ *      NETRA bay bottom clearance (`--bay-clearance`).
+ *   3. Hero stack (lede + channels).
+ *   4. Experience — .ledger-entry (200px + 1fr) + KEY RESULT margin block.
+ *   5. Skills rack — .ledger-skills dl grid.
+ *   6. Selected works — .ledger-works (×3 grid) + inline traces row.
+ *   7. Provenance — recognition / origin / languages 1.4fr/1fr/1fr grid.
+ *   8. Strata dimming — narrows, never hides (floor 0.35 — see plan Part B;
+ *      prototype's 0.25 fails AA, so this project ships 0.35 + hover/focus
+ *      restore instead).
+ *   9. Mobile breakpoints (≤880 single column, ≤600 tighter gutters).
+ *  10. Print.
+ */
+
+/* =============================================================
+   1 · <details class="wl-more"> — SURVEY FULL TRACE disclosure
+   Ported verbatim from the design bundle's <helmet><style> block. Governs
+   DossierFile.tsx's "⟶ SURVEY FULL TRACE" / "⟵ FOLD TRACE" toggle.
+   ============================================================= */
+details.wl-more > summary {
+  list-style: none;
+  cursor: pointer;
+}
+details.wl-more > summary::-webkit-details-marker {
+  display: none;
+}
+details.wl-more[open] > summary .wc {
+  display: none;
+}
+details.wl-more:not([open]) > summary .wo {
+  display: none;
+}
+
+/* =============================================================
+   2 · Ledger root
+   `.ledger-root` on the page's <main> (alongside `.paper-canvas`) — a hook
+   for the page-scoped gutter override (§9) and print rules (§10) without
+   reaching into globals.css or netra-bay.css.
+   ============================================================= */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes wl-ledger-enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  /* Entrance stagger (S10 polish) — 3 section-groups max, nothing
+     per-item: (1) topbar+hero, (2) strata console + stratum-root content,
+     (3) footer. All three are direct children of `main.ledger-root` (see
+     app/page.tsx — `<SurveyLedgerShell>`'s `StratumContext.Provider`
+     doesn't render its own DOM node, so its children flatten straight
+     into `<main>`), so a plain child combinator reaches them without any
+     new className. Entirely inert outside `no-preference`: every selector
+     below sits at its natural opacity 1 / untransformed position by
+     default (reduced-motion REVEALS — house rule); this block only ever
+     adds a temporary from-state on top of that baseline. Same duration/
+     easing as the original single-group fade this replaces. */
+  .ledger-topbar,
+  .ledger-root > header {
+    animation: wl-ledger-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  [data-strata-console],
+  [data-stratum-root] {
+    animation: wl-ledger-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+  }
+  .ledger-footer {
+    animation: wl-ledger-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.16s both;
+  }
+}
+
+/* =============================================================
+   2b · NETRA bay bottom clearance
+   NetraBay (components/netra/NetraBay.tsx) docks `position: fixed` to the
+   viewport bottom (netra-bay.css `[data-netra-root]`) — page content
+   needs reserved bottom space so the fixed dock never occludes the last
+   section. `--bay-clearance` is a layout measurement (not a globals.css
+   design token), so it's declared here rather than proposed to
+   Betelgeuse. The ≤860px override below matches netra-bay.css's own
+   console-wrap breakpoint (the bay grows a second row there and needs
+   more clearance) rather than this file's own 880/600 grid breakpoints.
+   Print zeroes it out (§10) since the bay is hidden on paper.
+   ============================================================= */
+.ledger-root {
+  padding-bottom: var(--bay-clearance, 96px);
+}
+
+@media (max-width: 860px) {
+  .ledger-root {
+    --bay-clearance: 150px;
+  }
+}
+
+/* =============================================================
+   2c · Section divider — border-TOP, not globals.css's `.section-rule`
+   The design puts `border-top` on Skills/Works/Recognition-Origin (dividers
+   sit at Experience|Skills, Skills|Works, Works|Provenance — none before
+   Colophon). globals.css's shared `.section-rule` atom is `border-bottom`
+   (correct for its other site-wide callers) — reusing it here would shift
+   every divider down one section and add a spurious line before Colophon.
+   Adjacent sections have no gap between them, so a border-top on section B
+   renders at the identical pixel position a border-bottom on section A
+   would — this is purely about which section "owns" the line, needed so
+   Experience (no rule) still gets a visible line above Skills, and
+   Colophon (no rule) doesn't get an extra one above it.
+   ============================================================= */
+.ledger-section-rule {
+  border-top: 1px solid var(--ink-hairline);
+}
+
+/* =============================================================
+   3 · Hero stack — lede (flexible) | channels (auto, right-aligned)
+   LedgerHero.tsx's `.ledger-hero-stack` div carries no Tailwind grid
+   classes — every layout property below is load-bearing, not decoration.
+   ============================================================= */
+.ledger-hero-stack {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px 40px;
+  align-items: end;
+  margin-top: 20px;
+}
+
+.ledger-name {
+  margin: 0;
+  font-size: 54px;
+}
+
+/* Channel links (LedgerHero.tsx) — coarse-pointer touch-target bump, same
+   technique as `.af-pill` (globals.css) / `.netra-bay-jump` (netra-bay.css):
+   the painted link stays pixel-identical everywhere (Algol S14 3b measured
+   372×14px on a coarse viewport, under the 24px floor); an invisible
+   `::before` only extends the tappable region, scoped to `pointer: coarse`.
+   Vertical-only inset — width already clears 24px on every link's text.
+   `-6px` (→ ~26px effective height) is deliberately smaller than
+   `.af-pill`'s `-10px`: these links stack with only a 6px gap
+   (`.gap-1.5`), and a bigger inset would make neighboring tap zones
+   overlap by more than a couple px. */
+@media (pointer: coarse) {
+  .channel-link {
+    position: relative;
+    display: inline-block;
+  }
+  .channel-link::before {
+    content: "";
+    position: absolute;
+    inset: -6px 0;
+  }
+}
+
+/* =============================================================
+   4 · Experience — .ledger-entry (DossierFile.tsx)
+   ============================================================= */
+.ledger-entry {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 32px;
+  padding: 26px 6px;
+}
+/* Design gives every entry a solid hairline EXCEPT the last (file-005,
+   AVA Advisory) — ExperienceSection.tsx renders entries as direct <section>
+   children (no wrapper div, no extra dashed divider), so `:last-child`
+   here resolves against the real last dossier. */
+.ledger-entry:not(:last-child) {
+  border-bottom: 1px solid var(--ink-hairline);
+}
+.ledger-entry-body {
+  min-width: 0;
+}
+
+/* KEY RESULT margin block — orange-left-border callout in the meta column.
+   DossierFile.tsx renders bare `.kr-label`/`.kr-value`/`.kr-detail` divs
+   (no companion `.t-meta`/`.t-type` class), so this block supplies the
+   FULL typography (family, size, tracking, transform), not just spacing. */
+.key-result {
+  margin-top: 14px;
+  border-left: 2px solid var(--accent-orange);
+  padding: 3px 0 3px 10px;
+}
+.kr-label {
+  font-family: var(--font-mono);
+  font-size: 7px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.kr-value {
+  font-family: var(--font-type);
+  font-size: 19px;
+  line-height: 1;
+  color: var(--ink-primary);
+  margin-top: 5px;
+}
+.kr-detail {
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  line-height: 1.7;
+  color: var(--ink-soft);
+  margin-top: 6px;
+}
+
+/* =============================================================
+   5 · Skills rack — SkillsRack.tsx's <dl class="ledger-skills">
+   ============================================================= */
+.ledger-skills {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  border-top: 1px dashed var(--ink-dashed);
+}
+.ledger-skill-label {
+  padding: 13px 0;
+  border-bottom: 1px dashed var(--ink-dashed);
+  transition: color 0.3s ease;
+}
+.ledger-skill-value {
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--ink-dashed);
+}
+.skill-highlight {
+  border-bottom: 1px dashed var(--accent-orange);
+  padding-bottom: 1px;
+}
+
+/* =============================================================
+   6 · Selected works — WorksSection.tsx
+   ============================================================= */
+.ledger-works {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--ink-hairline);
+}
+.ledger-work-card {
+  position: relative;
+  padding: 24px;
+}
+.ledger-work-card:not(:last-child) {
+  border-right: 1px solid var(--ink-hairline);
+}
+/* `.ledger-work-card--alpha` is deliberately unstyled here — the α-marker
+   corner marks and orange trace-label are already conditional Tailwind
+   classes in WorksSection.tsx's WorkCard; this modifier exists as a hook,
+   not a duplicate ruleset. */
+
+.ledger-works-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin-top: 14px;
+}
+
+/* =============================================================
+   7 · Provenance — ProvenanceSection.tsx
+   ============================================================= */
+.ledger-provenance {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 40px;
+}
+.ledger-hairline-top {
+  border-top: 1px dashed var(--ink-dashed);
+}
+
+/* =============================================================
+   8 · Strata dimming — narrows, never hides
+   S7 (StrataConsole/SurveyLedgerShell) toggles the live stratum value onto
+   the SAME node that carries `data-stratum-root` (the wrapping div around
+   ExperienceSection/SkillsRack/WorksSection in app/page.tsx) — i.e. it
+   becomes `<div data-stratum-root data-stratum="llm">`. These rules are
+   inert (never match) until that attribute lands; the pills/keys/live-region
+   are all S7's job, not this file's.
+   Floor is 0.35, not the prototype's 0.25 — 0.25 measures ≈1.5:1 contrast
+   against the paper base (fails AA at any size), and no dim level actually
+   passes AA, so the guarantee here is: 0.35 floor + full-opacity restore on
+   :hover/:focus-within + a `0` key one press away + screen readers entirely
+   unaffected (only `opacity` changes, nothing unmounts or gets `hidden`).
+   Betelgeuse signed off on this deviation — see plan Part B.
+   `[data-skill-row]` renders as `className="contents"` (SkillsRack.tsx) —
+   `display: contents` elements generate no box, so `opacity` on the row
+   itself has no effect; dimming instead targets its direct children
+   (`> *`, the dt/dd pair). `:hover`/`:focus-within` still match a `contents`
+   element correctly (interaction state isn't gated on box generation), so
+   `[data-skill-row]:hover > *` restores both cells together.
+   ============================================================= */
+[data-entry] {
+  transition: opacity 0.35s ease;
+}
+[data-skill-row] > * {
+  transition: opacity 0.35s ease;
+}
+
+[data-stratum-root][data-stratum="llm"] [data-entry]:not([data-domains~="llm"]) {
+  opacity: 0.35;
+}
+[data-stratum-root][data-stratum="llm"] [data-skill-row]:not([data-domains~="llm"]) > * {
+  opacity: 0.35;
+}
+[data-stratum-root][data-stratum="ml"] [data-entry]:not([data-domains~="ml"]) {
+  opacity: 0.35;
+}
+[data-stratum-root][data-stratum="ml"] [data-skill-row]:not([data-domains~="ml"]) > * {
+  opacity: 0.35;
+}
+[data-stratum-root][data-stratum="data"] [data-entry]:not([data-domains~="data"]) {
+  opacity: 0.35;
+}
+[data-stratum-root][data-stratum="data"] [data-skill-row]:not([data-domains~="data"]) > * {
+  opacity: 0.35;
+}
+[data-stratum-root][data-stratum="vision"] [data-entry]:not([data-domains~="vision"]) {
+  opacity: 0.35;
+}
+[data-stratum-root][data-stratum="vision"] [data-skill-row]:not([data-domains~="vision"]) > * {
+  opacity: 0.35;
+}
+
+[data-entry]:hover,
+[data-entry]:focus-within {
+  opacity: 1 !important;
+}
+[data-skill-row]:hover > *,
+[data-skill-row]:focus-within > * {
+  opacity: 1 !important;
+}
+
+/* =============================================================
+   9 · Mobile
+   ============================================================= */
+@media (max-width: 880px) {
+  .ledger-entry {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  /* KEY RESULT collapses to an inline row (label + value share a line,
+     detail wraps beneath) — the 2px orange left border is untouched. */
+  .key-result {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 12px;
+  }
+  .kr-detail {
+    flex-basis: 100%;
+    margin-top: 2px;
+  }
+
+  .ledger-hero-stack {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+  /* Channels block is right-aligned on desktop (paired beside the lede at
+     the row's end); stacked under the lede at this breakpoint, right-
+     alignment reads as a stray indent in a single column, so flip it
+     left. Targeted structurally (`:last-child`) rather than a new
+     className — the div's only other hook, `data-survey="channels"`, is
+     a NETRA point-mode/print concern, not a styling one. */
+  .ledger-hero-stack > div:last-child {
+    text-align: left;
+  }
+
+  .ledger-skills {
+    grid-template-columns: 1fr;
+  }
+  .ledger-skill-label {
+    border-bottom: none;
+    padding-bottom: 4px;
+  }
+
+  .ledger-works {
+    grid-template-columns: 1fr;
+  }
+  .ledger-work-card:not(:last-child) {
+    border-right: none;
+    border-bottom: 1px solid var(--ink-hairline);
+  }
+
+  .ledger-provenance {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+}
+
+@media (max-width: 600px) {
+  /* Tighten the shared page gutter from Tailwind's px-6 (24px) to 20px —
+     targets the literal utility class name rather than touching every
+     section component; specificity (.ledger-root .px-6) beats a bare
+     .px-6 on class-count alone, no !important needed. */
+  .ledger-root .px-6 {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .ledger-name {
+    font-size: 38px;
+  }
+}
+
+/* =============================================================
+   10 · Print
+   Ported from app/resume/resume.css §4 (that route is retired — this is
+   its successor). [data-netra-root] already hides itself in print via
+   components/netra/netra-bay.css; not duplicated here.
+   ============================================================= */
+@media print {
+  main.paper-canvas.ledger-root {
+    background: #fff !important;
+    /* §2c reserves live-viewport space for the fixed NETRA bay; the bay
+       (and the strata console, point overlay) are all hidden on paper
+       below, so the reserved space would otherwise print as a blank
+       band under the last section. */
+    padding-bottom: 0 !important;
+  }
+  main.paper-canvas.ledger-root::before,
+  main.paper-canvas.ledger-root::after {
+    display: none !important;
+  }
+
+  .corner-marks,
+  .ledger-topbar {
+    display: none !important;
+  }
+
+  /* StrataConsole (components/resume/StrataConsole.tsx) carries
+     `data-strata-console`; PointModeOverlay (components/netra/
+     PointModeOverlay.tsx) carries `data-point-overlay` (S10 wiring —
+     both landed after this rule was first written). The bay itself
+     already self-hides via [data-netra-root] in netra-bay.css. */
+  [data-strata-console],
+  [data-point-overlay] {
+    display: none !important;
+  }
+
+  body {
+    color: #1a2832 !important;
+  }
+  .ledger-root * {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .ledger-root .px-6 {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .ledger-entry {
+    break-inside: avoid;
+  }
+  .ledger-work-card {
+    break-inside: avoid;
+  }
+  section[aria-label="Skills"],
+  section[aria-label="Recognition and origin"] {
+    break-inside: avoid;
+  }
+  header {
+    break-after: avoid;
+  }
+
+  .section-rule-dashed,
+  .section-rule {
+    border-color: rgba(26, 40, 50, 0.22) !important;
+  }
+
+  a {
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+  a[href^="mailto"]::after {
+    content: " (" attr(href) ")";
+    font-size: 8px;
+    letter-spacing: 0.02em;
+    color: rgba(26, 40, 50, 0.55) !important;
+  }
+
+  /* Force "SURVEY FULL TRACE" details open on print, no JS required.
+     `::details-content` (Chrome 131+/Firefox 131+) governs the collapsible
+     slot's rendered size independent of the `open` attribute. Browsers
+     without it print the closed (summary-only) state — acceptable
+     degradation, not a broken print. A `beforeprint`/`afterprint` fallback
+     that flips `.open` is TODO(S7) for full cross-browser coverage. */
+  details.wl-more:not([open])::details-content {
+    block-size: auto !important;
+    content-visibility: visible !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 15mm 18mm 18mm 18mm;
+  }
+}

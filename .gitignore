@@ -13,6 +13,10 @@
 # testing
 /coverage
 
+# NETRA eval transcripts — real model output from scripts/eval-netra.ts live
+# runs; regenerated per run, never a source of truth. See tests/netra/eval-cases.ts.
+/tests/netra/transcripts/
+
 # next.js
 /.next/
 /out/
@@ -32,6 +36,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
