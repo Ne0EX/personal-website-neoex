@@ -44,6 +44,9 @@ export function LedgerHero() {
         </h1>
       </div>
 
+      {/* Algol S14 3a: this title line is a <div>, not a heading, on purpose —
+          it's a byline under the h1, not a section head. The real h1→h3
+          skip lived in SectionLabel (fixed there: div → h2). */}
       <div className="t-meta mt-4 tracking-[0.24em] text-[var(--ink-primary)]">{HERO.title}</div>
 
       <div className="ledger-hero-stack">
@@ -54,20 +57,25 @@ export function LedgerHero() {
           data-survey-label={channels.label}
           className="flex flex-col gap-1.5 text-right t-meta"
         >
+          {/* Algol S14 3b: these stacked links measured 372×14px (coarse
+              viewport) — under the 24px touch-target floor. `channel-link`
+              is a coarse-pointer-only hit-area hook (survey-ledger.css §3),
+              same `::before` inset technique as `.af-pill`/`.netra-bay-jump`;
+              no visual change, painted box stays pixel-identical. */}
           {CONTACT.links.map((link) => (
             <a
               key={link.id}
               href={link.href}
               target="_blank"
               rel="noopener"
-              className="text-[var(--ink-primary)] tracking-[0.16em] hover:text-[var(--accent-orange)] transition-colors"
+              className="channel-link text-[var(--ink-primary)] tracking-[0.16em] hover:text-[var(--accent-orange)] transition-colors"
             >
               {link.label} <span className="text-[var(--accent-orange)]">→</span>
             </a>
           ))}
           <a
             href={CONTACT.emailHref}
-            className="text-[var(--ink-primary)] tracking-[0.16em] hover:text-[var(--accent-orange)] transition-colors"
+            className="channel-link text-[var(--ink-primary)] tracking-[0.16em] hover:text-[var(--accent-orange)] transition-colors"
           >
             {CONTACT.email} <span className="text-[var(--accent-orange)]">→</span>
           </a>

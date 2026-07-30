@@ -151,6 +151,28 @@ details.wl-more:not([open]) > summary .wo {
   font-size: 54px;
 }
 
+/* Channel links (LedgerHero.tsx) — coarse-pointer touch-target bump, same
+   technique as `.af-pill` (globals.css) / `.netra-bay-jump` (netra-bay.css):
+   the painted link stays pixel-identical everywhere (Algol S14 3b measured
+   372×14px on a coarse viewport, under the 24px floor); an invisible
+   `::before` only extends the tappable region, scoped to `pointer: coarse`.
+   Vertical-only inset — width already clears 24px on every link's text.
+   `-6px` (→ ~26px effective height) is deliberately smaller than
+   `.af-pill`'s `-10px`: these links stack with only a 6px gap
+   (`.gap-1.5`), and a bigger inset would make neighboring tap zones
+   overlap by more than a couple px. */
+@media (pointer: coarse) {
+  .channel-link {
+    position: relative;
+    display: inline-block;
+  }
+  .channel-link::before {
+    content: "";
+    position: absolute;
+    inset: -6px 0;
+  }
+}
+
 /* =============================================================
    4 · Experience — .ledger-entry (DossierFile.tsx)
    ============================================================= */

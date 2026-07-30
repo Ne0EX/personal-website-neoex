@@ -44,7 +44,11 @@ export function StrataConsole() {
           className={`af-pill${stratum === "all" ? " is-active" : ""}`}
           aria-pressed={stratum === "all"}
           aria-keyshortcuts={KEY_SHORTCUT.all}
-          aria-label={`All strata — ${String(counts.all).padStart(2, "0")} traces`}
+          /* Algol S14 3c (WCAG 2.5.3 label-in-name): the old label ("All
+             strata — 05 traces") didn't contain the visible text as a
+             contiguous string — "strata" split "All" from "— 05". Lead
+             with the exact visible text, then append the description. */
+          aria-label={`ALL — ${String(counts.all).padStart(2, "0")}, show all strata`}
           onClick={() => setStratum("all")}
         >
           ◎ ALL — {String(counts.all).padStart(2, "0")}
@@ -56,7 +60,7 @@ export function StrataConsole() {
             className={`af-pill${stratum === domain ? " is-active" : ""}`}
             aria-pressed={stratum === domain}
             aria-keyshortcuts={KEY_SHORTCUT[domain]}
-            aria-label={`${DOMAIN_LABEL[domain]} — ${String(counts[domain]).padStart(2, "0")} traces`}
+            aria-label={`${DOMAIN_SHORT[domain]} — ${String(counts[domain]).padStart(2, "0")}, narrow to ${DOMAIN_LABEL[domain]}`}
             onClick={() => setStratum(domain)}
           >
             {DOMAIN_GLYPH[domain]} {DOMAIN_SHORT[domain]} — {String(counts[domain]).padStart(2, "0")}

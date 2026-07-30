@@ -20,7 +20,11 @@ export function ProvenanceSection() {
 
       <div className="ledger-provenance">
         <div data-survey={recognitionNode.id} data-survey-label={recognitionNode.label}>
-          <h4 className="t-meta mb-3.5 text-[var(--ink-soft)]">{"//"} RECOGNITION</h4>
+          {/* Algol S14 3a: SectionLabel above is now an h2 — these three
+              subsection labels must be h3 (not h4) to stay sequential,
+              matching the h2→h3 pattern WorksSection/ExperienceSection
+              already use for their own sub-items. className unchanged. */}
+          <h3 className="t-meta mb-3.5 text-[var(--ink-soft)]">{"//"} RECOGNITION</h3>
           <div className="flex flex-col">
             {RECOGNITION.map((item, i) => (
               <div
@@ -42,7 +46,7 @@ export function ProvenanceSection() {
         </div>
 
         <div data-survey={originNode.id} data-survey-label={originNode.label}>
-          <h4 className="t-meta mb-3.5 text-[var(--ink-soft)]">{"//"} ORIGIN</h4>
+          <h3 className="t-meta mb-3.5 text-[var(--ink-soft)]">{"//"} ORIGIN</h3>
           {EDUCATION.map((edu, i) => (
             <div key={edu.program} className={i < EDUCATION.length - 1 ? "pb-3.5 mb-3.5 section-rule-dashed" : ""}>
               <div className="wl-lede italic text-[16px] leading-[1.3] text-[var(--ink-primary)]">{edu.program}</div>
@@ -53,7 +57,7 @@ export function ProvenanceSection() {
         </div>
 
         <div data-survey={languagesNode.id} data-survey-label={languagesNode.label}>
-          <h4 className="t-meta mb-3.5 text-[var(--ink-soft)]">{"//"} LANGUAGES</h4>
+          <h3 className="t-meta mb-3.5 text-[var(--ink-soft)]">{"//"} LANGUAGES</h3>
           {LANGUAGES.map((lang, i) => (
             <div
               key={lang.name}

@@ -289,9 +289,24 @@
   }
 }
 
+@media (max-width: 340px) {
+  /* Algol S14: the 300px floor above (line ~118) bled ~4px past a 320px
+     viewport edge. By this width `.readout` is already hidden (≤480px
+     above), so the console has nothing left that needs the 300px floor —
+     drop it so the console never exceeds the viewport. */
+  .atlas-netra[data-bay-console] {
+    min-width: 0;
+  }
+}
+
 @media (pointer: coarse) {
-  /* iOS zooms the viewport on any input with font-size < 16px on focus. */
-  [data-netra-input-el] {
+  /* iOS zooms the viewport on any input with font-size < 16px on focus.
+     Algol S14: bare `[data-netra-input-el]` is (0,1,0) and lost the cascade
+     to globals.css's `.survey-field input` at (0,1,1) — computed value
+     stayed 15px on a 390px coarse viewport. Qualifying with the field's
+     own class + element per the file's `<base-class>[data-hook]` pairing
+     convention (see file header) makes this (0,2,1), which beats (0,1,1). */
+  .survey-field input[data-netra-input-el] {
     font-size: 16px;
   }
 }

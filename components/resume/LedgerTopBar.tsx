@@ -37,7 +37,9 @@ export function LedgerTopBar() {
 
       <a
         href={CONTACT.emailHref}
-        aria-label="Email Peat"
+        /* Algol S14 3c (WCAG 2.5.3 label-in-name): aria-label must contain
+           the visible text ("CONTACT") — it didn't before. */
+        aria-label="CONTACT — email Peat"
         className="text-[var(--ink-soft)] hover:text-[var(--accent-orange)] transition-colors"
       >
         ⟶ CONTACT
