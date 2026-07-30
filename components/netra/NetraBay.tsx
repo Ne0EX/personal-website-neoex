@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, useSyncExternalStore } from "react";
 import { getNode, STRATA_READOUT } from "@/lib/netra/archive";
 import { NetraReticle } from "./NetraReticle";
+import { PointModeOverlay } from "./PointModeOverlay";
 import { SurveyTranscript } from "./SurveyTranscript";
 import {
   clearNetraLog,
@@ -16,6 +17,7 @@ import {
   type NetraTurn,
 } from "./netra-bay-local";
 import { useNetraChat } from "./useNetraChat";
+import { usePointMode } from "./usePointMode";
 import "./netra-bay.css";
 
 /**
@@ -58,15 +60,25 @@ import "./netra-bay.css";
  * by uid, `commitNetraLog`, `announce`) is unchanged, now wrapped in
  * try/finally so a rejected/aborted stream can never wedge the input —
  * though in practice `streamAsk` never rejects; it resolves to a local
- * fallback internally on every failure path. S9 (point-mode) calls
- * `pick(id, label)` — already
- * fully implemented — via the `NetraBayHandle` exposed through
- * `useImperativeHandle`; the `⟶ POINT` button and the `Escape` key case
- * render/listen today but are no-ops until S9 fills them in (see TODOs).
+ * fallback internally on every failure path.
+ *
+ * POINT MODE (S9): `usePointMode` (usePointMode.ts) owns the armed state,
+ * the document-level pointermove/click/pointerup capture listeners, and
+ * the crosshair cursor; it calls back into this component's own `pick`
+ * (the same path a direct point-mode click on the prototype always used).
+ * `<PointModeOverlay>` is rendered from here rather than as a literal
+ * sibling under `<SurveyLedgerShell>` (the plan's component-architecture
+ * sketch shows it as one) — a documented, zero-blast-radius deviation:
+ * `PointModeOverlay` portals its DOM straight to `document.body` via
+ * `createPortal`, so its position in the React tree has no bearing on
+ * where it paints or how it stacks; declaring it here keeps the whole
+ * point-mode seam (button, ref, overlay) inside the one file that already
+ * carried the S9 TODO markers, instead of threading an extra ref prop
+ * through `SurveyLedgerShell` for a purely cosmetic tree-shape match.
  */
 
 export interface NetraBayHandle {
-  /** Local "inspect a surface" — same path point-mode (S9) will call. */
+  /** Local "inspect a surface" — the same path usePointMode's onPick calls (S9). */
   pick: (id: string, label: string) => void;
 }
 
@@ -111,6 +123,10 @@ export function NetraBay({ range = STRATA_READOUT.all.range, ret = STRATA_READOU
   );
 
   useImperativeHandle(ref, () => ({ pick }), [pick]);
+
+  const pointButtonRef = useRef<HTMLButtonElement | null>(null);
+  const { armed: pointArmed, toggle: togglePointMode, disarm: disarmPointMode, overlayRef: pointOverlayRef } =
+    usePointMode({ onPick: pick });
 
   const ask = useCallback(
     async (query: string) => {
@@ -171,8 +187,12 @@ export function NetraBay({ range = STRATA_READOUT.all.range, ret = STRATA_READOU
   }, [abort]);
 
   // '/' focuses the survey input from anywhere on the page (guarded when
-  // already typing elsewhere). Escape is wired for point-mode disarm —
-  // S9 fills the body; there is no armed state to disarm yet.
+  // already typing elsewhere). Escape disarms point-mode and returns focus
+  // to the ⟶ POINT button — `disarmPointMode` is safe to call even when
+  // already disarmed (setState to the same value bails out), so this
+  // never needs to read `pointArmed` first; it only skips the focus move
+  // when there was nothing to disarm, so Escape elsewhere on the page
+  // (not pointing) doesn't yank focus around.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "/") {
@@ -180,15 +200,27 @@ export function NetraBay({ range = STRATA_READOUT.all.range, ret = STRATA_READOU
         if (isTypingTarget(e.target)) return;
         e.preventDefault();
         inputRef.current?.focus();
-      } else if (e.key === "Escape") {
-        // TODO(S9): disarm point-mode here once armed state exists.
+      } else if (e.key === "Escape" && pointArmed) {
+        disarmPointMode();
+        pointButtonRef.current?.focus();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [pointArmed, disarmPointMode]);
 
   const targetLabel = target ? target.label : "no target · full archive";
+
+  // Armed-label text differs by input class: touch has no hover reticle,
+  // so it tells the visitor to tap instead of citing a key that doesn't
+  // apply. `pointArmed` starts (and stays, until a client click) `false`
+  // on both server and first client paint, so this `matchMedia` read is
+  // only ever reached after hydration — no SSR crash, no mismatch.
+  const pointLabel = !pointArmed
+    ? "⟶ POINT"
+    : typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches
+      ? "◉ POINTING — TAP A SURFACE"
+      : "◉ POINTING — ESC";
 
   return (
     <div data-netra-root>
@@ -234,15 +266,13 @@ export function NetraBay({ range = STRATA_READOUT.all.range, ret = STRATA_READOU
         </div>
 
         <button
+          ref={pointButtonRef}
           type="button"
           className="netra-bay-jump"
-          aria-pressed={false}
-          onClick={() => {
-            // TODO(S9): arm point-mode (overlay + mousemove/click capture).
-            // Rendering is final; behavior lands with the point-mode slice.
-          }}
+          aria-pressed={pointArmed}
+          onClick={togglePointMode}
         >
-          ⟶ POINT
+          {pointLabel}
         </button>
 
         {/* X-NETRA-Remaining, surfaced subtly (instrument register, same
@@ -264,6 +294,8 @@ export function NetraBay({ range = STRATA_READOUT.all.range, ret = STRATA_READOU
           {open ? "▾" : "▴"} LOG — {String(log.length).padStart(2, "0")}
         </button>
       </div>
+
+      <PointModeOverlay ref={pointOverlayRef} />
     </div>
   );
 }

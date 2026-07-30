@@ -154,9 +154,107 @@
   align-items: center;
   padding-top: 0;
 }
-/* TODO(S9): armed point-mode state — add a `[aria-pressed="true"]` variant
-   here (background/border/color → --accent-orange, per the prototype's
-   `pointBtnStyle`) once point-mode exists. */
+
+/* Armed point-mode state — ⟶ POINT flips to ◉ POINTING, filled orange, per
+   the prototype's `pointBtnStyle` (NETRA Bay.dc.html lines 291-293). Scoped
+   to the POINT button specifically (not every `.netra-bay-jump`, e.g. LOG)
+   via `[aria-pressed]`, which only POINT sets meaningfully — LOG uses
+   `aria-expanded` instead. */
+.netra-bay-jump[aria-pressed="true"] {
+  background: var(--accent-orange);
+  border-color: var(--accent-orange);
+  color: var(--paper-bright);
+}
+.netra-bay-jump[aria-pressed="true"]:hover {
+  background: var(--accent-orange);
+}
+
+/* ── point-mode overlay — portaled to document.body (PointModeOverlay.tsx) ──
+   Visual reference: NETRA Bay.dc.html lines 86-92 (four L-bracket corners +
+   label chip). Container position/size is written directly to `.style` by
+   PointModeOverlay's imperative handle (per-frame geometry, not a design
+   token) — this stylesheet only owns the static shape/color/type. */
+.netra-point-overlay {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  z-index: 59;
+}
+
+.netra-point-corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--accent-orange);
+}
+.netra-point-corner-tl {
+  top: -1px;
+  left: -1px;
+  border-right: none;
+  border-bottom: none;
+}
+.netra-point-corner-tr {
+  top: -1px;
+  right: -1px;
+  border-left: none;
+  border-bottom: none;
+}
+.netra-point-corner-bl {
+  bottom: -1px;
+  left: -1px;
+  border-right: none;
+  border-top: none;
+}
+.netra-point-corner-br {
+  bottom: -1px;
+  right: -1px;
+  border-left: none;
+  border-top: none;
+}
+
+.netra-point-label {
+  position: absolute;
+  top: -24px;
+  left: -1px;
+  background: var(--paper-bright);
+  border: 1px solid var(--accent-orange);
+  color: var(--accent-orange);
+  padding: 3px 9px;
+  font-family: var(--font-mono);
+  font-size: 7.5px;
+  letter-spacing: 0.24em;
+  white-space: nowrap;
+}
+/* Label flips below the reticle when the surface's rect.top < 34 (too close
+   to the viewport top for the chip to sit above it) — toggled via
+   PointModeOverlay's `classList.toggle('is-below', ...)`. */
+.netra-point-label.is-below {
+  top: auto;
+  bottom: -24px;
+}
+
+/* Touch pick-flash — confirms a tap-hit before the transcript opens.
+   Motion only inside `no-preference`: the reduced-motion path in
+   usePointMode.ts skips the flash entirely (resolves the pick
+   immediately), so this keyframe is a belt-and-suspenders backstop, never
+   the sole reduced-motion guard. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes netra-point-flash {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.3;
+    }
+  }
+  .netra-point-overlay.is-flashing {
+    animation: netra-point-flash 0.45s ease-in-out;
+  }
+}
 
 /* ── responsive ── */
 @media (max-width: 860px) {
