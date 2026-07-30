@@ -7,6 +7,7 @@ import { LedgerHero } from "@/components/resume/LedgerHero";
 import { LedgerTopBar } from "@/components/resume/LedgerTopBar";
 import { ProvenanceSection } from "@/components/resume/ProvenanceSection";
 import { SkillsRack } from "@/components/resume/SkillsRack";
+import { SurveyLedgerShell } from "@/components/resume/SurveyLedgerShell";
 import { WorksSection } from "@/components/resume/WorksSection";
 import { HERO } from "@/lib/resume-data";
 import "./survey-ledger.css";
@@ -38,13 +39,15 @@ export const metadata: Metadata = {
 };
 
 /**
- * Composition is fully server-rendered — no client shell yet. This is
- * deliberately the STATIC slice: `data-stratum-root` is the seam S7's
- * `SurveyLedgerShell` wraps with `"use client"` state (it sets the live
- * `data-stratum` attribute survey-ledger.css §8 dims against, mounts
- * `<StrataConsole>` right after `<LedgerHero>`, and docks `<NetraBay>` +
- * its clearance spacer at the end of `<main>`, per the plan's component
- * tree). Nothing here re-renders on stratum change; only that wrapper will.
+ * Composition (S7): `SurveyLedgerShell` (`"use client"`) replaces the old
+ * static `data-stratum-root` div. It owns the live `data-stratum` value
+ * survey-ledger.css §8 dims against, and — since React context can't cross
+ * sibling subtrees — it also renders `<StrataConsole>` and docks
+ * `<NetraBay>` itself (see that file's header comment for the full
+ * reasoning), so every stratum-aware piece shares one provider instance.
+ * The five sections below are passed through as `children`: server-
+ * rendered, unchanged by SurveyLedgerShell, so a stratum change re-renders
+ * only the wrapping `<div>`'s attribute, never these sections themselves.
  *
  * `main.paper-canvas.ledger-root` is the exact hook survey-ledger.css's
  * `@media print` block (`main.paper-canvas.ledger-root`) and `.ledger-root`
@@ -61,13 +64,13 @@ export default function ResumeLedgerPage() {
       <LedgerTopBar />
       <LedgerHero />
 
-      <div data-stratum-root>
+      <SurveyLedgerShell>
         <ExperienceSection />
         <SkillsRack />
         <WorksSection />
         <ProvenanceSection />
         <Colophon />
-      </div>
+      </SurveyLedgerShell>
 
       <LedgerFooter />
     </main>

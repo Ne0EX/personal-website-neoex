@@ -144,6 +144,16 @@
 .netra-bay-jump:hover {
   background: rgb(var(--netra-rgb) / 0.12);
 }
+
+/* X-NETRA-Remaining readout — reuses .netra-bay-visitor-tag's instrument
+   typography (see the transcript's VISITOR ⟶ tag); this is a flex sibling
+   of the POINT/LOG buttons rather than inside the transcript, so it needs
+   its own vertical centering instead of the tag's `padding-top` baseline nudge. */
+[data-netra-quota] {
+  display: inline-flex;
+  align-items: center;
+  padding-top: 0;
+}
 /* TODO(S9): armed point-mode state — add a `[aria-pressed="true"]` variant
    here (background/border/color → --accent-orange, per the prototype's
    `pointBtnStyle`) once point-mode exists. */

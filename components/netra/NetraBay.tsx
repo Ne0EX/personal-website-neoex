@@ -5,7 +5,6 @@ import { getNode, STRATA_READOUT } from "@/lib/netra/archive";
 import { NetraReticle } from "./NetraReticle";
 import { SurveyTranscript } from "./SurveyTranscript";
 import {
-  askOffline,
   clearNetraLog,
   commitNetraLog,
   getNetraLogServerSnapshot,
@@ -16,6 +15,7 @@ import {
   type NetraTarget,
   type NetraTurn,
 } from "./netra-bay-local";
+import { useNetraChat } from "./useNetraChat";
 import "./netra-bay.css";
 
 /**
@@ -24,9 +24,13 @@ import "./netra-bay.css";
  * prototype's `retrieve`/`ask`/`pick`/`save` methods). Markup reference for
  * the `.atlas-netra` console block: WorldlineGlobe.tsx lines 1124-1153.
  *
- * OFFLINE-FIRST (this slice): every ask resolves locally via `askOffline`
- * (netra-bay-local.ts) — no network call yet. Results are marked `· local`
- * so a future live answer is visibly distinguishable.
+ * STREAMING (S8): `ask()` now goes live through `useNetraChat` (a real
+ * `/api/chat` POST, SSE UI-message stream) with `askOffline`
+ * (netra-bay-local.ts) as the fallback for every failure mode — network
+ * reject, non-2xx (incl. 503 when no gateway key is configured), a 6s
+ * silent stream, or a 429 dormancy window. Fallback results are marked
+ * `· local` so a live answer stays visibly distinguishable; see
+ * useNetraChat.ts's header comment for the full fallback matrix.
  *
  * `log`/`target` are read via `useSyncExternalStore` (netra-bay-local.ts),
  * not `useState` + a hydration `useEffect`. That is a fix, not a style
@@ -45,9 +49,17 @@ import "./netra-bay.css";
  * the same freshness guarantee the prototype got from `this.state` in a
  * class component.
  *
- * Seams: S8 (streaming) swaps the `askOffline()` call inside `ask()` for a
- * real request, keeping the `{ ms, count, answer }` shape so the rest of
- * `ask()` doesn't change. S9 (point-mode) calls `pick(id, label)` — already
+ * Seams: S8 (streaming, this slice) swapped the `askOffline()` call inside
+ * `ask()` for `useNetraChat().streamAsk()`, which returns the same
+ * `{ ms, count, answer }` shape plus a `local` flag — the one addition to
+ * the shape, needed so the final result line can honestly say "· local"
+ * only when the answer actually came from the offline fallback. Everything
+ * else around the seam (pending-turn push, `pendingRef` guard, turn patch
+ * by uid, `commitNetraLog`, `announce`) is unchanged, now wrapped in
+ * try/finally so a rejected/aborted stream can never wedge the input —
+ * though in practice `streamAsk` never rejects; it resolves to a local
+ * fallback internally on every failure path. S9 (point-mode) calls
+ * `pick(id, label)` — already
  * fully implemented — via the `NetraBayHandle` exposed through
  * `useImperativeHandle`; the `⟶ POINT` button and the `Escape` key case
  * render/listen today but are no-ops until S9 fills them in (see TODOs).
@@ -70,6 +82,7 @@ export function NetraBay({ range = STRATA_READOUT.all.range, ret = STRATA_READOU
   const { log, target } = useSyncExternalStore(subscribeNetraLog, getNetraLogSnapshot, getNetraLogServerSnapshot);
   const [open, setOpen] = useState(false);
   const [announcement, setAnnouncement] = useState("");
+  const { streamAsk, remaining, abort } = useNetraChat();
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const pendingRef = useRef(false);
@@ -118,19 +131,26 @@ export function NetraBay({ range = STRATA_READOUT.all.range, ret = STRATA_READOU
       setNetraLog({ log: [...beforeAsk.log, pendingTurn], target: beforeAsk.target });
       setOpen(true);
 
-      // ── S8 seam ── this is the only line a streaming client swaps out.
-      const { ms, count, answer } = askOffline(query);
+      try {
+        // ── S8 seam ── streams live via /api/chat; falls back to askOffline
+        // internally (see useNetraChat.ts) on any network/HTTP/timeout/
+        // dormancy failure. `local` marks which one actually answered.
+        const { ms, count, answer, local } = await streamAsk(uid, query, beforeAsk.target?.id ?? null);
 
-      const nStr = String(count).padStart(2, "0");
-      const afterAsk = getNetraLogSnapshot();
-      const resolvedLog = afterAsk.log.map((t) =>
-        t.uid === uid ? { ...t, a: answer, result: `resolved · ${nStr} entries · local · ${ms}ms` } : t
-      );
-      commitNetraLog({ log: resolvedLog, target: afterAsk.target });
-      announce(answer);
-      pendingRef.current = false;
+        const nStr = String(count).padStart(2, "0");
+        const afterAsk = getNetraLogSnapshot();
+        const resolvedLog = afterAsk.log.map((t) =>
+          t.uid === uid
+            ? { ...t, a: answer, result: `resolved · ${nStr} entries · ${local ? "local · " : ""}${ms}ms` }
+            : t
+        );
+        commitNetraLog({ log: resolvedLog, target: afterAsk.target });
+        announce(answer);
+      } finally {
+        pendingRef.current = false;
+      }
     },
-    [announce]
+    [announce, streamAsk]
   );
 
   const handleInputKeyDown = useCallback(
@@ -145,9 +165,10 @@ export function NetraBay({ range = STRATA_READOUT.all.range, ret = STRATA_READOU
   );
 
   const handleClear = useCallback(() => {
+    abort();
     clearNetraLog();
     pendingRef.current = false;
-  }, []);
+  }, [abort]);
 
   // '/' focuses the survey input from anywhere on the page (guarded when
   // already typing elsewhere). Escape is wired for point-mode disarm —
@@ -223,6 +244,15 @@ export function NetraBay({ range = STRATA_READOUT.all.range, ret = STRATA_READOU
         >
           ⟶ POINT
         </button>
+
+        {/* X-NETRA-Remaining, surfaced subtly (instrument register, same
+            typographic treatment as the transcript's VISITOR tag) — updated
+            on every /api/chat response useNetraChat sees. */}
+        {remaining !== null && (
+          <span className="t-meta netra-bay-visitor-tag" data-netra-quota>
+            QUOTA {remaining}
+          </span>
+        )}
 
         <button
           type="button"
