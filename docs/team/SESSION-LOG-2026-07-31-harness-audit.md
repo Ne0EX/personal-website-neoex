@@ -80,6 +80,28 @@ efficient จุดประสงค์เพื่อการยกระด�
 - Barriering 2 slow reference-extractors *before* 9 layer audits cost real wall-clock. One flat
   `parallel` would have been better.
 
+## Close-out addendum — the ritual's own checks nearly produced a false negative
+
+Re-running `close-session` a second time caught something worth keeping. Verifying box 1, plain
+`grep -c 'HARNESS-AUDIT' docs/team/STATUS.md` returned **exit 1, no output** — I briefly concluded
+the STATUS entry had not landed. It had: `grep -ac` returns **3**, and the committed version in HEAD
+carries 3 hits plus 5 `must_close_by: 2026-08-14` and 8 `block_until: 2026-08-14`. Cause: BSD grep in
+a UTF-8 locale bails on STATUS.md's very long em-dash-bearing lines (`file` reports
+`very long lines (2757)`, no NUL bytes) and reports nothing rather than erroring.
+
+The trap was already known and already solved in one place —
+`scripts/audit-signature-completeness.sh:139` uses `grep -a` and comments why — but it was never
+written down team-wide, so I walked straight into it while auditing false-greens. **A verification
+tool that reports "not found" when the content is present is the same disease as a gate that exits 0
+on absent input.** Recorded as memory `reference_grep_status_md_needs_dash_a`; a Verification-traps
+section was added to the `close-session` skill.
+
+Also surfaced from inside the ritual: **box 2 (CAPTURE) writes to a directory git cannot see.**
+`.claude/skills/` and `.claude/workflows/` are gitignored (`.gitignore:114`, `:129`), so every skill
+this ritual captures compounds only on this machine — same root as the gitignored signature corpus.
+Until the tracking policy in the audit's §8 item 3 is settled, the durable lesson must also land
+somewhere tracked. This section is that, for this session.
+
 ## Parked / open
 
 Everything is open — this session produced no fix by design. G0–G7 with owners and tiers are in the
