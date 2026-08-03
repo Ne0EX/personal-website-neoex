@@ -16,7 +16,8 @@
  *
  * generateStaticParams: pre-render layout shells for both supported locales.
  *
- * Triangulate Search OVERLAY — mounted here (public surface).
+ * Public-only chrome — the theme register and Triangulate Search OVERLAY —
+ * mounted here (public surface).
  * Console routes are NOT under [lang] so they do not get the portal.
  *
  * SPEC: SPEC-2026-06-18-bilingual-translation-group §4.1, §4.3
@@ -25,6 +26,7 @@
 
 import { getArchiveEntries, getMiniGlobePins } from '@/lib/content'
 import { TriangulateSearchPortal } from '@/components/TriangulateSearchPortal'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Static params — pre-render layout shells for supported locales.
@@ -56,6 +58,7 @@ export default async function LangLayout({
   return (
     <>
       {children}
+      <ThemeToggle />
       {/*
        * Triangulate Search OVERLAY — public-surface mount.
        * Hosts the global '/' hotkey listener + the 'triangulate:open' event

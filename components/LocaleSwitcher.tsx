@@ -70,9 +70,12 @@ export function LocaleSwitcher() {
   useEffect(() => {
     // Hydration-safe: read window.location only inside useEffect (client-only).
     const detected = localeFromPathname(window.location.pathname);
-    setLocale(detected);
-    // Defer visibility one tick so the initial render never flashes a stale label.
-    const t = setTimeout(() => setVisible(true), 0);
+    // Defer both state updates one tick so the initial render never flashes a
+    // stale label and React does not cascade-render from the effect body.
+    const t = setTimeout(() => {
+      setLocale(detected);
+      setVisible(true);
+    }, 0);
     return () => clearTimeout(t);
   }, []);
 
@@ -212,7 +215,10 @@ function LocaleButton({
         pointerEvents: active ? "none" : "auto",
       }}
       onMouseEnter={(e) => {
-        if (!active) {
+        // F4: touch-gate — only apply hover colour on true pointer devices.
+        // onMouseEnter fires on touch tap on iOS/Android, producing a stuck
+        // accent-orange state. The matchMedia guard prevents that.
+        if (!active && window.matchMedia("(hover: hover) and (pointer: fine)").matches) {
           /* ctl-text hover: --ctl-text-fg-hover (accent-orange) */
           e.currentTarget.style.color = "var(--ctl-text-fg-hover)";
         }

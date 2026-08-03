@@ -13,6 +13,18 @@
 
 ---
 
+## TASK-2026-08-03-WORLDLINE-PROD-CLOSE · **closed 2026-08-03** · production console boundary + content visibility
+
+scope · Peat's production Worldline surface: isolate public theme chrome from the growing `/console` admin surface, confirm the Vercel/Cloudflare/Supabase path, and stage the article corpus as drafts before the next writing pass.
+
+shipped · `ThemeToggle` moved from the root layout into the public `[lang]` layout, so `/console` and `/console/editor` do not receive public `REGISTER · DAY · NIGHT` chrome. Production deployment is live at `neoex.dev`; the console login bug is fixed. Supabase `entries` now has 15 article rows, all `status='draft'` (5 changed from published; bodies and titles untouched). The 10 queued articles remain drafts.
+
+verify · lint/typecheck/build passed for the console fix; production smoke: `/console` 200, `/console/editor` 200, unauthenticated auth probe 401, public `/en` retains the theme register, and prior article URLs return 404 after redeploy. Public Supabase query returns zero published article rows.
+
+held-pending (Peat) · **Ado AO 2026 article** — prepare the concert article and have it ready by **2026-08-05**. owner: Peat · must_close_by: 2026-08-05. · Article rewrites remain intentionally parked with reason: Peat will revisit after the Ado AO 2026 article; all remain drafts.
+
+---
+
 ## TASK-2026-06-12-STORE-AS-SOURCE · **closed 2026-06-12** · S1–S9 ✓ · Algol final verdict PASS · branch `genesis/store-as-source`
 
 scope · Peat directive: finish worldline-console completely — create/delete article, upload/delete photo, everything synced with public pages, content+media ONLINE in a database so nothing new leaks to git. **Two Peat decisions this session:** ① stack = **Supabase** (closes the 06-08/06-10 pending decision; Turso/Auth.js/R2 trio dead) — project `worldline` ref `aitqswnbtpexrxqpoiwo`, ap-southeast-1, free tier; ② sign-in locked to his identity only (`neospiritth@gmail.com`). Spec: `docs/team/SPEC-2026-06-12-store-as-source-supabase.md` (DL1–DL15; authored by spec workflow `wf_98ce954c-cc4` — 5-recon → architect → 3-lens critique 27 issues → 27/27 applied). Build: workflow `wf_d66aa348-a05` (S1 procyon schema/RLS/storage/owner `1f745c1` · S2 procyon migration `90cc06b` · S4 altair auth/proxy fail-closed `0747a07` · S3 procyon read-swap + velite-out `4b245b4` · S5 altair write path `b3ac597` · S6 sirius console wiring `44332bd` · S7 altair export `70ea6eb` · S8 canopus env/CI/guard `1c0e853`+`102b387`+`49266e5`). Verify: Algol round-0 29 PASS / 4 REVISE (`31396ce`), remediation (osaka row `5f821b9` · DSCF0998 row SQL-deleted · signup guard trigger `922d0f2` · content/ untracked `8ea0833` · retired velite suites `b8b5327`), **round-2 final PASS `f6bc266`** — report `docs/qa/REPORTS/TASK-2026-06-12-STORE-AS-SOURCE.md`. DB ground truth at close: places 4 · entries 10 (all published) · rolls 2 · photo_assets 5 · auth.users 1 (Peat only, DB-trigger enforced, all providers).

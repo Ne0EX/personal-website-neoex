@@ -6,8 +6,8 @@
  *   - Console routes under app/console/ (chrome i18n deferred — DL3 / OQ6)
  *
  * Fonts are loaded here so both public and console surfaces share the same
- * CSS variable set. The TriangulateSearchPortal has been moved to
- * app/[lang]/layout.tsx (public surface only — console does not get it).
+ * CSS variable set. Public-only chrome (the theme register and search portal)
+ * lives in app/[lang]/layout.tsx, so console routes do not get it.
  *
  * The html lang attribute here is 'en' at the document level:
  *   - Console routes: always English (DL3).
@@ -54,7 +54,6 @@ import {
   Trirong,
 } from 'next/font/google'
 import './globals.css'
-import { ThemeToggle } from '@/components/ThemeToggle'
 
 // Version F: IBM Plex Mono — designed superfamily companion to IBM Plex Sans Thai
 const ibmPlexMono = IBM_Plex_Mono({
@@ -159,7 +158,6 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         {children}
-        <ThemeToggle />
       </body>
     </html>
   )
