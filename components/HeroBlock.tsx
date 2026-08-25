@@ -1,9 +1,26 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import { animate, stagger } from "animejs";
 import { DivergenceMeter } from "./DivergenceMeter";
-import { WorldlineGlobe } from "./WorldlineGlobe";
+
+/**
+ * A.T.L.A.S. pulls in three.js (~600 kB) and only ever renders in the
+ * browser, so it is code-split out of the initial bundle and skips SSR.
+ * The placeholder reserves the frame height to avoid a layout shift.
+ */
+const WorldlineGlobe = dynamic(
+  () => import("./WorldlineGlobe").then((m) => m.WorldlineGlobe),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="atlas-frame atlas-frame-loading t-meta" aria-busy>
+        <span>A.T.L.A.S. — CALIBRATING SURFACE …</span>
+      </div>
+    ),
+  }
+);
 
 /**
  * HeroBlock — compact title strip above a full-width A.T.L.A.S. artifact.

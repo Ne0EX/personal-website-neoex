@@ -418,6 +418,13 @@ body {
   overflow: hidden;
 }
 
+/* Placeholder shown while the A.T.L.A.S. chunk loads. */
+.atlas-frame-loading {
+  min-height: 640px;
+  place-items: center;
+  color: var(--ink-soft);
+}
+
 .atlas-head {
   display: flex;
   align-items: baseline;
@@ -827,6 +834,9 @@ body {
   }
   .atlas-globe-wrap {
     min-height: 380px;
+  }
+  .atlas-frame-loading {
+    min-height: 460px;
   }
 
   /* ATLAS head can wrap */
