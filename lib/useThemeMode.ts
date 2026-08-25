@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
 /**
  * Worldline theme mode — opt-in dark ("night register").
@@ -54,27 +54,25 @@ export function toggleThemeMode(): ThemeMode {
   return next;
 }
 
+function subscribeTheme(callback: () => void) {
+  if (typeof document === "undefined") return () => {};
+  const observer = new MutationObserver(callback);
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
+  return () => observer.disconnect();
+}
+
 /**
  * Subscribe to the current theme mode. Returns "light" until mounted (matching
  * SSR), then reflects the live <html data-theme> attribute and updates whenever
  * it changes — from this island or any other.
  */
 export function useThemeMode(): ThemeMode {
-  const [mode, setMode] = useState<ThemeMode>("light");
-
-  useEffect(() => {
-    setMode(getThemeMode());
-
-    const observer = new MutationObserver(() => {
-      setMode(getThemeMode());
-    });
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["data-theme"],
-    });
-
-    return () => observer.disconnect();
-  }, []);
-
-  return mode;
+  return useSyncExternalStore(
+    subscribeTheme,
+    getThemeMode,
+    () => "light"
+  );
 }

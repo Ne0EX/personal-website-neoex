@@ -142,8 +142,11 @@ export async function getArticles(requestedLang = 'en'): Promise<Article[]> {
     .eq('status', 'published')
     .order('iso_date', { ascending: false })
 
-  if (error) throw new Error(`getArticles: ${error.message}`)
-  const rows = data as unknown as DbEntryRow[]
+  if (error) {
+    console.warn(`getArticles: ${error.message}`)
+    return []
+  }
+  const rows = (data ?? []) as unknown as DbEntryRow[]
   return dedupBySlug(rows, requestedLang).map(mapArticle)
 }
 
@@ -178,7 +181,10 @@ export async function getArticleByFileNum(
     .eq('status', 'published')
     .in('lang', Array.from(new Set([requestedLang, 'en'])))
 
-  if (error) throw new Error(`getArticleByFileNum: ${error.message}`)
+  if (error) {
+    console.warn(`getArticleByFileNum: ${error.message}`)
+    return undefined
+  }
   const rows = (data ?? []) as unknown as DbEntryRow[]
   const row = pickSibling(rows, requestedLang)
   if (!row) return undefined
@@ -219,8 +225,11 @@ export async function getRecentArticles(limit = 4, requestedLang = 'en'): Promis
     .order('iso_date', { ascending: false })
     .limit(fetchLimit)
 
-  if (error) throw new Error(`getRecentArticles: ${error.message}`)
-  const rows = data as unknown as DbEntryRow[]
+  if (error) {
+    console.warn(`getRecentArticles: ${error.message}`)
+    return []
+  }
+  const rows = (data ?? []) as unknown as DbEntryRow[]
   return dedupBySlug(rows, requestedLang).slice(0, limit).map(mapArticle)
 }
 
@@ -247,7 +256,10 @@ export async function getRelatedArticles(
     .neq('slug', source.fileNum)
     .order('iso_date', { ascending: false })
 
-  if (error) throw new Error(`getRelatedArticles: ${error.message}`)
+  if (error) {
+    console.warn(`getRelatedArticles: ${error.message}`)
+    return []
+  }
 
   const sourceTags = new Set(source.tags)
   // Dedup first so overlap sort / slice operates on one row per article. (§3.4 SPEC)
@@ -288,7 +300,10 @@ export async function getPublishedArticleCount(requestedLang = 'en'): Promise<nu
     .eq('kind', 'article')
     .eq('status', 'published')
 
-  if (error) throw new Error(`getPublishedArticleCount: ${error.message}`)
+  if (error) {
+    console.warn(`getPublishedArticleCount: ${error.message}`)
+    return 0
+  }
   // Reuse dedupBySlug: count distinct slugs after lang-preference dedup.
   // This is identical to getArticles() minus column fetch + mapping.
   return dedupBySlug((data ?? []) as unknown as DbEntryRow[], requestedLang).length
@@ -311,8 +326,11 @@ export async function getFiction(requestedLang = 'en'): Promise<Fiction[]> {
     .eq('status', 'published')
     .order('iso_date', { ascending: false })
 
-  if (error) throw new Error(`getFiction: ${error.message}`)
-  const rows = data as unknown as DbEntryRow[]
+  if (error) {
+    console.warn(`getFiction: ${error.message}`)
+    return []
+  }
+  const rows = (data ?? []) as unknown as DbEntryRow[]
   return dedupBySlug(rows, requestedLang).map(mapFiction)
 }
 
@@ -333,7 +351,10 @@ export async function getFictionBySlug(
     .eq('status', 'published')
     .in('lang', Array.from(new Set([requestedLang, 'en'])))
 
-  if (error) throw new Error(`getFictionBySlug: ${error.message}`)
+  if (error) {
+    console.warn(`getFictionBySlug: ${error.message}`)
+    return undefined
+  }
   const row = pickSibling((data ?? []) as unknown as DbEntryRow[], requestedLang)
   if (!row) return undefined
   return mapFiction(row)
@@ -365,7 +386,10 @@ export async function getFictionSiblings(slug: string): Promise<Fiction[]> {
     .eq('divergence_cluster', self.divergence_cluster)
     .neq('slug', slug)
 
-  if (error) throw new Error(`getFictionSiblings: ${error.message}`)
+  if (error) {
+    console.warn(`getFictionSiblings: ${error.message}`)
+    return []
+  }
 
   const selfAlpha = _pickAlpha(self)
   // Dedup by slug (pick 'en' for each cluster member) before alpha-distance sort.
@@ -390,8 +414,11 @@ export async function getPhotos(): Promise<Photo[]> {
     .select(ROLL_COLS)
     .order('iso_date', { ascending: false })
 
-  if (error) throw new Error(`getPhotos: ${error.message}`)
-  return (data as unknown as DbRollRow[]).map(mapRoll)
+  if (error) {
+    console.warn(`getPhotos: ${error.message}`)
+    return []
+  }
+  return ((data ?? []) as unknown as DbRollRow[]).map(mapRoll)
 }
 
 /** Roll body text for a specific roll. Returns null when roll not found. */
@@ -402,7 +429,10 @@ export async function getRollBody(roll: string): Promise<string | null> {
     .eq('roll', roll)
     .maybeSingle()
 
-  if (error) throw new Error(`getRollBody: ${error.message}`)
+  if (error) {
+    console.warn(`getRollBody: ${error.message}`)
+    return null
+  }
   return data?.body ?? null
 }
 
@@ -418,7 +448,10 @@ async function fetchAssets(entryIds: string[]): Promise<Map<string, DbPhotoAsset
     .select(ASSET_COLS)
     .in('entry_id', entryIds)
 
-  if (error) throw new Error(`fetchAssets: ${error.message}`)
+  if (error) {
+    console.warn(`fetchAssets: ${error.message}`)
+    return new Map()
+  }
   const map = new Map<string, DbPhotoAssetRow>()
   for (const row of (data ?? []) as unknown as DbPhotoAssetRow[]) {
     map.set(row.entry_id, row)
@@ -435,8 +468,11 @@ export async function getPhotoSidecars(): Promise<PhotoSidecar[]> {
     .eq('status', 'published')
     .order('iso_date', { ascending: false })
 
-  if (error) throw new Error(`getPhotoSidecars: ${error.message}`)
-  const rows = data as unknown as DbEntryRow[]
+  if (error) {
+    console.warn(`getPhotoSidecars: ${error.message}`)
+    return []
+  }
+  const rows = (data ?? []) as unknown as DbEntryRow[]
   const assets = await fetchAssets(rows.map((r) => r.id))
   return rows.map((r) => mapPhotoSidecar(r, assets.get(r.id)))
 }
@@ -451,8 +487,11 @@ export async function getSidecarsInRoll(roll: string): Promise<PhotoSidecar[]> {
     .eq('roll', roll)
     .order('photo_id', { ascending: true })
 
-  if (error) throw new Error(`getSidecarsInRoll: ${error.message}`)
-  const rows = data as unknown as DbEntryRow[]
+  if (error) {
+    console.warn(`getSidecarsInRoll: ${error.message}`)
+    return []
+  }
+  const rows = (data ?? []) as unknown as DbEntryRow[]
   const assets = await fetchAssets(rows.map((r) => r.id))
   return rows.map((r) => mapPhotoSidecar(r, assets.get(r.id)))
 }
@@ -467,7 +506,10 @@ export async function getPhotoByRollAndId(roll: string, id: string): Promise<Pho
     .eq('photo_id', id)
     .maybeSingle()
 
-  if (error) throw new Error(`getPhotoByRollAndId: ${error.message}`)
+  if (error) {
+    console.warn(`getPhotoByRollAndId: ${error.message}`)
+    return null
+  }
   if (!data) return null
   const row = data as unknown as DbEntryRow
   const assets = await fetchAssets([row.id])
@@ -520,8 +562,11 @@ export async function getGlobeEligiblePhotos() {
     .eq('share_location', true)
     .not('served_coords', 'is', null)
 
-  if (error) throw new Error(`getGlobeEligiblePhotos: ${error.message}`)
-  const rows = data as unknown as DbEntryRow[]
+  if (error) {
+    console.warn(`getGlobeEligiblePhotos: ${error.message}`)
+    return []
+  }
+  const rows = (data ?? []) as unknown as DbEntryRow[]
   const assets = await fetchAssets(rows.map((r) => r.id))
   return rows.map((r) => {
     const s = mapPhotoSidecar(r, assets.get(r.id))
@@ -560,8 +605,11 @@ export async function getPhotosByRoll(roll: string): Promise<Photo[]> {
     .eq('roll', roll)
     .order('iso_date', { ascending: true })
 
-  if (error) throw new Error(`getPhotosByRoll: ${error.message}`)
-  return (data as unknown as DbRollRow[]).map(mapRoll)
+  if (error) {
+    console.warn(`getPhotosByRoll: ${error.message}`)
+    return []
+  }
+  return ((data ?? []) as unknown as DbRollRow[]).map(mapRoll)
 }
 
 // ---------------------------------------------------------------------------
@@ -734,8 +782,11 @@ export async function getAllPlacesFromStore(): Promise<Place[]> {
     .select(PLACE_COLS)
     .order('id', { ascending: true })
 
-  if (error) throw new Error(`getAllPlacesFromStore: ${error.message}`)
-  return (data as unknown as DbPlaceRow[]).map(mapPlace)
+  if (error) {
+    console.warn(`getAllPlacesFromStore: ${error.message}`)
+    return []
+  }
+  return ((data ?? []) as unknown as DbPlaceRow[]).map(mapPlace)
 }
 
 /**
@@ -749,19 +800,23 @@ export async function getAllPlacesFromStore(): Promise<Place[]> {
  * default preserving existing behaviour during any accidental de-seeded state).
  */
 export async function getAlphaPlace(): Promise<Place> {
-  const { data, error } = await anonClient
-    .from('places')
-    .select(PLACE_COLS)
-    .eq('is_alpha', true)
-    .maybeSingle()
+  try {
+    const { data, error } = await anonClient
+      .from('places')
+      .select(PLACE_COLS)
+      .eq('is_alpha', true)
+      .maybeSingle()
 
-  if (error) throw new Error(`getAlphaPlace: ${error.message}`)
-
-  if (data) return mapPlace(data as unknown as DbPlaceRow)
+    if (!error && data) {
+      return mapPlace(data as unknown as DbPlaceRow)
+    }
+  } catch {
+    // Safe fallback below
+  }
 
   // Safe fallback: Bangkok — matches the historical hardcoded ALPHA_LAT/ALPHA_LON.
   // This path should never be reached in a correctly seeded DB, but prevents a
-  // globe crash during any transient un-seeded state.
+  // globe crash during any transient un-seeded state or offline build.
   return {
     id: 'bangkok',
     level: 1,

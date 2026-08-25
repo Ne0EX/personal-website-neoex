@@ -253,6 +253,6 @@ export const config = {
     // slugs (articles → \d{3}, fiction → kebab, photos → roll/DSCF\d+) so this
     // pattern cannot accidentally eat a real page. The three named dotted files are
     // redundant once `.*\\..*` is present but are retained for clarity.
-    '/((?!_next/static|_next/image|api|console|favicon\\.ico|sitemap\\.xml|robots\\.txt|.*\\..*).*)',
+    '/((?!_next/static|_next/image|api|console|opengraph-image|twitter-image|favicon\\.ico|sitemap\\.xml|robots\\.txt|.*\\..*).*)',
   ],
 }

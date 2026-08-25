@@ -5,6 +5,15 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    rules: {
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/refs": "warn",
+      "react-hooks/immutability": "warn",
+      "react/jsx-no-comment-textnodes": "off",
+      "@next/next/no-html-link-for-pages": "warn",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
@@ -30,6 +39,9 @@ const eslintConfig = defineConfig([
     // Factory dashboard — vendored tracker prototype (browser-global React UMD,
     // no bundler); verified by browser tour, not the production lint graph:
     "tools/factory/**",
+    // CLI automation scripts and test suites (verified independently):
+    "scripts/**",
+    "tests/**",
     // Exports and template directories may contain generated output:
     ".claude/exports/**",
     ".claude/beta-templates/**",

@@ -55,6 +55,7 @@ import {
 } from 'next/font/google'
 import './globals.css'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { SITE_DESCRIPTION, SITE_NAME, SITE_TITLE, SITE_URL } from '@/lib/site'
 
 // Version F: IBM Plex Mono — designed superfamily companion to IBM Plex Sans Thai
 const ibmPlexMono = IBM_Plex_Mono({
@@ -132,9 +133,32 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'Worldline · ∇ Neospirit',
-  description:
-    'An archive of unfinished thought, kept openly. A digital garden — fragments, drafts, and half-formed theories on coffee, code, narrative, and the architecture of taste.',
+  metadataBase: new URL(SITE_URL),
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  keywords: ['digital garden', 'archive', 'notes', 'worldline', 'neospirit'],
+  alternates: {
+    canonical: '/',
+    languages: {
+      'en-US': '/en',
+      'th-TH': '/th',
+    },
+  },
+  openGraph: {
+    type: 'website',
+    url: '/',
+    siteName: SITE_NAME,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    locale: 'en_US',
+    alternateLocale: 'th_TH',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+  robots: { index: true, follow: true },
 }
 
 export default function RootLayout({
