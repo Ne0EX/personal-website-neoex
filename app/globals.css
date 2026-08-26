@@ -2377,7 +2377,7 @@ body {
 }
 
 /* =============================================================
-   REGISTER — desktop theme toggle (fixed bottom-right)
+   REGISTER — desktop theme toggle (fixed bottom-left)
    Ported from the Worldline Dark Mode PoC. ○ DAY / ◆ NIGHT, the
    active button carries an orange underline. Hidden ≤600px — on
    phone the toggle folds into .nav-slim-actions (.nav-slim-theme).
@@ -2386,7 +2386,7 @@ body {
 .register {
   position: fixed;
   bottom: 18px;
-  right: 46px;
+  left: 46px;
   z-index: 60;
   display: flex;
   align-items: center;

@@ -27,6 +27,7 @@
 import { getArchiveEntries, getMiniGlobePins } from '@/lib/content'
 import { TriangulateSearchPortal } from '@/components/TriangulateSearchPortal'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { NetraNavigator } from '@/components/NetraNavigator'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Static params — pre-render layout shells for supported locales.
@@ -59,6 +60,7 @@ export default async function LangLayout({
     <>
       {children}
       <ThemeToggle />
+      <NetraNavigator lang={_lang} />
       {/*
        * Triangulate Search OVERLAY — public-surface mount.
        * Hosts the global '/' hotkey listener + the 'triangulate:open' event
