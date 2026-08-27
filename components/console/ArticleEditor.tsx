@@ -30,6 +30,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import Link from 'next/link'
 import type { Article } from '@/lib/content/types'
 import { ArticlePreview } from '@/components/console/ArticlePreview'
 
@@ -375,14 +376,14 @@ function Toolbar({ fileNum, entryKind, mode, onMode, outlineOpen, onOutline }: T
     <div className="ed-toolbar">
       <div className="ed-tb-left">
         {/* ⟵ CONSOLE — Slice 2: /console front door now exists (nav round-trip complete) */}
-        <a
+        <Link
           className="ed-back"
           href="/console"
           title="back to the console"
           aria-label="back to console"
         >
           ⟵ CONSOLE
-        </a>
+        </Link>
         <span className="ed-tb-sep" aria-hidden>·</span>
         <span className="ed-tb-file">{KIND_GLYPH[entryKind]} FILE {fileNum}</span>
         {/* Tier-b: toolbar label reflects real kind from URL searchParams */}
@@ -448,7 +449,7 @@ function Outline({ md, source }: OutlineProps) {
   return (
     <aside className="ed-rail" aria-label="document outline">
       <div>
-        <div className="rail-head">// OUTLINE</div>
+        <div className="rail-head">{"// OUTLINE"}</div>
         {heads.length === 0 && (
           <div className="outline-empty" aria-live="polite">no headings yet</div>
         )}
@@ -464,7 +465,7 @@ function Outline({ md, source }: OutlineProps) {
       </div>
 
       <div className="ed-rail-src">
-        <div className="rail-head">// SOURCE</div>
+        <div className="rail-head">{"// SOURCE"}</div>
         <div className="ed-rail-prov">{source}</div>
       </div>
     </aside>

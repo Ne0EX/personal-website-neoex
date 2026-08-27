@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useStratumKey, type StratumKey } from "@/lib/client-state/globe-store";
 import { LocaleSwitcher } from "./LocaleSwitcher";
@@ -253,9 +254,9 @@ export function Nav() {
         {/* Single-row inner bar */}
         <div className="nav-slim-bar">
           {/* Wordmark — left */}
-          <a href="/" className="nav-slim-wordmark">
+          <Link href="/" className="nav-slim-wordmark">
             ∇ NEOSPIRIT
-          </a>
+          </Link>
 
           {/*
             Centre readout — reuses `time` state (same interval as desktop bar).

@@ -1251,7 +1251,10 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
 
   // Reduced-motion preference — read once in useEffect, stable for session.
   // Per spec §10.2: no fade animations, instant alpha, no breathing.
+  // Mirrored as state so render-time consumers (PlaceFrontDoorPanel) get the
+  // post-mount value without reading refs during render (react-hooks/refs).
   const reducedMotionRef = useRef(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
   // Arc reveal animation state — drives the draw-in from α outward on NeX entry.
   // active=false when settled (or not in NeX). Tick reads this every frame.
@@ -1297,9 +1300,11 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
 
     // Hydration-safe reduced-motion read — inside useEffect, not during render.
     // Per AGENTS.md quality bar: check prefers-reduced-motion in useEffect only.
-    reducedMotionRef.current =
+    const prefersReducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    reducedMotionRef.current = prefersReducedMotion;
+    setReducedMotion(prefersReducedMotion);
 
     // movable-alpha: pass current alpha coords into scene construction so the
     // observer α ring, the worldline arc, and camera framing all start at the
@@ -2983,7 +2988,7 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
         summary={selectedSummary}
         content={selectedContent}
         digOpen={digOpen}
-        reducedMotion={reducedMotionRef.current}
+        reducedMotion={reducedMotion}
         onClose={() => setSelectedId(null)}
         onToggleDig={() => setDigOpen((d) => !d)}
       />

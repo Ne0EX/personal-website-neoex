@@ -120,7 +120,7 @@ async function main() {
     console.log(`  PASS — anon coords select refused: ${coordsError.message}`)
   } else {
     // If data returned but coords are absent/null due to column grant, that's also fine
-    const hasCoords = coordsData?.some((r: any) => r.coords !== undefined && r.coords !== null)
+    const hasCoords = coordsData?.some((r: { coords?: unknown }) => r.coords !== undefined && r.coords !== null)
     if (hasCoords) {
       console.log(`  FAIL — anon got raw coords: ${JSON.stringify(coordsData?.slice(0,1))}`)
       process.exit(1)

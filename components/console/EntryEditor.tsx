@@ -73,6 +73,7 @@
 import type React from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import type { Article, Photo, PhotoSidecar } from '@/lib/content/types'
 import type { InstrumentOverrides, Place } from '@/lib/store/types'
 // S6: swap to store actions (setEntryDraft + deleteEntry + updateEntry now live against DB)
@@ -1521,14 +1522,14 @@ function EntryToolbar({
       {/* ── ROW 1 — entry object (navigation · identity · lifecycle) ── */}
       <div className="ed-tb-row ed-tb-row-1">
         {/* Back link */}
-        <a
+        <Link
           className="ed-back"
           href="/console"
           title="back to the console"
           aria-label="back to console"
         >
           ⟵ CONSOLE
-        </a>
+        </Link>
         <span className="ed-tb-sep" aria-hidden>·</span>
 
         {/* Identity lane — flex:1 / min-width:0 — slug truncates when the
@@ -1880,7 +1881,7 @@ function ArticleOutline({ md, fileNum, previewRefId, textareaRef }: ArticleOutli
   return (
     <aside className="ed-rail" aria-label="document outline">
       <div>
-        <div className="rail-head">// OUTLINE</div>
+        <div className="rail-head">{"// OUTLINE"}</div>
         {heads.length === 0 && (
           <div className="outline-empty" aria-live="polite">no headings yet</div>
         )}
@@ -1898,7 +1899,7 @@ function ArticleOutline({ md, fileNum, previewRefId, textareaRef }: ArticleOutli
       </div>
 
       <div>
-        <div className="rail-head">// SOURCE</div>
+        <div className="rail-head">{"// SOURCE"}</div>
         <div className="ed-rail-prov">{fileNum}</div>
       </div>
     </aside>
@@ -2038,7 +2039,7 @@ function FramesRail({ frames, active, setActive, setFrames, uploadStatuses }: Fr
   return (
     <aside className="ed-rail" aria-label="photo frames outline">
       <div>
-        <div className="rail-head">// FRAMES</div>
+        <div className="rail-head">{"// FRAMES"}</div>
         {frames.length === 0 ? (
           <div className="outline-empty">no frames yet</div>
         ) : (
@@ -2133,7 +2134,7 @@ function ChaptersRail({ chapters, active, setActive, setChapters }: ChaptersRail
   return (
     <aside className="ed-rail" aria-label="fiction chapters outline">
       <div>
-        <div className="rail-head">// CHAPTERS</div>
+        <div className="rail-head">{"// CHAPTERS"}</div>
         {chapters.length === 0 ? (
           <div className="outline-empty">no chapters yet</div>
         ) : (
@@ -2165,7 +2166,7 @@ function ChaptersRail({ chapters, active, setActive, setChapters }: ChaptersRail
       </div>
 
       <div>
-        <div className="rail-head">// STATE</div>
+        <div className="rail-head">{"// STATE"}</div>
         {!ch ? (
           <div className="st-empty">— no active chapter —</div>
         ) : (
