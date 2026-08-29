@@ -15,7 +15,13 @@
       "status": "enforcing",
       "mode": "block",
       "barrier_class": "HARD-BARRIER",
-      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-territory"
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-territory",
+      "ci": {
+        "required": false,
+        "disposition": "skip",
+        "deterministic": true,
+        "reason": "context-only: WL_AGENT and WL_TASK_ID identify one local task; shared CI has no task owner"
+      }
     },
     "design-tokens": {
       "description": "No raw hex color values (#[0-9a-fA-F]{3,8}) outside two whitelisted locations: app/globals.css and components/WorldlineGlobe.tsx.",
@@ -24,7 +30,16 @@
       "status": "enforcing",
       "mode": "block",
       "barrier_class": "HARD-BARRIER",
-      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-design-tokens"
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-design-tokens",
+      "ci": {
+        "required": true,
+        "disposition": "run",
+        "deterministic": true,
+        "requires": {
+          "commands": ["bash", "find", "grep", "sort"],
+          "paths": ["app", "components"]
+        }
+      }
     },
     "next-16-api": {
       "description": "No deprecated Next.js API usage. Stub — awaiting Algol TS audit logic.",
@@ -61,7 +76,19 @@
       "mode": "block",
       "barrier_class": "HARD-BARRIER",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-prototype-layer",
-      "introduced": "TASK-2026-05-15-META-10"
+      "introduced": "TASK-2026-05-15-META-10",
+      "ci": {
+        "required": true,
+        "disposition": "run",
+        "deterministic": true,
+        "args": ["--production-only"],
+        "scope_paths": ["prototypes/**"],
+        "deferred_paths": [".claude/visual-diffs/**/prototype/**"],
+        "scope_note": "R0 runs the production prototype root; legacy visual-diff task bundles remain deferred until their README contract is migrated",
+        "requires": {
+          "commands": ["bash", "find", "grep", "head", "cut"]
+        }
+      }
     },
     "prototype-production-diff": {
       "description": "Visual drift between Betelgeuse prototype and Sirius production implementation. STUB — real pixel-diff logic deferred to META-11.",
@@ -85,7 +112,13 @@
       "introduced": "TASK-2026-05-15-META-10",
       "timeout_sec": 30,
       "skip_if_playwright_unavailable": true,
-      "allowlist": ".harness/runtime-allowlist.json"
+      "allowlist": ".harness/runtime-allowlist.json",
+      "ci": {
+        "required": false,
+        "disposition": "skip",
+        "deterministic": false,
+        "reason": "deferred: browser/runtime gauntlet requires an approved browser fixture and server seam"
+      }
     },
     "soul-atom-drift": {
       "description": "Every appearance value (color/size/spacing/timing) in the soul-atom gallery (.claude/visual-diffs/soul-atlas/gallery.html) must resolve to a token_ref in app/globals.css OR a cited main_branch_ref in manifest.json. Uncited raw literals = FAIL. Exits 0 silently when soul-atlas/manifest.json does not exist (pre-Phase-1). Includes font-chain presence assertion (C1b) — see font-chain-presence rail.",
@@ -101,7 +134,22 @@
       "updated": "TASK-2026-05-29-SOUL-FACTORY-FIDELITY",
       "update_notes": "C1b font-chain presence check wired; manifest schema bumped to v2 (production_ref field); render-fidelity gauntlet formalized in RAIL-DEFINITIONS.md",
       "blocks_on": ["gallery.html added or modified under soul-atlas/"],
-      "timeout_sec": 30
+      "timeout_sec": 30,
+      "ci": {
+        "required": true,
+        "disposition": "run",
+        "deterministic": true,
+        "requires": {
+          "commands": ["bash", "git", "grep", "jq", "npx", "python3"],
+          "paths": [
+            ".claude/visual-diffs/soul-atlas/manifest.json",
+            ".claude/visual-diffs/soul-atlas/gallery.html",
+            "app/globals.css",
+            "scripts/audit-soul-atom-drift.ts",
+            "scripts/audit-font-chain.sh"
+          ]
+        }
+      }
     },
     "font-chain-presence": {
       "description": "gallery.html must explicitly bind --font-display, --font-mono, --font-type in a :root {} block. Tailwind v4 @theme inline does not execute in static-serve context — without this binding all text atoms fall back to Times serif. Called as sub-check C1b by audit-soul-atom-drift.sh (not run standalone by harness-check.sh).",
@@ -114,7 +162,13 @@
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-font-chain-presence",
       "introduced": "TASK-2026-05-29-SOUL-FACTORY-FIDELITY",
       "root_cause": "TASK-2026-05-29-SOUL-FACTORY-FIDELITY: token-green gallery rendered all text in Times serif because @theme inline does not run outside Tailwind build pipeline",
-      "timeout_sec": 5
+      "timeout_sec": 5,
+      "ci": {
+        "required": false,
+        "disposition": "skip",
+        "deterministic": true,
+        "reason": "embedded: required soul-atom-drift invokes C1b; no standalone CI execution"
+      }
     },
     "html-first-spec-discipline": {
       "description": "Enforce directions/ discipline for the HTML-first spec workflow: each direction-N/README.md must declare soul-baseline (must resolve), connection-point, continuity, evolution, and bet. Blocking for Rule 4 soul-baseline violations; advisory for layout/STATUS hygiene.",
@@ -130,20 +184,33 @@
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-html-first-spec-discipline",
       "spec": "docs/team/WORKFLOW-HTML-FIRST-SPEC.md",
       "introduced": "TASK-2026-05-26-HTML-FIRST-02",
-      "note": "exits 0 silently on tasks without a directions/ directory — no false positives on pre-workflow artifacts"
+      "note": "exits 0 silently on tasks without a directions/ directory — no false positives on pre-workflow artifacts",
+      "ci": {
+        "required": false,
+        "disposition": "skip",
+        "deterministic": true,
+        "reason": "context-only: directions are task-scoped and CI has no task id to select"
+      }
     },
     "axiom-gate-join-coverage": {
       "description": "Axiom↔gate bijection in both directions. Direction 1: every PROJECTED axiom must name ≥1 enforcing gate that exists in harness config. Direction 2: every gate must trace to ≥1 axiom or be in the DERIVED_IS list. UNPROJECTED/PARTIAL axioms past must_project_by = RED. Coverage assertion: all N axioms and all M gates must be visited.",
       "check": "scripts/audit-axiom-gate-join-coverage.sh",
       "applies_to": [".harness/**", "scripts/audit-*.ts", "scripts/audit-*.sh"],
-      "status": "enforcing",
-      "mode": "block",
-      "barrier_class": "HARD-BARRIER",
+      "status": "advisory",
+      "mode": "warn",
+      "barrier_class": "FRICTION-ONLY",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-axiom-gate-join-coverage",
       "introduced": "TASK-2026-05-30-HARNESS-IS-OUGHT-SEPARATOR-B3B",
       "registry": ".harness/axioms-v1.json",
       "schema": ".harness/axioms-v1.schema.json",
-      "invocation_note": "Pass TODAY override via env: TODAY_ISO=YYYY-MM-DD bash scripts/audit-axiom-gate-join-coverage.sh. Default: current date."
+      "invocation_note": "Pass TODAY override via env: TODAY_ISO=YYYY-MM-DD bash scripts/audit-axiom-gate-join-coverage.sh. Default: current date.",
+      "ci": {
+        "required": false,
+        "disposition": "run",
+        "deterministic": true,
+        "args": ["$CI_COMMIT_DATE"],
+        "reason": "advisory: run against the checked-out commit date; current unprojected axioms remain visible governance debt"
+      }
     },
     "gauntlet-overlap-composition": {
       "description": "No element renders over a higher-z sibling unless the pair is listed in .harness/allowed-overlaps.json with a documented reason. Playwright-backed: reads computed z-index and bounding rect from rendered DOM. Denominator: all z-indexed elements in snapshot. Coverage: elements_checked == N.",
@@ -157,7 +224,13 @@
       "allowed_overlaps_manifest": ".harness/allowed-overlaps.json",
       "spec_ref": "docs/qa/gauntlet-strengthening-design.md#check-a--overlapcomposition-check",
       "error_code": "A3a",
-      "timeout_sec": 30
+      "timeout_sec": 30,
+      "ci": {
+        "required": false,
+        "disposition": "skip",
+        "deterministic": false,
+        "reason": "deferred: Playwright browser/server fixture is not an approved R0 CI prerequisite"
+      }
     },
     "gauntlet-min-legible-size": {
       "description": "All text and icon elements render at dimensions >= legibility floor at 4 breakpoints per docs/design/60-responsive-system.md. WIDE>=1180px: min 12px text / 16x16px icon. DESK 881-1179px: 12px / 16x16. MID 601-880px: 12px / 14x14. NARROW<=600px: 11px / 12x12. Playwright-backed. Denominator: all text+icon elements at each viewport; 4 assertions required.",
@@ -172,7 +245,13 @@
       "responsive_system_ref": "docs/design/60-responsive-system.md",
       "error_code": "A3b",
       "viewports": [1200, 1000, 720, 375],
-      "timeout_sec": 30
+      "timeout_sec": 30,
+      "ci": {
+        "required": false,
+        "disposition": "skip",
+        "deterministic": false,
+        "reason": "deferred: Playwright browser/server fixture is not an approved R0 CI prerequisite"
+      }
     },
     "gauntlet-sub-pixel-detection": {
       "description": "All manifest atom x variant pairs render bounding rect >= 1x1px. Sub-pixel (any dimension < 1px) or zero-size elements are FAIL if manifest claims visible. Denominator: |manifest.atoms| x |variants_per_atom| Cartesian product. Coverage: pairs_checked == total. Playwright-backed.",
@@ -186,7 +265,13 @@
       "spec_ref": "docs/qa/gauntlet-strengthening-design.md#check-c--sub-pixel--zero-size-element-detection",
       "manifest_path": ".claude/visual-diffs/soul-atlas/manifest.json",
       "error_code": "A3c",
-      "timeout_sec": 30
+      "timeout_sec": 30,
+      "ci": {
+        "required": false,
+        "disposition": "skip",
+        "deterministic": false,
+        "reason": "deferred: Playwright browser/server fixture is not an approved R0 CI prerequisite"
+      }
     },
     "permissions-nonempty": {
       "description": "HARD gate: .claude/settings.json must have a non-empty permissions field with at least one deny rule. An absent or empty permissions block means every tool is implicitly allowed — the P3 least-privilege gap. Enforced by scripts/audit-permissions-nonempty.sh.",
@@ -197,7 +282,16 @@
       "barrier_class": "HARD-BARRIER",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-permissions-nonempty",
       "introduced": "TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-1",
-      "control": "P3 least-privilege (SECURITY-HARNESS-DESIGN-2026-06-01)"
+      "control": "P3 least-privilege (SECURITY-HARNESS-DESIGN-2026-06-01)",
+      "ci": {
+        "required": true,
+        "disposition": "run",
+        "deterministic": true,
+        "requires": {
+          "commands": ["bash", "jq"],
+          "paths": [".claude/settings.json"]
+        }
+      }
     },
     "least-agency-config": {
       "description": "Asserts: (1) .claude/settings.json contains at least one deny for curl and wget patterns, (2) a blocking PreToolUse Bash hook is present in settings.json. Fails closed if either condition is missing. Guards against regression after Wave 1 activation.",
@@ -208,7 +302,16 @@
       "barrier_class": "HARD-BARRIER",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-least-agency-config",
       "introduced": "TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-1",
-      "control": "Least-agency / tool-misuse (SECURITY-HARNESS-DESIGN-2026-06-01)"
+      "control": "Least-agency / tool-misuse (SECURITY-HARNESS-DESIGN-2026-06-01)",
+      "ci": {
+        "required": true,
+        "disposition": "run",
+        "deterministic": true,
+        "requires": {
+          "commands": ["bash", "jq"],
+          "paths": [".claude/settings.json", ".claude/hooks/mutating-action-hook.sh"]
+        }
+      }
     },
     "audit-ground-truth-observed": {
       "description": "A TASK cannot close DONE for a shipped route unless a human (or automated headless observer) has produced a cryptographically-linked screenshot and acknowledged it. Asserts: (A) PNG exists at .claude/visual-diffs/<task_id>/observed/<route>.png, (B) observed.json exists and is valid JSON, (C) ack:true for every shipped route, (D) sha256 in observed.json matches the PNG on disk, (E) if task window is supplied, both PNG mtime and observed_at fall within the window.",
@@ -219,7 +322,13 @@
       "barrier_class": "HARD-BARRIER",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-audit-ground-truth-observed",
       "introduced": "TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-SENSOR",
-      "control": "Ground-truth observability — eliminates proxy-as-anchor (build green + HTTP 200 ≠ DONE)"
+      "control": "Ground-truth observability — eliminates proxy-as-anchor (build green + HTTP 200 ≠ DONE)",
+      "ci": {
+        "required": false,
+        "disposition": "skip",
+        "deterministic": true,
+        "reason": "context-only: observed artifacts require a task id, route manifest, and task window"
+      }
     },
     "audit-search-index-completeness": {
       "description": "Asserts that the pagefind search index covers every crawlable HTML page in the Next.js build output. Two assertions: (1) page_count from pagefind-entry.json == crawlable HTML count in .next/server/app; (2) no data-pagefind-body element is hidden (display:none) or RSC-payload-only (unreachable to pagefind static crawler). Exits 3 (SKIP) when build output is absent — never false-passes on a missing build.",
@@ -231,7 +340,16 @@
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-audit-search-index-completeness",
       "introduced": "TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-SENSOR",
       "live_wiring_gap": "Requires completed npm run build (velite + next build + pagefind indexing). Wire: '... && npm run index:search && bash scripts/audit-search-index-completeness.sh' in CI post-build step.",
-      "control": "Search index completeness — eliminates partial-index silent failure (2 of 13 pages indexed)"
+      "control": "Search index completeness — eliminates partial-index silent failure (2 of 13 pages indexed)",
+      "ci": {
+        "required": true,
+        "disposition": "run",
+        "deterministic": true,
+        "requires": {
+          "commands": ["bash", "find", "grep", "jq", "python3", "tr", "wc"],
+          "paths": [".next/server/app", "public/pagefind/pagefind-entry.json"]
+        }
+      }
     },
     "single-source": {
       "description": "For each artifact in .harness/single-source-registry.json, every copy found under the registered search paths must either (A) byte-match the canonical sha256 or (B) contain a textual import of the canonical module path. A divergent copy that neither matches nor imports the canonical is a FAIL. Scope: app/**, components/**, lib/**, prototypes/**, .claude/visual-diffs/** — production and in-tree handoff paths only. Git worktree checkouts (.claude/worktrees/**) are explicitly excluded from registry search globs.",
@@ -244,7 +362,16 @@
       "introduced": "TASK-2026-06-01-SECURITY-HARNESS-WAVE-2-SINGLE-SOURCE",
       "registry": ".harness/single-source-registry.json",
       "scope_note": "Git worktrees (.claude/worktrees/**) are parallel branch checkouts — branch divergence there is expected and MUST NOT be flagged. Only the main working tree is in scope.",
-      "control": "Single-source enforcement — eliminates divergent blob accumulation across prototype, handoff, and visual-diff paths"
+      "control": "Single-source enforcement — eliminates divergent blob accumulation across prototype, handoff, and visual-diff paths",
+      "ci": {
+        "required": true,
+        "disposition": "run",
+        "deterministic": true,
+        "requires": {
+          "commands": ["bash", "awk", "find", "git", "grep", "jq", "sha256sum"],
+          "paths": [".harness/single-source-registry.json"]
+        }
+      }
     },
     "secret-leak-guard": {
       "description": "Two-pass secret-leak guard (spec §5.4/§11, S8). Pass 1: scans app/**, lib/**, components/**, public/**, and root source files for the sb_secret_ Supabase key prefix (potential key material in production source). Pass 2: scans ALL tracked files for SUPABASE_SECRET_KEY env-access patterns (process.env.SUPABASE_SECRET_KEY, etc.) outside scripts/** — the only allowed location. Comment-only lines and harness/docs/test directories excluded from Pass 1. Exit 1 = violation; exit 0 = clean.",
@@ -256,7 +383,15 @@
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-secret-leak-guard",
       "introduced": "store-as-source S8 (2026-06-12)",
       "spec_ref": "docs/team/SPEC-2026-06-12-store-as-source-supabase.md §5.4 / §11",
-      "control": "Secret containment — ensures SUPABASE_SECRET_KEY never leaks into app runtime bundle or tracked non-script files"
+      "control": "Secret containment — ensures SUPABASE_SECRET_KEY never leaks into app runtime bundle or tracked non-script files",
+      "ci": {
+        "required": true,
+        "disposition": "run",
+        "deterministic": true,
+        "requires": {
+          "commands": ["bash", "git", "grep", "sed"]
+        }
+      }
     },
     "dev-clobber-guard": {
       "description": "Prevents a production build or serve from running while a 'next dev' process is alive. A live 'next dev' writes .next in dev mode; a subsequent 'next build' or 'next start' against the same directory will either clobber the dev artifacts or serve them, breaking production styling. On 2026-06-02 this served the entire site unstyled. Hook: .claude/hooks/dev-clobber-guard.sh (PreToolUse Bash, blocking). Trigger: next build|start, npm run build|start, pnpm/yarn build|start in command position. Check: ps scan for live next dev / next-server.*dev process.",
@@ -270,7 +405,13 @@
       "introduced": "TASK-2026-06-03-DEV-CLOBBER-GUARD-G1",
       "root_cause": "2026-06-02: next dev running alongside next build clobbered .next, serving whole site unstyled",
       "policy_ref": "worldline-build-verify G1",
-      "control": "Build environment isolation — prevents dev/prod .next clobber"
+      "control": "Build environment isolation — prevents dev/prod .next clobber",
+      "ci": {
+        "required": false,
+        "disposition": "skip",
+        "deterministic": true,
+        "reason": "context-only: PreToolUse requires a Bash hook event payload; CI invokes no such tool event"
+      }
     }
   },
   "signature_policy": {

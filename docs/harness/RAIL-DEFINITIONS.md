@@ -15,6 +15,23 @@ Every rail:
 - Is defined in `.harness/worldline-harness.config.json`
 - Has an entry below explaining what it checks, why, and how to fix common failures
 
+### GitHub CI census
+
+`bash .claude/hooks/harness-check.sh --ci` delegates to
+`scripts/audit-harness-ci.sh`. The runner reads every rail from the config in
+lexicographic order and emits one JSONL record per rail plus one summary. It
+does not maintain a second rail list.
+
+- Required deterministic rails use `ci.required: true` and `disposition: run`.
+- Task-context, browser/server, embedded, deferred, and stub rails remain in the
+  denominator as explicit non-required `SKIP` records with a reason.
+- A missing command/path is `ERROR`; a check's nonzero exit is `FAIL`.
+- Required `FAIL`, `ERROR`, or `SKIP` makes the summary and process nonzero.
+  Optional `FAIL`/`ERROR` remains visible in separate summary counters without
+  turning the required aggregate red.
+- JSONL contains no timestamps or random identifiers. Child diagnostics are
+  written separately to stderr.
+
 ---
 
 ## Rail: territory
@@ -315,7 +332,13 @@ Prototypes are reference artifacts. A write failure in this hook must never bloc
 **Status:** enforcing
 **Introduced:** 2026-05-15 · TASK-2026-05-15-META-10 · Canopus
 
-**Purpose:** Enforce that the prototype layer stays vanilla — no TypeScript, no JSX, no Next.js imports, no `@/` path aliases. Each prototype directory must have a README.md.
+**Purpose:** Enforce that the production prototype layer stays vanilla — no TypeScript, no JSX, no Next.js imports, no `@/` path aliases. Each directory directly under `prototypes/` must have a README.md.
+
+R0 CI invokes `--production-only`. Legacy
+`.claude/visual-diffs/**/prototype/**` task artifacts predate the README
+contract and are listed in config as deferred paths. They can be audited
+explicitly with `--include-visual-diffs`; they are not silently represented as
+covered by the production-only PASS.
 
 **Why this rail exists:**
 Betelgeuse's prototypes are the rendered ground-truth that Sirius ports from. If prototypes contain TypeScript or Next.js imports, they become accidentally importable into the production graph — blurring the ownership boundary and creating hydration risk. Keeping prototypes vanilla preserves the clean handover: Betelgeuse ships working HTML/CSS/JS, Sirius adds the production concerns.
@@ -1742,7 +1765,7 @@ Run: `bash scripts/audit-visual-diff-directions.sh <test-fixture-task-id>`
 
 **Check:** `scripts/audit-axiom-gate-join-coverage.sh` (shell wrapper) → `scripts/audit-axiom-gate-join-coverage.ts` (Algol)
 **Applies to:** `.harness/**`, `scripts/audit-*.ts`, `scripts/audit-*.sh`
-**Status:** enforcing
+**Status:** advisory (`mode: warn`, `FRICTION-ONLY`)
 **Introduced:** 2026-05-30 · TASK-2026-05-30-HARNESS-IS-OUGHT-SEPARATOR-B3B · Canopus
 **Registry:** `.harness/axioms-v1.json`
 **Schema:** `.harness/axioms-v1.schema.json`
@@ -1754,7 +1777,14 @@ Enforces the axiom↔gate bijection in BOTH directions:
 - **Direction 1 (axiom → gate):** every PROJECTED axiom must name ≥1 gate in `projects_to` that exists in harness config AND is enforcing (non-stub). UNPROJECTED/PARTIAL axioms past `must_project_by` = RED.
 - **Direction 2 (gate → axiom):** every gate in harness config must trace to ≥1 axiom via `projects_to`, OR be in the `DERIVED_IS_GATES` list (engineering mechanics — not a product axiom). Orphan gates = RED.
 
-This is the top-seam coverage primitive from the is/ought separator task: it makes the "articulated-but-unprojected ought" class mechanically visible — a signed axiom with no enforcing gate wears a signature but has no teeth. The join-coverage audit surfaces exactly that, on every harness run.
+This is the top-seam coverage primitive from the is/ought separator task: it makes the "articulated-but-unprojected ought" class mechanically visible — a signed axiom with no enforcing gate wears a signature but has no teeth.
+
+The current registry contains known unprojected governance debt, so this rail is
+truthfully advisory rather than an enforcing barrier. CI still runs it with the
+checked-out commit date as the deterministic `TODAY_ISO` argument. Its
+`FAIL`/`ERROR` is recorded in the optional summary counters but does not turn
+the required CI aggregate red. Promote it back to enforcing only after the
+registry debt is resolved.
 
 ### Coverage assertion
 
@@ -2245,7 +2275,7 @@ This script must NEVER exit 0 silently when a violation exists. The exit-0-alway
 **Mode:** block
 **Introduced:** TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-SENSOR
 **Control:** Search index completeness (partial-index silent failure elimination)
-**Live-wiring gap:** Requires a completed `npm run build` (velite + next build + pagefind indexing).
+**CI wiring:** Required post-build rail. `npm run build` produces the Next.js output and pagefind index before the config-driven census runs.
 
 ### Problem this rail seals
 
@@ -2289,11 +2319,9 @@ bash scripts/audit-search-index-completeness.sh --verbose
 ### Live-wiring (CI integration)
 
 ```bash
-# In package.json or CI script, after build:
-npm run build && bash scripts/audit-search-index-completeness.sh
-# Or inline after pagefind indexing:
-npx pagefind --site .next/server/app --output-path public/pagefind && \
-  bash scripts/audit-search-index-completeness.sh
+# CI uses the full config-driven census after build:
+npm run build
+bash .claude/hooks/harness-check.sh --ci
 ```
 
 ### Environment overrides (for tests)

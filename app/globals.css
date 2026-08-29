@@ -255,6 +255,7 @@
      semantic block. Named separately so they are easy to find. */
   --status-error:          #C0392B;   /* upload failed, validation error */
   --status-warn:           #D68000;   /* upload warning, partial */
+  --console-ground:        #0A0A0A;   /* auth screen ground; intentionally invariant */
   /* Note: these are intentional divergences from the teal/cream/orange triad.
      Error red and warning amber have universal semantic meaning; using the
      orange accent for errors would break the orange = selected-state convention.

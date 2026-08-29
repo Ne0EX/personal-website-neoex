@@ -44,9 +44,10 @@
  *
  * IDEMPOTENT
  * ----------
- * Pages already containing a real HTML data-pagefind-body attribute (Case A
- * or genuine SSR output) are left untouched. The script only injects when no
- * real HTML attribute is found.
+ * Pages already containing a usable, visible HTML data-pagefind-body attribute
+ * (genuine SSR output) are left untouched. Client-rendered entry shells can
+ * contain a real attribute too, but with aria-hidden/display:none; those
+ * placeholders are replaced with a crawlable sidecar.
  *
  * AUDIT GATE COMPATIBILITY
  * ------------------------
@@ -270,7 +271,7 @@ function homeSidecar(): string {
  *   entry route result. Each entry title is injected at weight 3; domain tags
  *   carry a pagefind-filter so domain-filtered search works across the ledger.
  *
- * Idempotent: the caller already guards with hasRealPagefindBody() before calling
+ * Idempotent: the caller already guards with hasUsablePagefindBody() before calling
  *   this function. The sidecar itself writes no HTML state.
  *
  * The visually-hidden pattern (1×1px clip) is identical to other sidecar blocks.
@@ -320,17 +321,81 @@ function archiveSidecar(
 // ---------------------------------------------------------------------------
 // Real HTML attribute detector
 // A real HTML element has data-pagefind-body as an attribute in an opening tag,
-// not inside a <script> JSON payload.
+// not inside a <script> JSON payload. A real attribute is not necessarily
+// usable: client-rendered entry shells emit an aria-hidden/display:none body.
 // ---------------------------------------------------------------------------
 
-/** Returns true if the HTML content contains a REAL HTML data-pagefind-body attribute. */
-function hasRealPagefindBody(html: string): boolean {
-  // Match any HTML opening tag containing data-pagefind-body as an attribute.
-  // Excludes occurrences inside <script>...</script> blocks.
+interface PagefindBodyTag {
+  start: number
+  end: number
+  text: string
+}
 
-  // First, strip script tags to avoid false positives from RSC JSON payload.
-  const withoutScripts = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
-  return /<[a-zA-Z][^>]*?\bdata-pagefind-body\b[^>]*?>/i.test(withoutScripts)
+/** Find real HTML opening tags, excluding Next.js RSC script payloads. */
+function findPagefindBodyTags(html: string): PagefindBodyTag[] {
+  // Replace script contents with same-length whitespace so match offsets still
+  // refer to the original HTML when a stale hidden attribute is removed.
+  const withoutScripts = html.replace(
+    /<script\b[^>]*>[\s\S]*?<\/script>/gi,
+    (script) => ' '.repeat(script.length),
+  )
+  const tags: PagefindBodyTag[] = []
+  const openingTag = /<[a-zA-Z][^>]*>/g
+
+  for (const match of withoutScripts.matchAll(openingTag)) {
+    const text = match[0]
+    if (/\bdata-pagefind-body\b/i.test(text)) {
+      tags.push({ start: match.index ?? 0, end: (match.index ?? 0) + text.length, text })
+    }
+  }
+
+  return tags
+}
+
+/** Return CSS/ARIA reasons why a pagefind body is inaccessible to the crawler. */
+function hiddenPagefindBodyReasons(tag: string): string[] {
+  const reasons: string[] = []
+  const style = tag.match(/\bstyle\s*=\s*(?:"([^"]*)"|'([^']*)')/i)?.[1]
+    ?? tag.match(/\bstyle\s*=\s*([^\s>]+)/i)?.[1]
+    ?? ''
+  const lowerStyle = style.toLowerCase()
+
+  const ariaHidden = tag.match(
+    /\baria-hidden(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/i,
+  )
+  const ariaHiddenValue = ariaHidden?.[1] ?? ariaHidden?.[2] ?? ariaHidden?.[3] ?? 'true'
+  if (ariaHidden && ariaHiddenValue.toLowerCase() !== 'false') reasons.push('aria-hidden')
+  if (/\bhidden(?:\s*=\s*(?:""|hidden|true|'true'))?(?:\s|\/?>)/i.test(tag)) {
+    reasons.push('hidden')
+  }
+  if (/display\s*:\s*none/i.test(lowerStyle)) reasons.push('display:none')
+  if (/visibility\s*:\s*hidden/i.test(lowerStyle)) reasons.push('visibility:hidden')
+  if (/width\s*:\s*0(?:px|em|rem|vw|%|ch)?(?:\b|;|\s)/i.test(lowerStyle)) reasons.push('width:0')
+  if (/height\s*:\s*0(?:px|em|rem|vh|%|ch)?(?:\b|;|\s)/i.test(lowerStyle)) reasons.push('height:0')
+
+  return reasons
+}
+
+/** Returns true if the HTML contains a usable, visible static pagefind body. */
+function hasUsablePagefindBody(html: string): boolean {
+  return findPagefindBodyTags(html).some((tag) => hiddenPagefindBodyReasons(tag.text).length === 0)
+}
+
+/** Remove a stale hidden marker before adding the replacement sidecar. */
+function removeHiddenPagefindBodyMarkers(html: string): string {
+  const tags = findPagefindBodyTags(html)
+  let result = html
+
+  for (const tag of tags.reverse()) {
+    if (hiddenPagefindBodyReasons(tag.text).length === 0) continue
+    const withoutMarker = tag.text.replace(
+      /\s+data-pagefind-body(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/i,
+      '',
+    )
+    result = result.slice(0, tag.start) + withoutMarker + result.slice(tag.end)
+  }
+
+  return result
 }
 
 // ---------------------------------------------------------------------------
@@ -509,9 +574,10 @@ async function main(): Promise<void> {
     const relPath = path.relative(SITE_DIR, htmlPath)
     const html = await fs.readFile(htmlPath, 'utf-8')
 
-    // Skip if already has a real HTML data-pagefind-body (idempotent)
-    if (hasRealPagefindBody(html)) {
-      logv(`skip (already has real pagefind-body): ${relPath}`)
+    // Skip only if a usable static body already exists (idempotent). A hidden
+    // client-rendered placeholder must not suppress sidecar injection.
+    if (hasUsablePagefindBody(html)) {
+      logv(`skip (already has usable pagefind-body): ${relPath}`)
       skipped++
       continue
     }
@@ -519,21 +585,23 @@ async function main(): Promise<void> {
     // Determine what content to inject based on path
     let sidecar: string | null = null
 
-    // Normalise: strip leading path separator
+    // Normalise: strip the optional locale prefix emitted by [lang] routes.
     const parts = relPath.replace(/\\/g, '/').split('/')
+    const routeParts = parts[0] === 'en' || parts[0] === 'th' ? parts.slice(1) : parts
 
-    // parts breakdown for path 'a/b/c.html': ['a', 'b', 'c.html']
-    // parts.length === 1: 'index.html'
-    // parts.length === 2: 'articles/000.html', 'fiction/slug.html', 'photos/roll.html'
-    // parts.length === 3: 'photos/roll/DSCF0001.html'
+    // routeParts breakdown for path 'a/b/c.html': ['a', 'b', 'c.html']
+    // routeParts.length === 1: 'index.html' or 'archive.html'
+    // routeParts.length === 2: 'articles/000.html', 'fiction/slug.html',
+    //   'photos/roll.html'
+    // routeParts.length === 3: 'photos/roll/DSCF0001.html'
 
-    if (relPath === 'index.html') {
+    if (routeParts.length === 1 && routeParts[0] === 'index.html') {
       // Home page
       sidecar = homeSidecar()
       logv(`home: ${relPath}`)
-    } else if (parts[0] === 'articles' && parts.length === 2) {
+    } else if (routeParts[0] === 'articles' && routeParts.length === 2) {
       // articles/<fileNum>.html
-      const fileNum = path.basename(parts[1], '.html')
+      const fileNum = path.basename(routeParts[1], '.html')
       const article = articleByFileNum.get(fileNum)
       if (article) {
         sidecar = articleSidecar(article)
@@ -542,9 +610,9 @@ async function main(): Promise<void> {
         logv(`unmatched article: ${relPath}`)
         unmatched++
       }
-    } else if (parts[0] === 'fiction' && parts.length === 2) {
+    } else if (routeParts[0] === 'fiction' && routeParts.length === 2) {
       // fiction/<slug>.html
-      const slug = path.basename(parts[1], '.html')
+      const slug = path.basename(routeParts[1], '.html')
       const fiction = fictionBySlug.get(slug)
       if (fiction) {
         sidecar = fictionSidecar(fiction)
@@ -553,16 +621,16 @@ async function main(): Promise<void> {
         logv(`unmatched fiction: ${relPath}`)
         unmatched++
       }
-    } else if (parts[0] === 'photos' && parts.length === 2) {
+    } else if (routeParts[0] === 'photos' && routeParts.length === 2) {
       // photos/<roll>.html — roll index
-      const roll = path.basename(parts[1], '.html')
+      const roll = path.basename(routeParts[1], '.html')
       const rollSidecars = sidecarsByRoll.get(roll) ?? []
       sidecar = rollIndexSidecar(roll, rollSidecars)
       logv(`roll index ${roll}: ${rollSidecars.length} frames`)
-    } else if (parts[0] === 'photos' && parts.length === 3) {
+    } else if (routeParts[0] === 'photos' && routeParts.length === 3) {
       // photos/<roll>/<id>.html — photo entry
-      const roll = parts[1]
-      const id   = path.basename(parts[2], '.html')
+      const roll = routeParts[1]
+      const id   = path.basename(routeParts[2], '.html')
       const key  = `${roll}/${id}`
       const sc   = sidecarByKey.get(key)
       if (sc) {
@@ -575,8 +643,8 @@ async function main(): Promise<void> {
     } else if (
       // archive/index.html  — Next.js renders /archive as archive/index.html
       // OR archive.html — depending on Next.js output mode
-      (parts[0] === 'archive' && parts.length === 2 && parts[1] === 'index.html') ||
-      (parts[0] === 'archive' && parts.length === 1) ||
+      (routeParts[0] === 'archive' && routeParts.length === 2 && routeParts[1] === 'index.html') ||
+      (routeParts[0] === 'archive' && routeParts.length === 1) ||
       relPath === 'archive.html'
     ) {
       // /archive route — cross-stratum ledger (docs/design/21-archive-route.md §7.3)
@@ -589,7 +657,7 @@ async function main(): Promise<void> {
 
     if (sidecar === null) continue
 
-    const modified = injectSidecar(html, sidecar)
+    const modified = injectSidecar(removeHiddenPagefindBodyMarkers(html), sidecar)
 
     if (DRY_RUN) {
       logv(`[dry-run] would write: ${relPath}`)
