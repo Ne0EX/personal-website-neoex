@@ -193,7 +193,7 @@ function isPast(dateStr: string, today: Date): boolean {
 function main(): void {
   let input: AuditInput;
   try {
-    const raw = readFileSync("/dev/stdin", "utf8").trim();
+    const raw = readFileSync(0, "utf8").trim();
     input = JSON.parse(raw);
   } catch (e) {
     process.stderr.write(`[audit-axiom-gate-join-coverage] ERROR reading stdin: ${e}\n`);

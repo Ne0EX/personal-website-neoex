@@ -243,7 +243,7 @@ function applyTechniqueMap(el: ElementDescriptor): AppliedTechnique[] {
 function main(): void {
   let input: { elements: ElementDescriptor[]; axiom_ids?: string[]; verbose?: boolean };
   try {
-    const raw = readFileSync("/dev/stdin", "utf8").trim();
+    const raw = readFileSync(0, "utf8").trim();
     input = JSON.parse(raw);
   } catch (e) {
     process.stderr.write(`[audit-property-technique-map] ERROR reading stdin: ${e}\n`);

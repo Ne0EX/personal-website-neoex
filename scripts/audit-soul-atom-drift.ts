@@ -337,7 +337,7 @@ function main(): void {
   // Read stdin
   let input: AuditInput;
   try {
-    const raw = readFileSync("/dev/stdin", "utf8").trim();
+    const raw = readFileSync(0, "utf8").trim();
     input = JSON.parse(raw);
   } catch (e) {
     process.stderr.write(`[audit-soul-atom-drift] ERROR reading stdin: ${e}\n`);
