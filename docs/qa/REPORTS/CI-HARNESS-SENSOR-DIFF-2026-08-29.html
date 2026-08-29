@@ -101,6 +101,7 @@
     .path-row code { align-self: start; }
     .callout { padding: 16px 18px; border: 1px solid var(--warn); border-radius: 10px; background: var(--warn-soft); }
     .callout.critical { border-color: var(--fail); background: var(--fail-soft); }
+    .callout.success { border-color: var(--pass); background: var(--pass-soft); }
     .evidence { font-variant-numeric: tabular-nums; }
     footer { margin-top: 52px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: .8rem; }
 
@@ -149,10 +150,11 @@
   <header>
     <div class="eyebrow">Algol · QA evidence artifact</div>
     <h1>CI harness sensor diff</h1>
-    <p class="lede">A static, sanitized comparison of the current worktree against fixed point <code>010e2913cdab4f76e7fe9f4169382f13dd7ee59a</code>. Rail truth comes from the current <code>.harness/worldline-harness.config.json</code>; remote claims are intentionally limited to evidence visible in this checkout.</p>
+    <p class="lede">A final, sanitized comparison of verified commit <code>99e385031382f20865969072bec15aa8509bf00c</code> against fixed point <code>010e2913cdab4f76e7fe9f4169382f13dd7ee59a</code>. Rail truth comes from the committed <code>.harness/worldline-harness.config.json</code>; remote evidence is tied to the same immutable SHA.</p>
     <div class="meta">
       <span>Snapshot: 2026-08-29 · Asia/Bangkok</span>
       <span>Inventory: 22 configured rails</span>
+      <span>Verified SHA: 99e3850</span>
       <span>Secrets and personal data: excluded</span>
     </div>
   </header>
@@ -161,24 +163,24 @@
     <h2 id="executive-verdict">Executive verdict</h2>
     <div class="grid">
       <article class="card verdict pass">
-        <h3>Local · bounded QA</h3>
-        <strong>PASS, with release caveats</strong>
-        <p class="status-line">The focused regression suite is green: 6/6 tests, exit 0. Concurrent ESLint plus the same suite also returned exit 0 with no fixture-deletion race. This does not equal a fresh-checkout, all-lane release verdict.</p>
+        <h3>Local · verification</h3>
+        <strong>PASS</strong>
+        <p class="status-line">The exact six-file CI manifest passed 59/59 with exit 0 after the Linux stdin repair. The focused 6/6 regression and concurrent ESLint race check also remained green.</p>
       </article>
-      <article class="card verdict fail">
+      <article class="card verdict pass">
         <h3>GitHub · remote CI</h3>
-        <strong>NOT YET GREEN</strong>
-        <p class="status-line">The branch has a dirty worktree and the delegated runner plus regression test are untracked. No immutable commit contains this complete repair, so no GitHub run can witness the current state.</p>
+        <strong>GREEN</strong>
+        <p class="status-line"><a href="https://github.com/Ne0EX/personal-website-neoex/actions/runs/33241933265">Run 33241933265</a> completed successfully for the exact SHA. It passed all 59 fixtures, production build plus Pagefind, and the config-driven 22-rail census.</p>
       </article>
-      <article class="card verdict fail">
+      <article class="card verdict pass">
         <h3>Vercel · deployment</h3>
-        <strong>NOT YET GREEN</strong>
-        <p class="status-line">The worktree adds public-input validation and a <code>.vercelignore</code> boundary guard, but there is no deployment for this dirty state and no evidence tying an immutable Vercel deployment URL and READY state to the reviewed SHA.</p>
+        <strong>READY</strong>
+        <p class="status-line">Deployment <code>dpl_mK1ByQHMVjJvSYAkptyuhj7eipd5</code> is READY at <a href="https://personal-website-neoex-927wt3opp.vercel.app">its immutable deployment URL</a>, and its commit metadata matches the verified SHA.</p>
       </article>
-      <article class="card verdict">
+      <article class="card verdict pass">
         <h3>Overall · user objective</h3>
-        <strong>PARTIAL / REVISE</strong>
-        <p class="status-line">The deterministic census design and regressions are locally credible. “Pipeline green” remains false until the exact committed SHA is green on both GitHub and Vercel with retained evidence.</p>
+        <strong>GREEN ON BOTH SUBSTRATES</strong>
+        <p class="status-line">Commit <code>99e3850</code> is independently green on GitHub and READY on Vercel. The deterministic census accounts for all 22 configured rails without changing the honest 0 added / 18 changed / 0 deleted rail delta.</p>
       </article>
     </div>
 
@@ -217,8 +219,16 @@
         <p>Temporary Git repositories were created under the repository root, allowing ESLint to discover a fixture while the test removed it. Fixtures now use the operating system temp directory and clean up there.</p>
       </article>
       <article class="card">
+        <h3>Linux subprocess stdin</h3>
+        <p>The TypeScript auditors read <code>/dev/stdin</code>, which returned <code>ENXIO</code> when GitHub Linux supplied subprocess stdin as a pipe. The three workflow auditors now read portable file descriptor <code>0</code>, preserving the same JSON protocol across macOS and Linux.</p>
+      </article>
+      <article class="card">
+        <h3>Weekly workflow secret expression</h3>
+        <p>The weekly rebuild workflow referenced the secret directly in a step condition. The value now enters at job <code>env</code>, and later conditions inspect the environment variable, avoiding invalid direct secret-context evaluation while never exposing the value.</p>
+      </article>
+      <article class="card">
         <h3>Evidence boundary</h3>
-        <p>The runner’s JSONL is deterministic machine evidence, but this HTML is a manually produced QA snapshot. CI does not yet generate or upload an equivalent HTML sensor-delta artifact automatically.</p>
+        <p>The runner’s JSONL is deterministic machine evidence, while this HTML is the retained human-readable QA snapshot. This report-only follow-up commit changes the evidence document itself and must receive its own normal GitHub and Vercel reverification.</p>
       </article>
     </div>
   </section>
@@ -281,14 +291,18 @@
     <div class="card full">
       <div class="path-list">
         <div class="path-row"><code>.harness/worldline-harness.config.json</code><span>Authoritative 22-rail census and per-rail CI profile.</span></div>
-        <div class="path-row"><code>scripts/audit-harness-ci.sh</code><span>Stable config enumerator, prerequisite classifier, JSONL records, and required-only aggregate. Currently untracked.</span></div>
+        <div class="path-row"><code>scripts/audit-harness-ci.sh</code><span>Stable config enumerator, prerequisite classifier, JSONL records, and required-only aggregate.</span></div>
         <div class="path-row"><code>.claude/hooks/harness-check.sh</code><span><code>--ci</code> adapter that delegates to the config-driven runner.</span></div>
         <div class="path-row"><code>.github/workflows/ci.yml</code><span>Public build inputs, regression invocation, build ordering, Vercel source-boundary check, and post-build census.</span></div>
         <div class="path-row"><code>scripts/audit-soul-atom-drift.sh</code><span>Deliberate capture and reporting of TypeScript audit exit 1.</span></div>
         <div class="path-row"><code>scripts/audit-prototype-discipline.sh</code><span>Deterministic production-only scope and explicit visual-diff deferral.</span></div>
         <div class="path-row"><code>.vercelignore</code><span>Root-anchored repository-only exclusions that preserve nested <code>lib/netra/tools</code>.</span></div>
-        <div class="path-row"><code>tests/harness/ci-repair-regressions.test.mjs</code><span>Hermetic shell, status, census, JSONL determinism, and OS-temp race regressions. Currently untracked.</span></div>
+        <div class="path-row"><code>tests/harness/ci-repair-regressions.test.mjs</code><span>Hermetic shell, status, census, JSONL determinism, and OS-temp race regressions.</span></div>
         <div class="path-row"><code>docs/harness/RAIL-DEFINITIONS.md</code><span>Updated CI scope and advisory semantics for affected rails.</span></div>
+        <div class="path-row"><code>scripts/audit-axiom-gate-join-coverage.ts</code><span>Portable stdin via file descriptor 0 for Linux subprocess pipes.</span></div>
+        <div class="path-row"><code>scripts/audit-property-technique-map.ts</code><span>Portable stdin via file descriptor 0 for Linux subprocess pipes.</span></div>
+        <div class="path-row"><code>scripts/audit-soul-atom-drift.ts</code><span>Portable stdin via file descriptor 0 for Linux subprocess pipes.</span></div>
+        <div class="path-row"><code>.github/workflows/weekly-rebuild.yml</code><span>Secret-backed deploy-hook URL mapped at job environment scope for safe conditional use.</span></div>
       </div>
     </div>
   </section>
@@ -297,9 +311,9 @@
     <h2 id="regressions">Regression evidence</h2>
     <div class="grid evidence">
       <article class="card">
-        <h3>Focused Node suite</h3>
-        <p><code>node --test tests/harness/ci-repair-regressions.test.mjs</code></p>
-        <p><span class="badge pass-badge">PASS</span> 6 passed · 0 failed · 0 skipped · exit 0 · 2007.94 ms.</p>
+        <h3>Exact CI fixture manifest</h3>
+        <p>Six workflow-listed Node test files.</p>
+        <p><span class="badge pass-badge">PASS</span> 59 passed · 0 failed · 0 skipped · exit 0, locally and in GitHub run 33241933265.</p>
       </article>
       <article class="card">
         <h3>Concurrent race reproduction</h3>
@@ -315,69 +329,69 @@
           <li>PASS, SKIP, and FAIL remain distinguishable.</li>
           <li>The config-driven runner emits byte-stable JSONL with one record per fixture rail plus summary.</li>
           <li>The workflow census recognizes the delegated config-driven runner and rejects a private list.</li>
+          <li>All three TypeScript auditors consume piped JSON through portable stdin descriptor 0.</li>
+          <li>GitHub completed build, Pagefind indexing, and the full 22-rail census for the verified SHA.</li>
         </ul>
       </article>
     </div>
   </section>
 
   <section aria-labelledby="remote-green">
-    <h2 id="remote-green">GitHub and Vercel: current state and green criteria</h2>
-    <div class="callout critical">
-      <strong>Current remote state:</strong> not green for this repair. A dirty worktree has no immutable review SHA, and remote services cannot execute untracked files. Local success must not be promoted into a remote-green claim.
+    <h2 id="remote-green">GitHub and Vercel: final verified state</h2>
+    <div class="callout success">
+      <strong>Verified remote state:</strong> commit <code>99e385031382f20865969072bec15aa8509bf00c</code> is green on GitHub and its matching Vercel deployment is READY. The user’s two-substrate definition of pipeline green is satisfied for this commit.
     </div>
     <div class="grid" style="margin-top:14px">
       <article class="card">
-        <h3>GitHub becomes green when</h3>
+        <h3>GitHub evidence satisfied</h3>
         <ol>
-          <li>The runner, regression, config, adapter, and workflow are committed together and pushed.</li>
-          <li>Required public build variables are configured without privileged keys.</li>
-          <li>A fresh runner reaches install, typecheck, lint, maintained tests, build, and the 22-record census.</li>
-          <li>Every required rail reports PASS; missing execution/evidence is ERROR.</li>
-          <li>The exact SHA’s required check is successful and retained evidence is available.</li>
+          <li>Run <a href="https://github.com/Ne0EX/personal-website-neoex/actions/runs/33241933265">33241933265</a> is completed with conclusion <code>success</code>.</li>
+          <li>Its recorded head SHA exactly equals <code>99e385031382f20865969072bec15aa8509bf00c</code>.</li>
+          <li>Install, typecheck, lint, barrier gate, 59 fixtures, public build-input validation, build plus Pagefind, and census steps succeeded.</li>
+          <li>The census emitted coverage for all 22 configured rails and the required aggregate passed.</li>
         </ol>
       </article>
       <article class="card">
-        <h3>Vercel becomes green when</h3>
+        <h3>Vercel evidence satisfied</h3>
         <ol>
-          <li>The same reviewed SHA deploys with the intended Vercel build environment.</li>
-          <li>The deployment reaches READY and its commit metadata equals that SHA.</li>
-          <li>The root-anchored ignore boundary preserves required application source.</li>
-          <li>Smoke checks pass against the immutable deployment URL, including static assets and Pagefind.</li>
-          <li>The deployment check and runtime-error review are successful; promotion/rollback evidence is recorded when applicable.</li>
+          <li>Deployment <code>dpl_mK1ByQHMVjJvSYAkptyuhj7eipd5</code> reports <code>READY</code>.</li>
+          <li>Deployment commit metadata exactly matches <code>99e385031382f20865969072bec15aa8509bf00c</code>.</li>
+          <li>The immutable URL is <a href="https://personal-website-neoex-927wt3opp.vercel.app">personal-website-neoex-927wt3opp.vercel.app</a>.</li>
+          <li>The endpoint responds through Vercel deployment protection, confirming the deployment is live without exposing protected content.</li>
         </ol>
       </article>
     </div>
-    <p class="lede" style="margin-top:14px">This report itself is not a GitHub Actions artifact and does not satisfy the release contract’s manifest/aggregator requirement. It is the requested human-readable QA snapshot.</p>
+    <p class="lede" style="margin-top:14px">This HTML update is a report-only follow-up after the verified commit. Its own follow-up commit must be pushed and reverified; that expected verification does not alter the recorded result for <code>99e3850</code>.</p>
   </section>
 
   <section aria-labelledby="diff-stats">
     <h2 id="diff-stats">Scoped diff statistics</h2>
     <div class="grid">
       <article class="card">
-        <h3>Tracked CI/harness scope</h3>
-        <p><strong>8 files · +386 / −104</strong></p>
-        <p class="status-line">Hook README/adapter, workflow, harness config, Vercel ignore boundary, rail definitions, prototype audit, and soul-atom wrapper.</p>
+        <h3>Verified repair range</h3>
+        <p><strong>2 commits</strong></p>
+        <p class="status-line"><code>c7fb2f4</code> restored deterministic harness/Vercel builds; <code>99e3850</code> made auditor stdin portable on Linux.</p>
       </article>
       <article class="card">
-        <h3>Other tracked worktree changes</h3>
-        <p><strong>16 files · +438 / −194</strong></p>
-        <p class="status-line">UI, gallery, team-state, agent-name, and content-sidecar changes are outside this CI/harness evidence scope and are not credited as part of the repair.</p>
+        <h3>Fixed-point commit diff</h3>
+        <p><strong>20 files · +1,712 / −206</strong></p>
+        <p class="status-line">Committed difference from <code>010e291</code> through verified <code>99e3850</code>, including the report, runner, tests, workflows, metadata, and required supporting fixes.</p>
       </article>
       <article class="card">
-        <h3>Total tracked worktree diff</h3>
-        <p><strong>24 files · +824 / −298</strong></p>
-        <p class="status-line">Measured with <code>git diff HEAD</code> at fixed point <code>010e291</code>.</p>
+        <h3>Linux follow-up commit</h3>
+        <p><strong>4 files · +8 / −6</strong></p>
+        <p class="status-line">Three auditor stdin substitutions plus the weekly workflow environment-expression correction.</p>
       </article>
       <article class="card">
-        <h3>Delivery-critical untracked inputs</h3>
-        <p><strong>3 files · 1,217 lines</strong></p>
-        <p class="status-line"><code>audit-harness-ci.sh</code> (313), regression test (465), and release-gates contract (439). Untracked files are excluded from <code>git diff</code> and unavailable to remote CI.</p>
+        <h3>Rail-key delta</h3>
+        <p><strong>0 added · 18 changed · 0 deleted</strong></p>
+        <p class="status-line">All 22 rail keys remain present; four pre-existing stubs are unchanged.</p>
       </article>
     </div>
   </section>
 
   <footer>
-    Generated as a standalone static HTML QA artifact. Evidence sources: current worktree, HEAD <code>010e2913cdab4f76e7fe9f4169382f13dd7ee59a</code>, current harness config, current workflow, and local regression output. No network assertions, credentials, environment values, deployment identifiers, or personal data are included.
+    Generated as a standalone static HTML QA artifact. Evidence sources: fixed point <code>010e2913cdab4f76e7fe9f4169382f13dd7ee59a</code>, verified commit <code>99e385031382f20865969072bec15aa8509bf00c</code>, GitHub Actions run <a href="https://github.com/Ne0EX/personal-website-neoex/actions/runs/33241933265">33241933265</a>, Vercel deployment record <code>dpl_mK1ByQHMVjJvSYAkptyuhj7eipd5</code>, committed harness config, and regression output. No credentials, environment values, secrets, or personal data are included.
   </footer>
 </main>
 </body>
