@@ -1,11 +1,27 @@
 {
   "$schema": "https://worldline.local/harness-config.schema.json",
-  "config_version": 2,
-  "last_updated": "2026-06-01 (TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-SENSOR)",
+  "config_version": 3,
+  "last_updated": "2026-08-29 (TASK-2026-08-29-CI-SECURITY-NETRA-HARDENING)",
   "owner": "canopus · α-HRN-07",
   "schema_notes": {
     "barrier_class": "HARD-BARRIER (removes capability; survives; required for mode=block rails) | FRICTION-ONLY (slows but doesn't prevent; requires signed waiver at .harness/scope-waivers.json if mode=block). Enforced by scripts/audit-rail-barrier-class.sh.",
     "mode": "block (fail-closed, hard gate) | warn (advisory, non-blocking) | shadow (runs silently, no output; judge rails only) | stub (not yet implemented — audit-rail-barrier-class treats stub as advisory only)"
+  },
+  "ci_policy": {
+    "required_rails": [
+      "audit-search-index-completeness",
+      "ci-test-census",
+      "console-security-contract",
+      "design-tokens",
+      "least-agency-config",
+      "netra-contracts",
+      "permissions-nonempty",
+      "prototype-layer",
+      "secret-leak-guard",
+      "single-source",
+      "soul-atom-drift"
+    ],
+    "classification_values": ["required", "advisory", "context", "embedded", "deferred", "stub"]
   },
   "rails": {
     "territory": {
@@ -20,7 +36,9 @@
         "required": false,
         "disposition": "skip",
         "deterministic": true,
-        "reason": "context-only: WL_AGENT and WL_TASK_ID identify one local task; shared CI has no task owner"
+        "classification": "context",
+        "reason": "context-only: WL_AGENT and WL_TASK_ID identify one local task; shared CI has no task owner",
+        "prerequisites": ["a task-scoped WL_AGENT", "a task-scoped WL_TASK_ID", "an ownership baseline for that task"]
       }
     },
     "design-tokens": {
@@ -35,6 +53,7 @@
         "required": true,
         "disposition": "run",
         "deterministic": true,
+        "classification": "required",
         "requires": {
           "commands": ["bash", "find", "grep", "sort"],
           "paths": ["app", "components"]
@@ -48,7 +67,15 @@
       "status": "stub",
       "mode": "warn",
       "barrier_class": "FRICTION-ONLY",
-      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-next-16-api"
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-next-16-api",
+      "ci": {
+        "required": false,
+        "disposition": "skip",
+        "deterministic": false,
+        "classification": "stub",
+        "reason": "stub: no implemented Next 16 API contract audit exists",
+        "prerequisites": ["an implemented deterministic source audit", "Algol regression fixtures for supported and deprecated APIs"]
+      }
     },
     "voice-discipline": {
       "description": "NETRA voice patterns intact in prompts and components. Stub — awaiting NETRA voice spec + Algol TS audit logic.",
@@ -57,7 +84,15 @@
       "status": "stub",
       "mode": "warn",
       "barrier_class": "FRICTION-ONLY",
-      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-voice-discipline"
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-voice-discipline",
+      "ci": {
+        "required": false,
+        "disposition": "skip",
+        "deterministic": false,
+        "classification": "stub",
+        "reason": "stub: the NETRA voice contract and deterministic audit are not implemented",
+        "prerequisites": ["an approved NETRA voice contract", "an implemented deterministic source audit", "Algol regression fixtures"]
+      }
     },
     "accessibility-floor": {
       "description": "Lighthouse a11y >= 95 for any new entry template. Stub — awaiting Lighthouse runner + Algol TS audit logic.",
@@ -66,7 +101,15 @@
       "status": "stub",
       "mode": "warn",
       "barrier_class": "FRICTION-ONLY",
-      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-accessibility-floor"
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-accessibility-floor",
+      "ci": {
+        "required": false,
+        "disposition": "skip",
+        "deterministic": false,
+        "classification": "stub",
+        "reason": "stub: no Lighthouse runner or deterministic page/server fixture is configured",
+        "prerequisites": ["a pinned Lighthouse dependency", "a deterministic production server fixture", "a declared route denominator"]
+      }
     },
     "prototype-layer": {
       "description": "Prototypes in prototypes/** stay vanilla: no .ts/.tsx files, no Next.js imports, no @/ aliases. Every prototype directory has a README.md.",
@@ -81,6 +124,7 @@
         "required": true,
         "disposition": "run",
         "deterministic": true,
+        "classification": "required",
         "args": ["--production-only"],
         "scope_paths": ["prototypes/**"],
         "deferred_paths": [".claude/visual-diffs/**/prototype/**"],
@@ -99,7 +143,15 @@
       "barrier_class": "FRICTION-ONLY",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-prototype-production-diff",
       "introduced": "TASK-2026-05-15-META-10",
-      "real_implementation": "META-11"
+      "real_implementation": "META-11",
+      "ci": {
+        "required": false,
+        "disposition": "skip",
+        "deterministic": false,
+        "classification": "stub",
+        "reason": "stub: no production/prototype pixel-diff implementation or approved threshold exists",
+        "prerequisites": ["an implemented pixel-diff audit", "an approved browser fixture", "an approved drift threshold and baseline policy"]
+      }
     },
     "prototype-runtime": {
       "description": "Prototype actually loads in a headless browser without console errors, page exceptions, or network failures. Corrects the harness gap where file existence + lint does not prove runtime correctness.",
@@ -115,9 +167,11 @@
       "allowlist": ".harness/runtime-allowlist.json",
       "ci": {
         "required": false,
-        "disposition": "skip",
+        "disposition": "deferred",
         "deterministic": false,
-        "reason": "deferred: browser/runtime gauntlet requires an approved browser fixture and server seam"
+        "classification": "deferred",
+        "reason": "deferred: Playwright is only a transitive @playwright/mcp dependency; GitHub CI does not install a version-matched Chromium binary, and this rail owns an ephemeral HTTP server/port lifecycle",
+        "prerequisites": ["Playwright promoted to a direct locked dependency", "a version-matched Chromium install step in CI", "an approved deterministic server and port fixture"]
       }
     },
     "soul-atom-drift": {
@@ -139,6 +193,7 @@
         "required": true,
         "disposition": "run",
         "deterministic": true,
+        "classification": "required",
         "requires": {
           "commands": ["bash", "git", "grep", "jq", "npx", "python3"],
           "paths": [
@@ -167,7 +222,9 @@
         "required": false,
         "disposition": "skip",
         "deterministic": true,
-        "reason": "embedded: required soul-atom-drift invokes C1b; no standalone CI execution"
+        "classification": "embedded",
+        "reason": "embedded: required soul-atom-drift invokes C1b; no standalone CI execution",
+        "prerequisites": ["execution through the required soul-atom-drift parent rail"]
       }
     },
     "html-first-spec-discipline": {
@@ -189,7 +246,9 @@
         "required": false,
         "disposition": "skip",
         "deterministic": true,
-        "reason": "context-only: directions are task-scoped and CI has no task id to select"
+        "classification": "context",
+        "reason": "context-only: directions are task-scoped and CI has no task id to select",
+        "prerequisites": ["a task id with a directions artifact root", "a task-specific soul baseline"]
       }
     },
     "axiom-gate-join-coverage": {
@@ -208,6 +267,7 @@
         "required": false,
         "disposition": "run",
         "deterministic": true,
+        "classification": "advisory",
         "args": ["$CI_COMMIT_DATE"],
         "reason": "advisory: run against the checked-out commit date; current unprojected axioms remain visible governance debt"
       }
@@ -227,9 +287,11 @@
       "timeout_sec": 30,
       "ci": {
         "required": false,
-        "disposition": "skip",
+        "disposition": "deferred",
         "deterministic": false,
-        "reason": "deferred: Playwright browser/server fixture is not an approved R0 CI prerequisite"
+        "classification": "deferred",
+        "reason": "deferred: Playwright is transitive-only, GitHub CI installs no Chromium binary, no stable application server fixture is wired, and the TS audit consumes /dev/stdin (not a portable Linux pipe path)",
+        "prerequisites": ["Playwright promoted to a direct locked dependency", "a version-matched Chromium install step in CI", "a deterministic application server fixture and reserved port", "portable stdin ingestion in scripts/audit-gauntlet-overlap.ts"]
       }
     },
     "gauntlet-min-legible-size": {
@@ -248,9 +310,11 @@
       "timeout_sec": 30,
       "ci": {
         "required": false,
-        "disposition": "skip",
+        "disposition": "deferred",
         "deterministic": false,
-        "reason": "deferred: Playwright browser/server fixture is not an approved R0 CI prerequisite"
+        "classification": "deferred",
+        "reason": "deferred: Playwright is transitive-only, GitHub CI installs no Chromium binary, no stable application server fixture is wired, and the TS audit consumes /dev/stdin (not a portable Linux pipe path)",
+        "prerequisites": ["Playwright promoted to a direct locked dependency", "a version-matched Chromium install step in CI", "a deterministic application server fixture and reserved port", "portable stdin ingestion in scripts/audit-gauntlet-min-legible.ts"]
       }
     },
     "gauntlet-sub-pixel-detection": {
@@ -268,9 +332,112 @@
       "timeout_sec": 30,
       "ci": {
         "required": false,
-        "disposition": "skip",
+        "disposition": "deferred",
         "deterministic": false,
-        "reason": "deferred: Playwright browser/server fixture is not an approved R0 CI prerequisite"
+        "classification": "deferred",
+        "reason": "deferred: Playwright is transitive-only, GitHub CI installs no Chromium binary, no stable gallery server fixture is wired, and the TS audit consumes /dev/stdin (not a portable Linux pipe path)",
+        "prerequisites": ["Playwright promoted to a direct locked dependency", "a version-matched Chromium install step in CI", "a deterministic gallery server fixture and reserved port", "portable stdin ingestion in scripts/audit-gauntlet-sub-pixel.ts"]
+      }
+    },
+    "ci-test-census": {
+      "description": "Fail-closed census of every tracked executable test sensor. The Git index is the denominator; every sensor must be classified exactly once, every tracked *.test.mjs must remain required, and the portable non-Node lane must stay non-empty.",
+      "check": "scripts/audit-ci-test-census.sh",
+      "applies_to": ["tests/**", "tests/harness/ci-test-census.json", ".github/workflows/ci.yml"],
+      "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-ci-test-census",
+      "introduced": "TASK-2026-08-29-CI-SECURITY-NETRA-HARDENING",
+      "control": "Deterministic test-sensor denominator and classification integrity",
+      "traceability": {
+        "axiom_ids": ["H1"],
+        "anchor_label": "tracked-index proxy",
+        "bound_policy": "Validates the committed Git test index and Algol classification manifest; it does not claim untracked, browser, live-service, or task-context execution evidence."
+      },
+      "ci": {
+        "required": true,
+        "disposition": "run",
+        "deterministic": true,
+        "classification": "required",
+        "requires": {
+          "commands": ["awk", "bash", "comm", "git", "jq", "mktemp", "node", "rm", "sort", "tr", "uniq", "wc"],
+          "paths": [
+            "scripts/audit-ci-test-census.sh",
+            "tests/harness/ci-test-census.json"
+          ]
+        }
+      }
+    },
+    "console-security-contract": {
+      "description": "Deterministic source-contract rail for the active admin console boundary: server-only wrappers, unknown input, owner authorization before validation/action work, verified-user auth, owner RPC, and constrained result envelopes.",
+      "check": "scripts/audit-console-security-contract.sh",
+      "applies_to": ["lib/server/auth.ts", "lib/server/store/actions.ts", "lib/server/store/actions-core.ts"],
+      "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-console-security-contract",
+      "introduced": "TASK-2026-08-29-CI-SECURITY-NETRA-HARDENING",
+      "control": "Admin console authorization and server-action boundary",
+      "traceability": {
+        "axiom_ids": ["H1"],
+        "anchor_label": "deterministic source-contract proxy",
+        "bound_policy": "Checks the declared admin auth/action source boundary and regression envelope without claiming a live Supabase identity, RLS policy execution, or browser session."
+      },
+      "ci": {
+        "required": true,
+        "disposition": "run",
+        "deterministic": true,
+        "classification": "required",
+        "requires": {
+          "commands": ["bash", "cat", "jq", "mktemp", "node", "rm"],
+          "paths": [
+            "node_modules/tsx/package.json",
+            "scripts/audit-console-security-contract.sh",
+            "scripts/audit-security-netra-contracts.sh",
+            "scripts/audit-security-netra-contracts.ts",
+            "tests/security-netra-contracts.test.mjs",
+            "lib/server/auth.ts",
+            "lib/server/store/actions.ts",
+            "lib/server/store/actions-core.ts"
+          ]
+        }
+      }
+    },
+    "netra-contracts": {
+      "description": "Deterministic source-contract rail for NETRA store, chat route, and panel: request-scoped reads, explicit public projections, bounded search filters, input-before-quota ordering, rate-limit fail policy, and accessible panel/button contracts.",
+      "check": "scripts/audit-netra-contracts.sh",
+      "applies_to": ["lib/store/netra-reads.ts", "lib/server/rate-limit.ts", "app/api/chat/route.ts", "components/NetraNavigator.tsx", "components/NetraNavigator.css"],
+      "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-netra-contracts",
+      "introduced": "TASK-2026-08-29-CI-SECURITY-NETRA-HARDENING",
+      "control": "NETRA public-data, request, quota, and accessible UI boundary",
+      "traceability": {
+        "axiom_ids": ["H1"],
+        "anchor_label": "deterministic source-contract proxy",
+        "bound_policy": "Checks the declared NETRA source, transport, quota, public-read, and accessible-panel contracts without claiming a live provider, Redis, Supabase RLS, server, or browser fixture."
+      },
+      "ci": {
+        "required": true,
+        "disposition": "run",
+        "deterministic": true,
+        "classification": "required",
+        "requires": {
+          "commands": ["bash", "cat", "jq", "mktemp", "node", "rm"],
+          "paths": [
+            "node_modules/tsx/package.json",
+            "scripts/audit-netra-contracts.sh",
+            "scripts/audit-security-netra-contracts.sh",
+            "scripts/audit-security-netra-contracts.ts",
+            "tests/security-netra-contracts.test.mjs",
+            "lib/store/netra-reads.ts",
+            "lib/server/rate-limit.ts",
+            "app/api/chat/route.ts",
+            "components/NetraNavigator.tsx",
+            "components/NetraNavigator.css"
+          ]
+        }
       }
     },
     "permissions-nonempty": {
@@ -287,6 +454,7 @@
         "required": true,
         "disposition": "run",
         "deterministic": true,
+        "classification": "required",
         "requires": {
           "commands": ["bash", "jq"],
           "paths": [".claude/settings.json"]
@@ -307,6 +475,7 @@
         "required": true,
         "disposition": "run",
         "deterministic": true,
+        "classification": "required",
         "requires": {
           "commands": ["bash", "jq"],
           "paths": [".claude/settings.json", ".claude/hooks/mutating-action-hook.sh"]
@@ -327,7 +496,9 @@
         "required": false,
         "disposition": "skip",
         "deterministic": true,
-        "reason": "context-only: observed artifacts require a task id, route manifest, and task window"
+        "classification": "context",
+        "reason": "context-only: observed artifacts require a task id, route manifest, and task window",
+        "prerequisites": ["a task id", "a shipped-route manifest", "an observed PNG/JSON pair", "a task observation window"]
       }
     },
     "audit-search-index-completeness": {
@@ -345,6 +516,7 @@
         "required": true,
         "disposition": "run",
         "deterministic": true,
+        "classification": "required",
         "requires": {
           "commands": ["bash", "find", "grep", "jq", "python3", "tr", "wc"],
           "paths": [".next/server/app", "public/pagefind/pagefind-entry.json"]
@@ -367,6 +539,7 @@
         "required": true,
         "disposition": "run",
         "deterministic": true,
+        "classification": "required",
         "requires": {
           "commands": ["bash", "awk", "find", "git", "grep", "jq", "sha256sum"],
           "paths": [".harness/single-source-registry.json"]
@@ -384,10 +557,16 @@
       "introduced": "store-as-source S8 (2026-06-12)",
       "spec_ref": "docs/team/SPEC-2026-06-12-store-as-source-supabase.md §5.4 / §11",
       "control": "Secret containment — ensures SUPABASE_SECRET_KEY never leaks into app runtime bundle or tracked non-script files",
+      "traceability": {
+        "axiom_ids": ["H1"],
+        "anchor_label": "deterministic tracked-source proxy",
+        "bound_policy": "Scans the declared tracked/source paths and secret access patterns; it does not claim runtime bundle inspection or external secret-store attestation."
+      },
       "ci": {
         "required": true,
         "disposition": "run",
         "deterministic": true,
+        "classification": "required",
         "requires": {
           "commands": ["bash", "git", "grep", "sed"]
         }
@@ -410,7 +589,9 @@
         "required": false,
         "disposition": "skip",
         "deterministic": true,
-        "reason": "context-only: PreToolUse requires a Bash hook event payload; CI invokes no such tool event"
+        "classification": "context",
+        "reason": "context-only: the rail consumes a live PreToolUse Bash event and process table; CI has no tool event or development-server process context",
+        "prerequisites": ["a PreToolUse Bash JSON payload", "a live process table containing the task's development server state"]
       }
     }
   },

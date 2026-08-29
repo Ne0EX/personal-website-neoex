@@ -31,7 +31,7 @@ permissions:
 
 jobs:
   verify:
-    name: typecheck · lint · gates · harness-tests · build · CI census
+    name: typecheck · lint · gates · deterministic sensors · build · CI census
     runs-on: ubuntu-latest
     env:
       # Public, non-privileged build inputs. Configure these as GitHub Actions
@@ -95,19 +95,25 @@ jobs:
       - name: Gate — rail barrier-class audit
         run: npm run harness:barrier-class
 
-      # ── Harness fixture tests (node --test) ────────────────────────────────
-      # These .test.mjs files drive the audit scripts via spawnSync against the
-      # real repo (no .next / build dependency). git is preinstalled on the
-      # runner, which the fixtures need for their temp-dir git init steps.
-      - name: Harness fixture & regression tests (node --test)
-        run: |
-          node --test \
-            tests/harness/font-chain.test.mjs \
-            tests/soul-atom-drift-audit.test.mjs \
-            tests/audit-axiom-gate-join-coverage.test.mjs \
-            tests/audit-property-technique-map.test.mjs \
-            tests/worldline-globe-coordinates.test.mjs \
-            tests/harness/ci-repair-regressions.test.mjs
+      # ── Deterministic test-sensor census ──────────────────────────────────
+      # Algol classifies every tracked executable under tests/. Canopus uses
+      # the Git index as the denominator, so a newly tracked Node/shell/Python
+      # sensor cannot disappear merely because a workflow list was not edited.
+      # Candidate is evidence-backed only: portable passes must be required;
+      # every remaining candidate needs a verified command/exit/blocker record.
+      - name: Validate tracked deterministic sensor census
+        run: bash scripts/audit-ci-test-census.sh --validate
+
+      # Every tracked *.test.mjs is discovered directly and must also be in the
+      # required manifest set. Either omission or downgrade fails before run.
+      - name: Deterministic Node sensors (tracked discovery)
+        run: bash scripts/audit-ci-test-census.sh --node
+
+      # Required portable shell/Python/nonstandard sensors are manifest-driven
+      # because tests/harness also contains mutation, context, and manual probes
+      # that are unsafe or meaningless on every push.
+      - name: Deterministic shell and Python sensors (required manifest lane)
+        run: bash scripts/audit-ci-test-census.sh --shell-python
 
       # ── Forge-resistant integrity-ledger witness (the trust-root) ──────────
       # This is THE reason CI is a forge-resistant anchor and a LOCAL gate is

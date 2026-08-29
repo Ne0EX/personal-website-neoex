@@ -1,11 +1,11 @@
 {
   "_meta": {
     "purpose": "rail id -> tracker gate category. Consumed by scripts/factory/collect.mjs to set gate.category on every gate event sourced from a rail (an exit != 0 from .harness/audit/*.ndjson or a harness-check rail fail). Categories are the exact 10 keys of CATEGORIES in ~/Downloads/ai-factory-feature-tracker/factory-data.js (Security, Privacy, Performance, Correctness, Reliability, Scope, Accessibility, Consistency, Observability, Safety). Authored by Procyon from each rail's description+barrier_class in .harness/worldline-harness.config.json; Algol reviews and is the sign-off authority on this table.",
-    "source_of_truth": ".harness/worldline-harness.config.json .rails (21 rail ids as of 2026-06-11)",
+    "source_of_truth": ".harness/worldline-harness.config.json .rails (25 rail ids as of 2026-08-29)",
     "category_enum": ["Security", "Privacy", "Performance", "Correctness", "Reliability", "Scope", "Accessibility", "Consistency", "Observability", "Safety"],
     "fallback_category": "Correctness",
     "fallback_rule": "Any rail id present in audit ndjson but ABSENT from this table maps to the fallback_category 'Correctness' AND the collector emits a stderr warning 'unmapped rail: <id>' so the table stays complete by review pressure. Never silently drop an unmapped rail.",
-    "review_status": "APPROVED-by-algol 2026-06-11 — 1 correction applied (audit-search-index-completeness: Observability→Correctness); all other 20 mappings confirmed"
+    "review_status": "21 mappings approved by Algol 2026-06-11; ci-test-census, console-security-contract, netra-contracts, and the previously omitted secret-leak-guard were added by Canopus 2026-08-29 and remain subject to Algol category review"
   },
   "rails": {
     "territory": { "category": "Scope", "note": "cross-territory edit = an agent acting outside its assigned slice boundary; a scope/ownership violation. HARD-BARRIER." },
@@ -25,9 +25,13 @@
     "axiom-gate-join-coverage": { "category": "Observability", "note": "axiom<->gate bijection coverage; unprojected axioms past must_project_by = RED. This is the harness measuring its own enforcement coverage — an observability/coverage rail. HARD-BARRIER." },
     "audit-ground-truth-observed": { "category": "Observability", "note": "no DONE for a shipped route without a cryptographically-linked observed screenshot + ack — ground-truth observability gate. HARD-BARRIER." },
     "audit-search-index-completeness": { "category": "Correctness", "note": "pagefind index must cover every crawlable page; SKIP(exit 3) on missing build, never false-pass — an incomplete index means search returns wrong/missing results, a correctness defect. HARD-BARRIER. (Algol correction 2026-06-11: Observability framing in rail description refers to what the control eliminates, not the failure class; the failure cost is incorrect search output.)" },
+    "ci-test-census": { "category": "Observability", "note": "tracked executable sensors must be classified exactly once and deterministic portable lanes cannot silently shrink — coverage/denominator observability. HARD-BARRIER; tracked-index proxy bounded in harness config." },
+    "console-security-contract": { "category": "Security", "note": "admin server actions must preserve verified-user, owner-RPC, auth-before-work, unknown-input, and constrained-envelope source contracts. HARD-BARRIER; deterministic source proxy, not live-RLS evidence." },
+    "netra-contracts": { "category": "Security", "note": "NETRA must preserve bounded public reads, safe filter grammar, validated request/quota ordering, fail policy, and accessible transport-state contracts. HARD-BARRIER; deterministic source proxy, not live-provider/RLS/browser evidence." },
     "single-source": { "category": "Consistency", "note": "a divergent copy that neither byte-matches nor imports the canonical = single-source-of-truth violation. HARD-BARRIER." },
     "permissions-nonempty": { "category": "Security", "note": "settings.json must carry a non-empty permissions deny block — least-privilege/P3 security gate. HARD-BARRIER." },
     "least-agency-config": { "category": "Security", "note": "deny rules + blocking PreToolUse hook must be present; fails closed — least-agency security gate. HARD-BARRIER." },
+    "secret-leak-guard": { "category": "Security", "note": "declared production/tracked paths must not contain Supabase secret key material or unauthorized SUPABASE_SECRET_KEY access. HARD-BARRIER; deterministic tracked-source proxy." },
     "dev-clobber-guard": { "category": "Reliability", "note": "blocks prod build/serve while next dev is alive (clobbered .next served the site unstyled 2026-06-02) — build/serve reliability. HARD-BARRIER." }
   }
 }

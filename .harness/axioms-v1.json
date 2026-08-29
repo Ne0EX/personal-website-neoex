@@ -102,10 +102,15 @@
       "owner": "Canopus",
       "signed_by": "Peat",
       "signed_date": "2026-05-30",
-      "status": "UNPROJECTED",
+      "status": "PARTIAL",
       "must_project_by": "2026-06-24",
-      "projects_to": [],
-      "notes": "Ratified by Peat 2026-05-30. Canopus authors; Peat ratifies. Anchor-label policy gate is Wave B planned work. Moved out of value tier — this is harness-governance, not product-value."
+      "projects_to": [
+        "ci-test-census",
+        "console-security-contract",
+        "netra-contracts",
+        "secret-leak-guard"
+      ],
+      "notes": "Ratified by Peat 2026-05-30. Task-scoped operational projections were recorded by Canopus on 2026-08-29; no new Peat signature or ratification is claimed. These four rails self-declare deterministic proxy anchors and bound policies. H1 remains PARTIAL and overdue because equivalent traceability metadata is not yet enforced across every rail; this registry must not turn that broader debt green."
     }
   ]
 }

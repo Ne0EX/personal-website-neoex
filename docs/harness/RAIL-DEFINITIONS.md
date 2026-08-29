@@ -1,7 +1,7 @@
 # Rail Definitions
 
 > Rail owner · Canopus (α-HRN-07)
-> Last updated · 2026-05-15
+> Last updated · 2026-08-29 · TASK-2026-08-29-CI-SECURITY-NETRA-HARDENING
 > Config source · `.harness/worldline-harness.config.json`
 
 ---
@@ -19,18 +19,140 @@ Every rail:
 
 `bash .claude/hooks/harness-check.sh --ci` delegates to
 `scripts/audit-harness-ci.sh`. The runner reads every rail from the config in
-lexicographic order and emits one JSONL record per rail plus one summary. It
-does not maintain a second rail list.
+lexicographic order and emits one JSONL record per rail plus one summary.
+Config v3 adds `ci_policy.required_rails` as the omission-failing required-rail
+denominator. Deleting a listed rail, downgrading it from deterministic `run`,
+or marking an unlisted rail `ci.required: true` is a runner error.
 
-- Required deterministic rails use `ci.required: true` and `disposition: run`.
-- Task-context, browser/server, embedded, deferred, and stub rails remain in the
-  denominator as explicit non-required `SKIP` records with a reason.
+- Required deterministic rails use `ci.required: true`, `disposition: run`, and
+  `classification: required`.
+- Advisory deterministic rails run with `classification: advisory` but do not
+  turn the required aggregate red.
+- Task-context, embedded, deferred, and stub rails remain in the denominator as
+  explicit non-required `SKIP` records with a machine-readable classification,
+  non-empty reason, and non-empty prerequisite list.
 - A missing command/path is `ERROR`; a check's nonzero exit is `FAIL`.
 - Required `FAIL`, `ERROR`, or `SKIP` makes the summary and process nonzero.
   Optional `FAIL`/`ERROR` remains visible in separate summary counters without
   turning the required aggregate red.
 - JSONL contains no timestamps or random identifiers. Child diagnostics are
   written separately to stderr.
+
+### Test classification contract
+
+`tests/harness/ci-test-census.json` is Algol's executable-sensor manifest;
+`scripts/audit-ci-test-census.sh` is Canopus's fail-closed consumer. Git's
+tracked index is the denominator, not a hand-maintained workflow command.
+
+- Every tracked `*.test.mjs` must be in `required` with `kind: node-test`; CI
+  discovers and runs the tracked set directly with `node --test`.
+- Every tracked executable shell/Python/nonstandard probe under `tests/` must
+  appear exactly once in `required`, `candidate`, `deferred`, `context`, or
+  `manual`. Support files are classified separately and cannot satisfy the
+  executable denominator.
+- Portable deterministic shell/Python/nonstandard sensors belong in
+  `required` and run in the required non-Node lane.
+- `candidate` is a verified-blocker state, not a future-work bucket. Each entry
+  must record `blocker.command`, numeric `blocker.exit_code`,
+  `blocker.observed`, and `blocker.verified_on`.
+- Mutation campaigns, manual refutations, task-context probes, and browser or
+  unsafe fixtures remain excluded only under their explicit classifications.
+- A new tracked executable, a missing classified path, an untracked manifest
+  path, an empty required non-Node lane, or a silent Node downgrade fails CI.
+
+Run the three CI phases locally:
+
+```bash
+bash scripts/audit-ci-test-census.sh --validate
+bash scripts/audit-ci-test-census.sh --node
+bash scripts/audit-ci-test-census.sh --shell-python
+```
+
+---
+
+## Rail: ci-test-census
+
+**Check:** `scripts/audit-ci-test-census.sh` (defaults to `--validate`)
+**Applies to:** tracked executable sensors under `tests/**`, Algol's census
+manifest, and the CI sensor lanes
+**Barrier:** `HARD-BARRIER`; required, deterministic, Linux-portable CI rail
+**Trace:** H1 · `tracked-index proxy`
+
+**Purpose:** Prevent a green workflow from silently omitting a tracked test.
+The committed Git index is the executable denominator. Every discovered sensor
+must be classified exactly once, every tracked `*.test.mjs` must stay required,
+and the portable non-Node lane must not be empty.
+
+**Bound policy:** This rail validates classification and committed-path
+coverage. It does not claim that untracked files, browser/server fixtures, live
+services, mutation campaigns, or task-context probes ran. Those remain visible
+under explicit classifications and prerequisites.
+
+**Linux prerequisites:** `awk`, `bash`, `comm`, `git`, `jq`, `mktemp`, `node`,
+`rm`, `sort`, `tr`, `uniq`, and `wc`, plus the tracked census manifest.
+
+**How to fix a fail:**
+
+- Add a new deterministic sensor to `required`; do not extend a workflow list.
+- Put a non-portable sensor in the precise classification and record its
+  prerequisite or verified candidate blocker.
+- Repair duplicate, missing, untracked, or phantom manifest paths.
+- Run `--validate`, then the `--node` and `--shell-python` execution lanes.
+
+---
+
+## Rail: console-security-contract
+
+**Check:** `scripts/audit-console-security-contract.sh`
+**Applies to:** the active console auth helper and server-action wrappers
+**Barrier:** `HARD-BARRIER`; required, deterministic, Linux-portable CI rail
+**Trace:** H1 · `deterministic source-contract proxy`
+
+**Purpose:** Preserve the admin console's static security boundary: server-only
+wrappers accept unknown input, establish verified identity and owner
+authorization before validation/action work, use the owner RPC, and return only
+the constrained action envelope.
+
+**Bound policy:** This is source and regression-envelope evidence. It does not
+claim a live Supabase user, deployed RLS execution, or an authenticated browser
+session. Those need separately approved integration fixtures.
+
+**Linux prerequisites:** `bash`, `cat`, `jq`, `mktemp`, `node`, `rm`, the locked
+local `tsx` package loaded through `node --import`, Algol's TypeScript
+audit/regression, and the declared
+console source files. No credential or network service is required.
+
+**How to fix a fail:** Read the emitted violation code, restore authorization
+before validation/action work at the named source boundary, and update Algol's
+regression only when the approved contract itself changes.
+
+---
+
+## Rail: netra-contracts
+
+**Check:** `scripts/audit-netra-contracts.sh`
+**Applies to:** NETRA reads, rate limit/session helpers, chat route, and panel
+**Barrier:** `HARD-BARRIER`; required, deterministic, Linux-portable CI rail
+**Trace:** H1 · `deterministic source-contract proxy`
+
+**Purpose:** Preserve NETRA's bounded public-read projection, safe search-filter
+grammar, validation-before-quota ordering, session/daily-limit fail policy,
+sanitized transport envelopes, and accessible connected panel/button contract.
+
+**Bound policy:** This is source and regression-envelope evidence. It does not
+claim a live model provider, Redis, Supabase RLS execution, production server,
+or browser fixture. Browser/task sensors remain deferred until their declared
+server, port, browser binary, and route-denominator prerequisites exist.
+
+**Linux prerequisites:** `bash`, `cat`, `jq`, `mktemp`, `node`, `rm`, the locked
+local `tsx` package loaded through `node --import`, Algol's TypeScript
+audit/regression, and the declared
+NETRA source files. No credential or network service is required.
+
+**How to fix a fail:** Restore the named data, request, quota, response, or UI
+contract. Do not weaken a source assertion to accommodate a behavior change;
+route an intentional contract change through Algol and the owning feature
+agent first.
 
 ---
 
@@ -428,6 +550,18 @@ Warnings from known CDN sources (Google Fonts, etc.) can be allowlisted in `.har
 ### Skip behavior
 
 If `playwright-core` is unavailable (e.g., fresh clone without browser installation), the rail exits 3 (`WARN`) rather than 1 (`FAIL`). Agents are not punished for platform issues — the WARN is logged and the handoff is not blocked by the runtime rail alone. Polaris may choose to require explicit `playwright install chromium` as a setup step in future.
+
+### CI disposition (verified 2026-08-29)
+
+This rail is `deferred`, not passed, in shared CI. Local module resolution finds
+Playwright only through the transitive `@playwright/mcp` dependency, and the
+local Chromium cache proves nothing about a clean `ubuntu-latest` runner.
+`npm ci` currently has no version-matched browser installation step. The rail
+also chooses a random port and owns a temporary Python server lifecycle. CI
+promotion requires Playwright to become a direct locked dependency, an
+explicit matching Chromium install, and an approved deterministic server/port
+fixture. Missing any prerequisite must remain `SKIP`/deferred, never a product
+pass.
 
 ### Timeout
 

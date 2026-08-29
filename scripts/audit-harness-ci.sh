@@ -5,9 +5,11 @@
 # Config-driven CI census for the Worldline harness.
 #
 # The `ci` object on each rail in .harness/worldline-harness.config.json is the
-# authoritative CI contract. This runner has no private rail list: it
-# enumerates every configured rail in stable (lexicographic) order and emits
-# exactly one JSONL record for each rail, followed by one summary record.
+# authoritative CI contract. Config v3 also carries an omission-failing
+# ci_policy.required_rails manifest, so deleting or downgrading a required rail
+# cannot silently shrink the denominator. The runner enumerates every
+# configured rail in stable (lexicographic) order and emits exactly one JSONL
+# record for each rail, followed by one summary record.
 #
 # Status contract:
 #   PASS  - a configured rail ran and exited 0 without reporting SKIP
@@ -104,7 +106,9 @@ runner_error() {
   exit 1
 }
 
-command -v jq >/dev/null 2>&1 || runner_error "missing prerequisite command: jq"
+for prerequisite in jq sort uniq wc tr; do
+  command -v "${prerequisite}" >/dev/null 2>&1 || runner_error "missing prerequisite command: ${prerequisite}"
+done
 
 if [[ ! -f "${CONFIG}" ]]; then
   runner_error "harness config not found: ${CONFIG}"
@@ -116,6 +120,100 @@ fi
 
 if [[ "$(jq -r 'if (.rails | type) == "object" then "ok" else "invalid" end' "${CONFIG}")" != "ok" ]]; then
   runner_error "harness config has no object-valued .rails census"
+fi
+
+CONFIG_VERSION="$(jq -r 'if (.config_version | type) == "number" then .config_version else 0 end' "${CONFIG}")"
+STRICT_CI_SCHEMA="false"
+if [[ "${CONFIG_VERSION}" -ge 3 ]]; then
+  STRICT_CI_SCHEMA="true"
+fi
+
+# Synthetic regression fixtures predating config v3 remain supported. The
+# authoritative v3 config is deliberately strict: all rails need an explicit
+# machine-readable CI profile, and required rails have a separate denominator.
+if [[ "${STRICT_CI_SCHEMA}" == "true" ]]; then
+  if ! jq -e '
+    (.ci_policy.required_rails | type) == "array"
+    and (.ci_policy.required_rails | length) > 0
+    and all(.ci_policy.required_rails[]; type == "string" and length > 0)
+  ' "${CONFIG}" >/dev/null; then
+    runner_error "config v3 requires a non-empty string-valued ci_policy.required_rails manifest"
+  fi
+
+  if [[ "$(jq -r '.ci_policy.required_rails[]' "${CONFIG}" | sort | uniq -d | wc -l | tr -d ' ')" -ne 0 ]]; then
+    runner_error "ci_policy.required_rails contains duplicate rail ids"
+  fi
+
+  if [[ "$(jq -c '.ci_policy.classification_values // [] | sort' "${CONFIG}")" != '["advisory","context","deferred","embedded","required","stub"]' ]]; then
+    runner_error "ci_policy.classification_values must declare the complete v3 classification vocabulary"
+  fi
+
+  while IFS= read -r rail; do
+    [[ -z "${rail}" ]] && continue
+    if ! jq -e --arg rail "${rail}" '.rails | has($rail)' "${CONFIG}" >/dev/null; then
+      runner_error "required CI rail is absent from .rails: ${rail}"
+    fi
+    if ! jq -e --arg rail "${rail}" '
+      .rails[$rail].ci.required == true
+      and .rails[$rail].ci.disposition == "run"
+      and .rails[$rail].ci.deterministic == true
+      and .rails[$rail].ci.classification == "required"
+    ' "${CONFIG}" >/dev/null; then
+      runner_error "required CI rail was downgraded or has malformed metadata: ${rail}"
+    fi
+  done < <(jq -r '.ci_policy.required_rails[]' "${CONFIG}")
+
+  while IFS= read -r rail; do
+    [[ -z "${rail}" ]] && continue
+    if ! jq -e --arg rail "${rail}" '.ci_policy.required_rails | index($rail) != null' "${CONFIG}" >/dev/null; then
+      runner_error "ci.required=true rail is missing from ci_policy.required_rails: ${rail}"
+    fi
+  done < <(jq -r '.rails | to_entries[] | select(.value.ci.required == true) | .key' "${CONFIG}")
+
+  while IFS= read -r rail; do
+    [[ -z "${rail}" ]] && continue
+    if ! jq -e --arg rail "${rail}" '(.rails[$rail].ci | type) == "object"' "${CONFIG}" >/dev/null; then
+      runner_error "config v3 rail is missing explicit ci metadata: ${rail}"
+    fi
+    if ! jq -e --arg rail "${rail}" '
+      (.rails[$rail].ci.required | type) == "boolean"
+      and (.rails[$rail].ci.deterministic | type) == "boolean"
+      and (.rails[$rail].ci.disposition == "run" or .rails[$rail].ci.disposition == "skip" or .rails[$rail].ci.disposition == "deferred")
+      and ((.rails[$rail].ci.classification) as $classification | ["required", "advisory", "context", "embedded", "deferred", "stub"] | index($classification) != null)
+    ' "${CONFIG}" >/dev/null; then
+      runner_error "config v3 rail has malformed CI fields: ${rail}"
+    fi
+
+    disposition="$(jq -r --arg rail "${rail}" '.rails[$rail].ci.disposition' "${CONFIG}")"
+    if [[ "${disposition}" == "run" ]]; then
+      if ! jq -e --arg rail "${rail}" '
+        .rails[$rail].ci.deterministic == true
+        and (
+          (.rails[$rail].ci.required == true and .rails[$rail].ci.classification == "required")
+          or
+          (.rails[$rail].ci.required == false and .rails[$rail].ci.classification == "advisory" and ((.rails[$rail].ci.reason // "") | length) > 0)
+        )
+      ' "${CONFIG}" >/dev/null; then
+        runner_error "CI-run rail must be deterministic and classified required/advisory: ${rail}"
+      fi
+    else
+      if ! jq -e --arg rail "${rail}" '
+        .rails[$rail].ci.required == false
+        and ((.rails[$rail].ci.reason // "") | type) == "string"
+        and ((.rails[$rail].ci.reason // "") | length) > 0
+        and (.rails[$rail].ci.prerequisites | type) == "array"
+        and (.rails[$rail].ci.prerequisites | length) > 0
+        and all(.rails[$rail].ci.prerequisites[]; type == "string" and length > 0)
+        and (
+          (.rails[$rail].ci.disposition == "deferred" and .rails[$rail].ci.classification == "deferred")
+          or
+          (.rails[$rail].ci.disposition == "skip" and ((.rails[$rail].ci.classification) as $classification | ["context", "embedded", "stub"] | index($classification) != null))
+        )
+      ' "${CONFIG}" >/dev/null; then
+        runner_error "CI-excluded rail needs a non-empty reason/prerequisite list and matching classification: ${rail}"
+      fi
+    fi
+  done < <(jq -r '.rails | keys[]' "${CONFIG}")
 fi
 
 TMP_DIR=""
