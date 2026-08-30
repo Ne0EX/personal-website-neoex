@@ -25,8 +25,8 @@
       "signed_date": "2026-05-30",
       "status": "PARTIAL",
       "must_project_by": "2026-06-24",
-      "projects_to": ["gauntlet-sub-pixel-detection", "gauntlet-overlap-composition"],
-      "notes": "gauntlet-sub-pixel and gauntlet-overlap are Playwright-backed fidelity checks (Wave B wiring). Full pixel-anchor render-fidelity gate (Playwright full-page diff) still UNPROJECTED."
+      "projects_to": ["gauntlet-sub-pixel-detection", "gauntlet-overlap-composition", "render-fidelity-vs-intent"],
+      "notes": "gauntlet-sub-pixel, gauntlet-overlap, and render-fidelity-vs-intent are Playwright-backed fidelity checks. Full pixel-anchor prototype-production diff remains UNPROJECTED, so V2 stays PARTIAL."
     },
     {
       "id": "V3",

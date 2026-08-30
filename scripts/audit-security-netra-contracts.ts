@@ -46,6 +46,7 @@ const FILES = {
   auth: 'lib/server/auth.ts',
   store: 'lib/store/netra-reads.ts',
   route: 'app/api/chat/route.ts',
+  gateway: 'lib/netra/gateway.ts',
   rateLimit: 'lib/server/rate-limit.ts',
   navigator: 'components/NetraNavigator.tsx',
   navigatorCss: 'components/NetraNavigator.css',
@@ -153,6 +154,26 @@ function pxValue(value: string): number | null {
   if (!match) return null
   const number = Number(match[1])
   return match[2] === 'rem' ? number * 16 : number
+}
+
+function objectPropertyName(
+  property: ts.ObjectLiteralElementLike,
+  file: ts.SourceFile,
+): string | null {
+  if (ts.isSpreadAssignment(property)) return null
+  const name = property.name
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) {
+    return name.text
+  }
+  return name.getText(file)
+}
+
+function objectProperty(
+  object: ts.ObjectLiteralExpression,
+  name: string,
+  file: ts.SourceFile,
+): ts.ObjectLiteralElementLike | undefined {
+  return object.properties.find((property) => objectPropertyName(property, file) === name)
 }
 
 function auditMain(): AuditOutput {
@@ -392,6 +413,7 @@ function auditMain(): AuditOutput {
 
   if (areas.has('route')) {
     const routeSource = read(FILES.route, 'route')
+    const gatewaySource = read(FILES.gateway, 'route')
     const rateLimitSource = read(FILES.rateLimit, 'route')
     const routeFile = sourceFile(FILES.route, routeSource)
     const post = exportedFunctionDeclarations(routeFile).find((node) => node.name?.text === 'POST')
@@ -401,6 +423,8 @@ function auditMain(): AuditOutput {
       /ChatRequestSchema\.safeParse\(\s*await request\.json\(\)\s*\)/,
     ])
     const quotaIndex = postBody.search(/await quota\(/)
+    const pageResolveIndex = postBody.search(/const page\s*=\s*resolveNetraPageContext\(/)
+    const pageGuardIndex = postBody.search(/if \(page\.kind === ['"]unknown['"]\)/)
 
     add(
       'route',
@@ -409,6 +433,37 @@ function auditMain(): AuditOutput {
       parseIndex >= 0 && quotaIndex >= 0 && parseIndex < quotaIndex,
       'the request body is parsed and validated before quota is consumed',
       `ChatRequestSchema validation must precede await quota(); parse_index=${parseIndex} quota_index=${quotaIndex}`,
+    )
+    add(
+      'route',
+      'NETRA_ROUTE_PAGE_VALIDATE_BEFORE_QUOTA',
+      FILES.route,
+      /page:\s*z\.object\(\{\s*pathname:\s*z\.string\(\)\.min\(1\)\.max\(NETRA_MAX_PATHNAME_LENGTH\)/.test(routeSource)
+        && parseIndex >= 0
+        && pageResolveIndex > parseIndex
+        && pageGuardIndex > pageResolveIndex
+        && quotaIndex > pageGuardIndex
+        && /if \(page\.kind === ['"]unknown['"]\)\s*\{\s*return errorResponse\(400, ['"]INVALID_BODY['"]/.test(postBody),
+      'bounded pathname schema and finite public-page resolution both reject before quota consumption',
+      `page.pathname must be bounded by NETRA_MAX_PATHNAME_LENGTH, then resolveNetraPageContext + unknown-page rejection must precede await quota(); parse=${parseIndex} resolve=${pageResolveIndex} guard=${pageGuardIndex} quota=${quotaIndex}`,
+    )
+    const coreCallIndex = postBody.search(/await runNetraTurn\(/)
+    add(
+      'route',
+      'NETRA_ROUTE_CORE_DELEGATION',
+      FILES.route,
+      coreCallIndex > quotaIndex
+        && /messages:\s*parsed\.messages/.test(postBody)
+        && /servedLang:\s*parsed\.served_lang/.test(postBody)
+        && /page:\s*parsed\.page/.test(postBody)
+        && /abortSignal:\s*request\.signal/.test(postBody)
+        && /model:\s*gatewayRuntime\.model/.test(postBody)
+        && /providerOptions:\s*gatewayRuntime\.providerOptions/.test(postBody)
+        && /\bknowledge\s*,/.test(postBody)
+        && !/\bstreamText\s*\(/.test(routeSource)
+        && !/\b(?:NETRA_SYSTEM_PROMPT|createNetraTools|netraTools|experimental_context)\b/.test(routeSource),
+      'the route delegates normalized turn input, model, and knowledge to runNetraTurn without assembling prompt/tools',
+      'route must call runNetraTurn with parsed messages/lang/page, request.signal, model, and knowledge; route-owned streamText/prompt/tool/context assembly is forbidden',
     )
     add(
       'route',
@@ -435,19 +490,40 @@ function auditMain(): AuditOutput {
       'the per-session Redis TTL derives from the shared 24-hour RATE_LIMIT_WINDOW_MS contract',
       'route must derive SESSION_WINDOW_SECONDS from RATE_LIMIT_WINDOW_MS and EXPIRE the session key; helper must define the 24-hour window',
     )
+    const freeModelBlock = gatewaySource.match(
+      /NETRA_FREE_GATEWAY_MODELS\s*=\s*\[([\s\S]*?)\]\s*as const/,
+    )?.[1] ?? ''
+    const freeModels = [...freeModelBlock.matchAll(/['"]([^'"]+)['"]/g)]
+      .map((match) => match[1])
+    const defaultModel = gatewaySource.match(
+      /NETRA_DEFAULT_FREE_GATEWAY_MODEL[^=]*=\s*['"]([^'"]+)['"]/,
+    )?.[1] ?? ''
     add(
       'route',
-      'NETRA_ROUTE_DAILY_UTC_EXPIRY',
-      FILES.rateLimit,
-      /wl:daily:spend/.test(routeSource)
-        && /['"]P?EXPIREAT['"]/.test(routeSource)
-        && /nextUtcMidnightEpochSeconds\(/.test(routeSource)
-        && /Date\.UTC\(/.test(rateLimitSource)
-        && /getUTCFullYear\(\)/.test(rateLimitSource)
-        && /getUTCMonth\(\)/.test(rateLimitSource)
-        && /getUTCDate\(\)/.test(rateLimitSource),
-      'daily spend receives EXPIREAT from the shared next-UTC-midnight helper',
-      'daily spend must use EXPIREAT/PEXPIREAT with nextUtcMidnightEpochSeconds; helper must compute with Date.UTC and UTC getters',
+      'NETRA_ROUTE_GATEWAY_FREE_ONLY',
+      FILES.gateway,
+      freeModels.length > 0
+        && freeModels.every((model) => model.endsWith('-free'))
+        && new Set(freeModels).size === freeModels.length
+        && freeModels.includes(defaultModel)
+        && /gateway\(modelId\)/.test(gatewaySource)
+        && /models:\s*fallbackModels/.test(gatewaySource)
+        && /user:\s*input\.sessionId/.test(gatewaySource)
+        && /['"]feature:netra['"]/.test(gatewaySource)
+        && /['"]tier:free-only['"]/.test(gatewaySource)
+        && /createNetraGatewayRuntime\(\{[\s\S]*?configuredModel:\s*process\.env\.NETRA_MODEL[\s\S]*?sessionId/.test(postBody)
+        && !/createOpenRouter|OPENROUTER_API_KEY|@openrouter\//.test(routeSource + gatewaySource),
+      `Vercel AI Gateway allowlist contains ${freeModels.length} zero-priced -free model(s), with session attribution and free-only tagging`,
+      `route must use createNetraGatewayRuntime; every allowed/fallback model must end in -free; default must be allowlisted; OpenRouter imports and keys are forbidden; observed=${freeModels.join(',') || 'missing'}`,
+    )
+    add(
+      'route',
+      'NETRA_ROUTE_GATEWAY_ATTRIBUTION',
+      FILES.route,
+      /const sessionCookie\s*=\s*buildSessionCookie\(quotaResult\.sessionId\)/.test(postBody)
+        && /createNetraGatewayRuntime\(\{[\s\S]*?configuredModel:\s*process\.env\.NETRA_MODEL[\s\S]*?sessionId:\s*quotaResult\.sessionId[\s\S]*?\}\)/.test(postBody),
+      'the Gateway request attribution and Set-Cookie header use the same post-quota canonical session ID',
+      'createNetraGatewayRuntime sessionId and buildSessionCookie must both use quotaResult.sessionId',
     )
     add(
       'route',
@@ -480,7 +556,6 @@ function auditMain(): AuditOutput {
     const navigatorFile = sourceFile(FILES.navigator, navigatorSource)
     const triggerNode = jsxElementWithStaticClass(navigatorFile, 'button', 'netra-trigger')
     const trigger = triggerNode?.getText(navigatorFile) ?? ''
-    const triggerBody = triggerNode?.children.map((child) => child.getText(navigatorFile)).join('') ?? ''
 
     add(
       'ui',
@@ -490,9 +565,10 @@ function auditMain(): AuditOutput {
         && /aria-controls=/.test(trigger)
         && /data-state=\{state\}/.test(trigger)
         && /aria-label=\{[^}]*stateLabel/.test(trigger)
-        && /NETRA|\{t\.(?:trigger|label|name|title)\}/.test(triggerBody),
-      'the trigger visibly identifies NETRA and exposes ready/open/busy state through its label and data state',
-      'the NETRA trigger must contain a visible label plus aria-expanded, aria-controls, data-state, and a state-aware aria-label',
+        && /t\.open/.test(trigger)
+        && /t\.close/.test(trigger),
+      'the icon trigger has a state-aware NETRA accessible name plus expanded, controls, and data-state semantics',
+      'the icon-only NETRA trigger must keep a state-aware open/close accessible name, aria-expanded, aria-controls, and data-state',
     )
     add(
       'ui',
@@ -583,6 +659,79 @@ function auditMain(): AuditOutput {
         && /served_lang:\s*locale/.test(navigatorSource),
       'the panel posts the bounded message window and page locale to /api/chat',
       'transport must POST JSON to /api/chat with the last 10 messages and served_lang',
+    )
+
+    let transportPayload: ts.ObjectLiteralExpression | null = null
+    const findTransportPayload = (node: ts.Node): void => {
+      if (
+        !transportPayload
+        && ts.isCallExpression(node)
+        && ts.isPropertyAccessExpression(node.expression)
+        && node.expression.expression.getText(navigatorFile) === 'JSON'
+        && node.expression.name.text === 'stringify'
+        && ts.isObjectLiteralExpression(node.arguments[0])
+      ) {
+        const candidate = node.arguments[0]
+        const keys = candidate.properties.map((property) => objectPropertyName(property, navigatorFile))
+        if (keys.includes('messages') && keys.includes('served_lang') && keys.includes('page')) {
+          transportPayload = candidate
+        }
+      }
+      ts.forEachChild(node, findTransportPayload)
+    }
+    findTransportPayload(navigatorFile)
+
+    const payload = transportPayload as ts.ObjectLiteralExpression | null
+    const payloadKeys = payload
+      ? payload.properties.map((property) => objectPropertyName(property, navigatorFile)).sort()
+      : []
+    const messagesProperty = payload ? objectProperty(payload, 'messages', navigatorFile) : undefined
+    const servedLangProperty = payload ? objectProperty(payload, 'served_lang', navigatorFile) : undefined
+    const pageProperty = payload ? objectProperty(payload, 'page', navigatorFile) : undefined
+    const pageObject = pageProperty
+      && ts.isPropertyAssignment(pageProperty)
+      && ts.isObjectLiteralExpression(pageProperty.initializer)
+      ? pageProperty.initializer
+      : null
+    const pageKeys = pageObject
+      ? pageObject.properties.map((property) => objectPropertyName(property, navigatorFile)).sort()
+      : []
+    const pathnameProperty = pageObject ? objectProperty(pageObject, 'pathname', navigatorFile) : undefined
+    const directPathname = Boolean(
+      pathnameProperty
+      && (
+        ts.isShorthandPropertyAssignment(pathnameProperty)
+        || (
+          ts.isPropertyAssignment(pathnameProperty)
+          && pathnameProperty.initializer.getText(navigatorFile) === 'pathname'
+        )
+      ),
+    )
+    const directMessages = Boolean(
+      messagesProperty
+      && ts.isPropertyAssignment(messagesProperty)
+      && /^next\.slice\(-10\)$/.test(messagesProperty.initializer.getText(navigatorFile)),
+    )
+    const directLocale = Boolean(
+      servedLangProperty
+      && ts.isPropertyAssignment(servedLangProperty)
+      && servedLangProperty.initializer.getText(navigatorFile) === 'locale',
+    )
+    const forbiddenContextCapture = /document\.title|document\.body\.(?:innerText|textContent|innerHTML)|navigator\.permissions|permissions\.query|\b(?:toolChoice|tool_choice|requestedTool|pageBody|bodyText)\b/.test(navigatorSource)
+    add(
+      'ui',
+      'NETRA_UI_PATHNAME_ONLY_CONTEXT',
+      FILES.navigator,
+      /import\s*\{\s*usePathname\s*\}\s*from\s*['"]next\/navigation['"]/.test(navigatorSource)
+        && /const pathname\s*=\s*usePathname\(\)/.test(navigatorSource)
+        && JSON.stringify(payloadKeys) === JSON.stringify(['messages', 'page', 'served_lang'])
+        && JSON.stringify(pageKeys) === JSON.stringify(['pathname'])
+        && directPathname
+        && directMessages
+        && directLocale
+        && !forbiddenContextCapture,
+      'the client sends the current usePathname value as the only page hint beside bounded messages and locale',
+      `chat JSON must contain exactly messages=next.slice(-10), served_lang=locale, page={pathname}; DOM/title/permissions/tool-choice capture is forbidden; payload=${payloadKeys.join(',') || 'missing'} page=${pageKeys.join(',') || 'missing'}`,
     )
 
     const smallText: Array<{ selector: string; size: number }> = []

@@ -33,26 +33,52 @@ function declarationsFor(selector, source = navigatorCss) {
   return [...matches].map((match) => match[1]).join('\n')
 }
 
-test('the mobile NETRA trigger keeps its instrument readout in the primary row', () => {
-  const readout = declarationsFor('.netra-trigger.atlas-netra .readout')
+function declarationValue(declarations, property) {
+  const escapedProperty = property.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return declarations.match(
+    new RegExp(`(?:^|;)\\s*${escapedProperty}\\s*:\\s*([^;]+)`),
+  )?.[1].trim() ?? null
+}
 
-  assert.match(readout, /display:\s*grid\s*;/)
-  assert.match(readout, /grid-column:\s*auto\s*;/)
-  assert.match(readout, /grid-row:\s*auto\s*;/)
+function cssPixels(value) {
+  const match = value?.match(/^(\d*\.?\d+)(px|rem)$/)
+  if (!match) return null
+  return Number(match[1]) * (match[2] === 'rem' ? 16 : 1)
+}
+
+test('the fixed NETRA trigger is an exact 52px true-circle target', () => {
+  const trigger = declarationsFor('.netra-trigger.atlas-netra')
+  const width = cssPixels(declarationValue(trigger, 'width'))
+  const height = cssPixels(declarationValue(trigger, 'height'))
+
+  assert.equal(width, 52)
+  assert.equal(height, 52)
+  assert.match(trigger, /border-radius:\s*50%\s*;/)
+  assert.doesNotMatch(trigger, /min-width:\s*12\.5rem\s*;/)
 })
 
-test('the NETRA trigger label cannot wrap and inflate the control', () => {
-  const label = declarationsFor('.netra-trigger.atlas-netra .id-box .lab')
+test('the compact trigger respects the lower safe area and never regains console width', () => {
+  const trigger = declarationsFor('.netra-trigger.atlas-netra')
+  assert.match(trigger, /bottom:\s*calc\([^;]*env\(safe-area-inset-bottom/)
 
-  assert.match(label, /white-space:\s*nowrap\s*;/)
-})
-
-test('the mobile NETRA trigger remains a compact single-row instrument', () => {
   const mobile = blockFor('@media (max-width: 600px)')
-  const trigger = declarationsFor('.netra-trigger.atlas-netra', mobile)
+  const mobileTrigger = declarationsFor('.netra-trigger.atlas-netra', mobile)
+  const mobileWidth = declarationValue(mobileTrigger, 'width')
 
-  assert.match(trigger, /width:\s*12\.5rem\s*;/)
-  assert.match(trigger, /grid-template-rows:\s*auto\s*;/)
+  assert.doesNotMatch(mobileTrigger, /12\.5rem/)
+  assert.doesNotMatch(mobileTrigger, /max-width:\s*calc\(100vw/)
+  if (mobileWidth !== null) {
+    const width = cssPixels(mobileWidth)
+    assert.equal(width, 52)
+  }
+})
+
+test('the optional NETRA tooltip is overlay-only and cannot enlarge the trigger', () => {
+  const tooltip = declarationsFor('.netra-trigger-tooltip')
+
+  assert.match(tooltip, /position:\s*absolute\s*;/)
+  assert.match(tooltip, /pointer-events:\s*none\s*;/)
+  assert.match(tooltip, /opacity:\s*0\s*;/)
 })
 
 test('the narrow NETRA sheet preserves title space without removing clear-log access', () => {

@@ -1,47 +1,44 @@
 .netra-trigger.atlas-netra {
+  appearance: none;
   position: fixed;
-  right: 1rem;
+  right: calc(28px + 1rem);
   bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
   z-index: 900;
-  min-width: 12.5rem;
-  min-height: 3.25rem;
-  padding: 0.45rem 0.65rem;
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  min-height: 52px;
+  box-sizing: border-box;
+  padding: 9px;
   display: grid;
-  grid-template-columns: 2rem minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0.65rem;
+  grid-template-columns: none;
+  grid-template-rows: none;
+  place-items: center;
+  gap: 0;
+  overflow: visible;
   border: 1px solid var(--netra-soft);
-  border-radius: 0;
+  border-radius: 50%;
   background: rgb(var(--paper-base-rgb) / 0.96);
   color: var(--netra);
   cursor: pointer;
-  text-align: left;
-  transition: border-color 140ms ease, background 140ms ease, color 140ms ease;
+  line-height: 1;
+  text-align: center;
+  transition:
+    border-color 180ms cubic-bezier(0.25, 1, 0.5, 1),
+    background-color 180ms cubic-bezier(0.25, 1, 0.5, 1);
 }
 
-.netra-trigger::before {
-  content: '';
-  position: absolute;
-  inset-block: 0.45rem;
-  left: -1px;
-  width: 2px;
-  background: var(--accent-orange);
-  opacity: 0;
-}
-
-.netra-trigger:hover {
+.netra-trigger[data-state='ready']:hover,
+.netra-trigger[data-state='ready']:focus-visible {
   border-color: var(--netra);
   background: rgb(var(--netra-rgb) / 0.08);
 }
 
 .netra-trigger[data-state='open'],
 .netra-trigger[data-state='busy'] {
-  border-color: var(--netra);
-}
-
-.netra-trigger[data-state='open']::before,
-.netra-trigger[data-state='busy']::before {
-  opacity: 1;
+  border-color: var(--accent-orange);
+  background: rgb(var(--accent-orange-rgb) / 0.06);
+  transition-duration: 240ms;
 }
 
 .netra-trigger:focus-visible,
@@ -61,8 +58,8 @@
 }
 
 .netra-trigger-reticle {
-  width: 2rem;
-  height: 2rem;
+  width: 32px;
+  height: 32px;
 }
 
 .netra-trigger-reticle svg,
@@ -72,62 +69,109 @@
   stroke-width: 1;
 }
 
-.netra-trigger-copy {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  line-height: 1.35;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
 .netra-trigger.atlas-netra .reticle {
   animation: none;
 }
 
-.netra-trigger.atlas-netra .id-box {
-  min-width: 0;
-  padding-right: 0.6rem;
+.netra-trigger-mark,
+.netra-trigger-axes,
+.netra-trigger-brackets,
+.netra-trigger-acquired-arc,
+.netra-trigger-busy-scan,
+.netra-trigger-core {
+  transform-box: view-box;
+  transform-origin: 16px 16px;
 }
 
-.netra-trigger.atlas-netra .id-box .lab {
-  color: var(--ink-primary);
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.16em;
-  white-space: nowrap;
+.netra-trigger-probe {
+  color: var(--netra);
 }
 
-.netra-trigger.atlas-netra .id-box .tgt {
-  overflow: hidden;
-  color: var(--ink-read);
-  font-size: 0.75rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.netra-trigger-brackets,
+.netra-trigger-acquired-arc,
+.netra-trigger-busy-scan,
+.netra-trigger-core {
+  color: var(--netra);
 }
 
-.netra-trigger.atlas-netra .readout {
-  display: grid;
-  grid-column: auto;
-  grid-row: auto;
-  grid-template-columns: auto auto;
-  gap: 0.35rem;
-  color: var(--ink-read);
-  font-size: 0.75rem;
-  letter-spacing: 0.1em;
+.netra-trigger-brackets,
+.netra-trigger-acquired-arc,
+.netra-trigger-busy-scan {
+  opacity: 0;
 }
 
-.netra-trigger.atlas-netra .readout b {
-  color: var(--ink-read);
-  font-size: 0.75rem;
+.netra-trigger-core {
+  fill: transparent;
 }
 
-.netra-trigger[data-state='open'] .netra-trigger-readout b,
-.netra-trigger[data-state='busy'] .netra-trigger-readout b {
+.netra-trigger[data-state='ready']:hover .netra-trigger-brackets,
+.netra-trigger[data-state='ready']:focus-visible .netra-trigger-brackets {
+  opacity: 0.72;
+}
+
+.netra-trigger[data-state='ready']:hover .netra-trigger-acquired-arc,
+.netra-trigger[data-state='ready']:focus-visible .netra-trigger-acquired-arc {
+  opacity: 0.55;
+}
+
+.netra-trigger[data-state='ready']:hover .netra-trigger-axes,
+.netra-trigger[data-state='ready']:focus-visible .netra-trigger-axes {
+  transform: scale(0.9);
+}
+
+.netra-trigger[data-state='open'] .netra-trigger-brackets,
+.netra-trigger[data-state='open'] .netra-trigger-acquired-arc,
+.netra-trigger[data-state='busy'] .netra-trigger-brackets,
+.netra-trigger[data-state='busy'] .netra-trigger-busy-scan {
   color: var(--accent-orange);
+  opacity: 1;
+}
+
+.netra-trigger[data-state='open'] .netra-trigger-core,
+.netra-trigger[data-state='busy'] .netra-trigger-core {
+  color: var(--accent-orange);
+  fill: currentColor;
+}
+
+.netra-trigger-tooltip {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 0.625rem);
+  max-width: calc(100vw - 5rem);
+  padding: 0.375rem 0.5rem;
+  overflow: hidden;
+  border: 1px dashed var(--netra-soft);
+  border-radius: 0;
+  background: var(--paper-warm);
+  color: var(--ink-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(3px, -50%);
+  transition:
+    opacity 140ms cubic-bezier(0.25, 1, 0.5, 1),
+    transform 140ms cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.netra-trigger:focus-visible .netra-trigger-tooltip {
+  opacity: 1;
+  transform: translate(0, -50%);
+  transition-delay: 0ms;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .netra-trigger:hover:not(:focus-visible) .netra-trigger-tooltip {
+    opacity: 1;
+    transform: translate(0, -50%);
+    transition-delay: 80ms;
+  }
 }
 
 .netra-backdrop {
@@ -555,8 +599,7 @@
   border: 0;
 }
 
-.netra-panel[data-state='busy'] .netra-reticle,
-.netra-trigger[data-state='busy'] .netra-trigger-reticle {
+.netra-panel[data-state='busy'] .netra-reticle {
   animation: netra-signal-live 1.4s ease-in-out infinite;
 }
 
@@ -568,7 +611,6 @@
 .netra-panel:lang(th) .netra-seam,
 .netra-panel:lang(th) .netra-status,
 .netra-panel:lang(th) .netra-footer,
-.netra-trigger:lang(th) .netra-trigger-copy,
 .netra-header-instrument:lang(th) {
   font-family: var(--font-mono), var(--font-thai-body);
   letter-spacing: 0.04em;
@@ -605,12 +647,12 @@
 
 @media (max-width: 600px) {
   .netra-trigger.atlas-netra {
-    right: 0.75rem;
+    right: calc(0.75rem + env(safe-area-inset-right, 0px));
     bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
-    width: 12.5rem;
-    max-width: calc(100vw - 1.5rem);
-    min-width: 0;
-    grid-template-rows: auto;
+    width: 52px;
+    height: 52px;
+    min-width: 52px;
+    min-height: 52px;
   }
 
   .netra-panel {
@@ -699,14 +741,25 @@
 @media (prefers-reduced-motion: reduce) {
   .netra-panel,
   .netra-panel[data-state='busy'] .netra-reticle,
-  .netra-trigger[data-state='busy'] .netra-trigger-reticle {
+  .netra-trigger-reticle,
+  .netra-trigger-mark,
+  .netra-trigger-axes,
+  .netra-trigger-brackets,
+  .netra-trigger-acquired-arc,
+  .netra-trigger-busy-scan,
+  .netra-trigger-core {
     animation: none;
   }
 
   .netra-trigger,
+  .netra-trigger-tooltip,
   .netra-clear,
   .netra-close,
   .netra-composer button {
-    transition-duration: 0.001ms;
+    transition: none;
+  }
+
+  .netra-trigger-tooltip {
+    transform: translate(0, -50%);
   }
 }

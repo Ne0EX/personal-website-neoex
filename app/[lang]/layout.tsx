@@ -28,6 +28,7 @@ import { getArchiveEntries, getMiniGlobePins } from '@/lib/content'
 import { TriangulateSearchPortal } from '@/components/TriangulateSearchPortal'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { NetraNavigator } from '@/components/NetraNavigator'
+import './public-chrome-accessibility.css'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Static params — pre-render layout shells for supported locales.

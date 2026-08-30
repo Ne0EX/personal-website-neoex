@@ -188,7 +188,7 @@ async function main(): Promise<void> {
   // 1. Parse input
   let input: AuditInput;
   try {
-    const raw = readFileSync("/dev/stdin", "utf8").trim();
+    const raw = readFileSync(0, "utf8").trim();
     input = JSON.parse(raw);
   } catch (e) {
     process.stderr.write(
@@ -254,11 +254,11 @@ async function main(): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let chromium: any;
   try {
-    const pw = await import("playwright-core");
+    const pw = await import("playwright");
     chromium = pw.chromium;
   } catch {
     process.stderr.write(
-      `[render-fidelity] WARN — playwright-core not available. Exit 3 (WARN).\n`
+      `[render-fidelity] WARN — playwright not available. Exit 3 (WARN).\n`
     );
     process.exit(3);
   }

@@ -5,7 +5,9 @@
 > Author · Arcturus (α-NET-05)
 > Task · TASK-NETRA-ARCH-1 (revised — Q2 + Q3 fully locked, §7.3 Upstash finalized, §9 Thai detection documented, §2 Gateway-only lane explicit)
 > Date · 2026-05-16
-> Status · DRAFT — model tier under active comparison (TASK-NETRA-MODEL-COMPARISON-1); all other decisions locked
+> Status · HISTORICAL — superseded by `docs/netra/agent-core.md` and the free-only Vercel AI Gateway runtime on 2026-08-31
+
+> The model IDs, pricing, Redis cost counter, and `$20/day` examples below are historical design inputs, not deployment policy. The active policy allows only `minimax/minimax-m3-free` and `minimax/minimax-m2.7-free`, with a Vercel project-level hard budget of `$1/day`.
 
 ---
 

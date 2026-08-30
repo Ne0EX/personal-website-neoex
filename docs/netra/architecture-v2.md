@@ -5,8 +5,10 @@
 > Author · Arcturus (α-NET-05)
 > Task · TASK-2026-08-26-NETRA-NAVIGATOR
 > Date · 2026-08-26
-> Status · DRAFT pending Peat seam-wiring — decisions D1–D7 locked by Peat 2026-08-26; OPENROUTER_API_KEY / model string / pricing / Upstash REST credentials / soul.md draft remain open (§12)
+> Status · SUPERSEDED 2026-08-31 — the OpenRouter proposal below is retained only as decision history
 > Supersedes · `architecture.md` v1.3 (kept as history). The v1.3 Gateway-only lane lock and its velite corpus assumptions are DEAD; every section below re-bases on D1–D7.
+
+> **Active runtime contract:** `docs/netra/agent-core.md` and the checked-in implementation. NETRA now uses the Vercel AI SDK through Vercel AI Gateway, permits only `minimax/minimax-m3-free` with `minimax/minimax-m2.7-free` fallback, and relies on the Vercel project budget of **$1/day** as the hard spend ceiling. No OpenRouter credential is part of the active lane. Do not implement the historical OpenRouter or estimated-cost-counter sections below.
 
 ---
 

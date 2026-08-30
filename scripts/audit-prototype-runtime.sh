@@ -25,7 +25,7 @@
 #   0 — PASS · all prototypes in scope loaded without errors
 #   1 — FAIL · one or more prototypes failed runtime check
 #   2 — SKIP · no prototypes in task scope (skip-pass; not a failure)
-#   3 — WARN · Playwright unavailable (skip with warning; agents not punished for platform issues)
+#   3 — WARN · Playwright unavailable (CI treats this as a required-rail failure)
 #
 # Runtime checks per prototype:
 #   C1  No console.error() or console.warn() with severity=error
@@ -37,9 +37,9 @@
 #
 # Constraints:
 #   - Maximum 30 seconds per prototype (H4 hooks-are-fast budget)
-#   - Ephemeral HTTP server on random port in 8800-8999 range (avoids Peat's localhost:8731)
+#   - Ephemeral HTTP server on the first free port in 8800-8999 (avoids Peat's localhost:8731)
 #   - Allowlisted warnings: .harness/runtime-allowlist.json (e.g., Google Fonts CDN slowness)
-#   - Skip with WARN (exit 3) if playwright-core unavailable
+#   - Exit 3 if the direct Playwright dependency is unavailable
 #
 # How to fix a fail:
 #   C1: Open DevTools on the failing prototype. Address the console error. Common causes:
@@ -75,11 +75,7 @@ TIMEOUT_SEC=30
 # POSIX-compatible (no shuf; BSD awk generates random order)
 find_free_port() {
   local port
-  # Generate 200 random ports in 8800-8999 range using awk (available on both GNU+BSD)
-  local candidates
-  candidates=$(awk 'BEGIN { srand(); for(i=0;i<200;i++) printf "%d\n", int(rand()*200)+8800 }')
-  while IFS= read -r port; do
-    [[ -z "$port" ]] && continue
+  for ((port=8800; port<=8999; port++)); do
     # Try lsof; fall back to nc if lsof is not available
     if command -v lsof &>/dev/null; then
       if ! lsof -i ":${port}" &>/dev/null 2>&1; then
@@ -93,14 +89,14 @@ find_free_port() {
         return 0
       fi
     fi
-  done <<< "$candidates"
+  done
   echo ""
 }
 
 # --- helper: check playwright availability ---
 check_playwright() {
   local pw_core
-  pw_core="$(node -e "require('playwright-core'); console.log('ok')" 2>/dev/null || echo "fail")"
+  pw_core="$(node -e "require('playwright'); console.log('ok')" 2>/dev/null || echo "fail")"
   [[ "$pw_core" == "ok" ]] && return 0
   return 1
 }
@@ -164,6 +160,11 @@ collect_prototypes() {
       # No prototype files touched in this task → skip
       echo "" && return 0
     fi
+  elif [[ "${CI:-}" == "true" ]]; then
+    # CI's denominator is the tracked index, not ignored/untracked local drafts.
+    while IFS= read -r -d '' idx; do
+      found+=("$idx")
+    done < <(git ls-files -z -- 'prototypes/**/index.html' '.claude/visual-diffs/**/prototype/index.html')
   else
     # No task ID: scan all prototypes under prototypes/ and visual-diff prototype dirs
     while IFS= read -r -d '' idx; do
@@ -193,8 +194,8 @@ ALLOWLIST_PATTERNS=$(load_allowlist)
 
 # --- check playwright ---
 if ! check_playwright; then
-  echo "[prototype-runtime] WARN · playwright-core unavailable — skipping runtime audit (exit 3)" | tee "$LOG"
-  echo "[prototype-runtime] Install via: npm install playwright-core in the project root" | tee -a "$LOG"
+  echo "[prototype-runtime] WARN · direct playwright dependency unavailable (exit 3)" | tee "$LOG"
+  echo "[prototype-runtime] Restore the locked dependencies with npm ci" | tee -a "$LOG"
   exit 3
 fi
 
@@ -249,8 +250,22 @@ while IFS= read -r PROTO_INDEX; do
   python3 -m http.server "$PORT" --directory "$PROTO_DIR" >"$SERVER_LOG" 2>&1 &
   SERVER_PID=$!
 
-  # Brief wait for server to bind
-  sleep 0.5
+  # Wait for an HTTP response, not merely a spawned process.
+  SERVER_READY=false
+  for _attempt in {1..20}; do
+    if node -e 'fetch(process.argv[1]).then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))' "http://127.0.0.1:${PORT}/index.html"; then
+      SERVER_READY=true
+      break
+    fi
+    sleep 0.25
+  done
+  if [[ "$SERVER_READY" != "true" ]]; then
+    echo "[prototype-runtime] FAIL · $PROTO_INDEX · HTTP fixture did not become ready" | tee -a "$LOG"
+    kill "$SERVER_PID" 2>/dev/null || true
+    OVERALL_PASS=false
+    RESULTS="${RESULTS}"$'\n'"FAIL · $PROTO_INDEX · server readiness timeout"
+    continue
+  fi
 
   # Build allowlist JS array for inline Node script
   ALLOWLIST_JS_ARRAY="[]"
@@ -279,13 +294,13 @@ while IFS= read -r PROTO_INDEX; do
     ANCHOR_SELECTOR_JS="null"
   fi
 
-  # Resolve absolute path to playwright-core so the temp script can require it
+  # Resolve the direct Playwright package so the temp script can require it
   # regardless of working directory. Node's module resolution starts from the
   # script file's location; since the temp file lives in /tmp it cannot find
   # node_modules/ relative to the project root.
-  PW_CORE_PATH=$(node -e "console.log(require.resolve('playwright-core'))" 2>/dev/null || echo "")
+  PW_CORE_PATH=$(node -e "console.log(require.resolve('playwright'))" 2>/dev/null || echo "")
   if [[ -z "$PW_CORE_PATH" ]]; then
-    echo "[prototype-runtime] WARN · playwright-core unavailable — skipping runtime audit (exit 3)" | tee -a "$LOG"
+    echo "[prototype-runtime] WARN · playwright unavailable — runtime audit cannot execute (exit 3)" | tee -a "$LOG"
     kill "$SERVER_PID" 2>/dev/null || true
     rm -f "$NODE_SCRIPT"
     OVERALL_PASS=false
@@ -299,7 +314,7 @@ const { chromium } = require('${PW_CORE_PATH}');
 const ALLOWLIST = ${ALLOWLIST_JS_ARRAY};
 const ANCHOR_SELECTOR = ${ANCHOR_SELECTOR_JS};
 const FALLBACK_SELECTOR = 'body > *:not(script)';
-const URL = 'http://localhost:${PORT}/index.html';
+const URL = 'http://127.0.0.1:${PORT}/index.html';
 const HARD_TIMEOUT_MS = ${TIMEOUT_SEC}000;
 
 // Hard watchdog: exit FAIL if entire script hangs beyond TIMEOUT_SEC
@@ -407,8 +422,8 @@ done <<< "$PROTOTYPES"
 
 # --- final report ---
 RESULTS=$(printf '%s' "$RESULTS" | grep -v '^$' || true)
-PASS_COUNT=$(echo "$RESULTS" | grep -c '^PASS' || echo 0)
-FAIL_COUNT=$(echo "$RESULTS" | grep -c '^FAIL' || echo 0)
+PASS_COUNT=$(printf '%s\n' "$RESULTS" | grep -c '^PASS' || true)
+FAIL_COUNT=$(printf '%s\n' "$RESULTS" | grep -c '^FAIL' || true)
 
 echo "" | tee -a "$LOG"
 echo "[prototype-runtime] --- summary ---" | tee -a "$LOG"

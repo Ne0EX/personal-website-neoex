@@ -62,6 +62,7 @@ export default async function ArchivePage() {
 
   return (
     <main
+      data-page="archive"
       data-pagefind-body
       data-pagefind-meta="title:ARCHIVE LEDGER,type:archive"
       data-pagefind-ignore="nav header footer .archive-filters .archive-mini-globe"

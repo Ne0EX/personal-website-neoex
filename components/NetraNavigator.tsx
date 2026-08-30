@@ -1,11 +1,14 @@
 'use client'
 
 import { type FormEvent, useEffect, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
+import { animate, createScope } from 'animejs'
 import './NetraNavigator.css'
 
 type Lang = 'en' | 'th'
 type Message = { role: 'user' | 'assistant'; content: string }
 type NetraError = { code: string; message: string }
+type NetraUiState = 'ready' | 'open' | 'busy'
 type NetraCopy = {
   open: string; close: string; title: string; attached: string
   readyState: string; openState: string; busyState: string
@@ -104,7 +107,43 @@ function NetraReticle() {
   </svg>
 }
 
+function NetraTriggerReticle() {
+  return <svg
+    className="netra-trigger-mark"
+    width="32"
+    height="32"
+    viewBox="0 0 32 32"
+    fill="none"
+    focusable="false"
+    aria-hidden="true"
+  >
+    <g className="netra-trigger-probe">
+      <circle cx="16" cy="16" r="10.5" stroke="currentColor" strokeWidth="1" strokeLinecap="butt" strokeLinejoin="miter" vectorEffect="non-scaling-stroke" />
+      <g className="netra-trigger-axes">
+        <line x1="16" y1="1.5" x2="16" y2="6.5" stroke="currentColor" strokeWidth="1" strokeLinecap="butt" strokeLinejoin="miter" vectorEffect="non-scaling-stroke" />
+        <line x1="25.5" y1="16" x2="30.5" y2="16" stroke="currentColor" strokeWidth="1" strokeLinecap="butt" strokeLinejoin="miter" vectorEffect="non-scaling-stroke" />
+        <line x1="16" y1="25.5" x2="16" y2="30.5" stroke="currentColor" strokeWidth="1" strokeLinecap="butt" strokeLinejoin="miter" vectorEffect="non-scaling-stroke" />
+        <line x1="1.5" y1="16" x2="6.5" y2="16" stroke="currentColor" strokeWidth="1" strokeLinecap="butt" strokeLinejoin="miter" vectorEffect="non-scaling-stroke" />
+      </g>
+    </g>
+    <g className="netra-trigger-brackets">
+      <path d="M13 10.5H10.5V13" stroke="currentColor" strokeWidth="1" strokeLinecap="butt" strokeLinejoin="miter" vectorEffect="non-scaling-stroke" />
+      <path d="M19 10.5H21.5V13" stroke="currentColor" strokeWidth="1" strokeLinecap="butt" strokeLinejoin="miter" vectorEffect="non-scaling-stroke" />
+      <path d="M21.5 19V21.5H19" stroke="currentColor" strokeWidth="1" strokeLinecap="butt" strokeLinejoin="miter" vectorEffect="non-scaling-stroke" />
+      <path d="M13 21.5H10.5V19" stroke="currentColor" strokeWidth="1" strokeLinecap="butt" strokeLinejoin="miter" vectorEffect="non-scaling-stroke" />
+    </g>
+    <g className="netra-trigger-acquired-arc">
+      <circle cx="16" cy="16" r="10.5" transform="rotate(-90 16 16)" stroke="currentColor" strokeWidth="1" strokeDasharray="13.2 52.8" strokeLinecap="butt" strokeLinejoin="miter" vectorEffect="non-scaling-stroke" />
+    </g>
+    <g className="netra-trigger-busy-scan">
+      <circle cx="16" cy="16" r="10.5" transform="rotate(-90 16 16)" stroke="currentColor" strokeWidth="1" strokeDasharray="8.25 24.74 8.25 24.74" strokeLinecap="butt" strokeLinejoin="miter" vectorEffect="non-scaling-stroke" />
+    </g>
+    <circle className="netra-trigger-core" cx="16" cy="16" r="2" stroke="currentColor" strokeWidth="1" strokeLinecap="butt" strokeLinejoin="miter" vectorEffect="non-scaling-stroke" />
+  </svg>
+}
+
 export function NetraNavigator({ lang }: { lang: string }) {
+  const pathname = usePathname()
   const locale: Lang = lang === 'th' ? 'th' : 'en'
   const t = copy[locale]
   const [open, setOpen] = useState(false)
@@ -123,6 +162,276 @@ export function NetraNavigator({ lang }: { lang: string }) {
   const wasOpenRef = useRef(false)
   const requestRef = useRef<AbortController | null>(null)
   const mountedRef = useRef(true)
+  const motionScopeRef = useRef<ReturnType<typeof createScope> | null>(null)
+  const mountMotionHandledRef = useRef(false)
+  const previousMotionStateRef = useRef<NetraUiState>('ready')
+  const state: NetraUiState = busy ? 'busy' : open ? 'open' : 'ready'
+  const stateLabel = busy ? t.busyState : open ? t.openState : t.readyState
+
+  useEffect(() => {
+    const root = triggerRef.current
+    if (!root) return
+
+    const motion = createScope({
+      root,
+      mediaQueries: { reduceMotion: '(prefers-reduced-motion: reduce)' },
+    })
+    motionScopeRef.current = motion
+
+    motion.add((scope) => {
+      if (!scope) return
+
+      let mountAnimations: ReturnType<typeof animate>[] = []
+      let interactionAnimations: ReturnType<typeof animate>[] = []
+      let stateAnimations: ReturnType<typeof animate>[] = []
+
+      const revertAnimations = (animations: ReturnType<typeof animate>[]) => {
+        for (let index = animations.length - 1; index >= 0; index -= 1) {
+          animations[index].revert()
+        }
+        animations.length = 0
+      }
+
+      const clearMount = () => revertAnimations(mountAnimations)
+      const replaceInteraction = (next: () => ReturnType<typeof animate>[]) => {
+        revertAnimations(interactionAnimations)
+        interactionAnimations = next()
+      }
+      const replaceState = (next: () => ReturnType<typeof animate>[]) => {
+        revertAnimations(stateAnimations)
+        stateAnimations = next()
+      }
+
+      // The component-lifetime guard prevents React development replays. Marking
+      // reduced-motion mounts handled also prevents a delayed animation on opt-out.
+      if (!mountMotionHandledRef.current) {
+        mountMotionHandledRef.current = true
+        if (!scope.matches.reduceMotion) {
+          mountAnimations = [
+            animate('.netra-trigger-acquired-arc', {
+              opacity: [0, 0.85, 0],
+              rotate: ['-70deg', '0deg'],
+              duration: 460,
+              ease: 'outQuart',
+            }),
+            animate('.netra-trigger-brackets', {
+              opacity: [0, 0.65, 0],
+              scale: [0.86, 1],
+              delay: 50,
+              duration: 360,
+              ease: 'outQuart',
+            }),
+            animate('.netra-trigger-core', {
+              opacity: [0.45, 1],
+              scale: [0.7, 1],
+              delay: 150,
+              duration: 240,
+              ease: 'outExpo',
+            }),
+          ]
+        }
+      }
+
+      const lockOn = () => {
+        if (root.dataset.state !== 'ready' || scope.matches.reduceMotion) return
+        clearMount()
+        replaceInteraction(() => [
+          animate('.netra-trigger-brackets', {
+            opacity: [0, 0.72],
+            scale: [1.12, 1],
+            duration: 180,
+            ease: 'outQuart',
+          }),
+          animate('.netra-trigger-acquired-arc', {
+            opacity: [0, 0.55],
+            rotate: ['-18deg', '0deg'],
+            duration: 180,
+            ease: 'outQuart',
+          }),
+          animate('.netra-trigger-axes', {
+            scale: [1, 0.9],
+            duration: 180,
+            ease: 'outQuart',
+          }),
+        ])
+      }
+
+      const releaseLock = () => {
+        if (root.dataset.state !== 'ready') return
+        if (root.matches(':hover') || root.matches(':focus-visible')) return
+        clearMount()
+        if (scope.matches.reduceMotion) return
+        replaceInteraction(() => [
+          animate('.netra-trigger-brackets', {
+            opacity: [0.72, 0],
+            scale: 1,
+            duration: 140,
+            ease: 'outQuart',
+          }),
+          animate('.netra-trigger-acquired-arc', {
+            opacity: [0.55, 0],
+            rotate: '0deg',
+            duration: 140,
+            ease: 'outQuart',
+          }),
+          animate('.netra-trigger-axes', {
+            scale: 1,
+            duration: 140,
+            ease: 'outQuart',
+          }),
+        ])
+      }
+
+      const press = () => {
+        if (root.dataset.state !== 'ready' || scope.matches.reduceMotion) return
+        clearMount()
+        replaceInteraction(() => [animate('.netra-trigger-mark', {
+          scale: [1, 0.94],
+          duration: 80,
+          ease: 'outQuad',
+        })])
+      }
+
+      const settle = () => {
+        if (root.matches(':hover') || root.matches(':focus-visible')) lockOn()
+        else releaseLock()
+      }
+
+      const transitionState = (next: NetraUiState, previous: NetraUiState) => {
+        if (next === 'ready' && previous === 'ready') return
+
+        clearMount()
+        revertAnimations(interactionAnimations)
+        revertAnimations(stateAnimations)
+        if (scope.matches.reduceMotion) return
+
+        if (next === 'busy') {
+          replaceState(() => [
+            animate('.netra-trigger-busy-scan', {
+              rotate: ['0deg', '360deg'],
+              duration: 1000,
+              ease: 'linear',
+              loop: true,
+            }),
+            animate('.netra-trigger-core', {
+              opacity: [0.5, 1, 0.5],
+              duration: 1000,
+              ease: 'inOutSine',
+              loop: true,
+            }),
+          ])
+          return
+        }
+
+        if (next === 'open') {
+          replaceState(() => [
+            animate('.netra-trigger-brackets', {
+              opacity: [0, 1],
+              scale: [0.86, 1],
+              duration: 240,
+              ease: 'outExpo',
+            }),
+            animate('.netra-trigger-acquired-arc', {
+              opacity: [0, 1],
+              rotate: ['-18deg', '0deg'],
+              duration: 240,
+              ease: 'outExpo',
+            }),
+            animate('.netra-trigger-core', {
+              opacity: [0.45, 1],
+              scale: [0.7, 1],
+              duration: 240,
+              ease: 'outExpo',
+            }),
+            animate('.netra-trigger-mark', {
+              scale: 1,
+              duration: 240,
+              ease: 'outExpo',
+            }),
+          ])
+          return
+        }
+
+        replaceState(() => [
+          animate('.netra-trigger-brackets', {
+            opacity: [1, 0],
+            duration: 180,
+            ease: 'outQuart',
+          }),
+          animate('.netra-trigger-acquired-arc, .netra-trigger-busy-scan', {
+            opacity: [1, 0],
+            rotate: '0deg',
+            duration: 180,
+            ease: 'outQuart',
+          }),
+          animate('.netra-trigger-core', {
+            opacity: [0.5, 1],
+            scale: 1,
+            duration: 180,
+            ease: 'outQuart',
+          }),
+        ])
+      }
+
+      scope.add('lockOn', lockOn)
+      scope.add('releaseLock', releaseLock)
+      scope.add('press', press)
+      scope.add('settle', settle)
+      scope.add('transitionState', transitionState)
+
+      const onPointerEnter = () => scope.methods.lockOn()
+      const onPointerLeave = () => scope.methods.releaseLock()
+      const onFocus = () => {
+        if (root.matches(':focus-visible')) scope.methods.lockOn()
+      }
+      const onBlur = () => scope.methods.releaseLock()
+      const onPointerDown = () => scope.methods.press()
+      const onPointerUp = () => scope.methods.settle()
+      const onKeyDown = (event: KeyboardEvent) => {
+        if (!event.repeat && (event.key === 'Enter' || event.key === ' ')) scope.methods.press()
+      }
+      const onKeyUp = (event: KeyboardEvent) => {
+        if (event.key === 'Enter' || event.key === ' ') scope.methods.settle()
+      }
+
+      root.addEventListener('pointerenter', onPointerEnter)
+      root.addEventListener('pointerleave', onPointerLeave)
+      root.addEventListener('focus', onFocus)
+      root.addEventListener('blur', onBlur)
+      root.addEventListener('pointerdown', onPointerDown)
+      root.addEventListener('pointerup', onPointerUp)
+      root.addEventListener('pointercancel', onPointerUp)
+      root.addEventListener('keydown', onKeyDown)
+      root.addEventListener('keyup', onKeyUp)
+
+      if (root.dataset.state === 'busy' && !scope.matches.reduceMotion) {
+        transitionState('busy', 'open')
+      }
+
+      return () => {
+        root.removeEventListener('pointerenter', onPointerEnter)
+        root.removeEventListener('pointerleave', onPointerLeave)
+        root.removeEventListener('focus', onFocus)
+        root.removeEventListener('blur', onBlur)
+        root.removeEventListener('pointerdown', onPointerDown)
+        root.removeEventListener('pointerup', onPointerUp)
+        root.removeEventListener('pointercancel', onPointerUp)
+        root.removeEventListener('keydown', onKeyDown)
+        root.removeEventListener('keyup', onKeyUp)
+      }
+    })
+
+    return () => {
+      motion.revert()
+      if (motionScopeRef.current === motion) motionScopeRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    const previous = previousMotionStateRef.current
+    motionScopeRef.current?.methods.transitionState?.(state, previous)
+    previousMotionStateRef.current = state
+  }, [state])
 
   useEffect(() => {
     let saved: string | null = null
@@ -218,7 +527,7 @@ export function NetraNavigator({ lang }: { lang: string }) {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: next.slice(-10), served_lang: locale }),
+        body: JSON.stringify({ messages: next.slice(-10), served_lang: locale, page: { pathname } }),
         signal: controller.signal,
       })
       const header = response.headers.get('X-NETRA-Remaining')
@@ -271,9 +580,6 @@ export function NetraNavigator({ lang }: { lang: string }) {
     inputRef.current?.focus()
   }
 
-  const state = busy ? 'busy' : open ? 'open' : 'ready'
-  const stateLabel = busy ? t.busyState : open ? t.openState : t.readyState
-
   return <>
     <button
       ref={triggerRef}
@@ -288,14 +594,8 @@ export function NetraNavigator({ lang }: { lang: string }) {
       aria-haspopup="dialog"
       onClick={() => setOpen((current) => !current)}
     >
-      <span className="reticle netra-trigger-reticle"><NetraReticle /></span>
-      <span className="id-box netra-trigger-copy">
-        <span className="lab">◎ NETRA</span>
-        <span className="tgt">{stateLabel}</span>
-      </span>
-      <span className="readout netra-trigger-readout" aria-hidden="true">
-        <span>STATE</span><b>{state === 'ready' ? '◇' : '◆'}</b>
-      </span>
+      <span className="reticle netra-trigger-reticle"><NetraTriggerReticle /></span>
+      <span className="netra-trigger-tooltip" aria-hidden="true">NETRA</span>
     </button>
 
     {open && <div className="netra-backdrop" onMouseDown={(event) => {

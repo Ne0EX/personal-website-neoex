@@ -6,9 +6,11 @@
 > Author · Arcturus (α-NET-05)
 > Task · TASK-NETRA-MODEL-COMPARISON-1
 > Date · 2026-05-16
-> Status · FRAMEWORK COMPLETE — recommendation provisional; actual API spend blocked pending key setup (see §8)
+> Status · HISTORICAL — superseded by live free-model discovery and the runtime policy in `docs/netra/agent-core.md` on 2026-08-31
 > Pricing source · Vercel AI Gateway provider docs and skill data (2026-05-16)
 > Access lane · **Vercel AI Gateway only.** OpenRouter and direct provider SDKs are out of scope for v1.
+
+> Active selection: `minimax/minimax-m3-free`, falling back only to `minimax/minimax-m2.7-free`. The paid-model comparison below is retained as research history and is not an allowed production route.
 
 ---
 

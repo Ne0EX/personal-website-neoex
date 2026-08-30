@@ -2,6 +2,8 @@
   "schema_version": 1,
   "owner": "Algol · α-VER-06",
   "required": [
+    { "path": "tests/accessibility-floor.test.mjs", "kind": "node-test", "reason": "deterministic production-browser accessibility sensor regression" },
+    { "path": "tests/browser-harness-ci-contract.test.mjs", "kind": "node-test", "reason": "browser rail lifecycle, policy, and tracked-asset regression" },
     { "path": "tests/audit-axiom-gate-join-coverage.test.mjs", "kind": "node-test", "reason": "deterministic source/fixture contract" },
     { "path": "tests/audit-property-technique-map.test.mjs", "kind": "node-test", "reason": "deterministic source/fixture contract" },
     { "path": "tests/console-gate-contract.test.mjs", "kind": "node-test", "reason": "console security regression" },
@@ -12,9 +14,13 @@
     { "path": "tests/mobile-touch-contract.test.mjs", "kind": "node-test", "reason": "mobile interaction regression" },
     { "path": "tests/netra-env-contract.test.mjs", "kind": "node-test", "reason": "NETRA provider environment regression" },
     { "path": "tests/netra-responsive-contract.test.mjs", "kind": "node-test", "reason": "NETRA responsive layout regression" },
+    { "path": "tests/netra-voice-discipline.test.mjs", "kind": "node-test", "reason": "deterministic NETRA voice source-contract regression" },
+    { "path": "tests/next-16-api-contract.test.mjs", "kind": "node-test", "reason": "deterministic locally-documented Next 16 API regression" },
     { "path": "tests/security-netra-contracts.test.mjs", "kind": "node-test", "reason": "console and NETRA security regression" },
     { "path": "tests/soul-atom-drift-audit.test.mjs", "kind": "node-test", "reason": "soul-atom audit regression" },
     { "path": "tests/worldline-globe-coordinates.test.mjs", "kind": "node-test", "reason": "coordinate regression" },
+    { "path": "tests/harness/audit-render-fidelity-vs-intent.fixture.sh", "kind": "shell-browser-fixture", "reason": "isolated deterministic Chromium PASS/FAIL mutation suite" },
+    { "path": "tests/harness/gauntlet-strengthening.test.sh", "kind": "shell-browser-fixture", "reason": "isolated deterministic Chromium gauntlet mutation suite" },
     { "path": "tests/harness/audit-ground-truth-observed.fixture.sh", "kind": "shell-fixture", "reason": "portable clean-HEAD ground-truth gate fixture" },
     { "path": "tests/harness/audit-search-index-completeness.fixture.sh", "kind": "shell-fixture", "reason": "portable clean-HEAD search-index gate fixture" },
     { "path": "tests/harness/audit-signature-completeness.test.sh", "kind": "shell-test", "reason": "portable clean-HEAD signature security test" },
@@ -25,7 +31,9 @@
     { "path": "tests/harness/m-revalidate-real-producer.sh", "kind": "shell-test-nonstandard-name", "reason": "portable clean-HEAD producer contract" },
     { "path": "tests/harness/mutating-action-hook.fixture.sh", "kind": "shell-fixture", "reason": "portable clean-HEAD hook payload fixture" },
     { "path": "tests/hooks/agent-name-trigger.test.sh", "kind": "shell-test", "reason": "portable clean-HEAD hook dispatch regression" },
-    { "path": "tests/proxy-logic-verify.mjs", "kind": "node-test-nonstandard-name", "reason": "portable clean-HEAD proxy logic suite" }
+    { "path": "tests/proxy-logic-verify.mjs", "kind": "node-test-nonstandard-name", "reason": "portable clean-HEAD proxy logic suite" },
+    { "path": "tests/netra/agent-core.test.ts", "kind": "tsx-test-nonstandard-runner", "reason": "deterministic NETRA agent orchestration and public knowledge boundary regression" },
+    { "path": "tests/netra/gateway.test.ts", "kind": "tsx-test-nonstandard-runner", "reason": "NETRA free-only Vercel AI Gateway policy regression" }
   ],
   "candidate": [
     {
@@ -195,8 +203,6 @@
     }
   ],
   "deferred": [
-    { "path": "tests/harness/audit-render-fidelity-vs-intent.fixture.sh", "kind": "browser-fixture", "reason": "requires an installed Playwright browser and local HTTP fixture" },
-    { "path": "tests/harness/gauntlet-strengthening.test.sh", "kind": "browser-fixture", "reason": "requires browser binaries, local HTTP servers, and dedicated ports" },
     { "path": "tests/harness/prototype-layer.sh", "kind": "unsafe-legacy-fixture", "reason": "mutates tracked prototypes in place before restoration; must move to a temp copy before CI eligibility" }
   ],
   "context": [

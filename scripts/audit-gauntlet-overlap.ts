@@ -68,7 +68,13 @@ interface AuditOutput {
   elements_checked: number;
   overlaps_found: OverlapViolation[];
   coverage_assertion: { elements_ok: boolean };
-  summary: { violations: number; allowed: number; checked: number };
+  summary: {
+    violations: number;
+    reported: number;
+    omitted: number;
+    allowed: number;
+    checked: number;
+  };
 }
 
 function formatError(
@@ -103,7 +109,7 @@ function rectsIntersect(
 async function main(): Promise<void> {
   let input: AuditInput;
   try {
-    const raw = readFileSync("/dev/stdin", "utf8").trim();
+    const raw = readFileSync(0, "utf8").trim();
     input = JSON.parse(raw);
   } catch (e) {
     process.stderr.write(`[audit-gauntlet-overlap] ERROR reading stdin: ${e}\n`);
@@ -146,11 +152,11 @@ async function main(): Promise<void> {
   // Attempt Playwright import
   let chromium: unknown;
   try {
-    const pw = await import("playwright-core");
+    const pw = await import("playwright");
     chromium = pw.chromium;
   } catch {
     process.stderr.write(
-      `[audit-gauntlet-overlap] WARN — playwright-core not available. Exit 3 (WARN).\n`
+      `[audit-gauntlet-overlap] WARN — playwright not available. Exit 3 (WARN).\n`
     );
     process.exit(3);
   }
@@ -176,6 +182,8 @@ async function main(): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const results: any[] = [];
     const all = document.querySelectorAll("*");
+    const elementIds = new Map<Element, number>();
+    all.forEach((el, index) => elementIds.set(el, index));
     all.forEach((el) => {
       const style = window.getComputedStyle(el);
       const zIndex = style.zIndex;
@@ -197,6 +205,7 @@ async function main(): Promise<void> {
           const selector = `${tag}${id}${cls}` || tag;
           results.push({
             selector,
+            parent_key: el.parentElement ? elementIds.get(el.parentElement) ?? -1 : -1,
             z: parseInt(zIndex, 10),
             rect: {
               x: Math.round(rect.left),
@@ -225,7 +234,11 @@ async function main(): Promise<void> {
     for (let j = 0; j < zIndexedElements.length; j++) {
       if (i === j) continue;
       const sib = zIndexedElements[j];
-      if (el.z > sib.z && rectsIntersect(el.rect, sib.rect)) {
+      if (
+        el.parent_key === sib.parent_key &&
+        el.z > sib.z &&
+        rectsIntersect(el.rect, sib.rect)
+      ) {
         const key = `${el.selector}|${sib.selector}`;
         if (allowedSet.has(key)) {
           allowedCount++;
@@ -258,14 +271,17 @@ async function main(): Promise<void> {
 
   // Coverage assertion: we must have visited all z-indexed elements
   const elementsOk = zIndexedElements.length === totalElements;
+  const reportedViolations = verbose ? violations : violations.slice(0, 25);
 
   const output: AuditOutput = {
     pass: violations.length === 0,
     elements_checked: totalElements,
-    overlaps_found: violations,
+    overlaps_found: reportedViolations,
     coverage_assertion: { elements_ok: elementsOk },
     summary: {
       violations: violations.length,
+      reported: reportedViolations.length,
+      omitted: violations.length - reportedViolations.length,
       allowed: allowedCount,
       checked: totalElements,
     },

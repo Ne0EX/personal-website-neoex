@@ -22,9 +22,18 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PAGE_URL="${1:-http://localhost:3000}"
+# shellcheck source=scripts/lib/browser-fixture.sh
+source "${REPO_ROOT}/scripts/lib/browser-fixture.sh"
+
+PAGE_URL="${1:-}"
 ALLOWED_OVERLAPS="${ALLOWED_OVERLAPS:-$REPO_ROOT/.harness/allowed-overlaps.json}"
 VERBOSE="${VERBOSE:-false}"
+
+if [[ -z "${PAGE_URL}" ]]; then
+  browser_fixture_start_next "${REPO_ROOT}" "${WL_BROWSER_PORT:-4173}" "/en" || exit 2
+  trap 'browser_fixture_stop' EXIT
+  PAGE_URL="${BROWSER_FIXTURE_BASE_URL}/en"
+fi
 
 LOG_DIR="$REPO_ROOT/.claude/hook-logs"
 mkdir -p "$LOG_DIR"
@@ -44,7 +53,7 @@ INPUT_JSON=$(jq -n \
   '{"page_url": $page_url, "allowed_overlaps_path": $allowed, "verbose": $verbose}')
 
 set +e
-OUTPUT=$(echo "$INPUT_JSON" | npx tsx "$REPO_ROOT/scripts/audit-gauntlet-overlap.ts" 2>&1)
+OUTPUT=$(printf '%s\n' "$INPUT_JSON" | node --import tsx "$REPO_ROOT/scripts/audit-gauntlet-overlap.ts" 2>&1)
 EXIT_CODE=$?
 set -e
 

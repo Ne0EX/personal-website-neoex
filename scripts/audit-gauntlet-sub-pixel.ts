@@ -86,7 +86,7 @@ interface AuditOutput {
 async function main(): Promise<void> {
   let input: AuditInput;
   try {
-    const raw = readFileSync("/dev/stdin", "utf8").trim();
+    const raw = readFileSync(0, "utf8").trim();
     input = JSON.parse(raw);
   } catch (e) {
     process.stderr.write(`[audit-gauntlet-sub-pixel] ERROR reading stdin: ${e}\n`);
@@ -142,11 +142,11 @@ async function main(): Promise<void> {
   // Attempt Playwright import
   let chromium: unknown;
   try {
-    const pw = await import("playwright-core");
+    const pw = await import("playwright");
     chromium = pw.chromium;
   } catch {
     process.stderr.write(
-      `[audit-gauntlet-sub-pixel] WARN — playwright-core not available. Exit 3 (WARN).\n`
+      `[audit-gauntlet-sub-pixel] WARN — playwright not available. Exit 3 (WARN).\n`
     );
     process.exit(3);
   }

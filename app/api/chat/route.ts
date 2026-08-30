@@ -1,14 +1,16 @@
 import { type NextRequest } from 'next/server'
 import { z } from 'zod'
-import { createOpenRouter } from '@openrouter/ai-sdk-provider'
-import { stepCountIs, streamText } from 'ai'
+import {
+  NETRA_MAX_PATHNAME_LENGTH,
+  resolveNetraPageContext,
+  runNetraTurn,
+} from '@/lib/netra'
+import { createNetraGatewayRuntime } from '@/lib/netra/gateway'
 import { createSupabaseServerClient } from '@/lib/store/supabase/server'
-import { netraTools } from '@/lib/netra/tools'
-import { NETRA_SYSTEM_PROMPT } from '@/lib/netra/prompts/system'
+import { createNetraKnowledge } from '@/lib/store/netra-reads'
 import {
   buildSessionCookie,
   checkRateLimit,
-  nextUtcMidnightEpochSeconds,
   RATE_LIMIT_MAX,
   RATE_LIMIT_WINDOW_MS,
   resolveSessionId,
@@ -17,18 +19,15 @@ import {
 
 // contract
 // method · POST /api/chat
-// request · { messages: Array<{ role: 'user' | 'assistant'; content: string }>; served_lang?: 'en' | 'th' }
+// request · { messages: Array<{ role: 'user' | 'assistant'; content: string }>; served_lang?: 'en' | 'th'; page: { pathname: string (bounded public path) } }
 // response · streamed text; X-NETRA-Remaining and wl_session cookie headers
-// errors · 400 INVALID_BODY · 429 RATE_LIMITED · 503 UPSTREAM_UNAVAILABLE
+// errors · 400 INVALID_BODY (malformed body or unknown/private page) · 429 RATE_LIMITED · 503 UPSTREAM_UNAVAILABLE
 // rate limit · 50 validated messages per 24h per canonical UUIDv4 session
-// idempotency · not idempotent; accepted requests consume quota and provider budget
+// idempotency · not idempotent; accepted requests consume session quota; Vercel AI Gateway owns the project spend budget
 
 export const dynamic = 'force-dynamic'
 
-const MAX_CONTEXT_MESSAGES = 10
 const SESSION_WINDOW_SECONDS = Math.floor(RATE_LIMIT_WINDOW_MS / 1000)
-const DAILY_SPEND_KEY = 'wl:daily:spend'
-const ESTIMATED_REQUEST_COST = '0.01'
 
 const MessageSchema = z.object({
   role: z.enum(['user', 'assistant']),
@@ -37,13 +36,16 @@ const MessageSchema = z.object({
 const ChatRequestSchema = z.object({
   messages: z.array(MessageSchema).min(1).max(50),
   served_lang: z.enum(['en', 'th']).default('en'),
+  page: z.object({
+    pathname: z.string().min(1).max(NETRA_MAX_PATHNAME_LENGTH),
+  }),
 })
 
 type ChatRequest = z.infer<typeof ChatRequestSchema>
 type ErrorCode = 'INVALID_BODY' | 'RATE_LIMITED' | 'UPSTREAM_UNAVAILABLE'
 type QuotaResult =
   | { allowed: true; remaining: number; sessionId: string }
-  | { allowed: false; resetAt: number; sessionId: string; ceiling?: boolean }
+  | { allowed: false; resetAt: number; sessionId: string }
 
 function errorResponse(
   status: number,
@@ -119,65 +121,23 @@ function numericRedisResult(
   return parsed
 }
 
-async function expireDailySpendAtUtcMidnight(nowMs: number = Date.now()): Promise<void> {
-  await redis([
-    'EXPIREAT',
-    DAILY_SPEND_KEY,
-    String(nextUtcMidnightEpochSeconds(nowMs)),
-  ])
-}
-
-async function readDailySpend(nowMs: number = Date.now()): Promise<number> {
-  const value = await redis(['GET', DAILY_SPEND_KEY])
-  await expireDailySpendAtUtcMidnight(nowMs)
-  return numericRedisResult(value, 0)
-}
-
-async function recordDailySpend(nowMs: number = Date.now()): Promise<void> {
-  await redis(['INCRBYFLOAT', DAILY_SPEND_KEY, ESTIMATED_REQUEST_COST])
-  await expireDailySpendAtUtcMidnight(nowMs)
-}
-
-async function quota(sessionId: string): Promise<QuotaResult | null> {
-  const ceilingValue = process.env.WL_DAILY_COST_CEILING
-  const redisCredentials = resolveRedisCredentials()
-  const hasRedis = Boolean(redisCredentials && ceilingValue)
-
-  if (!hasRedis) {
-    if (process.env.NODE_ENV !== 'production') {
-      const local = checkRateLimit(sessionId)
-      return local.allowed
-        ? {
-            allowed: true,
-            remaining: local.remaining,
-            sessionId: local.sessionId,
-          }
-        : {
-            allowed: false,
-            resetAt: local.resetAt,
-            sessionId: local.sessionId,
-          }
-    }
-    return null
-  }
-
-  const ceiling = Number(ceilingValue)
-  if (!Number.isFinite(ceiling) || ceiling < 0) {
-    throw new Error('invalid NETRA daily cost ceiling')
+async function quota(sessionId: string): Promise<QuotaResult> {
+  if (!resolveRedisCredentials()) {
+    const local = checkRateLimit(sessionId)
+    return local.allowed
+      ? {
+          allowed: true,
+          remaining: local.remaining,
+          sessionId: local.sessionId,
+        }
+      : {
+          allowed: false,
+          resetAt: local.resetAt,
+          sessionId: local.sessionId,
+        }
   }
 
   const now = Date.now()
-  const dailyResetAt = nextUtcMidnightEpochSeconds(now) * 1000
-  const spend = await readDailySpend(now)
-  if (spend >= ceiling) {
-    return {
-      allowed: false,
-      resetAt: dailyResetAt,
-      sessionId,
-      ceiling: true,
-    }
-  }
-
   const sessionKey = `wl:session:${sessionId}:count`
   const count = numericRedisResult(await redis(['INCR', sessionKey]))
   if (count === 1) {
@@ -212,11 +172,19 @@ export async function POST(request: NextRequest): Promise<Response> {
     })
   }
 
+  const page = resolveNetraPageContext(
+    parsed.page.pathname,
+    parsed.served_lang,
+  )
+  if (page.kind === 'unknown') {
+    return errorResponse(400, 'INVALID_BODY', 'invalid request shape')
+  }
+
   const sessionId = resolveSessionId(
     request.cookies.get(SESSION_COOKIE_NAME)?.value,
   )
 
-  let quotaResult: QuotaResult | null
+  let quotaResult: QuotaResult
   try {
     quotaResult = await quota(sessionId)
   } catch (error) {
@@ -227,14 +195,6 @@ export async function POST(request: NextRequest): Promise<Response> {
       'signal lost · α holding · try again',
     )
   }
-  if (!quotaResult) {
-    return errorResponse(
-      503,
-      'UPSTREAM_UNAVAILABLE',
-      'signal lost · α holding · try again',
-    )
-  }
-
   const sessionCookie = buildSessionCookie(quotaResult.sessionId)
   if (!quotaResult.allowed) {
     const headers = {
@@ -244,14 +204,6 @@ export async function POST(request: NextRequest): Promise<Response> {
       ),
       'Set-Cookie': sessionCookie,
     }
-    if (quotaResult.ceiling) {
-      return errorResponse(
-        503,
-        'UPSTREAM_UNAVAILABLE',
-        'α drift exceeded · NETRA dormant until next worldline.',
-        { headers },
-      )
-    }
     return errorResponse(
       429,
       'RATE_LIMITED',
@@ -260,11 +212,12 @@ export async function POST(request: NextRequest): Promise<Response> {
     )
   }
 
-  if (!process.env.OPENROUTER_API_KEY || !process.env.NETRA_MODEL) {
-    console.warn('[api/chat] OpenRouter env presence:', {
-      apiKey: Boolean(process.env.OPENROUTER_API_KEY),
-      model: Boolean(process.env.NETRA_MODEL),
-    })
+  const gatewayRuntime = createNetraGatewayRuntime({
+    configuredModel: process.env.NETRA_MODEL,
+    sessionId: quotaResult.sessionId,
+  })
+  if (!gatewayRuntime) {
+    console.warn('[api/chat] rejected non-free NETRA model configuration')
     return errorResponse(
       503,
       'UPSTREAM_UNAVAILABLE',
@@ -279,29 +232,27 @@ export async function POST(request: NextRequest): Promise<Response> {
   }
 
   try {
-    const supabase = await createSupabaseServerClient()
-    const openrouter = createOpenRouter({
-      apiKey: process.env.OPENROUTER_API_KEY,
-    })
-    const result = streamText({
-      model: openrouter(process.env.NETRA_MODEL),
-      system: `${NETRA_SYSTEM_PROMPT}\n\nserved_lang: ${parsed.served_lang}`,
-      messages: parsed.messages.slice(-MAX_CONTEXT_MESSAGES),
-      tools: netraTools,
-      experimental_context: { supabase, lang: parsed.served_lang },
-      stopWhen: stepCountIs(5),
-      abortSignal: request.signal,
-      onError: ({ error }) => {
+    const knowledge = createNetraKnowledge(await createSupabaseServerClient())
+    const result = await runNetraTurn(
+      {
+        messages: parsed.messages,
+        servedLang: parsed.served_lang,
+        page: parsed.page,
+        abortSignal: request.signal,
+      },
+      {
+        model: gatewayRuntime.model,
+        providerOptions: gatewayRuntime.providerOptions,
+        knowledge,
+      },
+    )
+
+    void result.consumeStream({
+      onError: (error) => {
         logSafeError('upstream stream unavailable', error)
       },
-      onFinish: async () => {
-        try {
-          await recordDailySpend()
-        } catch (error) {
-          logSafeError('daily spend update unavailable', error)
-        }
-      },
     })
+
     return result.toTextStreamResponse({
       headers: {
         'X-NETRA-Remaining': String(quotaResult.remaining),

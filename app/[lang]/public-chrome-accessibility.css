@@ -1,0 +1,28 @@
+/* Public chrome accessibility floors.
+ *
+ * These overrides are intentionally mounted from the public locale layout:
+ * console keeps its own visual system, while every public route receives the
+ * same REGISTER and footer interaction contract.
+ */
+
+/* REGISTER labels are 7–8px instrument text, so ambient/faint colors are not
+ * sufficient. State remains visible through the underline and glyph; all
+ * human-readable text uses the high-contrast ink token in both themes. */
+.register[role="radiogroup"] .rlab,
+.register[role="radiogroup"] button,
+.register[role="radiogroup"] button:hover,
+.register[role="radiogroup"] button.is-active {
+  color: var(--ink-primary);
+}
+
+.register[role="radiogroup"] button.is-active .gl {
+  color: var(--accent-orange);
+}
+
+/* WCAG 2.2 SC 2.5.8: desktop links need a 24px target even before the
+ * existing coarse/mobile 44px padding rule takes over. */
+.footer-channel-link {
+  min-block-size: 24px;
+  display: flex;
+  align-items: center;
+}

@@ -187,8 +187,11 @@ agent first.
 ## Rail: next-16-api
 
 **Check:** `scripts/audit-next-api.sh`
-**Applies to:** `app/**`
-**Purpose:** No deprecated Next.js API usage. This codebase runs a version with breaking API changes vs training data. The audit flags imports or patterns from deprecated APIs.
+**Applies to:** `app/**`, `components/**`, `lib/**`, `proxy.ts`, `next.config.*`, `package.json`
+**Status:** required deterministic CI rail
+**Purpose:** Block removed or deprecated Next 16 patterns in the App Router production graph. The checker reads the installed version and verifies its rule sentinels against `node_modules/next/dist/docs/01-app/02-guides/upgrading/version-16.md` before scanning source. If those local docs drift, the sensor errors instead of applying an ungrounded rule set.
+
+The enforced set includes async request APIs and route props, the `middleware` → `proxy` convention, App Router navigation imports, removed config/runtime options, legacy image APIs, stabilized cache names, and the removed `next lint` command. Mutation fixtures prove each major failure class.
 
 **How to fix a fail:**
 - Read `node_modules/next/dist/docs/` for the current API
@@ -200,7 +203,8 @@ agent first.
 
 **Check:** `scripts/audit-voice.sh`
 **Applies to:** `lib/netra/**`, `components/*Netra*.tsx`
-**Purpose:** NETRA voice patterns intact in prompts and components. Voice drift in NETRA output is a product quality issue, not just a style issue.
+**Status:** required deterministic CI rail
+**Purpose:** Keep NETRA's attributed prompt and UI copy aligned with `lib/netra/voice.md`. The TypeScript checker reads only voice-bearing AST nodes, blocks hard drift patterns, and requires the source-disclosure gradient, register separation, no-hallucination anchor, and frame-break prohibition. It never calls a model, so provider availability cannot make this rail flaky.
 
 **How to fix a fail:**
 - Compare the flagged string against NETRA's voice spec in `lib/netra/`
@@ -211,12 +215,15 @@ agent first.
 ## Rail: accessibility-floor
 
 **Check:** `scripts/audit-a11y.sh`
-**Applies to:** `app/articles/**`, `app/photos/**`, `app/fiction/**`
-**Purpose:** Lighthouse a11y score >= 95 for any new entry template. Below this threshold, screen readers and assistive tech have a materially degraded experience.
+**Applies to:** the finite public routes in `.harness/a11y-routes.json`
+**Status:** required deterministic CI rail
+**Purpose:** Start the already-built production Next server in pinned Chromium and require zero axe-core WCAG 2.0/2.1/2.2 A/AA violations. The declared denominator covers home, archive, fiction, photos index, photo roll, and photo entry surfaces. Dynamic article content currently has no store-independent published route fixture; its source remains covered by Next's JSX accessibility lint and joins this denominator when a deterministic public article fixture exists.
+
+The prior Lighthouse score placeholder was replaced because an aggregate score can hide individual violations and varies with unrelated performance conditions. This rail records concrete rule IDs, selectors, and routes. Missing build output, browser binaries, manifest entries, or non-public HTTP responses are hard failures rather than SKIPs.
 
 **How to fix a fail:**
-- Run Lighthouse locally: `npx lighthouse http://localhost:3000/<route> --only-categories=accessibility`
-- Address the failing audits in the report (almost always: missing alt text, contrast ratio, or semantic structure)
+- Build first with `npm run build`, then run `bash scripts/audit-a11y.sh`
+- Fix the emitted axe rule and selector on the named route; do not allowlist it without an approved WCAG rationale
 
 ---
 
@@ -541,27 +548,23 @@ Without this tag, the fallback heuristic (`body > *:not(script)` count > 3) appl
 
 ### Ephemeral HTTP server
 
-The rail spawns an ephemeral `python3 -m http.server` on a random free port in the `8800-8999` range. This avoids collision with Peat's `localhost:8731` dev server. The server is torn down after each prototype check.
+The rail spawns an ephemeral `python3 -m http.server` on the first free port in the `8800-8999` range. This avoids collision with Peat's `localhost:8731` dev server. The server is torn down after each prototype check.
 
 ### Allowlist
 
 Warnings from known CDN sources (Google Fonts, etc.) can be allowlisted in `.harness/runtime-allowlist.json` so they do not cause false FAIL verdicts. Edit the `allowed_console_patterns` and `allowed_network_patterns` arrays.
 
-### Skip behavior
+### Missing-browser behavior
 
-If `playwright-core` is unavailable (e.g., fresh clone without browser installation), the rail exits 3 (`WARN`) rather than 1 (`FAIL`). Agents are not punished for platform issues — the WARN is logged and the handoff is not blocked by the runtime rail alone. Polaris may choose to require explicit `playwright install chromium` as a setup step in future.
+If the direct `playwright` dependency or its browser is unavailable, the rail exits nonzero. Shared CI treats that as a required-rail failure; missing tooling cannot become product evidence.
 
-### CI disposition (verified 2026-08-29)
+### CI disposition (verified 2026-08-31)
 
-This rail is `deferred`, not passed, in shared CI. Local module resolution finds
-Playwright only through the transitive `@playwright/mcp` dependency, and the
-local Chromium cache proves nothing about a clean `ubuntu-latest` runner.
-`npm ci` currently has no version-matched browser installation step. The rail
-also chooses a random port and owns a temporary Python server lifecycle. CI
-promotion requires Playwright to become a direct locked dependency, an
-explicit matching Chromium install, and an approved deterministic server/port
-fixture. Missing any prerequisite must remain `SKIP`/deferred, never a product
-pass.
+This rail is required in shared CI. GitHub installs the Chromium revision pinned
+by the direct Playwright dependency, the rail enumerates tracked prototypes from
+the Git index, and each prototype owns its local static-server lifecycle. The
+tracked runtime denominator currently includes the globe v1 prototype and all
+of its local font/module assets.
 
 ### Timeout
 
@@ -2020,7 +2023,11 @@ Format:
 
 ### Implementation note
 
-Requires a running HTTP server (not `file://`). Pass the served URL as the first argument to the wrapper script. Playwright unavailability → exit 3 (WARN, does not block handoff alone).
+With no URL argument, the wrapper starts the compiled Next application on a
+reserved loopback port and audits `/en`; an explicit URL remains available for
+fixture tests. Shared CI runs this rail as deterministic advisory evidence while
+the intentional stacking baseline is reviewed into the allowlist. Only actual
+DOM siblings are compared, matching the declared predicate.
 
 ---
 
@@ -2069,6 +2076,13 @@ All text-bearing + icon-only elements in the rendered page at each of 4 breakpoi
 3. For icon dimensions: increase `min-width`/`min-height` for the icon at that breakpoint.
 4. If the element is intentionally tiny (e.g., a decorative spacer), add `aria-hidden="true"` and ensure it is excluded from the text/icon selector set.
 
+### CI disposition
+
+With no URL argument, the wrapper owns a compiled Next server and audits `/en`
+at all four declared viewports. CI runs it on every push as deterministic
+advisory evidence because the existing typography baseline still contains
+below-floor debt; it is not skipped and its nonzero result remains visible.
+
 ---
 
 ## Rail: gauntlet-sub-pixel-detection
@@ -2109,11 +2123,33 @@ Real-world specimen that prompted this rail: in the GLOBE-NODES slice, 6 archive
 
 ### Behavior when manifest absent
 
-Exits 0 silently when `.claude/visual-diffs/soul-atlas/manifest.json` does not exist (pre-Phase-1). No false positives on tasks that have not yet started soul-atlas work.
+Standalone execution exits 0 when `.claude/visual-diffs/soul-atlas/manifest.json`
+does not exist (pre-Phase-1 compatibility). Required CI declares the manifest as
+a prerequisite, so absence is an ERROR before execution rather than a false pass.
+
+With no URL argument, the wrapper owns a loopback static server rooted at the
+repository and audits the committed gallery. The pinned Chromium run is required
+in shared CI; the current denominator is 37 atom × variant pairs.
 
 ### Mutation test
 
 `tests/harness/gauntlet-strengthening.test.sh` — Canopus. Case A3c shrinks the atom's render element to 0.3px via a fixture override. Expected: before.exit=0, after.exit=1, error names `A3c` + atom-id + sub-pixel status.
+
+---
+
+## Rail: render-fidelity-vs-intent
+
+**Check:** `scripts/audit-render-fidelity-vs-intent.sh` → `scripts/audit-render-fidelity-vs-intent.ts`
+**Applies to:** the production archive route and `.harness/render-fidelity-manifests/archive.json`
+**Status:** enforcing · required in CI
+**Error codes:** A4a transform, A4b forbidden overlap, A4c overflow clipping
+
+The committed manifest is the denominator for layout intent. With no arguments,
+the wrapper starts the compiled Next app on loopback, opens `/en/archive`, and
+checks every manifest element. The archive page exposes `data-page="archive"` as
+the stable production anchor. Missing build output, manifest, Playwright, browser,
+or selector is a hard failure. The six-case isolated mutation suite is also in
+the required non-Node CI lane.
 
 ---
 

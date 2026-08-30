@@ -1,7 +1,7 @@
 {
   "$schema": "https://worldline.local/harness-config.schema.json",
   "config_version": 3,
-  "last_updated": "2026-08-29 (TASK-2026-08-29-CI-SECURITY-NETRA-HARDENING)",
+  "last_updated": "2026-08-31 (TASK-2026-08-29-CI-SECURITY-NETRA-HARDENING)",
   "owner": "canopus · α-HRN-07",
   "schema_notes": {
     "barrier_class": "HARD-BARRIER (removes capability; survives; required for mode=block rails) | FRICTION-ONLY (slows but doesn't prevent; requires signed waiver at .harness/scope-waivers.json if mode=block). Enforced by scripts/audit-rail-barrier-class.sh.",
@@ -9,17 +9,23 @@
   },
   "ci_policy": {
     "required_rails": [
+      "accessibility-floor",
       "audit-search-index-completeness",
       "ci-test-census",
       "console-security-contract",
       "design-tokens",
+      "gauntlet-sub-pixel-detection",
       "least-agency-config",
       "netra-contracts",
+      "next-16-api",
       "permissions-nonempty",
       "prototype-layer",
+      "prototype-runtime",
+      "render-fidelity-vs-intent",
       "secret-leak-guard",
       "single-source",
-      "soul-atom-drift"
+      "soul-atom-drift",
+      "voice-discipline"
     ],
     "classification_values": ["required", "advisory", "context", "embedded", "deferred", "stub"]
   },
@@ -61,54 +67,60 @@
       }
     },
     "next-16-api": {
-      "description": "No deprecated Next.js API usage. Stub — awaiting Algol TS audit logic.",
+      "description": "No removed or deprecated Next 16 APIs in the App Router production graph; every rule is grounded against the installed Next 16 migration guide.",
       "check": "scripts/audit-next-api.sh",
-      "applies_to": ["app/**"],
-      "status": "stub",
-      "mode": "warn",
-      "barrier_class": "FRICTION-ONLY",
+      "applies_to": ["app/**", "components/**", "lib/**", "proxy.ts", "next.config.*", "package.json"],
+      "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-next-16-api",
       "ci": {
-        "required": false,
-        "disposition": "skip",
-        "deterministic": false,
-        "classification": "stub",
-        "reason": "stub: no implemented Next 16 API contract audit exists",
-        "prerequisites": ["an implemented deterministic source audit", "Algol regression fixtures for supported and deprecated APIs"]
+        "required": true,
+        "disposition": "run",
+        "deterministic": true,
+        "classification": "required",
+        "requires": {
+          "commands": ["bash", "node"],
+          "paths": ["node_modules/next/package.json", "node_modules/next/dist/docs/01-app/02-guides/upgrading/version-16.md", "scripts/audit-next-api.ts"]
+        }
       }
     },
     "voice-discipline": {
-      "description": "NETRA voice patterns intact in prompts and components. Stub — awaiting NETRA voice spec + Algol TS audit logic.",
+      "description": "NETRA prompt and attributed UI copy preserve the declared hard voice patterns and all four required structural markers.",
       "check": "scripts/audit-voice.sh",
-      "applies_to": ["lib/netra/**", "components/*Netra*.tsx"],
-      "status": "stub",
-      "mode": "warn",
-      "barrier_class": "FRICTION-ONLY",
+      "applies_to": ["lib/netra/**", "components/*Netra*.tsx", "components/WorldlineGlobe.tsx"],
+      "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-voice-discipline",
       "ci": {
-        "required": false,
-        "disposition": "skip",
-        "deterministic": false,
-        "classification": "stub",
-        "reason": "stub: the NETRA voice contract and deterministic audit are not implemented",
-        "prerequisites": ["an approved NETRA voice contract", "an implemented deterministic source audit", "Algol regression fixtures"]
+        "required": true,
+        "disposition": "run",
+        "deterministic": true,
+        "classification": "required",
+        "requires": {
+          "commands": ["bash", "node"],
+          "paths": ["lib/netra/voice.md", "lib/netra/prompts/system.ts", "scripts/audit-voice.ts", "components/NetraNavigator.tsx", "components/WorldlineGlobe.tsx"]
+        }
       }
     },
     "accessibility-floor": {
-      "description": "Lighthouse a11y >= 95 for any new entry template. Stub — awaiting Lighthouse runner + Algol TS audit logic.",
+      "description": "Zero axe-core WCAG 2.0/2.1/2.2 A/AA violations across the declared public production-route denominator in pinned Chromium.",
       "check": "scripts/audit-a11y.sh",
-      "applies_to": ["app/articles/**", "app/photos/**", "app/fiction/**"],
-      "status": "stub",
-      "mode": "warn",
-      "barrier_class": "FRICTION-ONLY",
+      "applies_to": ["app/**", "components/**", ".harness/a11y-routes.json"],
+      "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
       "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-accessibility-floor",
       "ci": {
-        "required": false,
-        "disposition": "skip",
-        "deterministic": false,
-        "classification": "stub",
-        "reason": "stub: no Lighthouse runner or deterministic page/server fixture is configured",
-        "prerequisites": ["a pinned Lighthouse dependency", "a deterministic production server fixture", "a declared route denominator"]
+        "required": true,
+        "disposition": "run",
+        "deterministic": true,
+        "classification": "required",
+        "requires": {
+          "commands": ["bash", "node"],
+          "paths": [".next/BUILD_ID", ".harness/a11y-routes.json", "node_modules/axe-core", "node_modules/playwright", "scripts/audit-a11y.ts"]
+        }
       }
     },
     "prototype-layer": {
@@ -166,12 +178,14 @@
       "skip_if_playwright_unavailable": true,
       "allowlist": ".harness/runtime-allowlist.json",
       "ci": {
-        "required": false,
-        "disposition": "deferred",
-        "deterministic": false,
-        "classification": "deferred",
-        "reason": "deferred: Playwright is only a transitive @playwright/mcp dependency; GitHub CI does not install a version-matched Chromium binary, and this rail owns an ephemeral HTTP server/port lifecycle",
-        "prerequisites": ["Playwright promoted to a direct locked dependency", "a version-matched Chromium install step in CI", "an approved deterministic server and port fixture"]
+        "required": true,
+        "disposition": "run",
+        "deterministic": true,
+        "classification": "required",
+        "requires": {
+          "commands": ["bash", "git", "jq", "node", "python3"],
+          "paths": ["node_modules/playwright/package.json", "scripts/audit-prototype-runtime.sh", ".harness/runtime-allowlist.json"]
+        }
       }
     },
     "soul-atom-drift": {
@@ -287,11 +301,14 @@
       "timeout_sec": 30,
       "ci": {
         "required": false,
-        "disposition": "deferred",
-        "deterministic": false,
-        "classification": "deferred",
-        "reason": "deferred: Playwright is transitive-only, GitHub CI installs no Chromium binary, no stable application server fixture is wired, and the TS audit consumes /dev/stdin (not a portable Linux pipe path)",
-        "prerequisites": ["Playwright promoted to a direct locked dependency", "a version-matched Chromium install step in CI", "a deterministic application server fixture and reserved port", "portable stdin ingestion in scripts/audit-gauntlet-overlap.ts"]
+        "disposition": "run",
+        "deterministic": true,
+        "classification": "advisory",
+        "reason": "advisory execution: the production baseline still contains intentional stacking that needs a reviewed allowlist before this rail can block",
+        "requires": {
+          "commands": ["bash", "jq", "node"],
+          "paths": [".next/BUILD_ID", "node_modules/playwright/package.json", "scripts/lib/browser-fixture.sh", "scripts/audit-gauntlet-overlap.ts", ".harness/allowed-overlaps.json"]
+        }
       }
     },
     "gauntlet-min-legible-size": {
@@ -310,11 +327,14 @@
       "timeout_sec": 30,
       "ci": {
         "required": false,
-        "disposition": "deferred",
-        "deterministic": false,
-        "classification": "deferred",
-        "reason": "deferred: Playwright is transitive-only, GitHub CI installs no Chromium binary, no stable application server fixture is wired, and the TS audit consumes /dev/stdin (not a portable Linux pipe path)",
-        "prerequisites": ["Playwright promoted to a direct locked dependency", "a version-matched Chromium install step in CI", "a deterministic application server fixture and reserved port", "portable stdin ingestion in scripts/audit-gauntlet-min-legible.ts"]
+        "disposition": "run",
+        "deterministic": true,
+        "classification": "advisory",
+        "reason": "advisory execution: the production typography baseline has known below-floor debt that must remain visible while it is remediated",
+        "requires": {
+          "commands": ["bash", "jq", "node"],
+          "paths": [".next/BUILD_ID", "node_modules/playwright/package.json", "scripts/lib/browser-fixture.sh", "scripts/audit-gauntlet-min-legible.ts"]
+        }
       }
     },
     "gauntlet-sub-pixel-detection": {
@@ -331,12 +351,35 @@
       "error_code": "A3c",
       "timeout_sec": 30,
       "ci": {
-        "required": false,
-        "disposition": "deferred",
-        "deterministic": false,
-        "classification": "deferred",
-        "reason": "deferred: Playwright is transitive-only, GitHub CI installs no Chromium binary, no stable gallery server fixture is wired, and the TS audit consumes /dev/stdin (not a portable Linux pipe path)",
-        "prerequisites": ["Playwright promoted to a direct locked dependency", "a version-matched Chromium install step in CI", "a deterministic gallery server fixture and reserved port", "portable stdin ingestion in scripts/audit-gauntlet-sub-pixel.ts"]
+        "required": true,
+        "disposition": "run",
+        "deterministic": true,
+        "classification": "required",
+        "requires": {
+          "commands": ["bash", "jq", "node", "python3"],
+          "paths": ["node_modules/playwright/package.json", "scripts/lib/browser-fixture.sh", "scripts/audit-gauntlet-sub-pixel.ts", ".claude/visual-diffs/soul-atlas/gallery.html", ".claude/visual-diffs/soul-atlas/manifest.json"]
+        }
+      }
+    },
+    "render-fidelity-vs-intent": {
+      "description": "The committed archive design-intent manifest must match the rendered production route: identity transforms, declared no-overlap pairs, and no forbidden clipping.",
+      "check": "scripts/audit-render-fidelity-vs-intent.sh",
+      "applies_to": ["app/[lang]/archive/**", "components/Archive*.tsx", ".harness/render-fidelity-manifests/**"],
+      "status": "enforcing",
+      "mode": "block",
+      "barrier_class": "HARD-BARRIER",
+      "rail_doc": "docs/harness/RAIL-DEFINITIONS.md#rail-render-fidelity-vs-intent",
+      "introduced": "TASK-2026-06-01-SECURITY-HARNESS-WAVE-0-2",
+      "timeout_sec": 45,
+      "ci": {
+        "required": true,
+        "disposition": "run",
+        "deterministic": true,
+        "classification": "required",
+        "requires": {
+          "commands": ["bash", "jq", "node"],
+          "paths": [".next/BUILD_ID", "node_modules/playwright/package.json", "scripts/lib/browser-fixture.sh", "scripts/audit-render-fidelity-vs-intent.ts", ".harness/render-fidelity-manifests/archive.json"]
+        }
       }
     },
     "ci-test-census": {

@@ -131,6 +131,7 @@ done < <(jq -r '.candidate[]? | [
 git ls-files -- 'tests/**' \
   | awk '
       /\.test\.mjs$/ { print; next }
+      /\.test\.ts$/ { print; next }
       /\.test\.sh$/ { print; next }
       /\.test\.py$/ { print; next }
       /^tests\/harness\/.*\.(sh|py)$/ { print; next }

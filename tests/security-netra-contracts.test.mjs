@@ -4,7 +4,7 @@
  * The audit reads source only. These tests copy the active contract boundary to
  * an isolated temp directory, introduce one mutation at a time, and prove the
  * matching sensor fails. No application module is imported and no Supabase,
- * Redis, OpenRouter, or browser credential is required.
+ * Redis, AI Gateway, or browser credential is required.
  */
 
 import { test } from 'node:test'
@@ -23,6 +23,7 @@ const contractFiles = [
   'lib/server/auth.ts',
   'lib/store/netra-reads.ts',
   'app/api/chat/route.ts',
+  'lib/netra/gateway.ts',
   'lib/server/rate-limit.ts',
   'components/NetraNavigator.tsx',
   'components/NetraNavigator.css',
@@ -128,6 +129,45 @@ test('route sensor rejects quota consumption before request validation', (t) => 
   assertViolation(runAudit(directory, 'route'), 'NETRA_ROUTE_VALIDATE_BEFORE_QUOTA')
 })
 
+test('route sensor rejects quota consumption before public page resolution', (t) => {
+  const directory = fixture(t)
+  mutate(directory, 'app/api/chat/route.ts', (source) => source.replace(
+    '  const page = resolveNetraPageContext(',
+    "  await quota('00000000-0000-4000-8000-000000000000')\n  const page = resolveNetraPageContext(",
+  ))
+  assertViolation(runAudit(directory, 'route'), 'NETRA_ROUTE_PAGE_VALIDATE_BEFORE_QUOTA')
+})
+
+test('route sensor rejects bypassing the agent-core delegation seam', (t) => {
+  const directory = fixture(t)
+  mutate(directory, 'app/api/chat/route.ts', (source) => source.replace(
+    'const result = await runNetraTurn(',
+    'const result = await legacyRunNetraTurn(',
+  ))
+  assertViolation(runAudit(directory, 'route'), 'NETRA_ROUTE_CORE_DELEGATION')
+})
+
+test('route sensor rejects adding a paid model to the NETRA Gateway allowlist', (t) => {
+  const directory = fixture(t)
+  mutate(directory, 'lib/netra/gateway.ts', (source) => source.replace(
+    "  'minimax/minimax-m2.7-free',",
+    "  'openai/gpt-5.4',",
+  ))
+  assertViolation(runAudit(directory, 'route'), 'NETRA_ROUTE_GATEWAY_FREE_ONLY')
+})
+
+test('route sensor rejects Gateway attribution that diverges from the quota cookie', (t) => {
+  const directory = fixture(t)
+  mutate(directory, 'app/api/chat/route.ts', (source) => source.replace(
+    'sessionId: quotaResult.sessionId,',
+    'sessionId,',
+  ))
+  assertViolation(
+    runAudit(directory, 'route'),
+    'NETRA_ROUTE_GATEWAY_ATTRIBUTION',
+  )
+})
+
 test('route helper sensor rejects unvalidated session-cookie identifiers', (t) => {
   const directory = fixture(t)
   mutate(directory, 'lib/server/rate-limit.ts', (source) => source.replace(
@@ -155,6 +195,24 @@ test('NETRA trigger sensor rejects a missing aria-busy state', (t) => {
   assertViolation(runAudit(directory, 'ui'), 'NETRA_UI_TRIGGER_BUSY_ARIA')
 })
 
+test('NETRA icon trigger sensor rejects an accessible name without state', (t) => {
+  const directory = fixture(t)
+  mutate(directory, 'components/NetraNavigator.tsx', (source) => source.replace(
+    " + ' · ' + stateLabel",
+    '',
+  ))
+  assertViolation(runAudit(directory, 'ui'), 'NETRA_UI_TRIGGER_IDENTITY_STATE')
+})
+
+test('NETRA icon trigger sensor rejects a missing expanded relationship', (t) => {
+  const directory = fixture(t)
+  mutate(directory, 'components/NetraNavigator.tsx', (source) => source.replace(
+    '      aria-expanded={open}\n',
+    '',
+  ))
+  assertViolation(runAudit(directory, 'ui'), 'NETRA_UI_TRIGGER_IDENTITY_STATE')
+})
+
 test('NETRA transport sensor rejects non-2xx handling that skips response parsing', (t) => {
   const directory = fixture(t)
   mutate(directory, 'components/NetraNavigator.tsx', (source) => source.replace(
@@ -171,4 +229,13 @@ test('NETRA history sensor rejects removal of the local clear contract', (t) => 
     'localStorage.getItem',
   ))
   assertViolation(runAudit(directory, 'ui'), 'NETRA_UI_HISTORY')
+})
+
+test('NETRA transport sensor rejects title or other authority-bearing page context', (t) => {
+  const directory = fixture(t)
+  mutate(directory, 'components/NetraNavigator.tsx', (source) => source.replace(
+    'page: { pathname }',
+    'page: { pathname, title: document.title }',
+  ))
+  assertViolation(runAudit(directory, 'ui'), 'NETRA_UI_PATHNAME_ONLY_CONTEXT')
 })

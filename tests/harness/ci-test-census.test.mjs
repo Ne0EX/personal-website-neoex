@@ -14,6 +14,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -100,7 +101,7 @@ test('valid census passes with required Node and non-Node lanes', (t) => {
 
   assert.equal(result.status, 0, result.output)
   assert.match(result.output, /PASS · executable=/)
-  assert.match(result.output, /non_node_required=11/)
+  assert.match(result.output, /non_node_required=15/)
   assert.match(result.output, /candidate_blocked=15/)
 })
 
@@ -113,6 +114,22 @@ test('omitting a tracked executable sensor fails closed', (t) => {
 
   assert.equal(result.status, 1, result.output)
   assert.match(result.output, new RegExp(`tracked executable sensor is absent from the census: ${omittedPath}`))
+})
+
+test('a newly tracked TypeScript test cannot disappear from the census', (t) => {
+  const root = createFixture(t)
+  const omittedPath = 'tests/netra/new-deterministic-sensor.test.ts'
+  writeFixtureFile(root, omittedPath, "import test from 'node:test'\ntest('fixture', () => {})\n")
+  const add = run('git', ['add', omittedPath], root)
+  assert.equal(add.status, 0, add.output)
+
+  const result = run('bash', ['scripts/audit-ci-test-census.sh', '--validate'], root)
+
+  assert.equal(result.status, 1, result.output)
+  assert.match(
+    result.output,
+    new RegExp(`tracked executable sensor is absent from the census: ${omittedPath}`),
+  )
 })
 
 test('downgrading a tracked Node test from required fails closed', (t) => {
@@ -156,10 +173,11 @@ test('emptying the required non-Node lane fails closed', (t) => {
   assert.match(result.output, /required shell\/Python lane is empty/)
 })
 
-test('shell/Python lane executes all 11 required sensors when the first child reads stdin', (t) => {
+test('non-Node lane executes all 15 required sensors when the first child reads stdin', (t) => {
   const root = createFixture(t)
+  symlinkSync(join(repoRoot, 'node_modules'), join(root, 'node_modules'), 'dir')
   const requiredNonNode = baseline.required.filter((entry) => entry.kind !== 'node-test')
-  assert.equal(requiredNonNode.length, 11, 'fixture must exercise the complete required non-Node lane')
+  assert.equal(requiredNonNode.length, 15, 'fixture must exercise the complete required non-Node lane')
   assert.match(requiredNonNode[0].kind, /^shell-/, 'the stdin-reading first child must use the shell runner')
 
   for (const [index, entry] of requiredNonNode.entries()) {
@@ -182,12 +200,12 @@ test('shell/Python lane executes all 11 required sensors when the first child re
     .filter((line) => /^\[ci-test-census\] PASS · (?!executable=|all )/.test(line))
 
   assert.equal(result.status, 0, result.output)
-  assert.equal(sensorPassLines.length, 11, result.output)
+  assert.equal(sensorPassLines.length, 15, result.output)
   for (const entry of requiredNonNode) {
     assert.ok(
       sensorPassLines.some((line) => line.endsWith(` · ${entry.path}`)),
       `runner omitted ${entry.path}:\n${result.output}`,
     )
   }
-  assert.match(result.output, /PASS · all 11 required non-Node sensors passed/)
+  assert.match(result.output, /PASS · all 15 required non-Node sensors passed/)
 })
