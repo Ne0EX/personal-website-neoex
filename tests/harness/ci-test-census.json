@@ -10,6 +10,7 @@
     { "path": "tests/harness/ci-test-census.test.mjs", "kind": "node-test", "reason": "tracked-test denominator regression" },
     { "path": "tests/harness/font-chain.test.mjs", "kind": "node-test", "reason": "font-chain regression" },
     { "path": "tests/mobile-touch-contract.test.mjs", "kind": "node-test", "reason": "mobile interaction regression" },
+    { "path": "tests/netra-responsive-contract.test.mjs", "kind": "node-test", "reason": "NETRA responsive layout regression" },
     { "path": "tests/security-netra-contracts.test.mjs", "kind": "node-test", "reason": "console and NETRA security regression" },
     { "path": "tests/soul-atom-drift-audit.test.mjs", "kind": "node-test", "reason": "soul-atom audit regression" },
     { "path": "tests/worldline-globe-coordinates.test.mjs", "kind": "node-test", "reason": "coordinate regression" },

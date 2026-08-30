@@ -98,6 +98,7 @@
   font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.16em;
+  white-space: nowrap;
 }
 
 .netra-trigger.atlas-netra .id-box .tgt {
@@ -109,6 +110,9 @@
 }
 
 .netra-trigger.atlas-netra .readout {
+  display: grid;
+  grid-column: auto;
+  grid-row: auto;
   grid-template-columns: auto auto;
   gap: 0.35rem;
   color: var(--ink-read);
@@ -220,6 +224,9 @@
 }
 
 .netra-header-instrument.atlas-netra .readout {
+  display: grid;
+  grid-column: auto;
+  grid-row: auto;
   grid-template-columns: auto auto;
   color: var(--ink-read);
 }
@@ -597,10 +604,13 @@
 }
 
 @media (max-width: 600px) {
-  .netra-trigger {
+  .netra-trigger.atlas-netra {
     right: 0.75rem;
     bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
-    min-width: 10rem;
+    width: 12.5rem;
+    max-width: calc(100vw - 1.5rem);
+    min-width: 0;
+    grid-template-rows: auto;
   }
 
   .netra-panel {
@@ -648,7 +658,17 @@
 
 @media (max-width: 420px) {
   .netra-header {
+    align-items: center;
     gap: 0.65rem;
+  }
+
+  .netra-header-instrument.atlas-netra {
+    grid-template-columns: 2rem minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+
+  .netra-header-instrument.atlas-netra .readout {
+    display: none;
   }
 
   .netra-kicker {
@@ -656,7 +676,19 @@
   }
 
   .netra-clear {
-    padding-inline: 0.55rem;
+    min-width: 3rem;
+    min-height: 3rem;
+    padding-inline: 0;
+    font-size: 0;
+  }
+
+  .netra-clear > span {
+    font-size: 1rem;
+  }
+
+  .netra-close {
+    width: 3rem;
+    min-height: 3rem;
   }
 
   .netra-composer button {
