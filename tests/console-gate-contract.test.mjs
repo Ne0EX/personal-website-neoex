@@ -6,15 +6,16 @@
  * Context: middleware.ts was replaced by proxy.ts on 2026-06-08 (store-as-source
  * S4, Altair slice). The gate contract changed:
  *   OLD: NODE_ENV=production && WORLDLINE_AUTHORING !== '1' → 404 (retired)
- *   NEW: supabase.auth.getUser() — no user → rewrite to /console (login shell);
- *        user present → NextResponse.next() with refreshed cookies.
+ *   NEW: supabase.auth.getUser() — no user at /console → pass through to the
+ *        page-level login shell; no user below /console/** → rewrite once to
+ *        /console; user present → NextResponse.next() with refreshed cookies.
  *
  * WORLDLINE_AUTHORING env flag is RETIRED per proxy.ts spec §5.3/§11.
  * The file-level export is `proxy` (not `middleware`), per Next 16 convention.
  *
  * Coverage:
  *   0. proxy.ts source integrity — required structural tokens present
- *   1. Gate is a rewrite-to-login, NOT a 404 response
+ *   1. Gate never rewrites /console to itself; sub-routes rewrite to login
  *   2. WORLDLINE_AUTHORING env var is not read in proxy.ts (retired)
  *   3. getUser() is used (not getSession() — the session-spoofing hazard)
  *   4. Cookies setAll/getAll pattern is implemented (SSR session-refresh)
@@ -65,19 +66,25 @@ test('gate source: proxy.ts contains required structural tokens', () => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Test 1 — gate is rewrite-to-login, not a 404
+// Test 1 — root login shell passes through; sub-routes rewrite exactly once
 // ─────────────────────────────────────────────────────────────────────────────
-test('gate: unauthenticated path is NextResponse.rewrite to /console, not 404', () => {
-  // The fail-closed guarantee uses a rewrite so the browser URL does not change
-  // but the server renders ConsoleLogin. A 404 would leak route existence.
+test('gate: unauthenticated /console reaches its login shell without a self-rewrite', () => {
+  // Rewriting /console to /console recursively re-enters the Next proxy and
+  // eventually fails with a 500. The root must pass through to the page-level
+  // ConsoleLogin guard, while nested console routes still rewrite to that root.
+  assert.match(
+    proxySrc,
+    /if \(request\.nextUrl\.pathname === '\/console'\)\s*\{?\s*return response/,
+    'unauthenticated /console must pass through to the guarded login page',
+  )
   assert.ok(
     proxySrc.includes('NextResponse.rewrite('),
-    'proxy.ts must use NextResponse.rewrite() for the unauthenticated path',
+    'nested unauthenticated console paths must rewrite to the login shell',
   )
   // The rewrite target must be /console (the login shell)
   assert.ok(
     proxySrc.includes("'/console'"),
-    "proxy.ts must rewrite to '/console'",
+    "proxy.ts must target '/console' for nested unauthenticated paths",
   )
   // Must NOT return a 404 status response as the gate action
   assert.ok(

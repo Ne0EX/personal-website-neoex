@@ -7,7 +7,8 @@
 //               Thai visitors (by cookie > geo > Accept-Language) → redirect to /th/...
 //            2. Console auth gate — fail-closed session choke point (original purpose).
 //               @supabase/ssr session refresh + getUser() validation.
-//               No authenticated user → rewrite every /console/** path to /console (login).
+//               No authenticated user → let /console render its guarded login shell;
+//               rewrite nested /console/** paths once to that shell.
 //
 // matcher  · TWO GROUPS:
 //            (a) Locale matcher: all public paths EXCEPT /_next, static assets, /api,
@@ -157,10 +158,21 @@ async function handleConsoleAuth(request: NextRequest): Promise<NextResponse> {
   } = await supabase.auth.getUser()
 
   if (!user) {
+    // /console is itself the guarded login shell. Rewriting it to the same URL
+    // re-enters the proxy indefinitely in Next 16 and eventually returns 500.
+    // The page repeats getUser() before rendering, so this pass-through remains
+    // fail closed while giving the rewrite target a terminal route.
+    if (request.nextUrl.pathname === '/console') {
+      return response
+    }
+
     const loginUrl = new URL('/console', request.url)
-    return NextResponse.rewrite(loginUrl, {
+    const loginResponse = NextResponse.rewrite(loginUrl, {
       request: { headers: request.headers },
     })
+    // Preserve any auth-cookie cleanup emitted while validating a stale session.
+    response.cookies.getAll().forEach((cookie) => loginResponse.cookies.set(cookie))
+    return loginResponse
   }
 
   return response
