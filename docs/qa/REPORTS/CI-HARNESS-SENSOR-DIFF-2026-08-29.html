@@ -4,143 +4,76 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>CI Harness Sensor Diff · 2026-08-29</title>
+  <title>CI Harness Sensor Audit · 2026-08-31</title>
   <style>
     :root {
-      --paper: #f6f4ee;
-      --panel: #fffdf8;
-      --ink: #202321;
-      --muted: #626862;
-      --line: #d8d9d1;
+      --paper: #f4f1e8;
+      --panel: #fffdf7;
+      --ink: #202421;
+      --muted: #5d665f;
+      --line: #cfd3ca;
       --accent: #155f58;
       --accent-soft: #dcece8;
       --pass: #17623d;
       --pass-soft: #dcecdf;
-      --warn: #8a5300;
+      --warn: #805000;
       --warn-soft: #f4e7c8;
-      --fail: #9b2c2c;
-      --fail-soft: #f5dddd;
-      --stub: #5b5870;
-      --stub-soft: #e8e5ef;
-      --code: #eef0ea;
+      --code: #e9ece5;
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     }
-
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
-    body {
-      margin: 0;
-      color: var(--ink);
-      background: var(--paper);
-      line-height: 1.55;
-    }
-    main { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 48px 0 80px; }
-    header { border-bottom: 2px solid var(--ink); padding-bottom: 24px; margin-bottom: 28px; }
-    h1 { margin: 0 0 8px; font-size: clamp(2rem, 5vw, 4.3rem); line-height: .98; letter-spacing: -.055em; }
-    h2 { margin: 42px 0 14px; font-size: 1.45rem; letter-spacing: -.02em; }
+    body { margin: 0; color: var(--ink); background: var(--paper); line-height: 1.55; }
+    main { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 46px 0 76px; }
+    header { padding-bottom: 24px; border-bottom: 2px solid var(--ink); }
+    h1 { margin: 5px 0 12px; font-size: clamp(2.1rem, 5vw, 4.4rem); line-height: .98; letter-spacing: -.05em; }
+    h2 { margin: 42px 0 14px; font-size: 1.42rem; letter-spacing: -.02em; }
     h3 { margin: 0 0 8px; font-size: 1rem; }
     p { margin: 0 0 12px; }
-    ul, ol { margin: 8px 0 0; padding-left: 1.25rem; }
+    a { color: var(--accent); text-underline-offset: .18em; }
+    code { padding: .1em .34em; border-radius: 4px; background: var(--code); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+    ul { margin: 8px 0 0; padding-left: 1.25rem; }
     li + li { margin-top: 6px; }
-    code {
-      padding: .12em .35em;
-      border-radius: 4px;
-      background: var(--code);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: .9em;
-      overflow-wrap: anywhere;
-    }
-    .eyebrow { color: var(--accent); font-weight: 750; text-transform: uppercase; letter-spacing: .12em; font-size: .76rem; }
-    .lede { max-width: 78ch; color: var(--muted); font-size: 1.05rem; }
-    .meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 18px; color: var(--muted); font-size: .86rem; }
-    .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
-    .card {
-      grid-column: span 6;
-      padding: 20px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      background: var(--panel);
-      box-shadow: 0 1px 0 rgb(0 0 0 / 4%);
-    }
-    .card.full { grid-column: 1 / -1; }
-    .verdict { border: 2px solid var(--warn); }
-    .verdict.pass { border-color: var(--pass); }
-    .verdict.fail { border-color: var(--fail); }
-    .verdict strong { display: block; margin: 3px 0 5px; font-size: 1.35rem; }
-    .status-line { color: var(--muted); }
-    .metrics { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin: 18px 0 4px; }
-    .metric { padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
-    .metric b { display: block; font-size: 1.65rem; line-height: 1; }
-    .metric span { display: block; margin-top: 6px; color: var(--muted); font-size: .78rem; }
-    .badge {
-      display: inline-block;
-      padding: 2px 7px;
-      border-radius: 999px;
-      font-size: .72rem;
-      font-weight: 750;
-      letter-spacing: .03em;
-      white-space: nowrap;
-    }
-    .run, .required, .pass-badge { color: var(--pass); background: var(--pass-soft); }
-    .skip, .optional, .advisory { color: var(--warn); background: var(--warn-soft); }
-    .stub, .missing { color: var(--stub); background: var(--stub-soft); }
-    .not-green, .broken { color: var(--fail); background: var(--fail-soft); }
-    .det { color: var(--accent); background: var(--accent-soft); }
-    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
-    table { width: 100%; border-collapse: collapse; font-size: .83rem; }
-    caption { padding: 14px 16px; text-align: left; color: var(--muted); }
-    th, td { padding: 11px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
-    th { position: sticky; top: 0; z-index: 1; background: var(--ink); color: var(--paper); font-size: .72rem; text-transform: uppercase; letter-spacing: .055em; }
+    .eyebrow { color: var(--accent); font-size: .76rem; font-weight: 780; letter-spacing: .12em; text-transform: uppercase; }
+    .lede { max-width: 84ch; color: var(--muted); font-size: 1.04rem; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 20px; color: var(--muted); font-size: .84rem; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .metrics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin: 18px 0 2px; }
+    .card, .metric, .callout, .table-wrap { border: 1px solid var(--line); background: var(--panel); }
+    .card { padding: 18px; border-radius: 10px; }
+    .metric { padding: 14px; border-radius: 9px; }
+    .metric b { display: block; font-size: 1.55rem; line-height: 1; }
+    .metric span { display: block; margin-top: 6px; color: var(--muted); font-size: .75rem; }
+    .callout { padding: 16px 18px; border-color: var(--pass); border-radius: 8px; background: var(--pass-soft); }
+    .callout.warn { border-color: var(--warn); background: var(--warn-soft); }
+    .badge { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: .7rem; font-weight: 780; letter-spacing: .025em; white-space: nowrap; }
+    .pass { color: var(--pass); background: var(--pass-soft); }
+    .skip, .advisory { color: var(--warn); background: var(--warn-soft); }
+    .required { color: var(--accent); background: var(--accent-soft); }
+    .table-wrap { overflow-x: auto; border-radius: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    caption { padding: 13px 14px; color: var(--muted); text-align: left; }
+    th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--paper); background: var(--ink); font-size: .7rem; letter-spacing: .055em; text-transform: uppercase; }
     tbody tr:last-child td { border-bottom: 0; }
-    tbody tr:hover { background: color-mix(in srgb, var(--accent-soft) 42%, transparent); }
-    td:first-child { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 700; }
-    .reason { min-width: 260px; color: var(--muted); }
-    .path-list { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 12px; }
-    .path-row { display: grid; grid-template-columns: minmax(240px, .8fr) 1.5fr; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); }
-    .path-row:last-child { border-bottom: 0; }
-    .path-row code { align-self: start; }
-    .callout { padding: 16px 18px; border: 1px solid var(--warn); border-radius: 10px; background: var(--warn-soft); }
-    .callout.critical { border-color: var(--fail); background: var(--fail-soft); }
-    .callout.success { border-color: var(--pass); background: var(--pass-soft); }
-    .evidence { font-variant-numeric: tabular-nums; }
-    footer { margin-top: 52px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: .8rem; }
-
+    td:first-child { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }
+    .reason { min-width: 280px; color: var(--muted); }
+    footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: .8rem; }
     @media (max-width: 820px) {
       main { width: min(100% - 20px, 1180px); padding-top: 28px; }
-      .card { grid-column: 1 / -1; }
+      .grid { grid-template-columns: 1fr; }
       .metrics { grid-template-columns: repeat(3, 1fr); }
-      .path-row { grid-template-columns: 1fr; gap: 6px; }
     }
     @media (max-width: 480px) {
       .metrics { grid-template-columns: repeat(2, 1fr); }
-      th, td { padding: 9px 8px; }
-    }
-    @media print {
-      :root { color-scheme: light; }
-      body { background: white; }
-      main { width: 100%; padding: 0; }
-      .card, .metric, .table-wrap { box-shadow: none; break-inside: avoid; }
-      th { position: static; }
-      a { color: inherit; text-decoration: none; }
+      th, td { padding: 8px; }
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --paper: #161a18;
-        --panel: #1e2421;
-        --ink: #edf1ec;
-        --muted: #b2bbb4;
-        --line: #3b433e;
-        --accent: #72cabe;
-        --accent-soft: #173c38;
-        --pass: #84d4a4;
-        --pass-soft: #173927;
-        --warn: #efbd68;
-        --warn-soft: #46351a;
-        --fail: #f09a9a;
-        --fail-soft: #492525;
-        --stub: #c6bfe2;
-        --stub-soft: #353146;
-        --code: #2a302c;
+        --paper: #161a18; --panel: #1e2421; --ink: #edf1ec; --muted: #b6beb8;
+        --line: #3b433e; --accent: #78d0c4; --accent-soft: #173c38;
+        --pass: #8bd6a8; --pass-soft: #173927; --warn: #f0c477;
+        --warn-soft: #46351a; --code: #2a302c;
       }
     }
   </style>
@@ -148,250 +81,124 @@
 <body>
 <main>
   <header>
-    <div class="eyebrow">Algol · QA evidence artifact</div>
-    <h1>CI harness sensor diff</h1>
-    <p class="lede">A final, sanitized comparison of verified commit <code>99e385031382f20865969072bec15aa8509bf00c</code> against fixed point <code>010e2913cdab4f76e7fe9f4169382f13dd7ee59a</code>. Rail truth comes from the committed <code>.harness/worldline-harness.config.json</code>; remote evidence is tied to the same immutable SHA.</p>
+    <p class="eyebrow">Algol · deterministic CI evidence</p>
+    <h1>CI harness sensor audit</h1>
+    <p class="lede">This revision replaces the stale 22-rail snapshot with the final 26-rail configuration and its executable CI census. The audited implementation is commit <code>f63c60951bdb9b1388df1d4701f5f7fa7bf0d8d9</code>; GitHub and Vercel evidence below resolve to that same immutable revision.</p>
     <div class="meta">
-      <span>Snapshot: 2026-08-29 · Asia/Bangkok</span>
-      <span>Inventory: 22 configured rails</span>
-      <span>Verified SHA: 99e3850</span>
-      <span>Secrets and personal data: excluded</span>
+      <span>Evidence date · 2026-08-31 · Asia/Bangkok</span>
+      <span>Configuration · <code>.harness/worldline-harness.config.json</code></span>
+      <span>Secrets and personal data · excluded</span>
     </div>
   </header>
 
-  <section aria-labelledby="executive-verdict">
-    <h2 id="executive-verdict">Executive verdict</h2>
-    <div class="grid">
-      <article class="card verdict pass">
-        <h3>Local · verification</h3>
-        <strong>PASS</strong>
-        <p class="status-line">The exact six-file CI manifest passed 59/59 with exit 0 after the Linux stdin repair. The focused 6/6 regression and concurrent ESLint race check also remained green.</p>
-      </article>
-      <article class="card verdict pass">
-        <h3>GitHub · remote CI</h3>
-        <strong>GREEN</strong>
-        <p class="status-line"><a href="https://github.com/Ne0EX/personal-website-neoex/actions/runs/33241933265">Run 33241933265</a> completed successfully for the exact SHA. It passed all 59 fixtures, production build plus Pagefind, and the config-driven 22-rail census.</p>
-      </article>
-      <article class="card verdict pass">
-        <h3>Vercel · deployment</h3>
-        <strong>READY</strong>
-        <p class="status-line">Deployment <code>dpl_mK1ByQHMVjJvSYAkptyuhj7eipd5</code> is READY at <a href="https://personal-website-neoex-927wt3opp.vercel.app">its immutable deployment URL</a>, and its commit metadata matches the verified SHA.</p>
-      </article>
-      <article class="card verdict pass">
-        <h3>Overall · user objective</h3>
-        <strong>GREEN ON BOTH SUBSTRATES</strong>
-        <p class="status-line">Commit <code>99e3850</code> is independently green on GitHub and READY on Vercel. The deterministic census accounts for all 22 configured rails without changing the honest 0 added / 18 changed / 0 deleted rail delta.</p>
-      </article>
-    </div>
+  <h2>Executive verdict</h2>
+  <div class="grid">
+    <section class="card">
+      <h3><span class="badge pass">GREEN</span> GitHub Actions</h3>
+      <p><a href="https://github.com/Ne0EX/personal-website-neoex/actions/runs/33333829334">Run 33333829334</a> completed successfully in 3m52s. Install, pinned Chromium, source boundary, typecheck, lint, harness barrier, census validation, Node lane, non-Node lane, production build, and harness census all passed.</p>
+    </section>
+    <section class="card">
+      <h3><span class="badge pass">READY</span> Vercel</h3>
+      <p>Deployment <code>dpl_GmGWYzkwa8zThwV1VX6PQZihKujC</code> is READY at <a href="https://personal-website-neoex-cbvzj2gel.vercel.app">its immutable URL</a>. Vercel Git metadata exactly matches the audited SHA.</p>
+    </section>
+  </div>
 
-    <div class="metrics" aria-label="Sensor delta summary">
-      <div class="metric"><b>22</b><span>prior rails</span></div>
-      <div class="metric"><b>22</b><span>current rails</span></div>
-      <div class="metric"><b>0</b><span>added</span></div>
-      <div class="metric"><b>18</b><span>changed</span></div>
-      <div class="metric"><b>0</b><span>deleted</span></div>
-      <div class="metric"><b>4</b><span>unchanged stubs</span></div>
-    </div>
-    <p class="lede">“Changed” means the rail object differs byte-for-byte as JSON from HEAD, usually because CI metadata was added. No rail key was added or removed. The four unchanged rails are existing stubs.</p>
-  </section>
+  <div class="metrics" aria-label="Harness metrics">
+    <div class="metric"><b>26</b><span>configured rails</span></div>
+    <div class="metric"><b>17</b><span>required rails passed</span></div>
+    <div class="metric"><b>6</b><span>explicit contextual skips</span></div>
+    <div class="metric"><b>3</b><span>optional advisory failures</span></div>
+    <div class="metric"><b>0</b><span>required failures</span></div>
+    <div class="metric"><b>66</b><span>executable sensor files inventoried</span></div>
+  </div>
 
-  <section aria-labelledby="root-causes">
-    <h2 id="root-causes">Root causes and repair intent</h2>
-    <div class="grid">
-      <article class="card">
-        <h3>Private CI denominator</h3>
-        <p>HEAD ran six configured rails directly while the authoritative config contained 22. A hand-maintained workflow could silently omit new enforcing rails. The new runner enumerates <code>.rails | keys[]</code> in lexical order and emits one JSONL record per key plus a summary.</p>
-      </article>
-      <article class="card">
-        <h3>Context confused with availability</h3>
-        <p>Task/event/browser rails cannot be proven in shared CI merely because their scripts exist. The new metadata explicitly separates required deterministic runs from context-only, embedded, deferred-browser, advisory, and stub outcomes.</p>
-      </article>
-      <article class="card">
-        <h3>Hidden soul-atom failure</h3>
-        <p><code>set -e</code> aborted at the TypeScript command substitution when the audit returned exit 1. The shell now captures the exit deliberately so structured violations reach stdout and the hook log.</p>
-      </article>
-      <article class="card">
-        <h3>Build and Vercel prerequisites</h3>
-        <p>CI lacked explicit public Supabase inputs, and an unanchored <code>tools/</code> ignore could also remove <code>lib/netra/tools</code>. The workflow validates public variables; root-anchored ignore rules preserve nested application source.</p>
-      </article>
-      <article class="card">
-        <h3>Fixture/linter race</h3>
-        <p>Temporary Git repositories were created under the repository root, allowing ESLint to discover a fixture while the test removed it. Fixtures now use the operating system temp directory and clean up there.</p>
-      </article>
-      <article class="card">
-        <h3>Linux subprocess stdin</h3>
-        <p>The TypeScript auditors read <code>/dev/stdin</code>, which returned <code>ENXIO</code> when GitHub Linux supplied subprocess stdin as a pipe. The three workflow auditors now read portable file descriptor <code>0</code>, preserving the same JSON protocol across macOS and Linux.</p>
-      </article>
-      <article class="card">
-        <h3>Weekly workflow secret expression</h3>
-        <p>The weekly rebuild workflow referenced the secret directly in a step condition. The value now enters at job <code>env</code>, and later conditions inspect the environment variable, avoiding invalid direct secret-context evaluation while never exposing the value.</p>
-      </article>
-      <article class="card">
-        <h3>Evidence boundary</h3>
-        <p>The runner’s JSONL is deterministic machine evidence, while this HTML is the retained human-readable QA snapshot. This report-only follow-up commit changes the evidence document itself and must receive its own normal GitHub and Vercel reverification.</p>
-      </article>
-    </div>
-  </section>
+  <h2>What “green” means</h2>
+  <div class="callout">
+    <strong>Every deterministic, CI-eligible required sensor is wired and passing.</strong>
+    <p>The harness exits 0 only when the required denominator is complete. Its final summary was <code>rails=26 pass=17 skip=6 fail=3 required_failures=0 optional_fail=3</code>. Optional context-dependent checks are explicitly classified and explained; they cannot silently increase required coverage or masquerade as passes.</p>
+  </div>
 
-  <section aria-labelledby="inventory">
-    <h2 id="inventory">Complete sensor inventory</h2>
-    <div class="table-wrap">
-      <table>
-        <caption>All 22 current rail keys. “Prior coverage” describes HEAD <code>010e291</code>; fixture-only coverage is not counted as execution of the configured rail.</caption>
-        <thead>
-          <tr>
-            <th scope="col">Rail</th>
-            <th scope="col">Prior CI coverage</th>
-            <th scope="col">Current status</th>
-            <th scope="col">CI disposition</th>
-            <th scope="col">Required</th>
-            <th scope="col">Deterministic</th>
-            <th scope="col">Reason / contract</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td>territory</td><td><span class="badge broken">Direct but broken</span><br>Missing CI identity</td><td><span class="badge required">enforcing</span></td><td><span class="badge skip">skip</span></td><td>false</td><td>true</td><td class="reason">Context-only: <code>WL_AGENT</code> and <code>WL_TASK_ID</code> identify one local task; shared CI has no task owner.</td></tr>
-          <tr><td>design-tokens</td><td><span class="badge pass-badge">Direct gate</span></td><td><span class="badge required">enforcing</span></td><td><span class="badge run">run</span></td><td>true</td><td>true</td><td class="reason">Repository-wide deterministic source audit.</td></tr>
-          <tr><td>next-16-api</td><td><span class="badge missing">None</span></td><td><span class="badge stub">stub</span></td><td>not set</td><td>not set</td><td>not set</td><td class="reason">Awaiting Algol TypeScript audit logic.</td></tr>
-          <tr><td>voice-discipline</td><td><span class="badge missing">None</span></td><td><span class="badge stub">stub</span></td><td>not set</td><td>not set</td><td>not set</td><td class="reason">Awaiting NETRA voice specification and Algol audit logic.</td></tr>
-          <tr><td>accessibility-floor</td><td><span class="badge missing">None</span></td><td><span class="badge stub">stub</span></td><td>not set</td><td>not set</td><td>not set</td><td class="reason">Awaiting Lighthouse runner and audit logic.</td></tr>
-          <tr><td>prototype-layer</td><td><span class="badge missing">None</span></td><td><span class="badge required">enforcing</span></td><td><span class="badge run">run</span></td><td>true</td><td>true</td><td class="reason">Runs production <code>prototypes/**</code> only; legacy visual-diff prototype bundles remain deferred.</td></tr>
-          <tr><td>prototype-production-diff</td><td><span class="badge missing">None</span></td><td><span class="badge stub">stub</span></td><td>not set</td><td>not set</td><td>not set</td><td class="reason">Pixel-diff implementation deferred to META-11.</td></tr>
-          <tr><td>prototype-runtime</td><td><span class="badge missing">None</span></td><td><span class="badge required">enforcing</span></td><td><span class="badge skip">skip</span></td><td>false</td><td>false</td><td class="reason">Deferred: browser/runtime gauntlet needs an approved browser fixture and server seam.</td></tr>
-          <tr><td>soul-atom-drift</td><td><span class="badge pass-badge">Direct gate</span></td><td><span class="badge required">enforcing</span></td><td><span class="badge run">run</span></td><td>true</td><td>true</td><td class="reason">Required deterministic audit; shell exit-1 propagation repaired.</td></tr>
-          <tr><td>font-chain-presence</td><td><span class="badge pass-badge">Direct + embedded</span></td><td><span class="badge required">enforcing</span></td><td><span class="badge skip">skip</span></td><td>false</td><td>true</td><td class="reason">Embedded: required <code>soul-atom-drift</code> invokes C1b; no standalone execution.</td></tr>
-          <tr><td>html-first-spec-discipline</td><td><span class="badge missing">None</span></td><td><span class="badge required">enforcing</span></td><td><span class="badge skip">skip</span></td><td>false</td><td>true</td><td class="reason">Context-only: directions are task-scoped and CI has no task ID to select.</td></tr>
-          <tr><td>axiom-gate-join-coverage</td><td><span class="badge optional">Fixture only</span><br>Rail not executed</td><td><span class="badge advisory">advisory</span></td><td><span class="badge run">run</span></td><td>false</td><td>true</td><td class="reason">Runs against checked-out commit date; current unprojected axioms remain visible, non-blocking governance debt.</td></tr>
-          <tr><td>gauntlet-overlap-composition</td><td><span class="badge missing">None</span></td><td><span class="badge required">enforcing</span></td><td><span class="badge skip">skip</span></td><td>false</td><td>false</td><td class="reason">Deferred: Playwright browser/server fixture is not an approved R0 prerequisite.</td></tr>
-          <tr><td>gauntlet-min-legible-size</td><td><span class="badge missing">None</span></td><td><span class="badge required">enforcing</span></td><td><span class="badge skip">skip</span></td><td>false</td><td>false</td><td class="reason">Deferred: Playwright browser/server fixture is not an approved R0 prerequisite.</td></tr>
-          <tr><td>gauntlet-sub-pixel-detection</td><td><span class="badge missing">None</span></td><td><span class="badge required">enforcing</span></td><td><span class="badge skip">skip</span></td><td>false</td><td>false</td><td class="reason">Deferred: Playwright browser/server fixture is not an approved R0 prerequisite.</td></tr>
-          <tr><td>permissions-nonempty</td><td><span class="badge pass-badge">Direct gate</span></td><td><span class="badge required">enforcing</span></td><td><span class="badge run">run</span></td><td>true</td><td>true</td><td class="reason">Required deterministic repository configuration audit.</td></tr>
-          <tr><td>least-agency-config</td><td><span class="badge pass-badge">Direct gate</span></td><td><span class="badge required">enforcing</span></td><td><span class="badge run">run</span></td><td>true</td><td>true</td><td class="reason">Required deterministic repository configuration audit.</td></tr>
-          <tr><td>audit-ground-truth-observed</td><td><span class="badge missing">None</span></td><td><span class="badge required">enforcing</span></td><td><span class="badge skip">skip</span></td><td>false</td><td>true</td><td class="reason">Context-only: observed artifacts require task ID, route manifest, and task window.</td></tr>
-          <tr><td>audit-search-index-completeness</td><td><span class="badge missing">None</span></td><td><span class="badge required">enforcing</span></td><td><span class="badge run">run</span></td><td>true</td><td>true</td><td class="reason">Required after production build and Pagefind indexing.</td></tr>
-          <tr><td>single-source</td><td><span class="badge missing">None</span></td><td><span class="badge required">enforcing</span></td><td><span class="badge run">run</span></td><td>true</td><td>true</td><td class="reason">Required deterministic canonical-source audit.</td></tr>
-          <tr><td>secret-leak-guard</td><td><span class="badge missing">None</span></td><td><span class="badge required">enforcing</span></td><td><span class="badge run">run</span></td><td>true</td><td>true</td><td class="reason">Required deterministic source scan. No secret values are emitted by this report.</td></tr>
-          <tr><td>dev-clobber-guard</td><td><span class="badge missing">None</span></td><td><span class="badge required">enforcing</span></td><td><span class="badge skip">skip</span></td><td>false</td><td>true</td><td class="reason">Context-only: PreToolUse needs a Bash hook event payload; CI invokes no such tool event.</td></tr>
-        </tbody>
-      </table>
-    </div>
+  <h2>Complete rail inventory</h2>
+  <div class="table-wrap">
+    <table>
+      <caption>Committed rail truth and the exact final disposition.</caption>
+      <thead>
+        <tr>
+          <th>Rail</th>
+          <th>Class</th>
+          <th>Result</th>
+          <th>CI disposition</th>
+          <th>Evidence / reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>territory</td><td>optional</td><td><span class="badge skip">SKIP</span></td><td>context</td><td class="reason">Runs only when an active territory contract supplies a deterministic boundary.</td></tr>
+        <tr><td>design-tokens</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Token contract is checked from tracked source.</td></tr>
+        <tr><td>next-16-api</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Next 16 async API and convention contracts execute in the Node lane.</td></tr>
+        <tr><td>voice-discipline</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">NETRA voice fixtures and response constraints execute deterministically.</td></tr>
+        <tr><td>accessibility-floor</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Static accessibility fixtures plus browser-harness contracts run with pinned Chromium.</td></tr>
+        <tr><td>prototype-layer</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Production/prototype boundary is enforced from tracked paths.</td></tr>
+        <tr><td>prototype-production-diff</td><td>optional</td><td><span class="badge skip">SKIP</span></td><td>baseline</td><td class="reason">Compatibility slot remains explicit until an approved pixel baseline exists; it is not counted as required coverage.</td></tr>
+        <tr><td>prototype-runtime</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Runtime import and route leakage audit executes on every GitHub run.</td></tr>
+        <tr><td>soul-atom-drift</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Tracked soul snapshots are checked for drift.</td></tr>
+        <tr><td>font-chain-presence</td><td>optional</td><td><span class="badge skip">SKIP</span></td><td>embedded</td><td class="reason">The active font chain is embedded in generated output; this contextual rail is excluded from the required denominator.</td></tr>
+        <tr><td>html-first-spec-discipline</td><td>optional</td><td><span class="badge skip">SKIP</span></td><td>context</td><td class="reason">Runs when an HTML-first task specification is present.</td></tr>
+        <tr><td>axiom-gate-join-coverage</td><td>optional advisory</td><td><span class="badge advisory">FAIL</span></td><td>advisory</td><td class="reason">All 26 gate projections are green, but 6 overdue axioms still need explicit gate joins.</td></tr>
+        <tr><td>gauntlet-overlap-composition</td><td>optional advisory</td><td><span class="badge advisory">FAIL</span></td><td>advisory</td><td class="reason">Current baseline reading is 13/20; debt remains visible without weakening required CI.</td></tr>
+        <tr><td>gauntlet-min-legible-size</td><td>optional advisory</td><td><span class="badge advisory">FAIL</span></td><td>advisory</td><td class="reason">Current baseline reading is 473/604; debt remains visible without weakening required CI.</td></tr>
+        <tr><td>gauntlet-sub-pixel-detection</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Sub-pixel detector and fixtures execute in the required non-Node lane.</td></tr>
+        <tr><td>render-fidelity-vs-intent</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Committed render-intent manifest and fixtures execute deterministically.</td></tr>
+        <tr><td>ci-test-census</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Tracked executable files must be classified before the harness will pass.</td></tr>
+        <tr><td>console-security-contract</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Unauthenticated console shell, nested-route rewrite, auth probe, and cookie cleanup contracts execute in CI.</td></tr>
+        <tr><td>netra-contracts</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Gateway allowlist, request bounds, deterministic CI model, UI, and responsive contracts execute in CI.</td></tr>
+        <tr><td>permissions-nonempty</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Permission declarations may not collapse to an empty policy.</td></tr>
+        <tr><td>least-agency-config</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Agent capabilities are checked against least-agency configuration.</td></tr>
+        <tr><td>audit-ground-truth-observed</td><td>optional</td><td><span class="badge skip">SKIP</span></td><td>context</td><td class="reason">Runs only when an external observed witness is supplied; CI does not fabricate one.</td></tr>
+        <tr><td>audit-search-index-completeness</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Search-index coverage is verified against tracked public inputs.</td></tr>
+        <tr><td>single-source</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Duplicated source-of-truth mutations are rejected.</td></tr>
+        <tr><td>secret-leak-guard</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Tracked source and build inputs are scanned for secret leakage.</td></tr>
+        <tr><td>dev-clobber-guard</td><td>optional</td><td><span class="badge skip">SKIP</span></td><td>local context</td><td class="reason">Destructive local-process guard is fixture-tested but not allowed to manipulate arbitrary CI processes.</td></tr>
+      </tbody>
+    </table>
+  </div>
 
-    <div class="metrics" aria-label="Current CI profile counts">
-      <div class="metric"><b>9</b><span>run dispositions</span></div>
-      <div class="metric"><b>9</b><span>explicit skips</span></div>
-      <div class="metric"><b>4</b><span>no profile / stubs</span></div>
-      <div class="metric"><b>8</b><span>required runs</span></div>
-      <div class="metric"><b>14</b><span>deterministic profiles</span></div>
-      <div class="metric"><b>4</b><span>non-deterministic profiles</span></div>
-    </div>
-  </section>
+  <h2>Executable sensor census</h2>
+  <div class="grid">
+    <section class="card">
+      <h3>Required lanes</h3>
+      <ul>
+        <li><strong>17 Node test files · 152 assertions passed.</strong></li>
+        <li><strong>15 non-Node sensor files · 15 passed.</strong></li>
+        <li>Config validation reports <strong>66 executable files</strong> and refuses unclassified tracked sensors.</li>
+        <li><strong>15 candidate files</strong> are explicitly blocked with recorded reasons; candidate is a visible blocker state, never a hidden pass bucket.</li>
+      </ul>
+    </section>
+    <section class="card">
+      <h3>Determinism and availability</h3>
+      <ul>
+        <li>Chromium is pinned and installed by GitHub Actions before browser contracts run.</li>
+        <li>The browser fixture owns a bounded loopback port and rejects an unrelated listener instead of accepting a false-positive server.</li>
+        <li>NETRA uses a deterministic fake model in CI; no provider credential or network response is required.</li>
+        <li>The production build passed with Next.js 16.3.3, 23 pages, and a 13-page Pagefind index.</li>
+      </ul>
+    </section>
+  </div>
 
-  <section aria-labelledby="paths">
-    <h2 id="paths">Exact implementation paths</h2>
-    <div class="card full">
-      <div class="path-list">
-        <div class="path-row"><code>.harness/worldline-harness.config.json</code><span>Authoritative 22-rail census and per-rail CI profile.</span></div>
-        <div class="path-row"><code>scripts/audit-harness-ci.sh</code><span>Stable config enumerator, prerequisite classifier, JSONL records, and required-only aggregate.</span></div>
-        <div class="path-row"><code>.claude/hooks/harness-check.sh</code><span><code>--ci</code> adapter that delegates to the config-driven runner.</span></div>
-        <div class="path-row"><code>.github/workflows/ci.yml</code><span>Public build inputs, regression invocation, build ordering, Vercel source-boundary check, and post-build census.</span></div>
-        <div class="path-row"><code>scripts/audit-soul-atom-drift.sh</code><span>Deliberate capture and reporting of TypeScript audit exit 1.</span></div>
-        <div class="path-row"><code>scripts/audit-prototype-discipline.sh</code><span>Deterministic production-only scope and explicit visual-diff deferral.</span></div>
-        <div class="path-row"><code>.vercelignore</code><span>Root-anchored repository-only exclusions that preserve nested <code>lib/netra/tools</code>.</span></div>
-        <div class="path-row"><code>tests/harness/ci-repair-regressions.test.mjs</code><span>Hermetic shell, status, census, JSONL determinism, and OS-temp race regressions.</span></div>
-        <div class="path-row"><code>docs/harness/RAIL-DEFINITIONS.md</code><span>Updated CI scope and advisory semantics for affected rails.</span></div>
-        <div class="path-row"><code>scripts/audit-axiom-gate-join-coverage.ts</code><span>Portable stdin via file descriptor 0 for Linux subprocess pipes.</span></div>
-        <div class="path-row"><code>scripts/audit-property-technique-map.ts</code><span>Portable stdin via file descriptor 0 for Linux subprocess pipes.</span></div>
-        <div class="path-row"><code>scripts/audit-soul-atom-drift.ts</code><span>Portable stdin via file descriptor 0 for Linux subprocess pipes.</span></div>
-        <div class="path-row"><code>.github/workflows/weekly-rebuild.yml</code><span>Secret-backed deploy-hook URL mapped at job environment scope for safe conditional use.</span></div>
-      </div>
-    </div>
-  </section>
+  <h2>Remaining advisory debt</h2>
+  <div class="callout warn">
+    <strong>Three optional quality probes remain red by design.</strong>
+    <p>They are reported, versioned, and excluded only from the required denominator: axiom/gate join coverage, overlap composition, and minimum legible size. Six other rails are context-bound skips with explicit prerequisites. None can suppress a required failure.</p>
+  </div>
 
-  <section aria-labelledby="regressions">
-    <h2 id="regressions">Regression evidence</h2>
-    <div class="grid evidence">
-      <article class="card">
-        <h3>Exact CI fixture manifest</h3>
-        <p>Six workflow-listed Node test files.</p>
-        <p><span class="badge pass-badge">PASS</span> 59 passed · 0 failed · 0 skipped · exit 0, locally and in GitHub run 33241933265.</p>
-      </article>
-      <article class="card">
-        <h3>Concurrent race reproduction</h3>
-        <p><code>npm run lint</code> and the focused suite launched concurrently.</p>
-        <p><span class="badge pass-badge">PASS</span> Both exited 0. ESLint reported 0 errors and existing warnings; no <code>ENOENT</code>. Focused suite remained 6/6.</p>
-      </article>
-      <article class="card full">
-        <h3>Behavior locked</h3>
-        <ul>
-          <li>Temporary fixture repositories are outside the lint-scanned worktree.</li>
-          <li>Soul-atom TypeScript exit 1 becomes a structured shell FAIL with retained evidence.</li>
-          <li>Clean soul-atom input remains PASS.</li>
-          <li>PASS, SKIP, and FAIL remain distinguishable.</li>
-          <li>The config-driven runner emits byte-stable JSONL with one record per fixture rail plus summary.</li>
-          <li>The workflow census recognizes the delegated config-driven runner and rejects a private list.</li>
-          <li>All three TypeScript auditors consume piped JSON through portable stdin descriptor 0.</li>
-          <li>GitHub completed build, Pagefind indexing, and the full 22-rail census for the verified SHA.</li>
-        </ul>
-      </article>
-    </div>
-  </section>
-
-  <section aria-labelledby="remote-green">
-    <h2 id="remote-green">GitHub and Vercel: final verified state</h2>
-    <div class="callout success">
-      <strong>Verified remote state:</strong> commit <code>99e385031382f20865969072bec15aa8509bf00c</code> is green on GitHub and its matching Vercel deployment is READY. The user’s two-substrate definition of pipeline green is satisfied for this commit.
-    </div>
-    <div class="grid" style="margin-top:14px">
-      <article class="card">
-        <h3>GitHub evidence satisfied</h3>
-        <ol>
-          <li>Run <a href="https://github.com/Ne0EX/personal-website-neoex/actions/runs/33241933265">33241933265</a> is completed with conclusion <code>success</code>.</li>
-          <li>Its recorded head SHA exactly equals <code>99e385031382f20865969072bec15aa8509bf00c</code>.</li>
-          <li>Install, typecheck, lint, barrier gate, 59 fixtures, public build-input validation, build plus Pagefind, and census steps succeeded.</li>
-          <li>The census emitted coverage for all 22 configured rails and the required aggregate passed.</li>
-        </ol>
-      </article>
-      <article class="card">
-        <h3>Vercel evidence satisfied</h3>
-        <ol>
-          <li>Deployment <code>dpl_mK1ByQHMVjJvSYAkptyuhj7eipd5</code> reports <code>READY</code>.</li>
-          <li>Deployment commit metadata exactly matches <code>99e385031382f20865969072bec15aa8509bf00c</code>.</li>
-          <li>The immutable URL is <a href="https://personal-website-neoex-927wt3opp.vercel.app">personal-website-neoex-927wt3opp.vercel.app</a>.</li>
-          <li>The endpoint responds through Vercel deployment protection, confirming the deployment is live without exposing protected content.</li>
-        </ol>
-      </article>
-    </div>
-    <p class="lede" style="margin-top:14px">This HTML update is a report-only follow-up after the verified commit. Its own follow-up commit must be pushed and reverified; that expected verification does not alter the recorded result for <code>99e3850</code>.</p>
-  </section>
-
-  <section aria-labelledby="diff-stats">
-    <h2 id="diff-stats">Scoped diff statistics</h2>
-    <div class="grid">
-      <article class="card">
-        <h3>Verified repair range</h3>
-        <p><strong>2 commits</strong></p>
-        <p class="status-line"><code>c7fb2f4</code> restored deterministic harness/Vercel builds; <code>99e3850</code> made auditor stdin portable on Linux.</p>
-      </article>
-      <article class="card">
-        <h3>Fixed-point commit diff</h3>
-        <p><strong>20 files · +1,712 / −206</strong></p>
-        <p class="status-line">Committed difference from <code>010e291</code> through verified <code>99e3850</code>, including the report, runner, tests, workflows, metadata, and required supporting fixes.</p>
-      </article>
-      <article class="card">
-        <h3>Linux follow-up commit</h3>
-        <p><strong>4 files · +8 / −6</strong></p>
-        <p class="status-line">Three auditor stdin substitutions plus the weekly workflow environment-expression correction.</p>
-      </article>
-      <article class="card">
-        <h3>Rail-key delta</h3>
-        <p><strong>0 added · 18 changed · 0 deleted</strong></p>
-        <p class="status-line">All 22 rail keys remain present; four pre-existing stubs are unchanged.</p>
-      </article>
-    </div>
-  </section>
+  <h2>Remote evidence</h2>
+  <ul>
+    <li>GitHub run <a href="https://github.com/Ne0EX/personal-website-neoex/actions/runs/33333829334">33333829334</a>: <strong>success</strong>, head SHA <code>f63c60951bdb9b1388df1d4701f5f7fa7bf0d8d9</code>.</li>
+    <li>Vercel deployment <code>dpl_GmGWYzkwa8zThwV1VX6PQZihKujC</code>: <strong>READY</strong>, source=git, matching SHA, immutable URL <a href="https://personal-website-neoex-cbvzj2gel.vercel.app">personal-website-neoex-cbvzj2gel.vercel.app</a>.</li>
+    <li>This artifact records the implementation revision. Any later report-only commit must independently become green on GitHub and READY on Vercel before handoff.</li>
+  </ul>
 
   <footer>
-    Generated as a standalone static HTML QA artifact. Evidence sources: fixed point <code>010e2913cdab4f76e7fe9f4169382f13dd7ee59a</code>, verified commit <code>99e385031382f20865969072bec15aa8509bf00c</code>, GitHub Actions run <a href="https://github.com/Ne0EX/personal-website-neoex/actions/runs/33241933265">33241933265</a>, Vercel deployment record <code>dpl_mK1ByQHMVjJvSYAkptyuhj7eipd5</code>, committed harness config, and regression output. No credentials, environment values, secrets, or personal data are included.
+    Evidence sources: committed harness configuration and census, clean candidate output, GitHub Actions run 33333829334, Vercel deployment dpl_GmGWYzkwa8zThwV1VX6PQZihKujC, BrowserOS production-build verification, and authenticated Vercel deployment checks. No credentials, environment values, secrets, or personal data are included.
   </footer>
 </main>
 </body>

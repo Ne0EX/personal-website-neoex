@@ -3,67 +3,74 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CI, Security &amp; NETRA Audit · 2026-08-29</title>
+  <meta name="color-scheme" content="light dark">
+  <title>CI, Security &amp; NETRA Audit · 2026-08-31</title>
   <style>
     :root {
-      color-scheme: light dark;
       --paper: #f4f1e8;
       --panel: #fffdf7;
       --ink: #202421;
       --muted: #5d665f;
       --line: #cfd3ca;
       --accent: #155f58;
+      --accent-soft: #dcece8;
       --pass: #17623d;
-      --pass-bg: #dcecdf;
+      --pass-soft: #dcecdf;
       --warn: #805000;
-      --warn-bg: #f4e7c8;
+      --warn-soft: #f4e7c8;
       --code: #e9ece5;
       font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
     }
     * { box-sizing: border-box; }
     body { margin: 0; color: var(--ink); background: var(--paper); line-height: 1.55; }
-    main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 44px 0 72px; }
-    header { padding-bottom: 22px; border-bottom: 2px solid var(--ink); }
-    h1 { margin: 4px 0 12px; font-size: clamp(2rem, 5vw, 4rem); line-height: 1; letter-spacing: -.045em; }
-    h2 { margin: 40px 0 14px; font-size: 1.4rem; }
+    main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 46px 0 76px; }
+    header { padding-bottom: 24px; border-bottom: 2px solid var(--ink); }
+    h1 { margin: 5px 0 12px; font-size: clamp(2.1rem, 5vw, 4.25rem); line-height: .98; letter-spacing: -.05em; }
+    h2 { margin: 42px 0 14px; font-size: 1.42rem; letter-spacing: -.02em; }
     h3 { margin: 0 0 8px; font-size: 1rem; }
     p { margin: 0 0 12px; }
     a { color: var(--accent); text-underline-offset: .18em; }
-    code { padding: .1em .34em; border-radius: 3px; background: var(--code); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
-    .eyebrow { color: var(--accent); font-size: .76rem; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; }
-    .lede { max-width: 80ch; color: var(--muted); font-size: 1.04rem; }
-    .meta, .grid, .metrics { display: grid; gap: 12px; }
-    .meta { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 20px; color: var(--muted); font-size: .84rem; }
-    .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .metrics { grid-template-columns: repeat(6, minmax(0, 1fr)); margin-top: 18px; }
-    .card, .metric, .callout { border: 1px solid var(--line); background: var(--panel); }
-    .card { padding: 18px; }
-    .metric { padding: 14px; }
-    .metric b { display: block; font-size: 1.55rem; line-height: 1; }
-    .metric span { display: block; margin-top: 6px; color: var(--muted); font-size: .75rem; }
-    .callout { padding: 16px 18px; border-color: var(--pass); border-radius: 6px; }
-    .callout.warn { border-color: var(--warn); }
-    .badge { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: .72rem; font-weight: 750; }
-    .pass { color: var(--pass); background: var(--pass-bg); }
-    .warn { color: var(--warn); background: var(--warn-bg); }
-    .table-wrap { overflow-x: auto; border: 1px solid var(--line); background: var(--panel); }
-    table { width: 100%; border-collapse: collapse; font-size: .84rem; }
-    th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
-    th { color: var(--paper); background: var(--ink); font-size: .72rem; letter-spacing: .05em; text-transform: uppercase; }
-    tbody tr:last-child td { border-bottom: 0; }
+    code { padding: .1em .34em; border-radius: 4px; background: var(--code); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
     ul { margin: 8px 0 0; padding-left: 1.25rem; }
     li + li { margin-top: 6px; }
+    .eyebrow { color: var(--accent); font-size: .76rem; font-weight: 780; letter-spacing: .12em; text-transform: uppercase; }
+    .lede { max-width: 84ch; color: var(--muted); font-size: 1.04rem; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 20px; color: var(--muted); font-size: .84rem; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .metrics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin: 18px 0 2px; }
+    .card, .metric, .callout, .table-wrap { border: 1px solid var(--line); background: var(--panel); }
+    .card { padding: 18px; border-radius: 10px; }
+    .metric { padding: 14px; border-radius: 9px; }
+    .metric b { display: block; font-size: 1.55rem; line-height: 1; }
+    .metric span { display: block; margin-top: 6px; color: var(--muted); font-size: .75rem; }
+    .callout { padding: 16px 18px; border-color: var(--pass); border-radius: 8px; background: var(--pass-soft); }
+    .callout.warn { border-color: var(--warn); background: var(--warn-soft); }
+    .badge { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: .7rem; font-weight: 780; letter-spacing: .025em; white-space: nowrap; }
+    .pass { color: var(--pass); background: var(--pass-soft); }
+    .warn { color: var(--warn); background: var(--warn-soft); }
+    .info { color: var(--accent); background: var(--accent-soft); }
+    .table-wrap { overflow-x: auto; border-radius: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+    caption { padding: 13px 14px; color: var(--muted); text-align: left; }
+    th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--paper); background: var(--ink); font-size: .7rem; letter-spacing: .055em; text-transform: uppercase; }
+    tbody tr:last-child td { border-bottom: 0; }
     footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: .8rem; }
-    @media (max-width: 800px) {
-      .meta, .grid { grid-template-columns: 1fr; }
+    @media (max-width: 820px) {
+      main { width: min(100% - 20px, 1120px); padding-top: 28px; }
+      .grid { grid-template-columns: 1fr; }
       .metrics { grid-template-columns: repeat(3, 1fr); }
     }
-    @media (max-width: 480px) { .metrics { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 480px) {
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+      th, td { padding: 8px; }
+    }
     @media (prefers-color-scheme: dark) {
       :root {
         --paper: #161a18; --panel: #1e2421; --ink: #edf1ec; --muted: #b6beb8;
-        --line: #3b433e; --accent: #78d0c4; --pass: #8bd6a8; --pass-bg: #173927;
-        --warn: #f0c477; --warn-bg: #46351a; --code: #2a302c;
+        --line: #3b433e; --accent: #78d0c4; --accent-soft: #173c38;
+        --pass: #8bd6a8; --pass-soft: #173927; --warn: #f0c477;
+        --warn-soft: #46351a; --code: #2a302c;
       }
     }
   </style>
@@ -71,12 +78,12 @@
 <body>
 <main>
   <header>
-    <p class="eyebrow">Algol QA evidence · successor audit</p>
+    <p class="eyebrow">Algol · final security and interaction evidence</p>
     <h1>CI, Security &amp; NETRA Audit</h1>
-    <p class="lede">A repository-wide follow-up to the <a href="CI-HARNESS-SENSOR-DIFF-2026-08-29.html">earlier 22-rail sensor report</a>. The historical report is preserved as the before-state; this artifact records the hardened deterministic census, admin-console and NETRA contracts, polished navigator, and dual-substrate result.</p>
+    <p class="lede">Repository-wide closure for deterministic CI, unauthenticated admin-console containment, and the connected NETRA navigator. The audited implementation is <code>f63c60951bdb9b1388df1d4701f5f7fa7bf0d8d9</code>; remote evidence resolves GitHub and Vercel to this same immutable revision.</p>
     <div class="meta">
-      <span>Evidence date · 2026-08-29 · Asia/Bangkok</span>
-      <span>Audited implementation · <code>4e1f594a949207868491ece8ab7006458e12ebec</code></span>
+      <span>Evidence date · 2026-08-31 · Asia/Bangkok</span>
+      <span>Next.js · 16.3.3</span>
       <span>Secrets and personal data · excluded</span>
     </div>
   </header>
@@ -85,132 +92,125 @@
   <div class="grid">
     <section class="card">
       <h3><span class="badge pass">GREEN</span> GitHub Actions</h3>
-      <p><a href="https://github.com/Ne0EX/personal-website-neoex/actions/runs/33246337373">Run 33246337373</a> completed successfully for the exact audited SHA.</p>
+      <p><a href="https://github.com/Ne0EX/personal-website-neoex/actions/runs/33333829334">Run 33333829334</a> completed successfully for the audited SHA. All required sensor lanes and the production build passed.</p>
     </section>
     <section class="card">
       <h3><span class="badge pass">READY</span> Vercel</h3>
-      <p>Deployment <code>dpl_6YqUUxj7rYdjBLTPmcKiXkD4EBqJ</code> is READY at <a href="https://personal-website-neoex-91uhelxcw.vercel.app">its immutable URL</a>; Git metadata matches the audited SHA.</p>
+      <p>Deployment <code>dpl_GmGWYzkwa8zThwV1VX6PQZihKujC</code> is READY at <a href="https://personal-website-neoex-cbvzj2gel.vercel.app">its immutable URL</a>; Vercel Git metadata matches the audited SHA.</p>
     </section>
   </div>
+
   <div class="metrics" aria-label="Audit metrics">
-    <div class="metric"><b>25</b><span>configured rails</span></div>
-    <div class="metric"><b>11</b><span>required rails passed</span></div>
-    <div class="metric"><b>58</b><span>tracked executable sensors</span></div>
-    <div class="metric"><b>111</b><span>Node assertions passed</span></div>
-    <div class="metric"><b>11</b><span>non-Node sensors passed</span></div>
-    <div class="metric"><b>0</b><span>required failures</span></div>
+    <div class="metric"><b>26</b><span>configured harness rails</span></div>
+    <div class="metric"><b>0</b><span>required rail failures</span></div>
+    <div class="metric"><b>0</b><span>dependency vulnerabilities</span></div>
+    <div class="metric"><b>$1</b><span>daily AI hard budget</span></div>
+    <div class="metric"><b>52px</b><span>NETRA trigger target</span></div>
+    <div class="metric"><b>0</b><span>deployment runtime errors observed</span></div>
   </div>
 
-  <h2>What changed from the prior report</h2>
+  <h2>Security and admin-console closure</h2>
   <div class="callout">
-    <strong>The “not set” state is eliminated.</strong>
-    <p>All 25 rail objects now carry an explicit CI profile. Config v3 validates a separate required-rail denominator, classification vocabulary, deterministic disposition, prerequisites, and non-empty exclusion reasons before any rail runs.</p>
+    <strong>The unauthenticated console rewrite loop is fixed and regression-covered.</strong>
+    <p>Next.js 16 was rewriting <code>/console</code> back to itself, producing a 500. The proxy now lets the login route terminate at the page-level <code>ConsoleLogin</code>, rewrites nested unauthenticated <code>/console/**</code> requests exactly once to <code>/console</code>, and preserves authentication-cookie cleanup.</p>
   </div>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Class</th><th>Count</th><th>Observed result</th><th>Meaning</th></tr></thead>
+      <caption>Exact production checks against the immutable Vercel deployment.</caption>
+      <thead>
+        <tr><th>Surface</th><th>Observed result</th><th>Security conclusion</th></tr>
+      </thead>
       <tbody>
-        <tr><td>Required</td><td>11</td><td><span class="badge pass">PASS</span></td><td>Deterministic, available on GitHub CI, and blocking.</td></tr>
-        <tr><td>Advisory</td><td>1</td><td><span class="badge warn">FAIL visible</span></td><td>The axiom join honestly reports six overdue axioms; it cannot turn the required aggregate red.</td></tr>
-        <tr><td>Context</td><td>4</td><td>SKIP</td><td>Needs task identity, event payload, or observation window unavailable in shared CI.</td></tr>
-        <tr><td>Embedded</td><td>1</td><td>SKIP</td><td>Executed by its required parent rail instead of duplicated.</td></tr>
-        <tr><td>Deferred</td><td>4</td><td>SKIP</td><td>Needs pinned browser/runtime/server fixtures that the repository does not yet install.</td></tr>
-        <tr><td>Stub</td><td>4</td><td>SKIP</td><td>No implemented deterministic audit exists; never reported as product evidence.</td></tr>
+        <tr><td><code>/console</code></td><td><code>200</code>, login shell only</td><td>No internal console shell or editor markup leaked.</td></tr>
+        <tr><td><code>/console/editor</code></td><td><code>200</code>, guarded login shell</td><td>Nested unauthenticated route terminates safely without a rewrite loop.</td></tr>
+        <tr><td><code>/api/console/auth-probe</code></td><td><code>401</code>, <code>AUTH</code>, “Not authenticated”</td><td>API boundary rejects anonymous access.</td></tr>
+        <tr><td>Runtime logs</td><td>Four <code>200</code> responses, one expected <code>401</code>, zero errors</td><td>Observed traffic matches the verification probes.</td></tr>
       </tbody>
     </table>
   </div>
-  <p>The final harness JSONL summary was <code>rails=25 pass=11 skip=13 fail=1 required_failures=0 optional_fail=1 exit=0</code>. A green pipeline therefore means every required rail passed; it does not erase the advisory or deferred debt.</p>
+  <p>The focused proxy regression suite passed 9/9. The complete CI census also runs the console security contract as a required rail.</p>
 
-  <h2>Tracked test-sensor census</h2>
-  <p>The Git index—not a workflow file list—is now the denominator. Every tracked executable under the declared test patterns must be classified exactly once. Every tracked <code>*.test.mjs</code> remains required, and the portable non-Node lane cannot be empty or silently shrink.</p>
+  <h2>NETRA AI migration and cost boundary</h2>
   <div class="grid">
     <section class="card">
-      <h3>Required execution</h3>
+      <h3><span class="badge info">CENTRALIZED</span> Vercel AI SDK + Gateway</h3>
       <ul>
-        <li>11 tracked Node files ran through direct discovery: 111 passed, 0 failed, 0 skipped.</li>
-        <li>11 shell/nonstandard Node sensors each emitted an individual PASS before the final 11/11 summary.</li>
-        <li>Barrier metadata passed for all 25 rails.</li>
+        <li>OpenRouter was removed from the runtime path.</li>
+        <li>The free-only allowlist is <code>minimax/minimax-m3-free</code> with <code>minimax/minimax-m2.7-free</code> fallback.</li>
+        <li>CI uses a deterministic fake model, so required tests never depend on provider uptime, credentials, or probabilistic output.</li>
+        <li>Gateway attribution carries <code>feature:netra</code>, <code>tier:free-only</code>, and canonical user/session tags.</li>
       </ul>
     </section>
     <section class="card">
-      <h3>Classification denominator</h3>
+      <h3><span class="badge pass">BOUNDED</span> Spend and generation</h3>
       <ul>
-        <li>22 required entries: 11 Node and 11 non-Node.</li>
-        <li>15 evidence-backed candidates, 3 deferred, 1 context-only, 17 manual, and 3 support entries.</li>
-        <li>New, missing, duplicate, untracked, phantom, or downgraded sensors fail validation.</li>
+        <li>Vercel project hard budget: <strong>$1</strong>, refreshes daily; observed spend was $0.00 at verification.</li>
+        <li>Only free model IDs are accepted by application configuration.</li>
+        <li>Each turn is capped at 600 output tokens and three tool/model steps.</li>
+        <li><code>OPENROUTER_API_KEY</code> was removed from Vercel Production after the live Gateway proof.</li>
       </ul>
     </section>
   </div>
-  <div class="callout warn">
-    <strong>False-green defect found and closed.</strong>
-    <p>The first draft let a child test consume the parent loop’s TSV stdin. It could execute only 6 of 11 sensors and still print success. Each child now receives <code>/dev/null</code>, the runner asserts executed count equals expected count, and a behavioral regression makes the first child drain stdin while proving all 11 still execute.</p>
-  </div>
+  <p>Request shape and finite page context are validated before quota is consumed. Reads use the constrained NETRA store boundary, and the session limiter supports deployed Redis aliases while retaining a bounded local fallback.</p>
 
-  <h2>Security and admin-console contracts</h2>
+  <h2>NETRA panel, reticle, and browser evidence</h2>
   <div class="grid">
     <section class="card">
-      <h3>Console · 41 checks, 0 violations</h3>
+      <h3>Desktop interaction</h3>
       <ul>
-        <li>Server-action wrappers accept unknown input and return constrained named envelopes.</li>
-        <li>Owner authorization runs before validation or action work.</li>
-        <li>Authentication uses verified <code>getUser()</code>, never <code>getSession()</code>, followed by the owner RPC.</li>
-        <li>Every active implementation has exactly one server-action wrapper.</li>
+        <li>The 52×52 reticle opens a labelled modal dialog and focus lands in the prompt.</li>
+        <li>Focus is trapped, body scroll locks, Escape closes, and focus returns to the trigger.</li>
+        <li>Enter reopens the panel; route context comes from the active pathname rather than fabricated client state.</li>
+        <li>A live local <code>POST /api/chat</code> returned <code>200</code> with a NETRA response and no browser errors.</li>
       </ul>
     </section>
     <section class="card">
-      <h3>NETRA · 20 checks, 0 violations</h3>
+      <h3>Mobile and reduced motion</h3>
       <ul>
-        <li>Store reads require the request-scoped RLS client and explicit public projections.</li>
-        <li>Search builds PostgREST filters only from bounded NFKC Unicode word tokens and fixed columns.</li>
-        <li>Chat JSON validation precedes quota mutation; session cookies are canonical UUIDv4 values.</li>
-        <li>Production quota failure is fail-closed; Redis expiry and upstream error/log envelopes are bounded.</li>
+        <li>At 375×812 the panel becomes a bottom sheet with no horizontal overflow.</li>
+        <li>The trigger keeps a 12px right/bottom gap and all tested controls remain at least 48px.</li>
+        <li>Reduced-motion mode resolves to no animation and a 0s duration.</li>
+        <li>Desktop and mobile screenshots were visually inspected from a clean production build of the audited revision.</li>
       </ul>
     </section>
   </div>
-  <p>The 11-case security mutation suite passed. It deliberately removed or reordered each key guarantee and proved the corresponding sensor failed.</p>
+  <p>BrowserOS neo supplied the real-browser interaction trace. Vercel’s native integration and authenticated deployment requests supplied immutable remote proof because preview protection correctly prevented an unauthenticated browser session from entering the deployment.</p>
 
-  <h2>NETRA panel and button</h2>
-  <p>The navigator is connected to <code>/api/chat</code> with robust streamed text decoding and structured HTTP error handling. The trigger is a visible 200×52px instrument control with ready/open/busy text and matching ARIA state. The panel adds focus trap, initial focus, Escape close, focus restoration, scroll lock, semantic dialog/log/status/alert regions, local-history validation and clear control, English/Thai copy, mobile bottom-sheet behavior, and reduced-motion handling.</p>
-  <p>The visual pass reuses the canonical NETRA atom and reticle geometry, removes duplicated channel copy, raises small labels to 12px, and uses the stronger reading ink token (measured day-scheme contrast 5.42:1). Source/accessibility and design review passed.</p>
+  <h2>Deployed NETRA proof</h2>
+  <div class="callout">
+    <strong>The production chat route is connected through Vercel AI Gateway.</strong>
+    <p>An authenticated request to the exact deployment returned <code>POST /api/chat 200</code>, <code>content-type: text/plain</code>, and <code>x-netra-remaining: 49</code>. Vercel runtime logs recorded the request on deployment <code>dpl_GmGWYzkwa8zThwV1VX6PQZihKujC</code> with no function error.</p>
+  </div>
+
+  <h2>Dependency and platform checks</h2>
+  <ul>
+    <li>The project is pinned to Next.js <strong>16.3.3</strong>; the clean production build generated 23 pages and a 13-page Pagefind index.</li>
+    <li><code>npm audit</code> on the unchanged lockfile reported <strong>0 vulnerabilities</strong>.</li>
+    <li>Typecheck passed. Lint completed with zero errors; pre-existing warning annotations remain visible.</li>
+    <li>The CI workflow installs pinned Chromium and validates the Git-index sensor census before executing required lanes.</li>
+  </ul>
 
   <h2>Evidence boundary and remaining debt</h2>
   <div class="callout warn">
-    <strong>No proxy is presented as live-service proof.</strong>
-    <p>The deterministic rails do not claim an authenticated Supabase identity, deployed RLS execution, a live model/provider response, or a final live-browser trace. BrowserOS neo was not paired during final verification. Earlier local renders plus source, accessibility, design, build, and deployment evidence informed the UI verdict; a fresh BrowserOS interaction remains separate evidence.</p>
+    <strong>Known debt is visible and does not weaken required CI.</strong>
+    <ul>
+      <li>Three optional advisory rails remain red: axiom/gate join coverage, overlap composition, and minimum legible size.</li>
+      <li>Six contextual rails are explicit skips with prerequisites; no required rail is skipped.</li>
+      <li>Pagefind and existing lint/ARIA warnings remain annotations rather than hidden failures.</li>
+      <li>No persistent Upstash resource was provisioned during this run; the existing local limiter remains the fallback seam.</li>
+      <li>Removal from Vercel does not revoke the former OpenRouter credential at the provider. Revoke it there only if it was dedicated to this project.</li>
+    </ul>
   </div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Candidate sensor</th><th>Verified blocker</th></tr></thead>
-      <tbody>
-        <tr><td><code>beta-access-log.test.sh</code></td><td>Nine legacy logging assertions drift from the current hook.</td></tr>
-        <tr><td><code>beta-grant-cleanup.test.sh</code></td><td>Hook diagnostics contaminate captured numeric output.</td></tr>
-        <tr><td><code>beta-grant.test.sh</code></td><td>Hook diagnostics contaminate the captured grant ID.</td></tr>
-        <tr><td><code>beta-persona-tracker.test.sh</code></td><td>Legacy line-record expectations conflict with current JSON output.</td></tr>
-        <tr><td><code>beta-read-gate.test.sh</code></td><td>Unbound variable plus four authorization expectation failures.</td></tr>
-        <tr><td><code>beta-write-protect.test.sh</code></td><td>Hook diagnostics contaminate captured numeric output.</td></tr>
-        <tr><td><code>dev-clobber-guard.fixture.sh</code></td><td>The macOS process fixture cannot observe its synthetic process title.</td></tr>
-        <tr><td><code>parse-conversation.test.sh</code></td><td>The clean tracked checkout lacks the referenced staged parser script.</td></tr>
-        <tr><td><code>sign-work-self-exclusion.sh</code></td><td>Required-step validation blocks before self-exclusion assertions.</td></tr>
-        <tr><td><code>sign-work-steps-validation.test.sh</code></td><td>The fixture exits before its expected validation path.</td></tr>
-        <tr><td><code>status-write-guard.sh</code></td><td>The Polaris large-delta case returns a different policy exit.</td></tr>
-        <tr><td><code>adversarial-probe.py</code></td><td>Eight curl-blocking expectations conflict with current policy.</td></tr>
-        <tr><td><code>algol-wholesale-verify.py</code></td><td>Legacy curl/wget blocking expectations conflict with current policy.</td></tr>
-        <tr><td><code>verify-audit-fail-behavior.py</code></td><td>Three permission/least-agency expectations differ from current behavior.</td></tr>
-        <tr><td><code>proxy.test.ts</code></td><td>Standalone execution lacks Next.js AsyncLocalStorage runtime context.</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <p>Candidate is a verified blocker state, not a hidden pass or parking bucket. Full commands, exit codes, observations, and verification context live in <code>tests/harness/ci-test-census.json</code>.</p>
 
   <h2>Remote evidence</h2>
   <ul>
-    <li>GitHub run <a href="https://github.com/Ne0EX/personal-website-neoex/actions/runs/33246337373">33246337373</a>: success, head SHA <code>4e1f594a949207868491ece8ab7006458e12ebec</code>.</li>
-    <li>Vercel deployment <code>dpl_6YqUUxj7rYdjBLTPmcKiXkD4EBqJ</code>: READY, source=git, matching commit SHA.</li>
-    <li>Both substrates independently completed the production build for the same immutable implementation revision.</li>
+    <li>GitHub run <a href="https://github.com/Ne0EX/personal-website-neoex/actions/runs/33333829334">33333829334</a>: <strong>success</strong>, head SHA <code>f63c60951bdb9b1388df1d4701f5f7fa7bf0d8d9</code>.</li>
+    <li>Vercel deployment <code>dpl_GmGWYzkwa8zThwV1VX6PQZihKujC</code>: <strong>READY</strong>, matching SHA, immutable URL <a href="https://personal-website-neoex-cbvzj2gel.vercel.app">personal-website-neoex-cbvzj2gel.vercel.app</a>.</li>
+    <li>This artifact records the implementation revision. Any later report-only commit must independently become green on GitHub and READY on Vercel before handoff.</li>
   </ul>
 
   <footer>
-    <p>Evidence sources: committed configuration and tests, exact staged-snapshot output, GitHub Actions run 33246337373, and Vercel deployment dpl_6YqUUxj7rYdjBLTPmcKiXkD4EBqJ. This report is a documentation follow-up; it does not claim its own later report-only commit has already been remotely verified.</p>
+    Evidence sources: committed source and contracts, clean candidate tests and build, BrowserOS neo interaction checks, GitHub Actions run 33333829334, Vercel deployment dpl_GmGWYzkwa8zThwV1VX6PQZihKujC, Vercel runtime logs, AI Gateway project configuration, and authenticated immutable-deployment requests. No credentials, environment values, secrets, or personal data are included.
   </footer>
 </main>
 </body>
