@@ -43,14 +43,26 @@ TID_BASE="PROBE-SW-STEPS-$$"
 LOG_DIR="$REPO_DIR/.claude/hook-logs"
 mkdir -p "$LOG_DIR"
 
+# sign-work exits before steps validation when a checkout has no dirty files.
+# Keep one unique, non-ignored untracked file in scope so every case reaches the
+# contract under test on both clean CI checkouts and already-dirty worktrees.
+DIRTY_PROBE_REL="tests/harness/sign-work-steps-${TID_BASE}.fixture.json"
+DIRTY_PROBE="$REPO_DIR/$DIRTY_PROBE_REL"
+
 # Collect probe files to clean on exit
-PROBE_FILES=()
+PROBE_FILES=("$DIRTY_PROBE")
 cleanup() {
   for f in "${PROBE_FILES[@]+"${PROBE_FILES[@]}"}"; do
     rm -f "$f" 2>/dev/null || true
   done
 }
 trap cleanup EXIT INT TERM
+
+if git -C "$REPO_DIR" check-ignore -q -- "$DIRTY_PROBE_REL"; then
+  printf 'FATAL: dirty-scope probe is ignored: %s\n' "$DIRTY_PROBE_REL" >&2
+  exit 2
+fi
+printf '{"purpose":"sign-work clean-checkout fixture"}\n' > "$DIRTY_PROBE"
 
 PASS=0
 FAIL=0
@@ -168,6 +180,7 @@ if [[ -f "$SIG_WL" ]]; then
 else
   bad "CASE-WL_STEPS: signature file not written at $SIG_WL"
 fi
+rm -f "$SIG_WL"
 
 # ---------------------------------------------------------------------------
 # CASE-BACKOUT: WL_REQUIRE_STEPS=0 back-out lever → WARNING only, not blocked
