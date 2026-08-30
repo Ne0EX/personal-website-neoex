@@ -52,9 +52,9 @@
 #   SF-9  entry.json invalid JSON                   → nonzero, exit 4
 #   SF-10 site dir absent, no count override        → nonzero, exit 3
 #
-# LIVE-FIXTURE (requires npm run build):
-#   LF-1  real entry.json (page_count=2) vs real site (13 pages) → nonzero
-#   LF-2  real HTML files have RSC-only pagefind body             → exit 2
+# LIVE-FIXTURE (optional; requires npm run build):
+#   LF-1  current build/index pair satisfies the full audit
+#   LF-2  current HTML satisfies the isolated pagefind-body audit
 # =============================================================================
 
 set -uo pipefail
@@ -319,26 +319,22 @@ printf "\n--- LIVE-FIXTURE ---\n"
 REAL_ENTRY="${REPO_ROOT}/public/pagefind/pagefind-entry.json"
 REAL_SITE_DIR="${REPO_ROOT}/.next/server/app"
 
-# LF-1: real entry (page_count=2) vs real crawlable count (13) → nonzero
+# LF-1: when build artifacts exist, the current build/index pair is green.
 if [[ -f "${REAL_ENTRY}" ]] && [[ -d "${REAL_SITE_DIR}" ]]; then
   run_full "${REAL_SITE_DIR}" "${REAL_ENTRY}"
-  assert_nonzero "LF-1  real repo: page_count=2 vs crawlable=13 → bug detected" "${RC}"
+  assert_exit "LF-1  current build/index pair satisfies full audit" 0 "${RC}"
 else
   printf "  SKIP · LF-1 — build output not present (run npm run build)\n"
 fi
 
-# LF-2: real HTML files have RSC-only pagefind body → exit 2
-# Tests that the case-B detection fires on real Next.js RSC output.
+# LF-2: isolate the pagefind-body assertion against current HTML.
 if [[ -d "${REAL_SITE_DIR}" ]] && [[ -f "${REAL_ENTRY}" ]]; then
   REAL_CRAWLABLE=$(find "${REAL_SITE_DIR}" -name "*.html" ! -name "_global-error.html" ! -name "_not-found.html" 2>/dev/null | wc -l | tr -d ' ')
   REAL_HTML_FILES=$(find "${REAL_SITE_DIR}" -name "*.html" ! -name "_global-error.html" ! -name "_not-found.html" 2>/dev/null | sort)
   # Use injected crawlable count matching the real count so A1 passes,
   # isolating the A2 assertion.
   run_a2 "${REAL_ENTRY}" "${REAL_CRAWLABLE}" "${REAL_HTML_FILES}"
-  assert_nonzero "LF-2  real HTML with RSC-only pagefind body → must FAIL" "${RC}"
-  if [[ "${RC}" -eq 2 ]]; then
-    pass "LF-2  exit == 2 (case-B RSC-only detection fired as expected)"
-  fi
+  assert_exit "LF-2  current HTML satisfies pagefind-body audit" 0 "${RC}"
 else
   printf "  SKIP · LF-2 — .next/server/app not present\n"
 fi

@@ -88,6 +88,8 @@ run_sign_work() {
     export WL_AGENT="canopus"
     export WL_NEXT="polaris"
     export WL_SUMMARY="Test task summary for self-exclusion regression"
+    export WL_STEPS="prepare isolated fixture
+verify signature self-exclusion"
     export WL_DOC_ONLY="0"
     export WL_STARTED_AT="2026-05-18T00:00:00Z"
     # WL_REQUIRE_SUMMARY not set — summary guard in warn mode only

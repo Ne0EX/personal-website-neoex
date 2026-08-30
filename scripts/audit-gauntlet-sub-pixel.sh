@@ -22,9 +22,19 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-GALLERY_URL="${1:-http://localhost:8888}"
+# shellcheck source=scripts/lib/browser-fixture.sh
+source "${REPO_ROOT}/scripts/lib/browser-fixture.sh"
+
+GALLERY_URL="${1:-}"
 MANIFEST_PATH="${MANIFEST_PATH:-$REPO_ROOT/.claude/visual-diffs/soul-atlas/manifest.json}"
 VERBOSE="${VERBOSE:-false}"
+
+if [[ -z "${GALLERY_URL}" ]]; then
+  GALLERY_PATH="/.claude/visual-diffs/soul-atlas/gallery.html"
+  browser_fixture_start_static "${REPO_ROOT}" "${WL_BROWSER_PORT:-4174}" "${GALLERY_PATH}" || exit 2
+  trap 'browser_fixture_stop' EXIT
+  GALLERY_URL="${BROWSER_FIXTURE_BASE_URL}${GALLERY_PATH}"
+fi
 
 LOG_DIR="$REPO_ROOT/.claude/hook-logs"
 mkdir -p "$LOG_DIR"
@@ -44,7 +54,7 @@ INPUT_JSON=$(jq -n \
   '{"gallery_url": $gallery_url, "manifest_path": $manifest, "verbose": $verbose}')
 
 set +e
-OUTPUT=$(echo "$INPUT_JSON" | npx tsx "$REPO_ROOT/scripts/audit-gauntlet-sub-pixel.ts" 2>&1)
+OUTPUT=$(printf '%s\n' "$INPUT_JSON" | node --import tsx "$REPO_ROOT/scripts/audit-gauntlet-sub-pixel.ts" 2>&1)
 EXIT_CODE=$?
 set -e
 

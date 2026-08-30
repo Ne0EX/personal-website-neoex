@@ -25,8 +25,8 @@
       "signed_date": "2026-05-30",
       "status": "PARTIAL",
       "must_project_by": "2026-06-24",
-      "projects_to": ["gauntlet-sub-pixel-detection", "gauntlet-overlap-composition"],
-      "notes": "gauntlet-sub-pixel and gauntlet-overlap are Playwright-backed fidelity checks (Wave B wiring). Full pixel-anchor render-fidelity gate (Playwright full-page diff) still UNPROJECTED."
+      "projects_to": ["gauntlet-sub-pixel-detection", "gauntlet-overlap-composition", "render-fidelity-vs-intent"],
+      "notes": "gauntlet-sub-pixel, gauntlet-overlap, and render-fidelity-vs-intent are Playwright-backed fidelity checks. Full pixel-anchor prototype-production diff remains UNPROJECTED, so V2 stays PARTIAL."
     },
     {
       "id": "V3",
@@ -102,10 +102,15 @@
       "owner": "Canopus",
       "signed_by": "Peat",
       "signed_date": "2026-05-30",
-      "status": "UNPROJECTED",
+      "status": "PARTIAL",
       "must_project_by": "2026-06-24",
-      "projects_to": [],
-      "notes": "Ratified by Peat 2026-05-30. Canopus authors; Peat ratifies. Anchor-label policy gate is Wave B planned work. Moved out of value tier — this is harness-governance, not product-value."
+      "projects_to": [
+        "ci-test-census",
+        "console-security-contract",
+        "netra-contracts",
+        "secret-leak-guard"
+      ],
+      "notes": "Ratified by Peat 2026-05-30. Task-scoped operational projections were recorded by Canopus on 2026-08-29; no new Peat signature or ratification is claimed. These four rails self-declare deterministic proxy anchors and bound policies. H1 remains PARTIAL and overdue because equivalent traceability metadata is not yet enforced across every rail; this registry must not turn that broader debt green."
     }
   ]
 }

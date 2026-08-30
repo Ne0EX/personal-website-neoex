@@ -18,6 +18,7 @@ import { PageShell } from '@/components/PageShell'
 import { SurveyCursor } from '@/components/SurveyCursor'
 import { MarginaliaHUD, ScrollMeter } from '@/components/MarginaliaHUD'
 import { getAlphaPlace } from '@/lib/store/reads'
+import { getWorldlineStats } from '@/lib/content'
 
 // CW-10 · tag pill /?tag= routing (ux-journey, α-SUR-01, 2026-06-14)
 interface HomeSearchParams {
@@ -30,7 +31,11 @@ export default async function Home({
   searchParams: Promise<HomeSearchParams>
 }) {
   const resolvedParams = await searchParams
-  const alphaPlace = await getAlphaPlace()
+  // Parallel server data fetches — alphaPlace + content stats.
+  const [alphaPlace, stats] = await Promise.all([
+    getAlphaPlace(),
+    getWorldlineStats().catch(() => null),
+  ])
   const alphaCoord = { lat: alphaPlace.coord.lat, lon: alphaPlace.coord.lon }
   const initialTag = resolvedParams.tag ?? 'all'
 
@@ -43,7 +48,7 @@ export default async function Home({
         <SurveyCursor />
 
         <Nav />
-        <HeroBlock alphaCoord={alphaCoord} />
+        <HeroBlock alphaCoord={alphaCoord} stats={stats} />
 
         {/* attractor-filter: shell holds the shared activeAttractor state */}
         <AttractorFilterShell initialTag={initialTag} />

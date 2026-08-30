@@ -1,0 +1,21 @@
+# Local agent/harness state and proof captures.
+/.claude/
+/.harness/
+/.cursor/
+/.gemini/
+/.github/
+
+# Repository-only documentation, tests, and tooling not needed by the app.
+/docs/
+/tests/
+/tools/
+
+# Build/dependency caches; Vercel installs and builds these remotely.
+/node_modules/
+/.next/
+/.vercel/
+/.git/
+
+# Local credentials and generated store exports.
+/.env*
+/public/pagefind/

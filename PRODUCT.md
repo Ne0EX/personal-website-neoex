@@ -13,6 +13,8 @@ The visitor who arrives at Worldline — the main exploration site. Two contexts
 
 Their job: not to "read a profile" but to **explore an interior world**. Understanding is earned through doing — searching the archive, digging into an entry, conversing with NETRA — never splayed open for passive consumption. The recruiter / HR fast-scan persona is deliberately **out of scope here**; it lives on a separate surface (resume.neoex.com, product register) so exploration never collapses into exhibition.
 
+Operationally, Peat is also the authenticated custodian who publishes, revises, and surveys the archive through a private console. That studio needs explicit, recoverable actions and structural separation from the public gallery. NETRA serves visitors as a grounded librarian-witness—not a general-purpose chatbot—and must never cross the published/private boundary.
+
 ## Product Purpose
 
 Worldline is Ne0EX's **soul-atlas** — a personal digital garden rendered as a surveyed paper instrument / observatory. It exists to make the *whole value-hierarchy* of a person legible through exploration, not to advertise a résumé. It is a gallery that *shows* (distinct from the private studio that *paints*).
@@ -21,6 +23,8 @@ Success: a visitor leaves having **discovered** something about Peat's inner wor
 
 The cosmology underneath (Ne0 = −∞ past, NeX = +∞ future, NeON = 0 the bearer) is the soul, not the surface. It is referenced and earned, never explained on arrival.
 
+The public archive is the gallery that shows; the authenticated console is the studio that paints. Success also requires grounded claims, private drafts that remain private, and authoring controls whose displayed state matches observable system behavior.
+
 ## Brand Personality
 
 Three words: **quiet · surveyed · enduring**.
@@ -28,6 +32,7 @@ Three words: **quiet · surveyed · enduring**.
 - **Voice** — lower-case, reflective, first-person interior (Cormorant italic). Speaks to bear witness, not to perform.
 - **Instrument** — UPPERCASE wide-tracked labels, typewritten numerals and coordinates (JetBrains Mono, Special Elite). The machinery of a cartographic / observatory readout.
 - **Emotional goal** — calm, depth, the sense of a hand-aged document that has been *lived in*. High-contrast and precise, never bright, never loud, never decorative-for-its-own-sake. Aesthetic-first: the feeling precedes the form.
+- **NETRA** — mannerly, grounded, and slightly wry. It speaks only when useful, exposes uncertainty, and leaves the visitor in control.
 
 ## Anti-references
 
@@ -35,6 +40,7 @@ Carried forward verbatim from the established `worldline-design` non-negotiables
 
 - **NOT a SaaS app.** No dashboard chrome, no hero-metric templates, no card-grid feeds.
 - **NOT a blog / portfolio template.** No reverse-chron post list as the primary affordance, no "About / Work / Contact" marketing scaffold.
+- **NOT a generic AI chat or glossy admin shell.** No assistant mascots, prompt carousels, analytics theatre, or capability claims the system cannot prove.
 - **No gradients** (the A.T.L.A.S. globe is the single sanctioned exception).
 - **No glassmorphism, no drop-shadows.**
 - **No rounded corners** — only true circles (nodes, reticles).
@@ -49,6 +55,7 @@ Carried forward verbatim from the established `worldline-design` non-negotiables
 3. **Feeling before form.** Understand the core feeling first; the schema comes after. Never blank-slate a direction — every surface declares its soul-baseline, connection-point, and continuity with the prototype.
 4. **One visual language, committed.** Never blend registers. Iterate one variable at a time. Compose from the catalogued atoms — never re-derive what already exists.
 5. **Still Peat if his role changed tomorrow.** The acceptance test for any surface: does it read as *him* — and as a surveyed paper instrument — independent of any title he holds?
+6. **Privacy is a boundary, not microcopy.** Published and private material, anonymous and owner capabilities, and client and server secrets remain structurally separated and regression-tested.
 
 ## Accessibility & Inclusion
 
@@ -56,3 +63,4 @@ Carried forward verbatim from the established `worldline-design` non-negotiables
 - **Contrast** — body text ≥ 4.5:1, large text ≥ 3:1. The aged-paper bg + teal-ink scale is high-contrast by design; never trade legibility for "elegance."
 - **Reduced motion is law.** Every animation needs a `prefers-reduced-motion: reduce` alternative that *reveals* the already-visible default (crossfade/instant) — never gates content behind a transition that won't fire.
 - **Mobile-native / touch-correct** across all surfaces (iPhone-class), not a desktop layout shrunk down.
+- **WCAG 2.2 AA is the floor.** Controls need visible keyboard focus, semantic and screen-reader names, logical focus management, and touch targets of at least 44 × 44 CSS pixels. The experience must remain usable at 375px and above the mobile software keyboard; English and Thai are first-class contexts, and meaning never depends on color alone.

@@ -196,9 +196,7 @@ log "  exit=${EXIT_P1}"
 _stop_server "${P1_PID}"
 
 if [[ $EXIT_P1 -eq 3 ]]; then
-  log "  Playwright unavailable — validating WARN exit-3 path"
-  log_pass "PASS-1 — exit 3 (Playwright unavailable; correct WARN behavior)"
-  PASS_COUNT=$((PASS_COUNT + 1))
+  log_fail "PASS-1 — Playwright unavailable; required CI fixture cannot skip"
 elif [[ $EXIT_P1 -eq 0 ]]; then
   log_pass "PASS-1 — exit 0 as expected (clean page)"
   PASS_COUNT=$((PASS_COUNT + 1))
@@ -268,9 +266,7 @@ log "  exit=${EXIT_P2}"
 _stop_server "${P2_PID}"
 
 if [[ $EXIT_P2 -eq 3 ]]; then
-  log "  Playwright unavailable — validating WARN exit-3 path"
-  log_pass "PASS-2 — exit 3 (Playwright unavailable; correct WARN behavior)"
-  PASS_COUNT=$((PASS_COUNT + 1))
+  log_fail "PASS-2 — Playwright unavailable; required CI fixture cannot skip"
 elif [[ $EXIT_P2 -eq 0 ]]; then
   log_pass "PASS-2 — exit 0 as expected (siblings not overlapping)"
   PASS_COUNT=$((PASS_COUNT + 1))
@@ -349,10 +345,7 @@ if [[ $EXIT_F1 -eq 3 ]]; then
   # is a tool-absent skip, not a pass of the violation assertion.  Accepting it as PASS
   # here would allow the entire FAIL-case suite to pass without ever checking that the
   # gate actually fires the violation — the original fixture skip-as-pass bypass.
-  log "  Playwright unavailable — SKIP this FAIL case (cannot assert violation code without Playwright)"
-  log "  NOTE: skipped FAIL cases are NOT counted as PASS — they are SKIPPED"
-  # Do not increment PASS_COUNT; do not set PASS_ALL=false.  The overall result
-  # stays inconclusive for this case, not green.
+  log_fail "FAIL-1 — Playwright unavailable; required violation assertion cannot skip"
 elif [[ $EXIT_F1 -eq 2 ]]; then
   log "  Output: ${OUTPUT_F1}"
   log_fail "FAIL-1 — exit 2 (server/input error); expected exit 1"
@@ -451,8 +444,7 @@ _stop_server "${F2_PID}"
 if [[ $EXIT_F2 -eq 3 ]]; then
   # Same reasoning as FAIL-1: Playwright absent means we cannot assert the violation
   # code. SKIP, do not PASS.
-  log "  Playwright unavailable — SKIP this FAIL case (cannot assert violation code without Playwright)"
-  log "  NOTE: skipped FAIL cases are NOT counted as PASS — they are SKIPPED"
+  log_fail "FAIL-2 — Playwright unavailable; required violation assertion cannot skip"
 elif [[ $EXIT_F2 -eq 2 ]]; then
   log "  Output: ${OUTPUT_F2}"
   log_fail "FAIL-2 — exit 2 (server/input error); expected exit 1"
@@ -537,8 +529,7 @@ _stop_server "${F3_PID}"
 if [[ $EXIT_F3 -eq 3 ]]; then
   # Same reasoning as FAIL-1/FAIL-2: Playwright absent means we cannot assert the
   # violation code. SKIP, do not PASS.
-  log "  Playwright unavailable — SKIP this FAIL case (cannot assert violation code without Playwright)"
-  log "  NOTE: skipped FAIL cases are NOT counted as PASS — they are SKIPPED"
+  log_fail "FAIL-3 — Playwright unavailable; required violation assertion cannot skip"
 elif [[ $EXIT_F3 -eq 2 ]]; then
   log "  Output: ${OUTPUT_F3}"
   log_fail "FAIL-3 — exit 2 (server/input error); expected exit 1"
@@ -632,6 +623,10 @@ fi
 echo "" | tee -a "${TEST_LOG}"
 log "=== SUMMARY: ${PASS_COUNT}/${CASE_COUNT} cases passed ==="
 log "end · $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+if [[ "$PASS_COUNT" -ne "$CASE_COUNT" ]]; then
+  PASS_ALL=false
+fi
 
 if [[ "$PASS_ALL" == "true" ]]; then
   log "OVERALL: PASS — all render-fidelity fixture cases passed"

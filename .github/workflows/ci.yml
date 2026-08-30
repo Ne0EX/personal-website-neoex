@@ -31,11 +31,17 @@ permissions:
 
 jobs:
   verify:
-    name: typecheck · lint · gates · harness-tests · build
+    name: typecheck · lint · gates · deterministic sensors · build · CI census
     runs-on: ubuntu-latest
+    env:
+      # Public, non-privileged build inputs. Configure these as GitHub Actions
+      # repository variables; never substitute the Supabase service-role key.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
 
     steps:
       - name: Checkout
+        id: checkout
         uses: actions/checkout@v4
         # fetch-depth: 0 = full history. The append-only witness
         # (audit-ledger-append-only.sh) walks every committed revision of the
@@ -57,7 +63,24 @@ jobs:
       # npm ci uses package-lock.json (the committed lockfile) for a clean,
       # reproducible install — the same dependency closure the team builds against.
       - name: Install dependencies
+        id: install
         run: npm ci
+
+      # Production accessibility, render-fidelity, prototype, and gauntlet rails
+      # share the browser revision pinned by package-lock.json.
+      - name: Install pinned Chromium for deterministic browser sensors
+        run: npx --no-install playwright install --with-deps chromium
+
+      # Keep the root tooling directory out of Vercel deployments without
+      # excluding the application module at lib/netra/tools.
+      - name: Verify Vercel source boundary
+        run: |
+          test -f lib/netra/tools/index.ts
+          grep -Fxq '/tools/' .vercelignore
+          if grep -Fxq 'tools/' .vercelignore; then
+            echo 'unanchored tools/ rule would remove lib/netra/tools' >&2
+            exit 1
+          fi
 
       # ── Typecheck ──────────────────────────────────────────────────────────
       # tsconfig.json already sets noEmit:true + strict:true. There is no
@@ -72,42 +95,30 @@ jobs:
       - name: Lint (eslint)
         run: npm run lint
 
-      # ── Existing quality gates (all real npm scripts) ──────────────────────
-      # harness:audit chains four existing audit scripts:
-      #   scripts/audit-design-tokens.sh
-      #   scripts/audit-territory.sh
-      #   scripts/audit-soul-atom-drift.sh
-      #   scripts/audit-font-chain.sh
-      - name: Gate — design-token / territory / soul-atom-drift / font-chain audits
-        run: npm run harness:audit
-
       # Real script: package.json "harness:barrier-class"
       #   → scripts/audit-rail-barrier-class.sh
       - name: Gate — rail barrier-class audit
         run: npm run harness:barrier-class
 
-      # Real script: package.json "harness:permissions"
-      #   → scripts/audit-permissions-nonempty.sh
-      - name: Gate — permissions non-empty audit
-        run: npm run harness:permissions
+      # ── Deterministic test-sensor census ──────────────────────────────────
+      # Algol classifies every tracked executable under tests/. Canopus uses
+      # the Git index as the denominator, so a newly tracked Node/shell/Python
+      # sensor cannot disappear merely because a workflow list was not edited.
+      # Candidate is evidence-backed only: portable passes must be required;
+      # every remaining candidate needs a verified command/exit/blocker record.
+      - name: Validate tracked deterministic sensor census
+        run: bash scripts/audit-ci-test-census.sh --validate
 
-      # Real script: package.json "harness:least-agency"
-      #   → scripts/audit-least-agency-config.sh
-      - name: Gate — least-agency config audit
-        run: npm run harness:least-agency
+      # Every tracked *.test.mjs is discovered directly and must also be in the
+      # required manifest set. Either omission or downgrade fails before run.
+      - name: Deterministic Node sensors (tracked discovery)
+        run: bash scripts/audit-ci-test-census.sh --node
 
-      # ── Harness fixture tests (node --test) ────────────────────────────────
-      # These .test.mjs files drive the audit scripts via spawnSync against the
-      # real repo (no .next / build dependency). git is preinstalled on the
-      # runner, which the fixtures need for their temp-dir git init steps.
-      - name: Harness fixture & regression tests (node --test)
-        run: |
-          node --test \
-            tests/harness/font-chain.test.mjs \
-            tests/soul-atom-drift-audit.test.mjs \
-            tests/audit-axiom-gate-join-coverage.test.mjs \
-            tests/audit-property-technique-map.test.mjs \
-            tests/worldline-globe-coordinates.test.mjs
+      # Required portable shell/Python/nonstandard sensors are manifest-driven
+      # because tests/harness also contains mutation, context, and manual probes
+      # that are unsafe or meaningless on every push.
+      - name: Deterministic shell and Python sensors (required manifest lane)
+        run: bash scripts/audit-ci-test-census.sh --shell-python
 
       # ── Forge-resistant integrity-ledger witness (the trust-root) ──────────
       # This is THE reason CI is a forge-resistant anchor and a LOCAL gate is
@@ -167,8 +178,29 @@ jobs:
         run: bash scripts/audit-ledger-append-only.sh
 
       # ── Build (appropriate IN CI — runner-local, not the local .next) ──────
-      # Real script: package.json "build": "velite && next build && npm run index:search"
+      # Real script: package.json "build": "next build && npm run index:search"
       # This is CI's own ephemeral runner; it is NOT the local .next another
       # workflow owns. Building here proves the gates ran against a buildable tree.
-      - name: Build (velite + next build + search index)
+      - name: Validate public build inputs
+        id: build_env
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: |
+          if [[ -z "${NEXT_PUBLIC_SUPABASE_URL}" || -z "${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}" ]]; then
+            echo 'NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY must be configured as repository variables' >&2
+            exit 1
+          fi
+
+      - name: Build (Next + search index)
+        id: build
+        if: ${{ !cancelled() && steps.install.outcome == 'success' && steps.build_env.outcome == 'success' }}
         run: npm run build
+
+      # The runner reads every rail from .harness/worldline-harness.config.json.
+      # `--ci` is an explicit safe mode: task-context, browser, and deferred
+      # rails are records, not accidental executions. The census still runs
+      # after an earlier check/build failure when installation succeeded;
+      # search-index then reports missing build output as ERROR. Cancellation
+      # stops it, avoiding `always()` work after the job is intentionally halted.
+      - name: Harness CI census (config-driven)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: bash .claude/hooks/harness-check.sh --ci

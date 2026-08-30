@@ -456,7 +456,7 @@ export function FictionManager({ chapters, setChapters, active, setActive }: Fic
 
         {/* ── inline DRAFT ⇄ SETTLED toggle (filled-ink active) ── */}
         <div className="ficm-statebar">
-          <span className="ficm-state-lbl">// STATE</span>
+          <span className="ficm-state-lbl">{"// STATE"}</span>
           <div className="ficm-switch" role="group" aria-label="chapter state">
             <button
               type="button"

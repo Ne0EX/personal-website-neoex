@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/harness/beta-persona-tracker.test.ts
+# tests/harness/beta-persona-tracker.test.sh
 # Regression test: C4 · persona-tracker.sh
 #
 # Coverage (from tests/harness/fixtures/thai-addressing-patterns.md, Vega V3):
@@ -9,11 +9,11 @@
 #   E-02 edge case → address match for named codename "อยากให้ Betelgeuse อ่าน..."
 #   Session mode detection (first message with "beta" → mode=beta)
 #   SESSION_MODE locked after first detection (second message does not change it)
-#   CURRENT_PERSONA file format: line1=codename, line2=session_mode, line3=timestamp
+#   CURRENT_PERSONA file format: keyed JSON payload
 #   Non-blocking: hook always exits 0
 #
 # Usage:
-#   bash tests/harness/beta-persona-tracker.test.ts
+#   bash tests/harness/beta-persona-tracker.test.sh
 #
 # Exit codes:
 #   0 — all assertions passed
@@ -40,6 +40,11 @@ if [[ ! -f "$FIXTURE" ]]; then
   exit 1
 fi
 
+if ! command -v jq >/dev/null 2>&1; then
+  printf 'FATAL: jq is required\n' >&2
+  exit 1
+fi
+
 TMPDIR_RUN="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR_RUN"' EXIT
 
@@ -48,11 +53,14 @@ FAKE_LOG_DIR="$TMPDIR_RUN/.claude/hook-logs"
 CURRENT_PERSONA_FILE="$TMPDIR_RUN/.claude/.current-persona"
 mkdir -p "$FAKE_SESSIONS" "$FAKE_LOG_DIR" "$(dirname "$CURRENT_PERSONA_FILE")"
 
+# Force persona-tracker's repository-root detection to stay inside this fixture.
+(cd "$TMPDIR_RUN" && git init -q)
+
 # Helper: build a UserPromptSubmit JSON payload
 make_payload() {
   local prompt="$1"
   local session_id="${2:-test-session-$$}"
-  jq -n --arg p "$prompt" --arg s "$session_id" '{"user_prompt": $p, "session_id": $s}'
+  jq -n --arg p "$prompt" --arg s "$session_id" '{"prompt": $p, "session_id": $s}'
 }
 
 # Helper: run hook from TMPDIR_RUN
@@ -60,7 +68,6 @@ run_tracker() {
   local input="$1"
   (cd "$TMPDIR_RUN" && printf '%s' "$input" | env -i \
     PATH="$PATH" \
-    HOME="$HOME" \
     WL_TASK_ID="TEST-PERSONA" \
     bash "$HOOK" 2>/dev/null)
 }
@@ -70,19 +77,18 @@ run_tracker_exit() {
   local exit_code=0
   (cd "$TMPDIR_RUN" && printf '%s' "$input" | env -i \
     PATH="$PATH" \
-    HOME="$HOME" \
     WL_TASK_ID="TEST-PERSONA" \
-    bash "$HOOK" 2>/dev/null) || exit_code=$?
-  echo "$exit_code"
+    bash "$HOOK" >/dev/null 2>/dev/null) || exit_code=$?
+  printf '%s\n' "$exit_code"
 }
 
 # Helper: get detected codename from .current-persona
 get_current_persona() {
-  head -1 "$CURRENT_PERSONA_FILE" 2>/dev/null || echo "MISSING"
+  jq -r '.persona // "MISSING"' "$CURRENT_PERSONA_FILE" 2>/dev/null || printf 'MISSING\n'
 }
 
 get_session_mode() {
-  sed -n '2p' "$CURRENT_PERSONA_FILE" 2>/dev/null || echo "MISSING"
+  jq -r '.session_mode // "MISSING"' "$CURRENT_PERSONA_FILE" 2>/dev/null || printf 'MISSING\n'
 }
 
 # Write a minimal session metadata file to control SESSION_MODE
@@ -155,36 +161,24 @@ run_positive_case "P-22" "ขอคุยกับ Polaris แปปนะ" "pol
 run_positive_case "P-23" "Vega เธอว่าไง เรื่อง copy ของ observatory" "vega"
 
 # ---- Negative cases (N-01 to N-12) -----------------------------------------
-# Default persona for genesis mode = "polaris"
+# Use beta mode so every false codename match is observable: no match defaults
+# to "beta", while an ambient GENESIS codename would incorrectly override it.
 
 run_negative_case() {
   local case_id="$1"
   local prompt="$2"
 
   rm -f "$CURRENT_PERSONA_FILE"
-  write_session_meta "$SESSION_ID" "genesis"
+  write_session_meta "$SESSION_ID" "beta" "mode already locked"
   input="$(make_payload "$prompt" "$SESSION_ID")"
   run_tracker "$input"
 
   actual="$(get_current_persona | tr '[:upper:]' '[:lower:]')"
 
-  # In genesis mode with no specific codename detected, default is "polaris"
-  # If a WRONG codename was detected, it would be the addressed agent's name
-  # We check: is the result the default (polaris) rather than a false positive?
-  # N cases should NOT trigger direct-address detection for the mentioned codename.
-
-  # Determine which codename appears in the negative case and verify it wasn't detected
-  detected_non_default=false
-  for cn in polaris sirius altair procyon betelgeuse arcturus algol canopus vega; do
-    if [[ "$actual" == "$cn" ]] && [[ "$cn" != "polaris" ]]; then
-      detected_non_default=true
-    fi
-  done
-
-  if ! $detected_non_default; then
-    pass "$case_id negative: '$prompt' → default/polaris persona (no false match, got '$actual')"
+  if [[ "$actual" == "beta" ]]; then
+    pass "$case_id negative: '$prompt' → beta default (no false match)"
   else
-    fail "$case_id negative: '$prompt' → expected default polaris, got '$actual' (false positive)"
+    fail "$case_id negative: '$prompt' → expected beta default, got '$actual' (false positive)"
   fi
 }
 
@@ -212,7 +206,7 @@ printf '\n=== E-01 edge case: relay instruction ===\n'
 # but "บอก + codename + ให้" (without หน่อย) = relay instruction
 # E-01 should NOT match as address (expected_match: none per fixture)
 rm -f "$CURRENT_PERSONA_FILE"
-write_session_meta "$SESSION_ID" "genesis"
+write_session_meta "$SESSION_ID" "beta" "mode already locked"
 input="$(make_payload "บอก Vega ให้ชัดว่าไม่ต้องการ summary ปกติ" "$SESSION_ID")"
 run_tracker "$input"
 
@@ -221,12 +215,12 @@ actual_e01="$(get_current_persona | tr '[:upper:]' '[:lower:]')"
 # Since this case lacks "หน่อย", it may not trigger the P-05 address pattern.
 # We verify it does not falsely detect as a direct-address codename other than default.
 # NOTE: The hook documentation notes E-01 is partially disambiguated by the หน่อย suffix heuristic.
-if [[ "$actual_e01" == "polaris" ]] || [[ "$actual_e01" == "MISSING" ]]; then
-  pass "E-01: 'บอก Vega ให้ชัดว่า...' → default persona (no false Vega detection), got '$actual_e01'"
+if [[ "$actual_e01" == "beta" ]]; then
+  pass "E-01: 'บอก Vega ให้ชัดว่า...' → beta default (no false Vega detection)"
 else
   # If hook detects "vega" here, it means the heuristic is not distinguishing relay vs address
   # This is documented as a known partial disambiguation in the hook
-  fail "E-01: 'บอก Vega ให้ชัดว่า...' → expected no-match (default polaris), got '$actual_e01'"
+  fail "E-01: 'บอก Vega ให้ชัดว่า...' → expected no-match (beta default), got '$actual_e01'"
 fi
 
 # ---- Edge case E-02: soft imperative → match for named codename -------------
@@ -273,6 +267,33 @@ else
   fail "Beta mode detection: session meta mode = '$meta_mode', expected 'beta'"
 fi
 
+# A substring is not a Beta address and must not unlock companion mode.
+BOUNDARY_SESSION="boundary-session-$$"
+write_session_meta "$BOUNDARY_SESSION" "pending"
+rm -f "$CURRENT_PERSONA_FILE"
+input="$(make_payload "betamax release notes" "$BOUNDARY_SESSION")"
+run_tracker "$input"
+
+boundary_mode="$(jq -r '.mode' "$FAKE_SESSIONS/${BOUNDARY_SESSION}.meta.json" 2>/dev/null || printf '?\n')"
+if [[ "$boundary_mode" == "genesis" ]]; then
+  pass "Beta mode detection requires a standalone address token"
+else
+  fail "Beta mode detection matched substring 'betamax' (mode=$boundary_mode)"
+fi
+
+PHRASE_BOUNDARY_SESSION="phrase-boundary-session-$$"
+write_session_meta "$PHRASE_BOUNDARY_SESSION" "pending"
+rm -f "$CURRENT_PERSONA_FILE"
+input="$(make_payload "notbetelgeuse chanter notes" "$PHRASE_BOUNDARY_SESSION")"
+run_tracker "$input"
+
+phrase_boundary_mode="$(jq -r '.mode' "$FAKE_SESSIONS/${PHRASE_BOUNDARY_SESSION}.meta.json" 2>/dev/null || printf '?\n')"
+if [[ "$phrase_boundary_mode" == "genesis" ]]; then
+  pass "Betelgeuse Chan mode detection requires phrase boundaries"
+else
+  fail "Beta mode detection matched embedded companion phrase (mode=$phrase_boundary_mode)"
+fi
+
 # ---- SESSION_MODE locked after first detection --------------------------------
 
 printf '\n=== SESSION_MODE locked — second message does not re-lock ===\n'
@@ -313,9 +334,16 @@ else
   fail "Non-blocking: hook exited $exit_code on empty prompt"
 fi
 
-# ---- .current-persona file format -------------------------------------------
+exit_code="$(run_tracker_exit 'not-json')"
+if [[ "$exit_code" -eq 0 ]]; then
+  pass "Non-blocking: hook exits 0 on malformed JSON"
+else
+  fail "Non-blocking: hook exited $exit_code on malformed JSON"
+fi
 
-printf '\n=== .current-persona file format ===\n'
+# ---- .current-persona JSON format -------------------------------------------
+
+printf '\n=== .current-persona JSON format ===\n'
 
 rm -f "$CURRENT_PERSONA_FILE"
 write_session_meta "$SESSION_ID" "genesis"
@@ -324,26 +352,15 @@ run_tracker "$input"
 
 if [[ -f "$CURRENT_PERSONA_FILE" ]]; then
   pass ".current-persona file written"
-  line1="$(sed -n '1p' "$CURRENT_PERSONA_FILE")"
-  line2="$(sed -n '2p' "$CURRENT_PERSONA_FILE")"
-  line3="$(sed -n '3p' "$CURRENT_PERSONA_FILE")"
-
-  if [[ -n "$line1" ]]; then
-    pass ".current-persona line 1 (codename) present: '$line1'"
+  if jq -e '
+    type == "object" and
+    .persona == "algol" and
+    .session_mode == "genesis" and
+    (.timestamp | type == "string" and test("^[0-9]{4}-[0-9]{2}-[0-9]{2}T"))
+  ' "$CURRENT_PERSONA_FILE" >/dev/null 2>&1; then
+    pass ".current-persona contains keyed persona, session_mode, and timestamp"
   else
-    fail ".current-persona line 1 (codename) empty"
-  fi
-
-  if [[ -n "$line2" ]]; then
-    pass ".current-persona line 2 (session_mode) present: '$line2'"
-  else
-    fail ".current-persona line 2 (session_mode) empty"
-  fi
-
-  if [[ -n "$line3" ]]; then
-    pass ".current-persona line 3 (timestamp) present: '$line3'"
-  else
-    fail ".current-persona line 3 (timestamp) empty"
+    fail ".current-persona JSON payload does not match contract"
   fi
 else
   fail ".current-persona file not written after hook run"

@@ -370,9 +370,9 @@
           <div class="stage">
             <!-- gate: main_branch_ref value="border: 1px solid rgb(var(--ink-rgb) / 0.22)" — panel border (globals.css L332) -->
             <!-- gate: main_branch_ref value="background: rgba(240, 235, 221, 0.45)" — panel surface (globals.css L333) -->
-            <!-- gate: main_branch_ref value="min-width: 280px" — panel min width (globals.css L334) -->
+            <!-- gate: main_branch_ref value="min-width: 300px" — panel min width (globals.css .diverge-panel) -->
             <!-- gate: main_branch_ref value="8px" — micro reticle arm (globals.css L340) -->
-            <!-- gate: main_branch_ref value="font-size: 26px" — diverge numeral (globals.css L387) -->
+            <!-- gate: main_branch_ref value="font-size: 8px" — diverge panel head (globals.css .diverge-panel-head) -->
             <div class="diverge-panel">
               <div class="diverge-panel-head">
                 <span class="diverge-panel-label">DIVERGENCE <b>α</b></span>
@@ -382,7 +382,7 @@
               <div class="diverge-panel-meta"><span>DEVIATION · −0.275349%</span><b>ATTRACTOR · Ne0EX-LOCUS</b></div>
             </div>
           </div>
-          <span class="variant-note">Special Elite 26px, middle digit group <code>var(--accent-orange)</code>, mono header — globals.css <code>.diverge-panel</code>.</span>
+          <span class="variant-note">mono head 8px, middle digit group <code>var(--accent-orange)</code>, mono header — globals.css <code>.diverge-panel</code>.</span>
         </div>
         <div class="variant" data-atom-variant="drift">
           <span class="variant-label"><b>drift</b> · warning state</span>
@@ -403,7 +403,7 @@
         <span class="ttl">token_refs</span>
         <code>--ink-rgb</code> · <code>--ink-primary</code> · <code>--ink-soft</code> · <code>--ink-faint</code> · <code>--accent-orange</code> · <code>--paper-base</code> · <code>--font-mono</code> · <code>--font-type</code> · <code>--font-display</code>
         <span class="ttl">main_branch_refs</span>
-        globals.css L332 border · L333 surface · L334 <code>280px</code> · L340 <code>8px</code> · L387 <code>26px</code> · impl_ref <code>app/globals.css</code>
+        globals.css L1357 border · L1358 background · L1359 <code>300px</code> · L1385 <code>8px</code> · impl_ref <code>app/globals.css</code>
       </div>
     </div>
   </section>
@@ -852,7 +852,7 @@
       <span class="atom-desc">The NeX orbital hollow-ring glyph — a fiction transmission on the possibility shell, before it patches into the archive.</span>
     </div>
     <div class="atom-body">
-      <p class="atom-rationale">spec §4.3 / ontology §4.5 / §summary 3 — NeX is the possibility field, the third co-equal stratum. Fiction entries live there as <em>hollow rings</em> at domain+date orbital positions, distinct from the solid Ne0 surface dots: a ring is a hypothesis, an open form not yet filled in. Same teal <code>var(--ink-primary)</code> as the archive (it belongs to the same body) but rendered hollow at 0.75 opacity on the orbital shell. <b>Note (Sirius):</b> this CSS render is a colour/concept guide only — the canonical render is the Three.js <code>RingGeometry(0.010, 0.016)</code> in <code>0x1f5063</code> teal at NeX orbital position (<code>components/WorldlineGlobe.tsx</code> fiction glyph loop, L1395–1413); use the Three.js implementation, not this 2D approximation.</p>
+      <p class="atom-rationale">spec §4.3 / ontology §4.5 / §summary 3 — NeX is the possibility field, the third co-equal stratum. Fiction entries live there as <em>hollow rings</em> at domain+date orbital positions, distinct from the solid Ne0 surface dots: a ring is a hypothesis, an open form not yet filled in. Same teal <code>var(--ink-primary)</code> as the archive (it belongs to the same body) but rendered hollow at 0.75 opacity on the orbital shell. <b>Note (Sirius):</b> this CSS render is a colour/concept guide only — the canonical render is the Three.js <code>RingGeometry(0.010, 0.016)</code> in <code>0x1f5063</code> teal at NeX orbital position (<code>components/WorldlineGlobe.tsx</code> fiction glyph loop); use the Three.js implementation, not this 2D approximation.</p>
       <div class="variant-grid">
         <div class="variant" data-atom-variant="default">
           <span class="variant-label"><b>default</b> · resting on the shell</span>

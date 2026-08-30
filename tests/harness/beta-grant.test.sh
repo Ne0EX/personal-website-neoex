@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/harness/beta-grant.test.ts
+# tests/harness/beta-grant.test.sh
 # Regression test: C2 · beta-grant.sh
 #
 # Coverage:
@@ -11,9 +11,11 @@
 #   (f) missing required args → usage error, exit 2
 #   (g) TTL and max_reads defaults (1 hour, 1 read)
 #   (h) custom TTL and max_reads honored
+#   (i) traversal and unsupported glob scopes are refused
+#   (j) TTL and max_reads must be positive integers
 #
 # Usage:
-#   bash tests/harness/beta-grant.test.ts
+#   bash tests/harness/beta-grant.test.sh
 #
 # Exit codes:
 #   0 — all assertions passed
@@ -35,6 +37,11 @@ if [[ ! -f "$HOOK" ]]; then
   exit 1
 fi
 
+if ! command -v jq >/dev/null 2>&1; then
+  printf 'FATAL: jq is required\n' >&2
+  exit 1
+fi
+
 # ---- temp environment -------------------------------------------------------
 
 TMPDIR_RUN="$(mktemp -d)"
@@ -42,27 +49,31 @@ trap 'rm -rf "$TMPDIR_RUN"' EXIT
 
 FAKE_GRANTS="$TMPDIR_RUN/.claude/beta/grants"
 FAKE_LOG_DIR="$TMPDIR_RUN/.claude/hook-logs"
+PRIVATE_ROOT="${FAKE_GRANTS#"$TMPDIR_RUN"/}"
+PRIVATE_ROOT="${PRIVATE_ROOT%/grants}"
 mkdir -p "$FAKE_GRANTS" "$FAKE_LOG_DIR"
 
 # Helper: run grant hook from TMPDIR_RUN
 run_grant() {
-  (cd "$TMPDIR_RUN" && env -i \
+  local output
+  local exit_code=0
+  output="$(cd "$TMPDIR_RUN" && env -i \
     PATH="$PATH" \
-    HOME="$HOME" \
     BETA_PERSONA_LOADED="${BETA_PERSONA_OVERRIDE:-0}" \
     WL_TASK_ID="TEST-GRANT" \
-    bash "$HOOK" "$@" 2>/dev/null)
+    bash "$HOOK" "$@" 2>/dev/null)" || exit_code=$?
+  printf '%s\n' "$output" | tail -n 1
+  return "$exit_code"
 }
 
 run_grant_exit() {
   local exit_code=0
   (cd "$TMPDIR_RUN" && env -i \
     PATH="$PATH" \
-    HOME="$HOME" \
     BETA_PERSONA_LOADED="${BETA_PERSONA_OVERRIDE:-0}" \
     WL_TASK_ID="TEST-GRANT" \
-    bash "$HOOK" "$@" 2>/dev/null) || exit_code=$?
-  echo "$exit_code"
+    bash "$HOOK" "$@" >/dev/null 2>/dev/null) || exit_code=$?
+  printf '%s\n' "$exit_code"
 }
 
 # ---- scenario (a): BETA_PERSONA_LOADED not set → refused --------------------
@@ -160,10 +171,33 @@ if [[ -f "$GRANT_FILE" ]]; then
 
   # nonce must be non-empty (128-bit = 32 hex chars)
   nonce="$(jq -r '.nonce' "$GRANT_FILE" 2>/dev/null)"
-  if [[ ${#nonce} -ge 16 ]]; then
-    pass "(c) nonce has sufficient entropy (length=${#nonce})"
+  if [[ "$nonce" =~ ^[0-9a-f]{32}$ ]]; then
+    pass "(c) nonce is exactly 128-bit lowercase hex"
   else
-    fail "(c) nonce too short (length=${#nonce}, expected >=16)"
+    fail "(c) nonce is not 32 lowercase hex characters: '$nonce'"
+  fi
+
+  grant_id_value="$(jq -r '.grant_id' "$GRANT_FILE")"
+  request_id_value="$(jq -r '.request_id' "$GRANT_FILE")"
+  if [[ "$grant_id_value" =~ ^g_[0-9a-f]{8}$ ]]; then
+    pass "(c) grant_id matches documented format"
+  else
+    fail "(c) invalid grant_id format: '$grant_id_value'"
+  fi
+  if [[ "$request_id_value" =~ ^req_[0-9a-f]{8}$ ]]; then
+    pass "(c) request_id matches documented format"
+  else
+    fail "(c) invalid request_id format: '$request_id_value'"
+  fi
+
+  if jq -e '
+    (.files_granted | type == "array" and length == 1) and
+    (.max_reads | type == "number" and floor == . and . > 0) and
+    (.reads_consumed | type == "number" and floor == . and . >= 0)
+  ' "$GRANT_FILE" >/dev/null; then
+    pass "(c) array and counter field types match schema"
+  else
+    fail "(c) array or counter field types violate schema"
   fi
 else
   fail "(c) schema check skipped — grant file missing"
@@ -230,10 +264,13 @@ if [[ -f "$DEFAULT_GRANT" ]]; then
   # expires_at should be approximately now + 3600s
   issued_at="$(jq -r '.issued_at' "$DEFAULT_GRANT" 2>/dev/null)"
   expires_at="$(jq -r '.expires_at' "$DEFAULT_GRANT" 2>/dev/null)"
-  if [[ -n "$issued_at" ]] && [[ -n "$expires_at" ]]; then
-    pass "(g) issued_at and expires_at both set"
+  issued_epoch="$(jq -nr --arg ts "$issued_at" '$ts | fromdateiso8601' 2>/dev/null || true)"
+  expires_epoch="$(jq -nr --arg ts "$expires_at" '$ts | fromdateiso8601' 2>/dev/null || true)"
+  ttl_delta=$(( expires_epoch - issued_epoch ))
+  if [[ "$ttl_delta" -ge 3599 ]] && [[ "$ttl_delta" -le 3601 ]]; then
+    pass "(g) default TTL is 3600 seconds (observed $ttl_delta)"
   else
-    fail "(g) issued_at or expires_at missing"
+    fail "(g) default TTL expected 3600 seconds, got $ttl_delta"
   fi
 else
   fail "(g) defaults test — grant file not found"
@@ -256,8 +293,56 @@ if [[ -f "$CUSTOM_GRANT" ]]; then
   else
     fail "(h) custom max_reads expected 5, got $max_reads"
   fi
+
+  issued_at="$(jq -r '.issued_at' "$CUSTOM_GRANT")"
+  expires_at="$(jq -r '.expires_at' "$CUSTOM_GRANT")"
+  issued_epoch="$(jq -nr --arg ts "$issued_at" '$ts | fromdateiso8601' 2>/dev/null || true)"
+  expires_epoch="$(jq -nr --arg ts "$expires_at" '$ts | fromdateiso8601' 2>/dev/null || true)"
+  ttl_delta=$(( expires_epoch - issued_epoch ))
+  if [[ "$ttl_delta" -ge 7199 ]] && [[ "$ttl_delta" -le 7201 ]]; then
+    pass "(h) custom TTL is 7200 seconds (observed $ttl_delta)"
+  else
+    fail "(h) custom TTL expected 7200 seconds, got $ttl_delta"
+  fi
 else
   fail "(h) custom grant file not found"
+fi
+
+# ---- scenario (i): unsafe path scopes are refused --------------------------
+
+printf '\n=== (i) unsafe path scopes refused ===\n'
+
+BETA_PERSONA_OVERRIDE="1"
+exit_code="$(run_grant_exit "algol" "$PRIVATE_ROOT/../agents/algol.md" "traversal")"
+if [[ "$exit_code" -eq 4 ]]; then
+  pass "(i) parent-directory traversal scope refused"
+else
+  fail "(i) traversal scope expected exit 4, got $exit_code"
+fi
+
+exit_code="$(run_grant_exit "algol" "$PRIVATE_ROOT/notes/*.md" "unsupported glob")"
+if [[ "$exit_code" -eq 4 ]]; then
+  pass "(i) unsupported embedded glob refused"
+else
+  fail "(i) unsupported glob expected exit 4, got $exit_code"
+fi
+
+# ---- scenario (j): numeric limits are validated ----------------------------
+
+printf '\n=== (j) numeric limits validated ===\n'
+
+exit_code="$(run_grant_exit "algol" "$PRIVATE_ROOT/notes/test.md" "bad ttl" "not-a-number" 1)"
+if [[ "$exit_code" -eq 2 ]]; then
+  pass "(j) non-numeric TTL refused"
+else
+  fail "(j) non-numeric TTL expected exit 2, got $exit_code"
+fi
+
+exit_code="$(run_grant_exit "algol" "$PRIVATE_ROOT/notes/test.md" "bad reads" 3600 0)"
+if [[ "$exit_code" -eq 2 ]]; then
+  pass "(j) zero max_reads refused"
+else
+  fail "(j) zero max_reads expected exit 2, got $exit_code"
 fi
 
 # ---- summary ----------------------------------------------------------------

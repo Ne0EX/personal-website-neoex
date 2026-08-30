@@ -1,0 +1,387 @@
+{
+  "schema_version": 1,
+  "owner": "Algol · α-VER-06",
+  "required": [
+    {
+      "path": "tests/accessibility-floor.test.mjs",
+      "kind": "node-test",
+      "reason": "deterministic production-browser accessibility sensor regression"
+    },
+    {
+      "path": "tests/browser-harness-ci-contract.test.mjs",
+      "kind": "node-test",
+      "reason": "browser rail lifecycle, policy, and tracked-asset regression"
+    },
+    {
+      "path": "tests/audit-axiom-gate-join-coverage.test.mjs",
+      "kind": "node-test",
+      "reason": "deterministic source/fixture contract"
+    },
+    {
+      "path": "tests/audit-property-technique-map.test.mjs",
+      "kind": "node-test",
+      "reason": "deterministic source/fixture contract"
+    },
+    {
+      "path": "tests/console-gate-contract.test.mjs",
+      "kind": "node-test",
+      "reason": "console security regression"
+    },
+    {
+      "path": "tests/console-nav-contract.test.mjs",
+      "kind": "node-test",
+      "reason": "console interaction regression"
+    },
+    {
+      "path": "tests/harness/ci-repair-regressions.test.mjs",
+      "kind": "node-test",
+      "reason": "CI census regression"
+    },
+    {
+      "path": "tests/harness/ci-test-census.test.mjs",
+      "kind": "node-test",
+      "reason": "tracked-test denominator regression"
+    },
+    {
+      "path": "tests/harness/font-chain.test.mjs",
+      "kind": "node-test",
+      "reason": "font-chain regression"
+    },
+    {
+      "path": "tests/mobile-touch-contract.test.mjs",
+      "kind": "node-test",
+      "reason": "mobile interaction regression"
+    },
+    {
+      "path": "tests/netra-env-contract.test.mjs",
+      "kind": "node-test",
+      "reason": "NETRA provider environment regression"
+    },
+    {
+      "path": "tests/netra-responsive-contract.test.mjs",
+      "kind": "node-test",
+      "reason": "NETRA responsive layout regression"
+    },
+    {
+      "path": "tests/netra-voice-discipline.test.mjs",
+      "kind": "node-test",
+      "reason": "deterministic NETRA voice source-contract regression"
+    },
+    {
+      "path": "tests/next-16-api-contract.test.mjs",
+      "kind": "node-test",
+      "reason": "deterministic locally-documented Next 16 API regression"
+    },
+    {
+      "path": "tests/security-netra-contracts.test.mjs",
+      "kind": "node-test",
+      "reason": "console and NETRA security regression"
+    },
+    {
+      "path": "tests/soul-atom-drift-audit.test.mjs",
+      "kind": "node-test",
+      "reason": "soul-atom audit regression"
+    },
+    {
+      "path": "tests/worldline-globe-coordinates.test.mjs",
+      "kind": "node-test",
+      "reason": "coordinate regression"
+    },
+    {
+      "path": "tests/harness/audit-render-fidelity-vs-intent.fixture.sh",
+      "kind": "shell-browser-fixture",
+      "reason": "isolated deterministic Chromium PASS/FAIL mutation suite"
+    },
+    {
+      "path": "tests/harness/gauntlet-strengthening.test.sh",
+      "kind": "shell-browser-fixture",
+      "reason": "isolated deterministic Chromium gauntlet mutation suite"
+    },
+    {
+      "path": "tests/harness/audit-ground-truth-observed.fixture.sh",
+      "kind": "shell-fixture",
+      "reason": "portable clean-HEAD ground-truth gate fixture"
+    },
+    {
+      "path": "tests/harness/audit-search-index-completeness.fixture.sh",
+      "kind": "shell-fixture",
+      "reason": "portable clean-HEAD search-index gate fixture"
+    },
+    {
+      "path": "tests/harness/audit-signature-completeness.test.sh",
+      "kind": "shell-test",
+      "reason": "portable clean-HEAD signature security test"
+    },
+    {
+      "path": "tests/harness/audit-single-source.fixture.sh",
+      "kind": "shell-fixture",
+      "reason": "portable clean-HEAD single-source gate fixture"
+    },
+    {
+      "path": "tests/harness/audit-stale-handoffs.test.sh",
+      "kind": "shell-test",
+      "reason": "portable clean-HEAD handoff security test"
+    },
+    {
+      "path": "tests/harness/beta-session-start.test.sh",
+      "kind": "shell-test",
+      "reason": "portable clean-HEAD session-boundary test"
+    },
+    {
+      "path": "tests/harness/gate-config-write-guard.test.sh",
+      "kind": "shell-test",
+      "reason": "portable clean-HEAD gate-config security test"
+    },
+    {
+      "path": "tests/harness/m-revalidate-real-producer.sh",
+      "kind": "shell-test-nonstandard-name",
+      "reason": "portable clean-HEAD producer contract"
+    },
+    {
+      "path": "tests/harness/mutating-action-hook.fixture.sh",
+      "kind": "shell-fixture",
+      "reason": "portable clean-HEAD hook payload fixture"
+    },
+    {
+      "path": "tests/hooks/agent-name-trigger.test.sh",
+      "kind": "shell-test",
+      "reason": "portable clean-HEAD hook dispatch regression"
+    },
+    {
+      "path": "tests/proxy-logic-verify.mjs",
+      "kind": "node-test-nonstandard-name",
+      "reason": "portable clean-HEAD proxy logic suite"
+    },
+    {
+      "path": "tests/netra/agent-core.test.ts",
+      "kind": "tsx-test-nonstandard-runner",
+      "reason": "deterministic NETRA agent orchestration and public knowledge boundary regression"
+    },
+    {
+      "path": "tests/netra/gateway.test.ts",
+      "kind": "tsx-test-nonstandard-runner",
+      "reason": "NETRA free-only Vercel AI Gateway policy regression"
+    },
+    {
+      "path": "tests/netra/runtime-policies.test.ts",
+      "kind": "tsx-test-nonstandard-runner",
+      "reason": "NETRA bounded local runtime policy regression"
+    },
+    {
+      "path": "tests/netra/ui-message.test.ts",
+      "kind": "tsx-test-nonstandard-runner",
+      "reason": "NETRA user-only UI transport and safe tool permalink regression"
+    },
+    {
+      "path": "tests/pagefind-sidecar-language.test.ts",
+      "kind": "tsx-test-nonstandard-runner",
+      "reason": "deterministic Pagefind translated-sibling isolation regression"
+    },
+    {
+      "path": "tests/unavailable-stats-contract.test.ts",
+      "kind": "tsx-test-nonstandard-runner",
+      "reason": "unavailable data cannot become factual zero regression"
+    },
+    {
+      "path": "tests/harness/beta-access-log.test.sh",
+      "kind": "shell-test",
+      "reason": "deterministic Beta privacy and authorization regression sensor"
+    },
+    {
+      "path": "tests/harness/beta-grant-cleanup.test.sh",
+      "kind": "shell-test",
+      "reason": "deterministic Beta privacy and authorization regression sensor"
+    },
+    {
+      "path": "tests/harness/beta-grant.test.sh",
+      "kind": "shell-test",
+      "reason": "deterministic Beta privacy and authorization regression sensor"
+    },
+    {
+      "path": "tests/harness/beta-persona-tracker.test.sh",
+      "kind": "shell-test",
+      "reason": "deterministic Beta privacy and authorization regression sensor"
+    },
+    {
+      "path": "tests/harness/beta-read-gate.test.sh",
+      "kind": "shell-test",
+      "reason": "deterministic Beta privacy and authorization regression sensor"
+    },
+    {
+      "path": "tests/harness/beta-write-protect.test.sh",
+      "kind": "shell-test",
+      "reason": "deterministic Beta privacy and authorization regression sensor"
+    },
+    {
+      "path": "tests/harness/dev-clobber-guard.fixture.sh",
+      "kind": "shell-fixture",
+      "reason": "deterministic live-dev process guard regression sensor"
+    },
+    {
+      "path": "tests/harness/parse-conversation.test.sh",
+      "kind": "shell-test",
+      "reason": "deterministic tracked private/public conversation-boundary sensor"
+    },
+    {
+      "path": "tests/harness/sign-work-self-exclusion.sh",
+      "kind": "shell-test-nonstandard-name",
+      "reason": "deterministic work-signature integrity regression sensor"
+    },
+    {
+      "path": "tests/harness/sign-work-steps-validation.test.sh",
+      "kind": "shell-test",
+      "reason": "deterministic work-signature integrity regression sensor"
+    },
+    {
+      "path": "tests/harness/status-write-guard.sh",
+      "kind": "shell-test-nonstandard-name",
+      "reason": "deterministic STATUS ownership-boundary regression sensor"
+    },
+    {
+      "path": "tests/harness/adversarial-probe.py",
+      "kind": "python-test-nonstandard-name",
+      "reason": "deterministic mutating-action policy regression sensor"
+    },
+    {
+      "path": "tests/harness/algol-wholesale-verify.py",
+      "kind": "python-test-nonstandard-name",
+      "reason": "deterministic mutating-action policy regression sensor"
+    },
+    {
+      "path": "tests/harness/verify-audit-fail-behavior.py",
+      "kind": "python-test-nonstandard-name",
+      "reason": "deterministic fail-closed audit-behavior sensor"
+    },
+    {
+      "path": "tests/proxy.test.ts",
+      "kind": "tsx-test-nonstandard-runner",
+      "reason": "deterministic Next proxy routing and console-boundary sensor"
+    }
+  ],
+  "candidate": [],
+  "deferred": [
+    {
+      "path": "tests/harness/prototype-layer.sh",
+      "kind": "unsafe-legacy-fixture",
+      "reason": "mutates tracked prototypes in place before restoration; must move to a temp copy before CI eligibility"
+    }
+  ],
+  "context": [
+    {
+      "path": "tests/harness/checkpoint.sh",
+      "kind": "context-smoke",
+      "reason": "writes task checkpoint state in the live worktree and depends on hook session context"
+    }
+  ],
+  "manual": [
+    {
+      "path": "tests/harness/algol-d5-refute.sh",
+      "kind": "manual-refutation",
+      "reason": "one-off adversarial refutation with a machine-specific repository path"
+    },
+    {
+      "path": "tests/harness/audit-handoff-integrity.mutation.sh",
+      "kind": "mutation-probe",
+      "reason": "adversarial mutation campaign, not a per-push regression lane"
+    },
+    {
+      "path": "tests/harness/audit-memory-drift.refute.sh",
+      "kind": "manual-refutation",
+      "reason": "one-off refutation with a machine-specific repository path"
+    },
+    {
+      "path": "tests/harness/m-revalidate-trustroot-discriminator.sh",
+      "kind": "manual-discriminator",
+      "reason": "trust-root discrimination experiment"
+    },
+    {
+      "path": "tests/harness/m1-rerefute-algol.sh",
+      "kind": "manual-refutation",
+      "reason": "historical re-refutation campaign"
+    },
+    {
+      "path": "tests/harness/m1-rerefute-b-discriminator.sh",
+      "kind": "manual-discriminator",
+      "reason": "historical trust discriminator"
+    },
+    {
+      "path": "tests/harness/m2-empty-ledger-probe.sh",
+      "kind": "manual-probe",
+      "reason": "machine-specific historical probe"
+    },
+    {
+      "path": "tests/harness/m2-local-exitcode-refute.sh",
+      "kind": "manual-refutation",
+      "reason": "machine-specific historical refutation"
+    },
+    {
+      "path": "tests/harness/m4-encoding-refute.sh",
+      "kind": "manual-refutation",
+      "reason": "historical encoding adversary"
+    },
+    {
+      "path": "tests/harness/m4-newline-bypass-refute.sh",
+      "kind": "manual-refutation",
+      "reason": "historical newline adversary"
+    },
+    {
+      "path": "tests/harness/m4-nul-rerefute-algol.sh",
+      "kind": "manual-refutation",
+      "reason": "historical NUL adversary"
+    },
+    {
+      "path": "tests/harness/witness-publisher-refute-Ta-forge.sh",
+      "kind": "manual-refutation",
+      "reason": "witness trust-model refutation"
+    },
+    {
+      "path": "tests/harness/witness-publisher-refute-Tb-fulldepth-discriminator.sh",
+      "kind": "manual-discriminator",
+      "reason": "witness history-depth experiment"
+    },
+    {
+      "path": "tests/harness/witness-publisher-refute-Tb-shallow-discriminator.sh",
+      "kind": "manual-discriminator",
+      "reason": "witness shallow-history experiment"
+    },
+    {
+      "path": "tests/harness/witness-publisher-refute-Tb-silentdark.sh",
+      "kind": "manual-refutation",
+      "reason": "witness silent-dark experiment"
+    },
+    {
+      "path": "tests/harness/witness-publisher-refute-Tc-borntampered.sh",
+      "kind": "manual-refutation",
+      "reason": "witness born-tampered experiment"
+    },
+    {
+      "path": "tests/harness/witness-publisher-refute-Td-tokenscope.sh",
+      "kind": "manual-refutation",
+      "reason": "witness token-scope experiment"
+    }
+  ],
+  "support": [
+    {
+      "path": "tests/harness/ci-test-census.json",
+      "kind": "classification-data",
+      "reason": "QA-owned tracked-test classification"
+    },
+    {
+      "path": "tests/netra/eval-cases.ts",
+      "kind": "eval-data",
+      "reason": "NETRA eval case definitions; runner belongs to a separate model-backed lane"
+    },
+    {
+      "path": "tests/netra/eval-prompts.md",
+      "kind": "eval-data",
+      "reason": "NETRA prompt corpus; not an executable test"
+    }
+  ],
+  "support_patterns": [
+    {
+      "prefix": "tests/harness/fixtures/",
+      "kind": "fixture-data",
+      "reason": "non-executable fixture input consumed by harness tests"
+    }
+  ]
+}

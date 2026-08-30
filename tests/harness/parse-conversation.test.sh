@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/harness/parse-conversation.test.ts
+# tests/harness/parse-conversation.test.sh
 # Regression test: C6 · parse-conversation skill (parse.sh)
 #
 # Coverage:
@@ -14,11 +14,11 @@
 #   (i) unknown flag → exit 2 (usage error)
 #   (j) missing required arg (session_id) → exit 2 (usage error)
 #
-# Uses staged parse.sh at .claude/skill-staging/parse-conversation/parse.sh
-# (not yet installed to ~/.claude/skills/ — Polaris install step pending)
+# Uses the tracked canonical source at scripts/parse-conversation.sh. Personal
+# skill installation may wrap/copy it, but CI never depends on a home folder.
 #
 # Usage:
-#   bash tests/harness/parse-conversation.test.ts
+#   bash tests/harness/parse-conversation.test.sh
 #
 # Exit codes:
 #   0 — all scenarios passed
@@ -27,7 +27,7 @@
 set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-SKILL_SCRIPT="$REPO_ROOT/.claude/skill-staging/parse-conversation/parse.sh"
+SKILL_SCRIPT="$REPO_ROOT/scripts/parse-conversation.sh"
 
 PASS=0
 FAIL=0
@@ -37,7 +37,7 @@ fail() { printf '[FAIL] %s\n' "$1"; FAIL=$((FAIL+1)); }
 
 if [[ ! -f "$SKILL_SCRIPT" ]]; then
   printf 'FATAL: parse.sh not found at %s\n' "$SKILL_SCRIPT" >&2
-  printf 'NOTE: parse.sh staged at .claude/skill-staging/; run Polaris install step first\n' >&2
+  printf 'NOTE: the canonical parser source must remain tracked for CI\n' >&2
   exit 1
 fi
 

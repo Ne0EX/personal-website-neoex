@@ -6,7 +6,7 @@
 # -------
 # Beta's primary memory text is write-protected against non-Beta agents.
 # Non-Beta agents may only write inside explicitly-delimited "calibration
-# blocks" that they own. Beta (BETA_PERSONA_LOADED=1) writes freely anywhere
+# blocks" that they own. In beta mode, the active Beta persona writes freely
 # in .claude/beta/**.
 #
 # Calibration block delimiter spec (Vega V1 — ground truth):
@@ -16,13 +16,10 @@
 # Algorithm
 # ---------
 # For each file under .claude/beta/** that was written or edited:
-#   1. Parse calibration blocks: build a flat file mapping line_num → owner
-#   2. Compute which lines in the new content differ from HEAD (unified diff)
-#   3. For each changed line:
-#      a. If inside own block → ALLOW
-#      b. If inside another agent's block → BLOCK
-#      c. If outside any block AND caller != beta → BLOCK
-#   4. BETA_PERSONA_LOADED=1 → skip all checks, allow
+#   1. Parse complete calibration blocks in HEAD and current content
+#   2. Remove only caller-owned blocks from both protected projections
+#   3. Require the protected projections to remain byte-for-byte equivalent
+#   4. Beta-mode + active Beta persona → skip content checks, allow
 #
 # Failure mode
 # ------------
@@ -42,6 +39,8 @@ set -euo pipefail
 
 LOG_DIR=".claude/hook-logs"
 mkdir -p "$LOG_DIR"
+PROJECT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd -P)"
+BETA_DIR=".claude/beta"
 
 TASK_ID="${CLAUDE_TASK_ID:-${WL_TASK_ID:-session-$(date +%s)}}"
 AGENT="${WL_AGENT:-unknown}"
@@ -86,9 +85,31 @@ case "$TOOL_NAME" in
 esac
 
 # --------------------------------------------------------------------------
-# BYPASS: Beta persona active
+# BYPASS: Beta persona active in beta mode
 # --------------------------------------------------------------------------
-if [[ "${BETA_PERSONA_LOADED:-0}" == "1" ]]; then
+CURRENT_PERSONA_FILE=".claude/.current-persona"
+CURRENT_PERSONA_FROM_TRACKER=""
+SESSION_MODE_FROM_TRACKER=""
+if [[ -f "$CURRENT_PERSONA_FILE" ]]; then
+  CURRENT_PERSONA_FROM_TRACKER="$(jq -r '.persona // ""' "$CURRENT_PERSONA_FILE" 2>/dev/null || true)"
+  SESSION_MODE_FROM_TRACKER="$(jq -r '.session_mode // ""' "$CURRENT_PERSONA_FILE" 2>/dev/null || true)"
+  if [[ -z "$CURRENT_PERSONA_FROM_TRACKER" ]]; then
+    CURRENT_PERSONA_FROM_TRACKER="$(head -1 "$CURRENT_PERSONA_FILE" 2>/dev/null || true)"
+    [[ "$CURRENT_PERSONA_FROM_TRACKER" == "{"* ]] && CURRENT_PERSONA_FROM_TRACKER=""
+  fi
+fi
+
+BETA_MODE_ACTIVE=false
+BETA_PERSONA_ACTIVE=false
+if [[ "${BETA_PERSONA_LOADED:-0}" == "1" ]] || [[ "$SESSION_MODE_FROM_TRACKER" == "beta" ]]; then
+  BETA_MODE_ACTIVE=true
+fi
+if [[ "$CURRENT_PERSONA_FROM_TRACKER" == "beta" ]] \
+  || { [[ -z "$CURRENT_PERSONA_FROM_TRACKER" ]] && [[ "$AGENT" == "beta" ]]; }; then
+  BETA_PERSONA_ACTIVE=true
+fi
+
+if [[ "$BETA_MODE_ACTIVE" == "true" ]] && [[ "$BETA_PERSONA_ACTIVE" == "true" ]]; then
   printf '[write-protect] %s · beta-bypass · %s\n' "$TIMESTAMP" "$TOOL_NAME" >> "$LOG"
   exit 0
 fi
@@ -101,13 +122,106 @@ fi
 BLOCK_START_RE='^— calibration · ([a-z]+) · ([0-9]{4}-[0-9]{2}-[0-9]{2}) —$'
 BLOCK_END_RE='^—$'
 
+normalize_target_path() {
+  local raw_path="$1"
+  local component=""
+  local result=""
+  local last_index=0
+  local old_ifs="$IFS"
+  local absolute_path=""
+  local link_target=""
+  local resolved_dir=""
+  local hop_count=0
+  local components=()
+  local normalized_parts=()
+
+  if [[ "$raw_path" == "$PROJECT_ROOT" ]]; then
+    raw_path=""
+  elif [[ "$raw_path" == "$PROJECT_ROOT"/* ]]; then
+    raw_path="${raw_path#"$PROJECT_ROOT"/}"
+  elif [[ "$raw_path" == /* ]]; then
+    printf '%s\n' "$raw_path"
+    return 0
+  fi
+
+  raw_path="${raw_path#./}"
+  IFS='/' read -r -a components <<< "$raw_path"
+  IFS="$old_ifs"
+
+  for component in "${components[@]}"; do
+    case "$component" in
+      ""|.) continue ;;
+      ..)
+        if [[ "${#normalized_parts[@]}" -gt 0 ]]; then
+          last_index=$(( ${#normalized_parts[@]} - 1 ))
+          if [[ "${normalized_parts[$last_index]}" != ".." ]]; then
+            normalized_parts=("${normalized_parts[@]:0:$last_index}")
+            continue
+          fi
+        fi
+        normalized_parts+=("..")
+        ;;
+      *) normalized_parts+=("$component") ;;
+    esac
+  done
+
+  for component in "${normalized_parts[@]}"; do
+    if [[ -n "$result" ]]; then
+      result="$result/$component"
+    else
+      result="$component"
+    fi
+  done
+
+  if [[ "$result" == "$BETA_DIR" ]] || [[ "$result" == "$BETA_DIR"/* ]]; then
+    printf '%s\n' "$result"
+    return 0
+  fi
+
+  if [[ "$result" == /* ]]; then
+    absolute_path="$result"
+  else
+    absolute_path="$PROJECT_ROOT/$result"
+  fi
+  if resolved_dir="$(cd "$(dirname "$absolute_path")" 2>/dev/null && pwd -P)"; then
+    absolute_path="$resolved_dir/$(basename "$absolute_path")"
+  fi
+  while [[ -L "$absolute_path" ]]; do
+    hop_count=$(( hop_count + 1 ))
+    if [[ "$hop_count" -gt 40 ]]; then
+      printf '%s/__unresolved-symlink__\n' "$BETA_DIR"
+      return 0
+    fi
+    link_target="$(readlink "$absolute_path" 2>/dev/null)" || {
+      printf '%s/__unresolved-symlink__\n' "$BETA_DIR"
+      return 0
+    }
+    if [[ "$link_target" == /* ]]; then
+      absolute_path="$link_target"
+    else
+      absolute_path="$(dirname "$absolute_path")/$link_target"
+    fi
+    if resolved_dir="$(cd "$(dirname "$absolute_path")" 2>/dev/null && pwd -P)"; then
+      absolute_path="$resolved_dir/$(basename "$absolute_path")"
+    fi
+  done
+
+  if [[ "$absolute_path" == "$PROJECT_ROOT"/* ]]; then
+    result="${absolute_path#"$PROJECT_ROOT"/}"
+  elif [[ "$absolute_path" == /* ]]; then
+    result="$absolute_path"
+  fi
+  printf '%s\n' "$result"
+}
+
 # --------------------------------------------------------------------------
 # check_file <path>
 # Returns 0 = PASS, 1 = BLOCK
 # --------------------------------------------------------------------------
 check_file() {
   local file_path="$1"
-  local normalized="${file_path#./}"
+  local normalized
+  normalized="$(normalize_target_path "$file_path")"
 
   # Only gate files under .claude/beta/
   if [[ "$normalized" != .claude/beta/* ]]; then
@@ -138,91 +252,57 @@ check_file() {
     return 0
   fi
 
-  # --------------------------------------------------------------------------
-  # Parse calibration blocks in CURRENT file.
-  # Write a flat map: line_num<TAB>owner (empty owner = not in block)
-  # Using a temp file to avoid associative arrays (bash 3.2 compat).
-  # --------------------------------------------------------------------------
-  BLOCK_MAP="$TMP_DIR/block-map"
-  > "$BLOCK_MAP"
+  # Compare the protected projection of HEAD and the current file. The
+  # projection removes complete blocks owned by the caller and preserves every
+  # primary-text line and every other agent's block. Equality therefore allows
+  # edits/additions/removals only inside the caller's own complete blocks. It
+  # also catches deletion-only edits and attempts to move a delimiter around
+  # protected text, both of which line-number-only diff parsing can miss.
+  build_protected_projection() {
+    local source_file="$1"
+    local output_file="$2"
+    local current_owner=""
+    local line=""
 
-  local current_owner=""
-  local line_num=0
-  while IFS= read -r line; do
-    line_num=$(( line_num + 1 ))
-    if LC_ALL=C grep -qE "$BLOCK_START_RE" <<< "$line" 2>/dev/null; then
-      current_owner="$(LC_ALL=C grep -oE "$BLOCK_START_RE" <<< "$line" \
-        | LC_ALL=C sed -E 's/^— calibration · ([a-z]+) · .*/\1/' 2>/dev/null || echo "")"
-    elif LC_ALL=C grep -qE "$BLOCK_END_RE" <<< "$line" 2>/dev/null && [[ -n "$current_owner" ]]; then
-      current_owner=""
-    fi
-    printf '%s\t%s\n' "$line_num" "$current_owner" >> "$BLOCK_MAP"
-  done < "$CURRENT_FILE"
-
-  # --------------------------------------------------------------------------
-  # Identify changed line numbers in the NEW (current) file using unified diff.
-  # Parse @@ hunk headers: "+<start>[,<count>]" gives new-file line ranges.
-  # --------------------------------------------------------------------------
-  CHANGED_LINES_FILE="$TMP_DIR/changed-lines"
-  > "$CHANGED_LINES_FILE"
-
-  diff -u "$HEAD_FILE" "$CURRENT_FILE" 2>/dev/null \
-    | grep -E '^@@' \
-    | while IFS= read -r hunk_header; do
-        start_count="$(echo "$hunk_header" | grep -oE '\+[0-9]+(,[0-9]+)?' | head -1 | tr -d '+')"
-        [[ -z "$start_count" ]] && continue
-        start="${start_count%%,*}"
-        if echo "$start_count" | grep -q ','; then
-          count="${start_count##*,}"
-        else
-          count="1"
+    : > "$output_file"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      if LC_ALL=C grep -qE "$BLOCK_START_RE" <<< "$line" 2>/dev/null; then
+        # Nested starts make ownership ambiguous; reject the whole file.
+        [[ -z "$current_owner" ]] || return 1
+        current_owner="$(LC_ALL=C sed -E \
+          's/^— calibration · ([a-z]+) · .*/\1/' <<< "$line" 2>/dev/null)"
+        if [[ "$current_owner" != "$AGENT" ]]; then
+          printf '%s\n' "$line" >> "$output_file"
         fi
-        i=0
-        while [[ "$i" -lt "$count" ]]; do
-          echo $(( start + i ))
-          i=$(( i + 1 ))
-        done
-      done | sort -un > "$CHANGED_LINES_FILE" 2>/dev/null || true
+      elif LC_ALL=C grep -qE "$BLOCK_END_RE" <<< "$line" 2>/dev/null \
+        && [[ -n "$current_owner" ]]; then
+        if [[ "$current_owner" != "$AGENT" ]]; then
+          printf '%s\n' "$line" >> "$output_file"
+        fi
+        current_owner=""
+      elif [[ "$current_owner" != "$AGENT" ]]; then
+        printf '%s\n' "$line" >> "$output_file"
+      fi
+    done < "$source_file"
 
-  # If no changed lines found, pass (can happen with context-only hunks)
-  if [[ ! -s "$CHANGED_LINES_FILE" ]]; then
-    printf '[write-protect] PASS (no changed lines in diff): %s\n' "$normalized" | tee -a "$LOG"
-    return 0
+    # An unclosed block could absorb all following primary text, so fail closed.
+    [[ -z "$current_owner" ]]
+  }
+
+  HEAD_PROTECTED="$TMP_DIR/head-protected"
+  CURRENT_PROTECTED="$TMP_DIR/current-protected"
+  if ! build_protected_projection "$HEAD_FILE" "$HEAD_PROTECTED" \
+    || ! build_protected_projection "$CURRENT_FILE" "$CURRENT_PROTECTED"; then
+    printf '[write-protect] BLOCKED — malformed or unclosed calibration block in %s\n' \
+      "$normalized" | tee -a "$LOG" >&2
+    return 1
   fi
 
-  # --------------------------------------------------------------------------
-  # Check each changed line against block map
-  # --------------------------------------------------------------------------
-  VIOLATIONS_FILE="$TMP_DIR/violations"
-  > "$VIOLATIONS_FILE"
-
-  while IFS= read -r lnum; do
-    [[ -z "$lnum" ]] && continue
-    # Look up owner for this line number in block map
-    owner="$(grep -E "^${lnum}	" "$BLOCK_MAP" | cut -f2 || echo "")"
-
-    if [[ -z "$owner" ]]; then
-      # Outside any calibration block — primary text
-      printf 'line %s: outside calibration block (primary text) — only Beta may write here\n' "$lnum" >> "$VIOLATIONS_FILE"
-    elif [[ "$owner" != "$AGENT" ]]; then
-      # Inside another agent's block
-      printf 'line %s: inside calibration block owned by '"'"'%s'"'"' — only '"'"'%s'"'"' may write here\n' \
-        "$lnum" "$owner" "$owner" >> "$VIOLATIONS_FILE"
-    fi
-    # else: inside own block → allowed
-  done < "$CHANGED_LINES_FILE"
-
-  if [[ -s "$VIOLATIONS_FILE" ]]; then
-    VCOUNT="$(wc -l < "$VIOLATIONS_FILE" | tr -d ' ')"
-    printf '[write-protect] BLOCKED — %s violation(s) in %s:\n' "$VCOUNT" "$normalized" | tee -a "$LOG" >&2
-    while IFS= read -r v; do
-      printf '  %s\n' "$v" | tee -a "$LOG" >&2
-    done < "$VIOLATIONS_FILE"
-    printf '[write-protect] FIX: revert this edit.\n' | tee -a "$LOG" >&2
-    printf '[write-protect] To add a calibration note, wrap it in:\n' | tee -a "$LOG" >&2
-    printf '[write-protect]   — calibration · %s · %s —\n' "$AGENT" "$(date +%Y-%m-%d)" | tee -a "$LOG" >&2
-    printf '[write-protect]   <your content>\n' | tee -a "$LOG" >&2
-    printf '[write-protect]   —\n' | tee -a "$LOG" >&2
+  if ! diff -q "$HEAD_PROTECTED" "$CURRENT_PROTECTED" >/dev/null 2>&1; then
+    printf '[write-protect] BLOCKED — protected primary text or another agent block changed in %s\n' \
+      "$normalized" | tee -a "$LOG" >&2
+    printf '[write-protect] FIX: revert this edit or use a complete block owned by %s.\n' \
+      "$AGENT" | tee -a "$LOG" >&2
     return 1
   fi
 

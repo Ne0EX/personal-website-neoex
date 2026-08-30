@@ -47,20 +47,17 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/lib/browser-fixture.sh
+source "${REPO_ROOT}/scripts/lib/browser-fixture.sh"
+
 PAGE_URL="${1:-}"
-MANIFEST_PATH="${2:-}"
+MANIFEST_PATH="${2:-$REPO_ROOT/.harness/render-fidelity-manifests/archive.json}"
 VERBOSE="${VERBOSE:-false}"
 
 if [[ -z "$PAGE_URL" ]]; then
-  echo "[render-fidelity] ERROR: missing page_url argument" >&2
-  echo "  Usage: bash scripts/audit-render-fidelity-vs-intent.sh <page_url> <manifest_path>" >&2
-  exit 2
-fi
-
-if [[ -z "$MANIFEST_PATH" ]]; then
-  echo "[render-fidelity] ERROR: missing manifest_path argument" >&2
-  echo "  Usage: bash scripts/audit-render-fidelity-vs-intent.sh <page_url> <manifest_path>" >&2
-  exit 2
+  browser_fixture_start_next "${REPO_ROOT}" "${WL_BROWSER_PORT:-4173}" "/en/archive" || exit 2
+  trap 'browser_fixture_stop' EXIT
+  PAGE_URL="${BROWSER_FIXTURE_BASE_URL}/en/archive"
 fi
 
 if [[ ! -f "$MANIFEST_PATH" ]]; then
@@ -86,7 +83,7 @@ INPUT_JSON=$(jq -n \
   '{"page_url": $page_url, "manifest_path": $manifest_path, "verbose": $verbose}')
 
 set +e
-OUTPUT=$(echo "$INPUT_JSON" | npx tsx "$REPO_ROOT/scripts/audit-render-fidelity-vs-intent.ts" 2>&1)
+OUTPUT=$(printf '%s\n' "$INPUT_JSON" | node --import tsx "$REPO_ROOT/scripts/audit-render-fidelity-vs-intent.ts" 2>&1)
 EXIT_CODE=$?
 set -e
 

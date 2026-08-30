@@ -1,24 +1,28 @@
 #!/usr/bin/env bash
-# tests/harness/beta-write-protect.test.ts
+# tests/harness/beta-write-protect.test.sh
 # Regression test: C3 · write-protect-beta.sh
 #
 # Coverage:
-#   (a) BETA_PERSONA_LOADED=1 → ALLOW, no checks
+#   (a) active Beta persona in beta mode → ALLOW
+#   (a2) beta-mode codename override does not inherit Beta write authority
 #   (b) non-Beta writes inside own calibration block → ALLOW (exit 0)
 #   (c) non-Beta writes inside another agent's block → BLOCK (exit 1)
 #   (d) non-Beta writes in primary text (outside any block) → BLOCK (exit 1)
 #   (e) no change vs HEAD (no-op write) → ALLOW (exit 0)
 #   (f) non-beta path → passthrough (exit 0)
-#   (g) BLOCK_START delimiter regex matches V1 spec exactly
-#   (h) BLOCK_END delimiter regex matches V1 spec exactly
-#   (i) write inside own block when file is new (no HEAD) → BLOCK for primary text
+#   (g) malformed delimiter does not create a writable block
+#   (h) unclosed block cannot absorb protected primary text
+#   (i) deletion-only primary-text edit is blocked
+#   (j) a complete new own calibration block is allowed
+#   (k) absolute and symlinked beta paths cannot bypass protection
+#   (l) new file containing primary text is blocked
 #
 # Delimiter spec (Vega V1 — ground truth):
 #   BLOCK_START: ^— calibration · ([a-z]+) · (\d{4}-\d{2}-\d{2}) —$
 #   BLOCK_END:   ^—$
 #
 # Usage:
-#   bash tests/harness/beta-write-protect.test.ts
+#   bash tests/harness/beta-write-protect.test.sh
 #
 # Exit codes:
 #   0 — all assertions passed
@@ -40,11 +44,19 @@ if [[ ! -f "$HOOK" ]]; then
   exit 1
 fi
 
+if ! command -v jq >/dev/null 2>&1; then
+  printf 'FATAL: jq is required\n' >&2
+  exit 1
+fi
+
 TMPDIR_RUN="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR_RUN"' EXIT
+TMPDIR_REAL="$(cd "$TMPDIR_RUN" && pwd -P)"
 
 FAKE_BETA_DIR="$TMPDIR_RUN/.claude/beta"
 FAKE_LOG_DIR="$TMPDIR_RUN/.claude/hook-logs"
+PRIVATE_ROOT="${FAKE_BETA_DIR#"$TMPDIR_RUN"/}"
+FAKE_PERSONA="$TMPDIR_RUN/.claude/.current-persona"
 mkdir -p "$FAKE_BETA_DIR" "$FAKE_LOG_DIR"
 
 # Initialize a fake git repo in TMPDIR_RUN so git show HEAD:... works
@@ -57,12 +69,11 @@ run_hook_exit() {
   local exit_code=0
   (cd "$TMPDIR_RUN" && printf '%s' "$input" | env -i \
     PATH="$PATH" \
-    HOME="$HOME" \
     WL_AGENT="$agent" \
     WL_TASK_ID="TEST-WRITE-PROTECT" \
     BETA_PERSONA_LOADED="${BETA_PERSONA_OVERRIDE:-0}" \
-    bash "$HOOK" 2>/dev/null) || exit_code=$?
-  echo "$exit_code"
+    bash "$HOOK" >/dev/null 2>/dev/null) || exit_code=$?
+  printf '%s\n' "$exit_code"
 }
 
 # Helper: write a file to both the fake git HEAD and working tree
@@ -92,8 +103,10 @@ write_file_committed ".claude/beta/notes.md" "# Beta notes\n\nPrimary text.\n"
 write_file_wt ".claude/beta/notes.md" "# Beta notes\n\nPrimary text changed by beta.\n"
 
 INPUT='{"tool_name":"Write","tool_input":{"file_path":".claude/beta/notes.md"}}'
+printf '%s\n' '{"persona":"beta","session_mode":"beta","timestamp":"2026-05-23T00:00:00Z"}' \
+  > "$FAKE_PERSONA"
 BETA_PERSONA_OVERRIDE="1"
-exit_code="$(run_hook_exit "$INPUT" "algol")"
+exit_code="$(run_hook_exit "$INPUT" "beta")"
 
 if [[ "$exit_code" -eq 0 ]]; then
   pass "(a) BETA_PERSONA_LOADED=1 → exit 0 (bypass ALLOW)"
@@ -101,6 +114,24 @@ else
   fail "(a) BETA_PERSONA_LOADED=1 → expected exit 0, got $exit_code"
 fi
 
+# ---- scenario (a2): codename override in beta mode remains protected -------
+
+printf '\n=== (a2) beta-mode codename override remains protected ===\n'
+
+write_file_committed "$PRIVATE_ROOT/override.md" $'Protected primary text.\n'
+write_file_wt "$PRIVATE_ROOT/override.md" $'Changed by Polaris.\n'
+printf '%s\n' '{"persona":"polaris","session_mode":"beta","timestamp":"2026-05-23T00:00:00Z"}' \
+  > "$FAKE_PERSONA"
+INPUT="$(jq -cn --arg p "$PRIVATE_ROOT/override.md" '{tool_name:"Write",tool_input:{file_path:$p}}')"
+exit_code="$(run_hook_exit "$INPUT" "polaris")"
+
+if [[ "$exit_code" -eq 1 ]]; then
+  pass "(a2) non-Beta codename override cannot inherit Beta write authority"
+else
+  fail "(a2) beta-mode Polaris write expected BLOCK, got exit $exit_code"
+fi
+
+rm -f "$FAKE_PERSONA"
 BETA_PERSONA_OVERRIDE="0"
 
 # ---- scenario (b): non-Beta writes inside own calibration block → ALLOW ----
@@ -235,64 +266,152 @@ else
   fail "(f) non-beta path → expected exit 0, got $exit_code"
 fi
 
-# ---- scenario (g): BLOCK_START delimiter regex matches V1 spec exactly -----
+# ---- scenario (g): malformed delimiter gives no write authority ------------
 
-printf '\n=== (g) BLOCK_START delimiter regex matches V1 spec ===\n'
+printf '\n=== (g) malformed delimiter does not create writable block ===\n'
 
-# V1 spec: ^— calibration · ([a-z]+) · (\d{4}-\d{2}-\d{2}) —$
-# em-dash (—) + space + "calibration" + space + middle-dot (·) + space + codename + space + · + space + date + space + —
+HEAD_CONTENT4="# Beta notes
 
-VALID_START="— calibration · algol · 2026-05-23 —"
-INVALID_STARTS=(
-  "-- calibration · algol · 2026-05-23 --"    # wrong dashes
-  "— Calibration · Algol · 2026-05-23 —"     # uppercase codename
-  "— calibration algol 2026-05-23 —"           # missing dots
-  "—calibration · algol · 2026-05-23—"         # no spaces around em-dash
-)
+Protected primary text.
+"
+WT_CONTENT4="# Beta notes
 
-# Test using grep -E against the actual regex from the hook
-BLOCK_START_RE='^— calibration · ([a-z]+) · ([0-9]{4}-[0-9]{2}-[0-9]{2}) —$'
+Protected primary text.
 
-if printf '%s' "$VALID_START" | grep -qE "$BLOCK_START_RE"; then
-  pass "(g) BLOCK_START V1 pattern matches canonical delimiter"
+-- calibration · algol · 2026-05-23 --
+attempted note
+--
+"
+write_file_committed "$PRIVATE_ROOT/malformed.md" "$HEAD_CONTENT4"
+write_file_wt "$PRIVATE_ROOT/malformed.md" "$WT_CONTENT4"
+INPUT="$(jq -cn --arg p "$PRIVATE_ROOT/malformed.md" '{tool_name:"Edit",tool_input:{file_path:$p}}')"
+exit_code="$(run_hook_exit "$INPUT" "algol")"
+
+if [[ "$exit_code" -eq 1 ]]; then
+  pass "(g) malformed delimiter does not grant write authority"
 else
-  fail "(g) BLOCK_START V1 pattern DOES NOT match canonical delimiter"
+  fail "(g) malformed delimiter expected BLOCK, got exit $exit_code"
 fi
 
-all_invalid_rejected=true
-for inv in "${INVALID_STARTS[@]}"; do
-  if printf '%s' "$inv" | grep -qE "$BLOCK_START_RE"; then
-    fail "(g) BLOCK_START V1 pattern incorrectly matched: '$inv'"
-    all_invalid_rejected=false
-  fi
-done
-if $all_invalid_rejected; then
-  pass "(g) BLOCK_START V1 pattern correctly rejects all invalid variants"
-fi
+# ---- scenario (h): unclosed block cannot absorb primary text ---------------
 
-# ---- scenario (h): BLOCK_END delimiter regex matches V1 spec exactly --------
+printf '\n=== (h) unclosed block cannot absorb primary text ===\n'
 
-printf '\n=== (h) BLOCK_END delimiter regex matches V1 spec ===\n'
+HEAD_CONTENT5="# Beta notes
 
-BLOCK_END_RE='^—$'
-VALID_END="—"
-INVALID_ENDS=("--" "— " " —" "———" "---")
+— calibration · algol · 2026-05-23 —
+owned note
+—
+Protected primary text.
+"
+WT_CONTENT5="# Beta notes
 
-if printf '%s' "$VALID_END" | grep -qE "$BLOCK_END_RE"; then
-  pass "(h) BLOCK_END V1 pattern matches canonical delimiter"
+— calibration · algol · 2026-05-23 —
+owned note
+Protected primary text.
+"
+write_file_committed "$PRIVATE_ROOT/unclosed.md" "$HEAD_CONTENT5"
+write_file_wt "$PRIVATE_ROOT/unclosed.md" "$WT_CONTENT5"
+INPUT="$(jq -cn --arg p "$PRIVATE_ROOT/unclosed.md" '{tool_name:"Edit",tool_input:{file_path:$p}}')"
+exit_code="$(run_hook_exit "$INPUT" "algol")"
+
+if [[ "$exit_code" -eq 1 ]]; then
+  pass "(h) unclosed calibration block is rejected"
 else
-  fail "(h) BLOCK_END V1 pattern DOES NOT match canonical delimiter"
+  fail "(h) unclosed block absorbed primary text (exit $exit_code)"
 fi
 
-all_invalid_rejected=true
-for inv in "${INVALID_ENDS[@]}"; do
-  if printf '%s' "$inv" | grep -qE "$BLOCK_END_RE"; then
-    fail "(h) BLOCK_END V1 pattern incorrectly matched: '$inv'"
-    all_invalid_rejected=false
-  fi
-done
-if $all_invalid_rejected; then
-  pass "(h) BLOCK_END V1 pattern correctly rejects all invalid variants"
+# ---- scenario (i): deletion-only primary edit is blocked -------------------
+
+printf '\n=== (i) deletion-only primary edit blocked ===\n'
+
+write_file_committed "$PRIVATE_ROOT/delete-only.md" $'Protected primary text.\n'
+write_file_wt "$PRIVATE_ROOT/delete-only.md" ""
+INPUT="$(jq -cn --arg p "$PRIVATE_ROOT/delete-only.md" '{tool_name:"Edit",tool_input:{file_path:$p}}')"
+exit_code="$(run_hook_exit "$INPUT" "algol")"
+
+if [[ "$exit_code" -eq 1 ]]; then
+  pass "(i) deleting all primary text is blocked"
+else
+  fail "(i) deletion-only primary edit bypassed protection (exit $exit_code)"
+fi
+
+# ---- scenario (j): appending a complete own block is allowed ---------------
+
+printf '\n=== (j) append complete own calibration block ===\n'
+
+HEAD_CONTENT6="# Beta notes
+
+Protected primary text.
+
+"
+WT_CONTENT6="# Beta notes
+
+Protected primary text.
+
+— calibration · algol · 2026-05-23 —
+new calibration note
+—
+"
+write_file_committed "$PRIVATE_ROOT/append-own.md" "$HEAD_CONTENT6"
+write_file_wt "$PRIVATE_ROOT/append-own.md" "$WT_CONTENT6"
+INPUT="$(jq -cn --arg p "$PRIVATE_ROOT/append-own.md" '{tool_name:"Edit",tool_input:{file_path:$p}}')"
+exit_code="$(run_hook_exit "$INPUT" "algol")"
+
+if [[ "$exit_code" -eq 0 ]]; then
+  pass "(j) complete new own calibration block is allowed"
+else
+  fail "(j) valid appended own block expected ALLOW, got exit $exit_code"
+fi
+
+# ---- scenario (k): absolute path remains protected -------------------------
+
+printf '\n=== (k) absolute beta path protected ===\n'
+
+write_file_committed "$PRIVATE_ROOT/absolute.md" $'Protected primary text.\n'
+write_file_wt "$PRIVATE_ROOT/absolute.md" $'Modified primary text.\n'
+absolute_path="$TMPDIR_REAL/$PRIVATE_ROOT/absolute.md"
+INPUT="$(jq -cn --arg p "$absolute_path" '{tool_name:"Write",tool_input:{file_path:$p}}')"
+exit_code="$(run_hook_exit "$INPUT" "algol")"
+
+if [[ "$exit_code" -eq 1 ]]; then
+  pass "(k) absolute private path cannot bypass protection"
+else
+  fail "(k) absolute private path bypassed protection (exit $exit_code)"
+fi
+
+write_file_committed "$PRIVATE_ROOT/symlink-target.md" $'Protected primary text.\n'
+ln -s "$PRIVATE_ROOT/symlink-target.md" "$TMPDIR_RUN/private-link.md"
+write_file_wt "$PRIVATE_ROOT/symlink-target.md" $'Modified through symlink.\n'
+INPUT="$(jq -cn --arg p "private-link.md" '{tool_name:"Write",tool_input:{file_path:$p}}')"
+exit_code="$(run_hook_exit "$INPUT" "algol")"
+
+if [[ "$exit_code" -eq 1 ]]; then
+  pass "(k) symlink to a private file cannot bypass protection"
+else
+  fail "(k) symlinked private file bypassed protection (exit $exit_code)"
+fi
+
+# ---- scenario (l): new file with primary text is blocked -------------------
+
+printf '\n=== (l) new file primary text blocked ===\n'
+
+NEW_CONTENT="# New Beta file
+
+Primary text written by non-Beta.
+
+— calibration · algol · 2026-05-23 —
+calibration note
+—
+"
+write_file_wt "$PRIVATE_ROOT/new-file.md" "$NEW_CONTENT"
+INPUT="$(jq -cn --arg p "$PRIVATE_ROOT/new-file.md" '{tool_name:"Write",tool_input:{file_path:$p}}')"
+exit_code="$(run_hook_exit "$INPUT" "algol")"
+
+if [[ "$exit_code" -eq 1 ]]; then
+  pass "(l) new file containing primary text is blocked"
+else
+  fail "(l) new file primary text bypassed protection (exit $exit_code)"
 fi
 
 # ---- summary ----------------------------------------------------------------

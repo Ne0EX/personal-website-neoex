@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>CI Harness Sensor Audit · 2026-08-31</title>
+  <style>
+    :root {
+      --paper: #f4f1e8;
+      --panel: #fffdf7;
+      --ink: #202421;
+      --muted: #5d665f;
+      --line: #cfd3ca;
+      --accent: #155f58;
+      --accent-soft: #dcece8;
+      --pass: #17623d;
+      --pass-soft: #dcecdf;
+      --warn: #805000;
+      --warn-soft: #f4e7c8;
+      --code: #e9ece5;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body { margin: 0; color: var(--ink); background: var(--paper); line-height: 1.55; }
+    main { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 46px 0 76px; }
+    header { padding-bottom: 24px; border-bottom: 2px solid var(--ink); }
+    h1 { margin: 5px 0 12px; font-size: clamp(2.1rem, 5vw, 4.4rem); line-height: .98; letter-spacing: -.05em; }
+    h2 { margin: 42px 0 14px; font-size: 1.42rem; letter-spacing: -.02em; }
+    h3 { margin: 0 0 8px; font-size: 1rem; }
+    p { margin: 0 0 12px; }
+    a { color: var(--accent); text-underline-offset: .18em; }
+    code { padding: .1em .34em; border-radius: 4px; background: var(--code); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+    ul { margin: 8px 0 0; padding-left: 1.25rem; }
+    li + li { margin-top: 6px; }
+    .eyebrow { color: var(--accent); font-size: .76rem; font-weight: 780; letter-spacing: .12em; text-transform: uppercase; }
+    .lede { max-width: 84ch; color: var(--muted); font-size: 1.04rem; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 20px; color: var(--muted); font-size: .84rem; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .metrics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; margin: 18px 0 2px; }
+    .card, .metric, .callout, .table-wrap { border: 1px solid var(--line); background: var(--panel); }
+    .card { padding: 18px; border-radius: 10px; }
+    .metric { padding: 14px; border-radius: 9px; }
+    .metric b { display: block; font-size: 1.55rem; line-height: 1; }
+    .metric span { display: block; margin-top: 6px; color: var(--muted); font-size: .75rem; }
+    .callout { padding: 16px 18px; border-color: var(--pass); border-radius: 8px; background: var(--pass-soft); }
+    .callout.warn { border-color: var(--warn); background: var(--warn-soft); }
+    .badge { display: inline-block; padding: 2px 7px; border-radius: 999px; font-size: .7rem; font-weight: 780; letter-spacing: .025em; white-space: nowrap; }
+    .pass { color: var(--pass); background: var(--pass-soft); }
+    .skip, .advisory { color: var(--warn); background: var(--warn-soft); }
+    .required { color: var(--accent); background: var(--accent-soft); }
+    .table-wrap { overflow-x: auto; border-radius: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    caption { padding: 13px 14px; color: var(--muted); text-align: left; }
+    th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--paper); background: var(--ink); font-size: .7rem; letter-spacing: .055em; text-transform: uppercase; }
+    tbody tr:last-child td { border-bottom: 0; }
+    td:first-child { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; }
+    .reason { min-width: 280px; color: var(--muted); }
+    footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: .8rem; }
+    @media (max-width: 820px) {
+      main { width: min(100% - 20px, 1180px); padding-top: 28px; }
+      .grid { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 480px) {
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+      th, td { padding: 8px; }
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --paper: #161a18; --panel: #1e2421; --ink: #edf1ec; --muted: #b6beb8;
+        --line: #3b433e; --accent: #78d0c4; --accent-soft: #173c38;
+        --pass: #8bd6a8; --pass-soft: #173927; --warn: #f0c477;
+        --warn-soft: #46351a; --code: #2a302c;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">Algol · deterministic CI evidence</p>
+    <h1>CI harness sensor audit</h1>
+    <p class="lede">This report supersedes the earlier candidate snapshot. It records the final 26-rail configuration and the complete executable CI census used for the 2026-08-31 release. The immutable release SHA and remote run links are recorded after merge in the release handoff so this committed report does not claim a self-referential SHA.</p>
+    <div class="meta">
+      <span>Evidence date · 2026-08-31 · Asia/Bangkok</span>
+      <span>Configuration · <code>.harness/worldline-harness.config.json</code></span>
+      <span>Secrets and personal data · excluded</span>
+    </div>
+  </header>
+
+  <h2>Executive verdict</h2>
+  <div class="grid">
+    <section class="card">
+      <h3><span class="badge pass">GREEN</span> CI-equivalent release suite</h3>
+      <p>Typecheck, lint, the 26-rail barrier audit, census validation, all 160 Node assertions, all 34 required non-Node sensors, the production build, and the config-driven harness census passed before push. GitHub repeats the same commands on the immutable release candidate.</p>
+    </section>
+    <section class="card">
+      <h3><span class="badge pass">READY</span> Vercel release controls</h3>
+      <p><code>NETRA_MODEL</code> is pinned to the approved Vercel AI Gateway free model in Production, Preview, Development, and the feature-branch override. The Gateway hard budget remains <strong>$1/day</strong>; exact-SHA deployment readiness is verified after merge.</p>
+    </section>
+  </div>
+
+  <div class="metrics" aria-label="Harness metrics">
+    <div class="metric"><b>26</b><span>configured rails</span></div>
+    <div class="metric"><b>17</b><span>required rails passed</span></div>
+    <div class="metric"><b>6</b><span>explicit contextual skips</span></div>
+    <div class="metric"><b>3</b><span>optional advisory failures</span></div>
+    <div class="metric"><b>0</b><span>required failures</span></div>
+    <div class="metric"><b>70</b><span>executable sensor files inventoried</span></div>
+  </div>
+
+  <h2>What “green” means</h2>
+  <div class="callout">
+    <strong>Every deterministic, CI-eligible required sensor is wired and passing.</strong>
+    <p>The harness exits 0 only when the required denominator is complete. Its final summary was <code>rails=26 pass=17 skip=6 fail=3 required_failures=0 optional_fail=3</code>. Optional context-dependent checks are explicitly classified and explained; they cannot silently increase required coverage or masquerade as passes.</p>
+  </div>
+
+  <h2>Complete rail inventory</h2>
+  <div class="table-wrap">
+    <table>
+      <caption>Committed rail truth and the exact final disposition.</caption>
+      <thead>
+        <tr>
+          <th>Rail</th>
+          <th>Class</th>
+          <th>Result</th>
+          <th>CI disposition</th>
+          <th>Evidence / reason</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>territory</td><td>optional</td><td><span class="badge skip">SKIP</span></td><td>context</td><td class="reason">Runs only when an active territory contract supplies a deterministic boundary.</td></tr>
+        <tr><td>design-tokens</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Token contract is checked from tracked source.</td></tr>
+        <tr><td>next-16-api</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Next 16 async API and convention contracts execute in the Node lane.</td></tr>
+        <tr><td>voice-discipline</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">NETRA voice fixtures and response constraints execute deterministically.</td></tr>
+        <tr><td>accessibility-floor</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Static accessibility fixtures plus browser-harness contracts run with pinned Chromium.</td></tr>
+        <tr><td>prototype-layer</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Production/prototype boundary is enforced from tracked paths.</td></tr>
+        <tr><td>prototype-production-diff</td><td>optional</td><td><span class="badge skip">SKIP</span></td><td>baseline</td><td class="reason">Compatibility slot remains explicit until an approved pixel baseline exists; it is not counted as required coverage.</td></tr>
+        <tr><td>prototype-runtime</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Runtime import and route leakage audit executes on every GitHub run.</td></tr>
+        <tr><td>soul-atom-drift</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Tracked soul snapshots are checked for drift.</td></tr>
+        <tr><td>font-chain-presence</td><td>optional</td><td><span class="badge skip">SKIP</span></td><td>embedded</td><td class="reason">The active font chain is embedded in generated output; this contextual rail is excluded from the required denominator.</td></tr>
+        <tr><td>html-first-spec-discipline</td><td>optional</td><td><span class="badge skip">SKIP</span></td><td>context</td><td class="reason">Runs when an HTML-first task specification is present.</td></tr>
+        <tr><td>axiom-gate-join-coverage</td><td>optional advisory</td><td><span class="badge advisory">FAIL</span></td><td>advisory</td><td class="reason">All 26 gate projections are green, but 6 overdue axioms still need explicit gate joins.</td></tr>
+        <tr><td>gauntlet-overlap-composition</td><td>optional advisory</td><td><span class="badge advisory">FAIL</span></td><td>advisory</td><td class="reason">Current baseline reading is 13/20; debt remains visible without weakening required CI.</td></tr>
+        <tr><td>gauntlet-min-legible-size</td><td>optional advisory</td><td><span class="badge advisory">FAIL</span></td><td>advisory</td><td class="reason">Current baseline reading is 473/601; debt remains visible without weakening required CI.</td></tr>
+        <tr><td>gauntlet-sub-pixel-detection</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Sub-pixel detector and fixtures execute in the required non-Node lane.</td></tr>
+        <tr><td>render-fidelity-vs-intent</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Committed render-intent manifest and fixtures execute deterministically.</td></tr>
+        <tr><td>ci-test-census</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Tracked executable files must be classified before the harness will pass.</td></tr>
+        <tr><td>console-security-contract</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Unauthenticated console shell, nested-route rewrite, auth probe, and cookie cleanup contracts execute in CI.</td></tr>
+        <tr><td>netra-contracts</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Gateway allowlist, request bounds, deterministic CI model, UI, and responsive contracts execute in CI.</td></tr>
+        <tr><td>permissions-nonempty</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Permission declarations may not collapse to an empty policy.</td></tr>
+        <tr><td>least-agency-config</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Agent capabilities are checked against least-agency configuration.</td></tr>
+        <tr><td>audit-ground-truth-observed</td><td>optional</td><td><span class="badge skip">SKIP</span></td><td>context</td><td class="reason">Runs only when an external observed witness is supplied; CI does not fabricate one.</td></tr>
+        <tr><td>audit-search-index-completeness</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Search-index coverage is verified against tracked public inputs.</td></tr>
+        <tr><td>single-source</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Duplicated source-of-truth mutations are rejected.</td></tr>
+        <tr><td>secret-leak-guard</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Tracked source and build inputs are scanned for secret leakage.</td></tr>
+        <tr><td>dev-clobber-guard</td><td>optional</td><td><span class="badge skip">SKIP</span></td><td>local context</td><td class="reason">Destructive local-process guard is fixture-tested but not allowed to manipulate arbitrary CI processes.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Executable sensor census</h2>
+  <div class="grid">
+    <section class="card">
+      <h3>Required lanes</h3>
+      <ul>
+        <li><strong>17 Node test files · 160 assertions passed.</strong></li>
+        <li><strong>34 required non-Node sensor files · 34 passed.</strong></li>
+        <li>Config validation reports <strong>70 executable files</strong>: 51 required plus 19 explicitly classified context/manual/deferred probes.</li>
+        <li><strong>0 candidate files.</strong> No deterministic CI-eligible executable remains blocked, unset, or silently skipped.</li>
+      </ul>
+    </section>
+    <section class="card">
+      <h3>Determinism and availability</h3>
+      <ul>
+        <li>Chromium is pinned and installed by GitHub Actions before browser contracts run.</li>
+        <li>The browser fixture owns a bounded loopback port and rejects an unrelated listener instead of accepting a false-positive server.</li>
+        <li>NETRA uses a deterministic fake model in CI; no provider credential or network response is required.</li>
+        <li>The production build passed with Next.js 16.3.3, 26 routes, and a 13-page Pagefind index.</li>
+      </ul>
+    </section>
+  </div>
+
+  <h2>Remaining advisory debt</h2>
+  <div class="callout warn">
+    <strong>Three optional quality probes remain red by design.</strong>
+    <p>They are reported, versioned, and excluded only from the required denominator: axiom/gate join coverage, overlap composition, and minimum legible size. Six other rails are context-bound skips with explicit prerequisites. None can suppress a required failure.</p>
+  </div>
+
+  <h2>Release evidence contract</h2>
+  <ul>
+    <li>The release is complete only when GitHub Actions reports <strong>success</strong> for the final main SHA.</li>
+    <li>The production Vercel deployment must report <strong>READY</strong> with Git metadata matching that same SHA.</li>
+    <li>BrowserOS production smoke then verifies public EN/TH routes, anonymous console isolation, and a live NETRA Gateway response.</li>
+    <li>The post-merge handoff records the immutable SHA, GitHub run, Vercel deployment, and production smoke evidence without changing this audited tree.</li>
+  </ul>
+
+  <footer>
+    Evidence sources: committed harness configuration and census, clean release-candidate output, BrowserOS production-build verification, and authenticated Vercel control-plane checks. No credentials, protected environment values, secrets, or personal data are included.
+  </footer>
+</main>
+</body>
+</html>

@@ -248,8 +248,8 @@ const QUB_CSS = `
 .qub-file-status.is-uploading  { color: var(--ink-soft); }
 .qub-file-status.is-processing { color: var(--accent-orange); }
 .qub-file-status.is-done       { color: var(--ink-primary); }
-.qub-file-status.is-failed     { color: #c0392b; }  /* semantic error — no token for red yet */
-.qub-file-status.is-warning    { color: #d68000; }  /* RAW large-file advisory */
+.qub-file-status.is-failed     { color: var(--status-error); }
+.qub-file-status.is-warning    { color: var(--status-warn); }
 
 .qub-file-action {
   flex-shrink: 0;
@@ -660,7 +660,7 @@ export function QuickUploadBar({ onUploadSuccess }: QuickUploadBarProps = {}) {
         {/* Failed-only state — no success link, just dismiss */}
         {allDone && !anySuccess && (
           <div className="qub-success" role="alert">
-            <span className="qub-success-label" style={{ color: '#c0392b' }}>upload failed</span>
+            <span className="qub-success-label" style={{ color: 'var(--status-error)' }}>upload failed</span>
             <button type="button" className="qub-dismiss" onClick={dismiss}>
               [ clear ]
             </button>

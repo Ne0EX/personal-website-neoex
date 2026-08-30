@@ -55,7 +55,7 @@ import {
 import { getAllPlacesFromStore } from '@/lib/store/reads'
 import { EntryEditor }         from '@/components/console/EntryEditor'
 import { ConsoleLogin }        from '@/components/console/ConsoleLogin'
-import { createSupabaseServerClient } from '@/lib/store/supabase/server'
+import { assertOwner } from '@/lib/server/auth'
 
 export const metadata: Metadata = {
   title: 'Worldline · Article Editor',
@@ -220,11 +220,10 @@ export default async function ArticleEditorPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  // S4: server-side auth gate (defence-in-depth behind proxy.ts choke point).
-  // Identical pattern to app/console/page.tsx — see that file for rationale.
-  const supabase = await createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  // Defence in depth behind proxy.ts: verify owner membership before any
+  // draft/admin lookup, not merely the presence of an authenticated session.
+  const auth = await assertOwner()
+  if (!auth.ok) {
     return <ConsoleLogin />
   }
 

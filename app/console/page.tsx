@@ -42,7 +42,7 @@ import { getAllArticles, getAllFiction, getAllPhotoSidecars, getAllRolls, getAll
 import { getAllPlaces, getPlaceContent } from '@/lib/content/places'
 import { ConsoleApp }   from '@/components/console/ConsoleApp'
 import { ConsoleLogin } from '@/components/console/ConsoleLogin'
-import { createSupabaseServerClient } from '@/lib/store/supabase/server'
+import { assertOwner } from '@/lib/server/auth'
 import type { ConsoleNode, ConsoleEdge, PlaceDTO } from '@/components/console/console-types'
 
 export const metadata: Metadata = {
@@ -72,14 +72,10 @@ function gridPosition(index: number): { x: number; y: number } {
 
 export default async function ConsolePage() {
   // S4: server-side auth gate (defence-in-depth behind proxy.ts choke point).
-  // getUser() validates the token with the Supabase Auth server — not just
-  // reading from cookie. An unauthenticated request renders ConsoleLogin
-  // instead of the console. The proxy.ts rewrite should prevent unauthenticated
-  // requests from reaching here, but this guard ensures correct behaviour even
-  // if a future routing change bypasses the proxy for this specific path.
-  const supabase = await createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  // Authentication is insufficient: verify private.owners membership before
+  // any admin read so an authenticated non-owner cannot load draft material.
+  const auth = await assertOwner()
+  if (!auth.ok) {
     return <ConsoleLogin />
   }
 

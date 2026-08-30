@@ -53,6 +53,36 @@ REMOVED=0
 KEPT=0
 CORRUPT=0
 
+parse_iso8601_epoch() {
+  local timestamp="$1"
+  local parsed=""
+
+  if parsed="$(date -u -d "$timestamp" +%s 2>/dev/null)"; then
+    printf '%s\n' "$parsed"
+    return 0
+  fi
+  if parsed="$(date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$timestamp" +%s 2>/dev/null)"; then
+    printf '%s\n' "$parsed"
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$timestamp" <<'PYEOF'
+import datetime
+import sys
+
+try:
+    value = datetime.datetime.fromisoformat(sys.argv[1].replace("Z", "+00:00"))
+    if value.tzinfo is None:
+        raise ValueError("timezone required")
+    print(int(value.timestamp()))
+except (TypeError, ValueError):
+    sys.exit(1)
+PYEOF
+    return $?
+  fi
+  return 1
+}
+
 for grant_file in "$GRANTS_DIR"/*.json; do
   [[ -f "$grant_file" ]] || continue
 
@@ -63,6 +93,26 @@ for grant_file in "$GRANTS_DIR"/*.json; do
     continue
   }
 
+  # Cleanup is destructive, so valid JSON is not enough: preserve any file
+  # that does not satisfy the documented grant schema for manual inspection.
+  if ! printf '%s' "$grant_json" | jq -e '
+    type == "object" and
+    (.grant_id | type == "string" and length > 0) and
+    (.request_id | type == "string" and length > 0) and
+    (.requester | type == "string" and length > 0) and
+    (.files_granted | type == "array" and length > 0 and all(.[]; type == "string" and length > 0)) and
+    (.scope_reason | type == "string") and
+    (.issued_at | type == "string" and length > 0) and
+    (.expires_at | type == "string" and length > 0) and
+    (.max_reads | type == "number" and . > 0 and floor == .) and
+    (.reads_consumed | type == "number" and . >= 0 and floor == .) and
+    (.nonce | type == "string" and length > 0)
+  ' >/dev/null 2>&1; then
+    echo "  [corrupt] $grant_file — invalid grant schema; skipping" | tee -a "$LOG" >&2
+    CORRUPT=$(( CORRUPT + 1 ))
+    continue
+  fi
+
   grant_id="$(echo "$grant_json"    | jq -r '.grant_id // "unknown"')"
   max_reads="$(echo "$grant_json"   | jq -r '.max_reads // 0')"
   consumed="$(echo "$grant_json"    | jq -r '.reads_consumed // 0')"
@@ -71,14 +121,13 @@ for grant_file in "$GRANTS_DIR"/*.json; do
   REMOVE_REASON=""
 
   # Check: expired?
-  if [[ -n "$expires_at" ]]; then
-    expires_epoch="$(date -u -d "$expires_at" +%s 2>/dev/null \
-      || date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$expires_at" +%s 2>/dev/null \
-      || python3 -c "import datetime; print(int(datetime.datetime.fromisoformat('${expires_at}'.replace('Z','+00:00')).timestamp()))" 2>/dev/null \
-      || echo 0)"
-    if [[ "$NOW_EPOCH" -ge "$expires_epoch" ]]; then
-      REMOVE_REASON="expired (expires_at=$expires_at)"
-    fi
+  if ! expires_epoch="$(parse_iso8601_epoch "$expires_at")"; then
+    echo "  [corrupt] $grant_file — invalid expires_at; skipping" | tee -a "$LOG" >&2
+    CORRUPT=$(( CORRUPT + 1 ))
+    continue
+  fi
+  if [[ "$NOW_EPOCH" -ge "$expires_epoch" ]]; then
+    REMOVE_REASON="expired (expires_at=$expires_at)"
   fi
 
   # Check: fully consumed?

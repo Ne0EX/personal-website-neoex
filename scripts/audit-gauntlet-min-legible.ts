@@ -77,6 +77,7 @@ interface ViewportResult {
   width: number;
   elements_checked: number;
   violations: ElementViolation[];
+  violations_omitted: number;
   coverage_ok: boolean;
 }
 
@@ -91,7 +92,7 @@ interface AuditOutput {
 async function main(): Promise<void> {
   let input: AuditInput;
   try {
-    const raw = readFileSync("/dev/stdin", "utf8").trim();
+    const raw = readFileSync(0, "utf8").trim();
     input = JSON.parse(raw);
   } catch (e) {
     process.stderr.write(`[audit-gauntlet-min-legible] ERROR reading stdin: ${e}\n`);
@@ -105,11 +106,11 @@ async function main(): Promise<void> {
 
   let chromium: unknown;
   try {
-    const pw = await import("playwright-core");
+    const pw = await import("playwright");
     chromium = pw.chromium;
   } catch {
     process.stderr.write(
-      `[audit-gauntlet-min-legible] WARN — playwright-core not available. Exit 3 (WARN).\n`
+      `[audit-gauntlet-min-legible] WARN — playwright not available. Exit 3 (WARN).\n`
     );
     process.exit(3);
   }
@@ -154,9 +155,14 @@ async function main(): Promise<void> {
           document.querySelectorAll(sel).forEach((el) => {
             if (seen.has(el)) return;
             seen.add(el);
+            if (el.closest('[aria-hidden="true"]')) return;
             const style = window.getComputedStyle(el);
             const rect = el.getBoundingClientRect();
-            if (rect.width === 0 && rect.height === 0) return; // invisible — skip
+            if (
+              (rect.width === 0 && rect.height === 0) ||
+              style.display === 'none' ||
+              style.visibility === 'hidden'
+            ) return; // invisible/decorative — skip
             const tag = el.tagName.toLowerCase();
             const id = el.id ? `#${el.id}` : "";
             const cls =
@@ -234,7 +240,8 @@ async function main(): Promise<void> {
       viewport: vp.name,
       width: vp.width,
       elements_checked: elements.length,
-      violations,
+      violations: verbose ? violations : violations.slice(0, 12),
+      violations_omitted: verbose ? 0 : Math.max(0, violations.length - 12),
       coverage_ok: coverageOk,
     });
 

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { animate, stagger } from "animejs";
+import { animate } from "animejs";
 import { DivergenceMeter } from "./DivergenceMeter";
 import { WorldlineGlobe } from "./WorldlineGlobe";
+import type { WorldlineStats } from "@/lib/worldline-stats";
 
 /**
  * HeroBlock — compact title strip above a full-width A.T.L.A.S. artifact.
@@ -16,16 +17,16 @@ import { WorldlineGlobe } from "./WorldlineGlobe";
  * The title is the "hook word" that enhances the aesthetic without competing
  * with the globe for space. ATLAS is the dominant artifact.
  */
-/** movable-alpha: alpha locus coords passed down from the server page. */
+/** movable-alpha: alpha locus coords + live content stats passed down from the server page. */
 interface HeroBlockProps {
   alphaCoord?: { lat: number; lon: number };
+  stats?: WorldlineStats | null;
 }
 
-export function HeroBlock({ alphaCoord }: HeroBlockProps = {}) {
+export function HeroBlock({ alphaCoord, stats }: HeroBlockProps = {}) {
   const tagRowRef = useRef<HTMLDivElement | null>(null);
   const titleRef = useRef<HTMLHeadingElement | null>(null);
   const subRef = useRef<HTMLParagraphElement | null>(null);
-  const stackRef = useRef<HTMLDivElement | null>(null);
   const atlasRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -46,11 +47,6 @@ export function HeroBlock({ alphaCoord }: HeroBlockProps = {}) {
       if (subRef.current) {
         subRef.current.style.opacity = "1";
         subRef.current.style.transform = "none";
-      }
-      if (stackRef.current) {
-        stackRef.current.querySelectorAll<HTMLSpanElement>(".hero-stack-item").forEach((el) => {
-          el.style.opacity = "1";
-        });
       }
       if (atlasRef.current) {
         // Reveal the atlas wrapper so WorldlineGlobe is visible.
@@ -77,14 +73,6 @@ export function HeroBlock({ alphaCoord }: HeroBlockProps = {}) {
         opacity: [0, 1], translateY: [4, 0], duration: 800, delay: 600, ease: "outCubic",
       });
     }
-    if (stackRef.current) {
-      const items = Array.from(
-        stackRef.current.querySelectorAll<HTMLSpanElement>(".hero-stack-item")
-      );
-      animate(items, {
-        opacity: [0, 1], duration: 600, delay: stagger(80, { start: 800 }), ease: "outCubic",
-      });
-    }
     if (atlasRef.current) {
       animate(atlasRef.current, {
         opacity: [0, 1], duration: 1000, delay: 400, ease: "outCubic",
@@ -96,13 +84,13 @@ export function HeroBlock({ alphaCoord }: HeroBlockProps = {}) {
     <section
       id="hero"
       data-section="hero"
-      className="relative z-[3] px-10 pt-10 pb-12 section-rule overflow-hidden"
+      className="relative z-[3] px-10 pt-6 pb-7 section-rule overflow-hidden"
     >
       {/* ============= TOP STRIP — compact, single horizontal band ============= */}
-      <div className="grid items-end gap-x-10 gap-y-5 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto_auto] mb-7">
+      <div className="grid items-end gap-x-10 gap-y-5 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto] mb-4">
         {/* LEFT — tagrow + italic title (single line) */}
         <div className="min-w-0">
-          <div ref={tagRowRef} className="flex items-center gap-3 t-meta mb-3" style={{ opacity: 0 }}>
+          <div ref={tagRowRef} className="flex items-center gap-3 t-meta mb-2" style={{ opacity: 0 }}>
             <span className="inline-block w-6 h-px bg-[var(--accent-orange)]" />
             <span>FILE — 000 / GENESIS</span>
             <span className="text-[var(--ink-faint)]">·</span>
@@ -119,44 +107,23 @@ export function HeroBlock({ alphaCoord }: HeroBlockProps = {}) {
 
           <p
             ref={subRef}
-            className="t-display mt-2.5 max-w-[560px] text-[12.5px] leading-[1.55] text-[var(--ink-body)]"
+            className="t-display mt-2 max-w-[560px] text-[12.5px] leading-[1.55] text-[var(--ink-body)]"
             style={{ opacity: 0, fontStyle: "italic" }}
           >
-            A digital garden — drafts, half-formed theories, contour maps of coffee, code, narrative,
-            and the slow architecture of taste. Not a blog. A laboratory.
+            A digital garden of coffee, code, narrative, and taste — in progress, in the open. Not a blog. A laboratory.
           </p>
         </div>
 
-        {/* MIDDLE — counts stack (compact) */}
-        <div
-          ref={stackRef}
-          className="hidden lg:flex items-end gap-7 t-meta tracking-[0.18em]"
-        >
-          <div className="flex flex-col gap-1">
-            <span className="hero-stack-item opacity-0 text-[var(--accent-orange)] text-[14px] font-medium" style={{ fontFamily: "var(--font-type)" }}>047</span>
-            <span className="hero-stack-item opacity-0 text-[8.5px]">ENTRIES</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="hero-stack-item opacity-0 text-[var(--ink-primary)] text-[14px] font-medium" style={{ fontFamily: "var(--font-type)" }}>012</span>
-            <span className="hero-stack-item opacity-0 text-[8.5px]">ACTIVE</span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="hero-stack-item opacity-0 text-[var(--ink-primary)] text-[14px] font-medium" style={{ fontFamily: "var(--font-type)" }}>∞</span>
-            <span className="hero-stack-item opacity-0 text-[8.5px]">BRANCHES</span>
-          </div>
-        </div>
-
-        {/* RIGHT — compact divergence (just label + value, single row) */}
-        <div className="hidden lg:flex flex-col items-end gap-2 t-meta">
-          <div className="text-[8px] tracking-[0.32em] text-[var(--ink-faint)]">DIVERGENCE</div>
+        {/* RIGHT — compact divergence panel (focal masthead instrument) */}
+        <div className="hidden lg:flex flex-col items-end t-meta">
           <DivergenceMeter size="sm" compact />
         </div>
       </div>
 
       {/* ============= ATLAS — full-width artifact ============= */}
       <div ref={atlasRef} style={{ opacity: 0 }}>
-        {/* movable-alpha: server-fetched alpha locus passed to the globe */}
-        <WorldlineGlobe alphaCoord={alphaCoord} />
+        {/* movable-alpha: server-fetched alpha locus + live content stats passed to the globe */}
+        <WorldlineGlobe alphaCoord={alphaCoord} stats={stats} />
       </div>
     </section>
   );

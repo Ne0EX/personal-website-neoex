@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # .claude/hooks/harness-check.sh
 # Usage: bash .claude/hooks/harness-check.sh [--changed-files <file-list>]
+#        bash .claude/hooks/harness-check.sh --ci
 #
 # A1.3 SKIP-IS-RED: a [skip] on a rail whose applies_to matches the changed
 # file set is now a FAIL, not a silent pass. A non-executable or missing check
@@ -11,6 +12,17 @@
 #   applies_to patterns. When absent, ALL rails are treated as applicable (safe
 #   default: no false-negative from a missing file list).
 set -euo pipefail
+
+# CI has no task identity or PreToolUse event stream. Delegate explicitly to
+# the config-driven census instead of blindly invoking arg-requiring hooks.
+if [[ "${1:-}" == "--ci" ]]; then
+  if [[ "$#" -ne 1 ]]; then
+    echo "harness: --ci does not accept additional arguments" >&2
+    exit 2
+  fi
+  REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+  exec bash "${REPO_ROOT}/scripts/audit-harness-ci.sh"
+fi
 
 CONFIG=".harness/worldline-harness.config.json"
 LOG_DIR=".claude/hook-logs"

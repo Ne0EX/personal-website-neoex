@@ -44,9 +44,10 @@
  *
  * IDEMPOTENT
  * ----------
- * Pages already containing a real HTML data-pagefind-body attribute (Case A
- * or genuine SSR output) are left untouched. The script only injects when no
- * real HTML attribute is found.
+ * Pages already containing a usable, visible HTML data-pagefind-body attribute
+ * (genuine SSR output) are left untouched. Client-rendered entry shells can
+ * contain a real attribute too, but with aria-hidden/display:none; those
+ * placeholders are replaced with a crawlable sidecar.
  *
  * AUDIT GATE COMPATIBILITY
  * ------------------------
@@ -73,6 +74,13 @@
 
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
+import {
+  localizedSidecarKey,
+  localizedSidecarRows,
+  sidecarLanguage,
+  splitLocalizedHtmlPath,
+  type SidecarLanguage,
+} from './pagefind-sidecar-routing'
 
 // ---------------------------------------------------------------------------
 // Types (mirrors velite schema fields we need — no import from .velite to
@@ -80,6 +88,7 @@ import path from 'node:path'
 // ---------------------------------------------------------------------------
 
 interface ArticleRecord {
+  lang: SidecarLanguage
   fileNum: string
   title: string
   date: string       // YYYY.MM.DD
@@ -96,6 +105,7 @@ interface ArticleRecord {
 }
 
 interface FictionRecord {
+  lang: SidecarLanguage
   slug: string
   title: string
   date: string
@@ -118,6 +128,7 @@ interface PhotoRecord {
 }
 
 interface PhotoSidecarRecord {
+  lang: SidecarLanguage
   roll: string
   id: string
   caption?: string
@@ -270,7 +281,7 @@ function homeSidecar(): string {
  *   entry route result. Each entry title is injected at weight 3; domain tags
  *   carry a pagefind-filter so domain-filtered search works across the ledger.
  *
- * Idempotent: the caller already guards with hasRealPagefindBody() before calling
+ * Idempotent: the caller already guards with hasUsablePagefindBody() before calling
  *   this function. The sidecar itself writes no HTML state.
  *
  * The visually-hidden pattern (1×1px clip) is identical to other sidecar blocks.
@@ -320,17 +331,81 @@ function archiveSidecar(
 // ---------------------------------------------------------------------------
 // Real HTML attribute detector
 // A real HTML element has data-pagefind-body as an attribute in an opening tag,
-// not inside a <script> JSON payload.
+// not inside a <script> JSON payload. A real attribute is not necessarily
+// usable: client-rendered entry shells emit an aria-hidden/display:none body.
 // ---------------------------------------------------------------------------
 
-/** Returns true if the HTML content contains a REAL HTML data-pagefind-body attribute. */
-function hasRealPagefindBody(html: string): boolean {
-  // Match any HTML opening tag containing data-pagefind-body as an attribute.
-  // Excludes occurrences inside <script>...</script> blocks.
+interface PagefindBodyTag {
+  start: number
+  end: number
+  text: string
+}
 
-  // First, strip script tags to avoid false positives from RSC JSON payload.
-  const withoutScripts = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
-  return /<[a-zA-Z][^>]*?\bdata-pagefind-body\b[^>]*?>/i.test(withoutScripts)
+/** Find real HTML opening tags, excluding Next.js RSC script payloads. */
+function findPagefindBodyTags(html: string): PagefindBodyTag[] {
+  // Replace script contents with same-length whitespace so match offsets still
+  // refer to the original HTML when a stale hidden attribute is removed.
+  const withoutScripts = html.replace(
+    /<script\b[^>]*>[\s\S]*?<\/script>/gi,
+    (script) => ' '.repeat(script.length),
+  )
+  const tags: PagefindBodyTag[] = []
+  const openingTag = /<[a-zA-Z][^>]*>/g
+
+  for (const match of withoutScripts.matchAll(openingTag)) {
+    const text = match[0]
+    if (/\bdata-pagefind-body\b/i.test(text)) {
+      tags.push({ start: match.index ?? 0, end: (match.index ?? 0) + text.length, text })
+    }
+  }
+
+  return tags
+}
+
+/** Return CSS/ARIA reasons why a pagefind body is inaccessible to the crawler. */
+function hiddenPagefindBodyReasons(tag: string): string[] {
+  const reasons: string[] = []
+  const style = tag.match(/\bstyle\s*=\s*(?:"([^"]*)"|'([^']*)')/i)?.[1]
+    ?? tag.match(/\bstyle\s*=\s*([^\s>]+)/i)?.[1]
+    ?? ''
+  const lowerStyle = style.toLowerCase()
+
+  const ariaHidden = tag.match(
+    /\baria-hidden(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/i,
+  )
+  const ariaHiddenValue = ariaHidden?.[1] ?? ariaHidden?.[2] ?? ariaHidden?.[3] ?? 'true'
+  if (ariaHidden && ariaHiddenValue.toLowerCase() !== 'false') reasons.push('aria-hidden')
+  if (/\bhidden(?:\s*=\s*(?:""|hidden|true|'true'))?(?:\s|\/?>)/i.test(tag)) {
+    reasons.push('hidden')
+  }
+  if (/display\s*:\s*none/i.test(lowerStyle)) reasons.push('display:none')
+  if (/visibility\s*:\s*hidden/i.test(lowerStyle)) reasons.push('visibility:hidden')
+  if (/width\s*:\s*0(?:px|em|rem|vw|%|ch)?(?:\b|;|\s)/i.test(lowerStyle)) reasons.push('width:0')
+  if (/height\s*:\s*0(?:px|em|rem|vh|%|ch)?(?:\b|;|\s)/i.test(lowerStyle)) reasons.push('height:0')
+
+  return reasons
+}
+
+/** Returns true if the HTML contains a usable, visible static pagefind body. */
+function hasUsablePagefindBody(html: string): boolean {
+  return findPagefindBodyTags(html).some((tag) => hiddenPagefindBodyReasons(tag.text).length === 0)
+}
+
+/** Remove a stale hidden marker before adding the replacement sidecar. */
+function removeHiddenPagefindBodyMarkers(html: string): string {
+  const tags = findPagefindBodyTags(html)
+  let result = html
+
+  for (const tag of tags.reverse()) {
+    if (hiddenPagefindBodyReasons(tag.text).length === 0) continue
+    const withoutMarker = tag.text.replace(
+      /\s+data-pagefind-body(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/i,
+      '',
+    )
+    result = result.slice(0, tag.start) + withoutMarker + result.slice(tag.end)
+  }
+
+  return result
 }
 
 // ---------------------------------------------------------------------------
@@ -406,7 +481,7 @@ async function main(): Promise<void> {
   }
 
   const ENTRY_COLS = [
-    'kind', 'slug', 'status', 'title', 'date', 'iso_date', 'domain', 'tags',
+    'kind', 'slug', 'status', 'title', 'lang', 'date', 'iso_date', 'domain', 'tags',
     'summary', 'served_coords', 'share_location', 'patches', 'worldline_links',
     'maturity', 'reading_time', 'roll', 'photo_id', 'caption',
   ].join(',')
@@ -420,6 +495,7 @@ async function main(): Promise<void> {
 
   // DL1 mapping: served status = maturity
   const articles: ArticleRecord[] = rawArticles.map((r) => ({
+    lang: sidecarLanguage(r.lang),
     fileNum: r.slug as string,
     title: (r.title as string) ?? '',
     date: r.date as string,
@@ -435,6 +511,7 @@ async function main(): Promise<void> {
   }))
 
   const fictions: FictionRecord[] = rawFiction.map((r) => ({
+    lang: sidecarLanguage(r.lang),
     slug: r.slug as string,
     title: (r.title as string) ?? '',
     date: r.date as string,
@@ -445,6 +522,7 @@ async function main(): Promise<void> {
   }))
 
   const photoSidecars: PhotoSidecarRecord[] = rawPhotos.map((r) => ({
+    lang: sidecarLanguage(r.lang),
     roll: r.roll as string,
     id: r.photo_id as string,
     caption: r.caption as string | undefined,
@@ -458,19 +536,26 @@ async function main(): Promise<void> {
   log(`loaded from store: ${articles.length} articles, ${fictions.length} fiction, ${photoSidecars.length} photo sidecars (published only via RLS)`)
 
   // Build lookup maps
-  const articleByFileNum = new Map(articles.map(a => [a.fileNum, a]))
-  const fictionBySlug    = new Map(fictions.map(f => [f.slug, f]))
+  const articleByFileNum = new Map(
+    articles.map(a => [localizedSidecarKey(a.lang, a.fileNum), a]),
+  )
+  const fictionBySlug = new Map(
+    fictions.map(f => [localizedSidecarKey(f.lang, f.slug), f]),
+  )
 
   // Group sidecars by roll
   const sidecarsByRoll = new Map<string, PhotoSidecarRecord[]>()
   for (const s of photoSidecars) {
-    const arr = sidecarsByRoll.get(s.roll) ?? []
+    const key = localizedSidecarKey(s.lang, s.roll)
+    const arr = sidecarsByRoll.get(key) ?? []
     arr.push(s)
-    sidecarsByRoll.set(s.roll, arr)
+    sidecarsByRoll.set(key, arr)
   }
 
   // Sidecar lookup by roll+id
-  const sidecarByKey = new Map(photoSidecars.map(s => [`${s.roll}/${s.id}`, s]))
+  const sidecarByKey = new Map(
+    photoSidecars.map(s => [localizedSidecarKey(s.lang, s.roll, s.id), s]),
+  )
 
   log(`loaded: ${articles.length} articles, ${fictions.length} fiction, ${photoSidecars.length} photo sidecars`)
 
@@ -509,9 +594,10 @@ async function main(): Promise<void> {
     const relPath = path.relative(SITE_DIR, htmlPath)
     const html = await fs.readFile(htmlPath, 'utf-8')
 
-    // Skip if already has a real HTML data-pagefind-body (idempotent)
-    if (hasRealPagefindBody(html)) {
-      logv(`skip (already has real pagefind-body): ${relPath}`)
+    // Skip only if a usable static body already exists (idempotent). A hidden
+    // client-rendered placeholder must not suppress sidecar injection.
+    if (hasUsablePagefindBody(html)) {
+      logv(`skip (already has usable pagefind-body): ${relPath}`)
       skipped++
       continue
     }
@@ -519,22 +605,24 @@ async function main(): Promise<void> {
     // Determine what content to inject based on path
     let sidecar: string | null = null
 
-    // Normalise: strip leading path separator
-    const parts = relPath.replace(/\\/g, '/').split('/')
+    // Preserve the served locale while normalising the route path. Translated
+    // siblings share slugs, so locale must remain part of every lookup key.
+    const { lang: pageLang, routeParts } = splitLocalizedHtmlPath(relPath)
 
-    // parts breakdown for path 'a/b/c.html': ['a', 'b', 'c.html']
-    // parts.length === 1: 'index.html'
-    // parts.length === 2: 'articles/000.html', 'fiction/slug.html', 'photos/roll.html'
-    // parts.length === 3: 'photos/roll/DSCF0001.html'
+    // routeParts breakdown for path 'a/b/c.html': ['a', 'b', 'c.html']
+    // routeParts.length === 1: 'index.html' or 'archive.html'
+    // routeParts.length === 2: 'articles/000.html', 'fiction/slug.html',
+    //   'photos/roll.html'
+    // routeParts.length === 3: 'photos/roll/DSCF0001.html'
 
-    if (relPath === 'index.html') {
+    if (routeParts.length === 1 && routeParts[0] === 'index.html') {
       // Home page
       sidecar = homeSidecar()
       logv(`home: ${relPath}`)
-    } else if (parts[0] === 'articles' && parts.length === 2) {
+    } else if (routeParts[0] === 'articles' && routeParts.length === 2) {
       // articles/<fileNum>.html
-      const fileNum = path.basename(parts[1], '.html')
-      const article = articleByFileNum.get(fileNum)
+      const fileNum = path.basename(routeParts[1], '.html')
+      const article = articleByFileNum.get(localizedSidecarKey(pageLang, fileNum))
       if (article) {
         sidecar = articleSidecar(article)
         logv(`article ${fileNum}: ${article.title}`)
@@ -542,10 +630,10 @@ async function main(): Promise<void> {
         logv(`unmatched article: ${relPath}`)
         unmatched++
       }
-    } else if (parts[0] === 'fiction' && parts.length === 2) {
+    } else if (routeParts[0] === 'fiction' && routeParts.length === 2) {
       // fiction/<slug>.html
-      const slug = path.basename(parts[1], '.html')
-      const fiction = fictionBySlug.get(slug)
+      const slug = path.basename(routeParts[1], '.html')
+      const fiction = fictionBySlug.get(localizedSidecarKey(pageLang, slug))
       if (fiction) {
         sidecar = fictionSidecar(fiction)
         logv(`fiction ${slug}: ${fiction.title}`)
@@ -553,17 +641,17 @@ async function main(): Promise<void> {
         logv(`unmatched fiction: ${relPath}`)
         unmatched++
       }
-    } else if (parts[0] === 'photos' && parts.length === 2) {
+    } else if (routeParts[0] === 'photos' && routeParts.length === 2) {
       // photos/<roll>.html — roll index
-      const roll = path.basename(parts[1], '.html')
-      const rollSidecars = sidecarsByRoll.get(roll) ?? []
+      const roll = path.basename(routeParts[1], '.html')
+      const rollSidecars = sidecarsByRoll.get(localizedSidecarKey(pageLang, roll)) ?? []
       sidecar = rollIndexSidecar(roll, rollSidecars)
       logv(`roll index ${roll}: ${rollSidecars.length} frames`)
-    } else if (parts[0] === 'photos' && parts.length === 3) {
+    } else if (routeParts[0] === 'photos' && routeParts.length === 3) {
       // photos/<roll>/<id>.html — photo entry
-      const roll = parts[1]
-      const id   = path.basename(parts[2], '.html')
-      const key  = `${roll}/${id}`
+      const roll = routeParts[1]
+      const id   = path.basename(routeParts[2], '.html')
+      const key = localizedSidecarKey(pageLang, roll, id)
       const sc   = sidecarByKey.get(key)
       if (sc) {
         sidecar = photoSidecar(sc)
@@ -575,13 +663,16 @@ async function main(): Promise<void> {
     } else if (
       // archive/index.html  — Next.js renders /archive as archive/index.html
       // OR archive.html — depending on Next.js output mode
-      (parts[0] === 'archive' && parts.length === 2 && parts[1] === 'index.html') ||
-      (parts[0] === 'archive' && parts.length === 1) ||
+      (routeParts[0] === 'archive' && routeParts.length === 2 && routeParts[1] === 'index.html') ||
+      (routeParts[0] === 'archive' && routeParts.length === 1) ||
       relPath === 'archive.html'
     ) {
       // /archive route — cross-stratum ledger (docs/design/21-archive-route.md §7.3)
-      sidecar = archiveSidecar(articles, fictions, photoSidecars)
-      logv(`archive: ${articles.length} articles, ${fictions.length} fiction, ${photoSidecars.length} photos injected`)
+      const localizedArticles = localizedSidecarRows(articles, pageLang)
+      const localizedFictions = localizedSidecarRows(fictions, pageLang)
+      const localizedPhotos = localizedSidecarRows(photoSidecars, pageLang)
+      sidecar = archiveSidecar(localizedArticles, localizedFictions, localizedPhotos)
+      logv(`archive (${pageLang}): ${localizedArticles.length} articles, ${localizedFictions.length} fiction, ${localizedPhotos.length} photos injected`)
     } else {
       logv(`unrecognised path pattern: ${relPath}`)
       unmatched++
@@ -589,7 +680,7 @@ async function main(): Promise<void> {
 
     if (sidecar === null) continue
 
-    const modified = injectSidecar(html, sidecar)
+    const modified = injectSidecar(removeHiddenPagefindBodyMarkers(html), sidecar)
 
     if (DRY_RUN) {
       logv(`[dry-run] would write: ${relPath}`)

@@ -38,7 +38,7 @@ LOG="$LOG_DIR/${TASK_ID}--access-log.log"
 # --------------------------------------------------------------------------
 # Determine input mode
 # --------------------------------------------------------------------------
-if [[ "$#" -ge 7 ]]; then
+if [[ "$#" -eq 7 ]]; then
   # Mode B: explicit arguments
   TIMESTAMP="$1"
   AGENT="$2"
@@ -51,15 +51,43 @@ if [[ "$#" -ge 7 ]]; then
 elif [[ ! -t 0 ]]; then
   # Mode A: piped event line — read from stdin
   EVENT_LINE="$(cat)"
-  # Parse fields from the piped line for structured access
-  TIMESTAMP="$(echo "$EVENT_LINE" | cut -d'·' -f1 | xargs)"
-  AGENT="$(echo "$EVENT_LINE" | cut -d'·' -f2 | xargs)"
-  OP="$(echo "$EVENT_LINE" | cut -d'·' -f3 | xargs)"
-  PATH_ARG="$(echo "$EVENT_LINE" | cut -d'·' -f4 | xargs)"
-  GRANT_RAW="$(echo "$EVENT_LINE" | cut -d'·' -f5 | xargs)"
+  # Parse with shell string operations. BSD cut accepts only single-byte
+  # delimiters, so using the multibyte middle-dot as cut -d is not portable.
+  REMAINING="$EVENT_LINE"
+  FIELDS=()
+  INVALID_EVENT=false
+  field_index=0
+  while [[ "$field_index" -lt 6 ]]; do
+    if [[ "$REMAINING" != *" · "* ]]; then
+      INVALID_EVENT=true
+      break
+    fi
+    FIELDS[$field_index]="${REMAINING%% · *}"
+    REMAINING="${REMAINING#* · }"
+    field_index=$(( field_index + 1 ))
+  done
+
+  if [[ "$INVALID_EVENT" == "true" ]] || [[ -z "$REMAINING" ]] \
+    || [[ "$REMAINING" == *" · "* ]] || [[ "$EVENT_LINE" == *$'\n'* ]]; then
+    echo "access-log-beta: usage error — piped event must contain exactly seven fields" >&2
+    exit 0
+  fi
+
+  TIMESTAMP="${FIELDS[0]}"
+  AGENT="${FIELDS[1]}"
+  OP="${FIELDS[2]}"
+  PATH_ARG="${FIELDS[3]}"
+  GRANT_RAW="${FIELDS[4]}"
   GRANT_ID="${GRANT_RAW#grant#}"
-  TASK_ARG="$(echo "$EVENT_LINE" | cut -d'·' -f6 | xargs)"
-  VERDICT="$(echo "$EVENT_LINE" | cut -d'·' -f7 | xargs)"
+  TASK_ARG="${FIELDS[5]}"
+  VERDICT="$REMAINING"
+
+  for field in "$TIMESTAMP" "$AGENT" "$OP" "$PATH_ARG" "$GRANT_RAW" "$TASK_ARG" "$VERDICT"; do
+    if [[ -z "$field" ]]; then
+      echo "access-log-beta: usage error — piped event fields must be non-empty" >&2
+      exit 0
+    fi
+  done
 else
   echo "access-log-beta: usage error — provide 7 args or pipe an event line" >&2
   exit 0  # non-blocking: logging failure doesn't stop the gate

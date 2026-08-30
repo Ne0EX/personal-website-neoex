@@ -5,6 +5,10 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // React-compiler-era hook rules (set-state-in-effect / refs / immutability)
+  // fire on this repo's deliberate ref-mirroring + mount-sync patterns. They
+  // are real signals but not regressions — surface them as warnings, not
+  // gate-breaking errors, until the components are restructured wholesale.
   {
     rules: {
       "react-hooks/set-state-in-effect": "warn",
@@ -21,6 +25,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored search-highlight runtime emitted by pagefind — bundled third-
+    // party JS, not project source; linting it is a false-red on every run:
+    "public/pagefind/**",
     // Harness-runtime paths — worktrees contain full Next.js builds that
     // ESLint would otherwise scan and emit errors for:
     ".claude/worktrees/**",
@@ -39,9 +46,6 @@ const eslintConfig = defineConfig([
     // Factory dashboard — vendored tracker prototype (browser-global React UMD,
     // no bundler); verified by browser tour, not the production lint graph:
     "tools/factory/**",
-    // CLI automation scripts and test suites (verified independently):
-    "scripts/**",
-    "tests/**",
     // Exports and template directories may contain generated output:
     ".claude/exports/**",
     ".claude/beta-templates/**",

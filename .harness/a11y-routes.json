@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "owner": "Algol · α-VER-06",
+  "policy": "Every route is public, deterministic from committed build inputs, and scanned with axe-core WCAG A/AA against a production Next server.",
+  "routes": [
+    { "kind": "home", "path": "/" },
+    { "kind": "archive", "path": "/archive" },
+    { "kind": "fiction", "path": "/fiction/transmission-001" },
+    { "kind": "photos-index", "path": "/photos" },
+    { "kind": "photo-roll", "path": "/photos/2026-05-bangkok" },
+    { "kind": "photo-entry", "path": "/photos/2026-05-bangkok/DSCF0004" }
+  ]
+}

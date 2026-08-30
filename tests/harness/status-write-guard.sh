@@ -154,10 +154,15 @@ STATUS_HEAD_LINES=$(git show HEAD:"docs/team/STATUS.md" 2>/dev/null | wc -l | tr
 run_guard_test() {
   local test_name="$1" agent="$2" task_id="$3" expected_exit="$4" delta_lines="$5"
 
+  local recipient="polaris"
+  if [[ "$agent" == "polaris" ]]; then
+    recipient="algol"
+  fi
+
   local sig_dir="$REPO_ROOT/.claude/signatures"
   local sig_file="$sig_dir/${task_id}--${agent}.json"
   local handoff_dir="$REPO_ROOT/.claude/handoffs/from-${agent}"
-  local handoff_file="$handoff_dir/${task_id}--to-polaris.md"
+  local handoff_file="$handoff_dir/${task_id}--to-${recipient}.md"
 
   mkdir -p "$sig_dir" "$handoff_dir"
   make_sig "$sig_file" "$agent" "$task_id" "$delta_lines"
@@ -183,7 +188,7 @@ for i in range(n):
 
   # Run the hook; capture exit code
   local actual_exit=0
-  WL_AGENT="$agent" bash "$HOOK" "$task_id" polaris 2>/dev/null || actual_exit=$?
+  WL_AGENT="$agent" bash "$HOOK" "$task_id" "$recipient" 2>/dev/null || actual_exit=$?
 
   # Restore STATUS.md
   cp "$backup_status" "$real_status"

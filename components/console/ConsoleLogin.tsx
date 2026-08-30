@@ -63,7 +63,7 @@ export function ConsoleLogin() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#0a0a0a',
+        background: 'var(--console-ground)',
         fontFamily: '"JetBrains Mono", "Courier New", monospace',
       }}
     >

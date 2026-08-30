@@ -673,8 +673,14 @@ AUDIT_INPUT=$(jq -nc \
   --argjson verbose "$([[ "${VERBOSE}" == "--verbose" ]] && echo true || echo false)" \
   '{manifest_path: $manifest, gallery_path: $gallery, token_source: $token_source, verbose: $verbose}')
 
-AUDIT_OUTPUT=$(echo "${AUDIT_INPUT}" | npx tsx "${TS_AUDIT}" 2>>"${LOG_FILE}")
-AUDIT_EXIT=$?
+# `set -e` must not abort at the command substitution: the TypeScript audit's
+# structured violation payload is the evidence needed to report a real FAIL.
+AUDIT_EXIT=0
+if AUDIT_OUTPUT=$(printf '%s\n' "${AUDIT_INPUT}" | npx tsx "${TS_AUDIT}" 2>>"${LOG_FILE}"); then
+  AUDIT_EXIT=0
+else
+  AUDIT_EXIT=$?
+fi
 
 echo "${AUDIT_OUTPUT}" >> "${LOG_FILE}"
 

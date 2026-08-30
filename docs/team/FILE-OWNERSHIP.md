@@ -26,6 +26,8 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 - `docs/team/WORKFLOW-*.md` (workflow protocol docs — added 2026-05-26 for WORKFLOW-HTML-FIRST-SPEC.md)
 - `docs/team/FILE-OWNERSHIP.md`
 - `docs/team/STATUS.md`
+- `PRODUCT.md`
+- `.impeccable/**`
 - `docs/team/POSTMORTEMS/**`
 - `docs/team/RETRO-*.md`
 
@@ -39,6 +41,7 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 - `app/**/*.ts` (page-level utilities only — server actions get a `// server-action: altair` comment marker)
 - `components/**/*.tsx`
 - `components/**/*.ts`
+- `components/**/*.css` (component-scoped production styles; global token definitions remain Betelgeuse territory)
 - `**/*.module.css` (co-located with components; Tailwind preferred)
 - `lib/client-state/**` (if/when adopted)
 - `tools/factory/**`

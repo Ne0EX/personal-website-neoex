@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useThemeMode, type ThemeMode } from "@/lib/useThemeMode";
+import { formatWorldlineCount, type WorldlineStats } from "@/lib/worldline-stats";
 // Palette shared with Globe.tsx — single source of truth (lib/globe-palettes.ts).
 // Extracted 2026-06-22 (α-SUR-01 globe-component task). Behavior unchanged.
 import { type GlobePalette, GLOBE_PALETTES } from "@/lib/globe-palettes";
@@ -85,6 +86,9 @@ const GLOBE_RADIUS = 1;
 // Token source: app/globals.css line 41–42 + branching spec §9.3.
 const SITE_ALPHA = 1.130426;           // observer α — spec §4.3 / Procyon SITE_ALPHA
 const NEX_SHELL_R = GLOBE_RADIUS * 1.18; // orbital shell radius — ontology §4.2
+// NeX possibility-field ray count — single source of truth for the rendered rays
+// AND the foot label / NETRA voice, so the readout never drifts from the scene.
+const NEX_RAY_COUNT = 48;
 // Dashed tendril: 0.5px stroke, alpha 0.18 — spec §4.2 / §9.2
 const TENDRIL_ALPHA_BASE = 0.18;
 const TENDRIL_ALPHA_APEX = 0.22;       // breathing apex — spec §9.2
@@ -304,7 +308,7 @@ const STRATA: Record<StratumKey, Stratum> = {
     netraCoord: "—",
     netraRange: "3.10",
     voice:
-      "possibility shells, 247 rays emitting outward. hypotheses accrete here before they patch into the archive.",
+      `possibility shells, ${NEX_RAY_COUNT} rays emitting outward. hypotheses accrete here before they patch into the archive.`,
     hudCam: "WIDE · POSSIBILITY",
     hudRadius: "1.48",
     hudDepth: "+0.48",
@@ -349,7 +353,7 @@ const STRATA: Record<StratumKey, Stratum> = {
     netraCoord: `${ALPHA_LAT_FALLBACK.toFixed(2)}°N, ${ALPHA_LON_FALLBACK.toFixed(2)}°E`,
     netraRange: "1.42",
     voice:
-      "surface archive · 047 patches anchored. α holds the observer locus; the rest are repaired memories at real coordinates.",
+      "surface archive · patches anchored at real coordinates. α holds the observer locus; the rest are repaired memories.",
     hudCam: "SURFACE · α",
     hudRadius: "1.00",
     hudDepth: "−0.05",
@@ -799,8 +803,8 @@ function buildScene(
   const raysGroup = new THREE.Group();
   nexField.add(raysGroup);
   const rayMat = new THREE.LineBasicMaterial({ color: palette.ink, transparent: true, opacity: 0.35 * palette.orbitOpacityScale });
-  for (let i = 0; i < 48; i++) {
-    const phi = Math.acos(1 - 2 * ((i + 0.5) / 48));
+  for (let i = 0; i < NEX_RAY_COUNT; i++) {
+    const phi = Math.acos(1 - 2 * ((i + 0.5) / NEX_RAY_COUNT));
     const theta = Math.PI * (1 + Math.sqrt(5)) * i;
     const dx = Math.sin(phi) * Math.cos(theta);
     const dy = Math.cos(phi);
@@ -951,13 +955,19 @@ function buildScene(
  * the places table (is_alpha=true). Falls back to Bangkok if omitted. */
 interface WorldlineGlobeProps {
   alphaCoord?: { lat: number; lon: number };
+  /** Live content counts from getWorldlineStats() — passed from the server page. */
+  stats?: WorldlineStats | null;
 }
 
-export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
+export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) {
   // Resolve effective alpha coords — data-driven from prop, fallback to Bangkok.
   // movable-alpha: these values replace the former ALPHA_LAT / ALPHA_LON constants.
   const alphaLat = alphaCoord?.lat ?? ALPHA_LAT_FALLBACK;
   const alphaLon = alphaCoord?.lon ?? ALPHA_LON_FALLBACK;
+
+  // A real zero remains 000; an unavailable server read remains visibly unknown.
+  const surveyed = formatWorldlineCount(stats?.surveyed);
+  const activeCount = formatWorldlineCount(stats?.active);
 
   // Stable ref so the once-bound THREE effect closure can read the live alpha
   // without going stale across renders (the prop won't change after mount, but
@@ -1240,7 +1250,10 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
 
   // Reduced-motion preference — read once in useEffect, stable for session.
   // Per spec §10.2: no fade animations, instant alpha, no breathing.
+  // Mirrored as state so render-time consumers (PlaceFrontDoorPanel) get the
+  // post-mount value without reading refs during render (react-hooks/refs).
   const reducedMotionRef = useRef(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
   // Live scene refs — set inside the THREE setup effect so the place-node
   // build/recolor effect (which depends on async data + selection) can reach
@@ -1282,9 +1295,11 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
 
     // Hydration-safe reduced-motion read — inside useEffect, not during render.
     // Per AGENTS.md quality bar: check prefers-reduced-motion in useEffect only.
-    reducedMotionRef.current =
+    const prefersReducedMotion =
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    reducedMotionRef.current = prefersReducedMotion;
+    setReducedMotion(prefersReducedMotion);
 
     // movable-alpha: pass current alpha coords into scene construction so the
     // observer α ring, the worldline arc, and camera framing all start at the
@@ -2838,8 +2853,8 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
           </div>
 
           <div className="atlas-readout-row is-trio">
-            <div><span className="key">SURVEYED</span><span className="val acc">047</span></div>
-            <div><span className="key">ACTIVE</span><span className="val">012</span></div>
+            <div><span className="key">SURVEYED</span><span className="val acc">{surveyed}</span></div>
+            <div><span className="key">ACTIVE</span><span className="val">{activeCount}</span></div>
             <div><span className="key">BRANCHES</span><span className="val">∞</span></div>
           </div>
 
@@ -2869,9 +2884,9 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
       {/* Frame foot */}
       <footer className="atlas-foot">
         <div className="atlas-foot-row">
-          <div className="cell"><span>NeX · FIELD</span><b>247 RAYS</b></div>
+          <div className="cell"><span>NeX · FIELD</span><b>{String(NEX_RAY_COUNT).padStart(3, "0")} RAYS</b></div>
           <div className="cell"><span>Ne0N · POLE</span><b>+90°N</b></div>
-          <div className="cell"><span>Ne0 · NODES</span><b className="acc">047</b></div>
+          <div className="cell"><span>Ne0 · NODES</span><b className="acc">{activeCount}</b></div>
 
           <div className="atlas-netra" role="status" aria-live="polite">
             <span className="reticle" aria-hidden>
@@ -2892,9 +2907,8 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
               <span>RETICLE</span><b ref={netraCoordRef}>0.00°N · 0.00°E</b>
               <span>RANGE</span><b ref={netraRangeRef}>2.50</b>
             </span>
-            {/* CW-15 · NEXT NODE touch target (ux-journey, α-SUR-01, 2026-06-14)
-                Was 94×24px. minHeight:44px + display:flex + alignItems:center → ≥44px.
-                Visual label and class unchanged. */}
+            {/* NEXT NODE keeps the project-wide 44px interaction floor on every
+                pointer type; the visual label and dense instrument style stay unchanged. */}
             <button
               className="jump"
               type="button"
@@ -2925,7 +2939,7 @@ export function WorldlineGlobe({ alphaCoord }: WorldlineGlobeProps = {}) {
         summary={selectedSummary}
         content={selectedContent}
         digOpen={digOpen}
-        reducedMotion={reducedMotionRef.current}
+        reducedMotion={reducedMotion}
         onClose={() => setSelectedId(null)}
         onToggleDig={() => setDigOpen((d) => !d)}
       />
@@ -3044,6 +3058,7 @@ function PlaceFrontDoorPanel(props: {
       className="z-[6] flex flex-col overflow-y-auto"
       aria-label={panelLabel}
       aria-hidden={!open}
+      inert={!open}
       style={isMobile ? mobileStyle : desktopStyle}
     >
       {/* CW-15 · ESC button touch target (ux-journey, α-SUR-01, 2026-06-14)

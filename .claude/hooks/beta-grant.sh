@@ -41,7 +41,6 @@ MAX_READS="${5:-1}"
 
 GRANTS_DIR=".claude/beta/grants"
 LOG_DIR=".claude/hook-logs"
-mkdir -p "$LOG_DIR" "$GRANTS_DIR"
 
 TASK_ID="${CLAUDE_TASK_ID:-${WL_TASK_ID:-session-$(date +%s)}}"
 LOG="$LOG_DIR/${TASK_ID}--beta-grant.log"
@@ -62,6 +61,11 @@ fi
 # --------------------------------------------------------------------------
 if [[ -z "$REQUESTER" || -z "$PATH_OR_GLOB" ]]; then
   echo "beta-grant: usage: beta-grant.sh <requester> <path_or_glob> [scope_reason] [ttl_seconds] [max_reads]" >&2
+  exit 2
+fi
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "beta-grant: jq is required to create a grant safely" >&2
   exit 2
 fi
 
@@ -93,12 +97,63 @@ if [[ "$NORMALIZED_PATH" != .claude/beta/* ]]; then
   exit 4
 fi
 
+# Reject traversal and every wildcard form except a single trailing /* or /**.
+# The read gate implements only those three documented matching modes.
+INVALID_PATH=false
+case "/$NORMALIZED_PATH/" in
+  *"/../"*|*"/./"*|*"//"*) INVALID_PATH=true ;;
+esac
+
+PATH_BASE="$NORMALIZED_PATH"
+if [[ "$NORMALIZED_PATH" == *"/**" ]]; then
+  PATH_BASE="${NORMALIZED_PATH%/\*\*}"
+elif [[ "$NORMALIZED_PATH" == *"/*" ]]; then
+  PATH_BASE="${NORMALIZED_PATH%/\*}"
+elif [[ "$NORMALIZED_PATH" == *"*"* ]]; then
+  INVALID_PATH=true
+fi
+
+if [[ -z "$PATH_BASE" ]] || [[ "$PATH_BASE" == *"*"* ]] \
+  || [[ "$NORMALIZED_PATH" == *"?"* ]] || [[ "$NORMALIZED_PATH" == *"["* ]]; then
+  INVALID_PATH=true
+fi
+
+if [[ "$INVALID_PATH" == "true" ]]; then
+  echo "beta-grant: path '$PATH_OR_GLOB' contains traversal or an unsupported glob" >&2
+  exit 4
+fi
+
+if [[ ! "$TTL_SECONDS" =~ ^[1-9][0-9]*$ ]] || [[ ! "$MAX_READS" =~ ^[1-9][0-9]*$ ]]; then
+  echo "beta-grant: ttl_seconds and max_reads must be positive integers" >&2
+  exit 2
+fi
+
+# Do not mutate the grants surface until every authorization and argument
+# check has passed.
+mkdir -p "$LOG_DIR" "$GRANTS_DIR"
+
 # --------------------------------------------------------------------------
 # Generate grant IDs (short random hash)
 # --------------------------------------------------------------------------
 # request_id: hash of (requester + path + timestamp) for traceability
 REQUEST_SEED="${REQUESTER}:${NORMALIZED_PATH}:${TIMESTAMP}"
-REQUEST_ID="req_$(printf '%s' "$REQUEST_SEED" | sha256sum | head -c 8)"
+sha256_stream() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 | awk '{print $1}'
+  elif command -v openssl >/dev/null 2>&1; then
+    openssl dgst -sha256 | awk '{print $NF}'
+  else
+    return 1
+  fi
+}
+
+REQUEST_HASH="$(printf '%s' "$REQUEST_SEED" | sha256_stream)" || {
+  echo "beta-grant: no SHA-256 implementation available" >&2
+  exit 2
+}
+REQUEST_ID="req_${REQUEST_HASH:0:8}"
 
 # grant_id: random 8-hex chars (distinct from request_id)
 GRANT_ID="g_$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')"

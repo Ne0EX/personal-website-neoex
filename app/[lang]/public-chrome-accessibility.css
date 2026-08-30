@@ -1,0 +1,28 @@
+/* Public chrome accessibility floors.
+ *
+ * These overrides are intentionally mounted from the public locale layout:
+ * console keeps its own visual system, while every public route receives the
+ * same REGISTER and footer interaction contract.
+ */
+
+/* REGISTER labels are 7–8px instrument text, so ambient/faint colors are not
+ * sufficient. State remains visible through the underline and glyph; all
+ * human-readable text uses the high-contrast ink token in both themes. */
+.register[role="radiogroup"] .rlab,
+.register[role="radiogroup"] button,
+.register[role="radiogroup"] button:hover,
+.register[role="radiogroup"] button.is-active {
+  color: var(--ink-primary);
+}
+
+.register[role="radiogroup"] button.is-active .gl {
+  color: var(--accent-orange);
+}
+
+/* Project interaction floor: public controls remain at least 44px on every
+ * pointer type, matching the mobile contract and avoiding density regressions. */
+.footer-channel-link {
+  min-block-size: 44px;
+  display: flex;
+  align-items: center;
+}

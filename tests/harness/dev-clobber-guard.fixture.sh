@@ -7,9 +7,9 @@
 # commands, grep/commit-message false-positive guards) and SHOULD-ADVISORY
 # (dev start commands — exit 0 with advisory message).
 #
-# THE BLOCK CASES require a live `next dev` process. We inject a stub process
-# by launching a sleep that names itself `next dev` via exec, then cleaning up
-# after the test run.
+# THE BLOCK CASES inject a deterministic `ps` fixture through PATH. This tests
+# the hook's process-table parser without relying on platform-specific argv[0]
+# rendering (Darwin and Linux expose `exec -a` processes differently).
 #
 # Exits 0 if all assertions pass; exits 1 with a summary on failure.
 #
@@ -78,51 +78,37 @@ assert_advisory() {
 }
 
 # --------------------------------------------------------------------------
-# STUB PROCESS MANAGEMENT
+# PROCESS-TABLE FIXTURE MANAGEMENT
 #
-# To test blocking behavior we need a live process that ps will report as
-# "next dev". We achieve this by launching a background process named with
-# argv[0] = "next" and argv[1] = "dev" using `exec -a` (bash 4+) wrapped
-# in a subshell, or by simply launching a long sleep with a script that sets
-# $0. The cleanest portable approach on macOS/Linux: use `perl -e 'exec("next",
-# "dev", "sleep"); exec "sleep", 3600'` but that requires perl.
-#
-# Simplest portable stub: launch a background bash that sets its process name
-# via `exec -a 'next dev' sleep 3600`. `exec -a NAME` renames argv[0] in ps.
-# This appears in ps output as "next dev" matching the grep pattern.
-#
-# Note: `ps -eo pid,command` on macOS shows the process name (argv[0]) followed
-# by the arguments. `exec -a 'next dev' sleep 3600` sets argv[0] to 'next dev'
-# (a single arg with a space) — ps shows "next dev 3600". The hook's grep pattern
-# `grep -E "next[[:space:]]+dev"` matches this. Verified on Darwin 25.x.
+# The hook resolves `ps` through PATH. During SHOULD-BLOCK assertions we put a
+# tiny fixture first in PATH which emits one live-looking `next dev` row. This
+# keeps the regression portable and does not add a bypass seam to production.
 # --------------------------------------------------------------------------
 
-STUB_PID=""
+ORIGINAL_PATH="$PATH"
+STUB_ROOT="$(mktemp -d)"
+STUB_PID="4242"
 
 start_stub_dev() {
-  # Launch a background process whose argv[0] contains "next dev"
-  # Use a script approach since exec -a with spaces is bash-version-sensitive
-  STUB_SCRIPT=$(mktemp /tmp/next-dev-stub.XXXXXX.sh)
-  printf '#!/bin/bash\nexec -a "next dev" sleep 300\n' > "$STUB_SCRIPT"
-  chmod +x "$STUB_SCRIPT"
-  bash "$STUB_SCRIPT" &
-  STUB_PID=$!
-  # Give it a moment to appear in ps
-  sleep 0.3
+  printf '#!/usr/bin/env bash\nprintf "  4242 next dev --hostname 127.0.0.1\\n"\n' > "$STUB_ROOT/ps"
+  chmod +x "$STUB_ROOT/ps"
+  PATH="$STUB_ROOT:$ORIGINAL_PATH"
+  export PATH
 }
 
 stop_stub_dev() {
-  if [[ -n "$STUB_PID" ]]; then
-    kill "$STUB_PID" 2>/dev/null || true
-    wait "$STUB_PID" 2>/dev/null || true
-    STUB_PID=""
-  fi
-  # Clean up any leftover stub scripts
-  rm -f /tmp/next-dev-stub.*.sh 2>/dev/null || true
+  PATH="$ORIGINAL_PATH"
+  export PATH
 }
 
 # Ensure cleanup on exit
-trap stop_stub_dev EXIT
+cleanup() {
+  stop_stub_dev
+  case "$STUB_ROOT" in
+    "${TMPDIR:-/tmp}"/*|/tmp/*|/private/tmp/*|/var/folders/*) rm -rf -- "$STUB_ROOT" ;;
+  esac
+}
+trap cleanup EXIT
 
 # --------------------------------------------------------------------------
 echo "=== dev-clobber-guard fixture test ==="

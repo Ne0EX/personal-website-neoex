@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useStratumKey, type StratumKey } from "@/lib/client-state/globe-store";
 import { LocaleSwitcher } from "./LocaleSwitcher";
@@ -131,6 +132,9 @@ function StratumIndicator() {
         pointerEvents: "none",
         userSelect: "none",
         display: "inline",
+        // Separator gap — only when a label is shown, so the empty (stratum=all)
+        // state has zero width and the clock above stays flush right.
+        marginLeft: displayLabel ? "0.75rem" : 0,
       }}
     >
       {displayLabel ? `· STRATUM ${displayLabel}` : null}
@@ -215,10 +219,16 @@ export function Nav() {
         <div className="nav-clock t-meta">
           <div>SYS {"//"} CALIBRATED</div>
           <div
-            className="flex justify-end items-baseline gap-3"
+            className="flex justify-end items-baseline"
             suppressHydrationWarning
           >
             <span>{`UTC+7 // ${time}`}</span>
+            {/* gap moved off the flex container onto the indicator itself: when
+                the stratum is "all" the indicator renders empty, and a flex
+                `gap` would still reserve trailing space — shoving the clock 12px
+                off the right edge. A conditional margin keeps the clock flush
+                right by default and only adds the separator gap when a stratum
+                label is actually shown. */}
             <StratumIndicator />
           </div>
           <div className="flex justify-end items-baseline" suppressHydrationWarning>
@@ -244,9 +254,9 @@ export function Nav() {
         {/* Single-row inner bar */}
         <div className="nav-slim-bar">
           {/* Wordmark — left */}
-          <a href="/" className="nav-slim-wordmark">
+          <Link href="/" className="nav-slim-wordmark">
             ∇ NEOSPIRIT
-          </a>
+          </Link>
 
           {/*
             Centre readout — reuses `time` state (same interval as desktop bar).

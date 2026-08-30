@@ -185,9 +185,7 @@ set -e
 log "  A3a before.exit=${BEFORE_EXIT_A3A}"
 
 if [[ $BEFORE_EXIT_A3A -eq 3 ]]; then
-  log "A3a: Playwright unavailable — validating WARN exit-3 path"
-  log_pass "A3a — exit 3 when Playwright unavailable (correct WARN behavior)"
-  PASS_COUNT=$((PASS_COUNT + 1))
+  log_fail "A3a — Playwright unavailable; required CI mutation coverage cannot skip"
   _stop_server "${A3A_BASE_PID}"
   _stop_server "${A3A_MUT_PID}"
 elif [[ $BEFORE_EXIT_A3A -eq 2 ]]; then
@@ -279,9 +277,7 @@ set -e
 log "  A3b before.exit=${BEFORE_EXIT_A3B}"
 
 if [[ $BEFORE_EXIT_A3B -eq 3 ]]; then
-  log "A3b: Playwright unavailable — validating WARN exit-3 path"
-  log_pass "A3b — exit 3 when Playwright unavailable (correct WARN behavior)"
-  PASS_COUNT=$((PASS_COUNT + 1))
+  log_fail "A3b — Playwright unavailable; required CI mutation coverage cannot skip"
   _stop_server "${A3B_BASE_PID}"
   _stop_server "${A3B_MUT_PID}"
 elif [[ $BEFORE_EXIT_A3B -eq 2 ]]; then
@@ -388,9 +384,7 @@ set -e
 log "  A3c before.exit=${BEFORE_EXIT_A3C}"
 
 if [[ $BEFORE_EXIT_A3C -eq 3 ]]; then
-  log "A3c: Playwright unavailable — validating WARN exit-3 path"
-  log_pass "A3c — exit 3 when Playwright unavailable (correct WARN behavior)"
-  PASS_COUNT=$((PASS_COUNT + 1))
+  log_fail "A3c — Playwright unavailable; required CI mutation coverage cannot skip"
   _stop_server "${A3C_BASE_PID}"
   _stop_server "${A3C_MUT_PID}"
 elif [[ $BEFORE_EXIT_A3C -eq 2 ]]; then
@@ -439,6 +433,10 @@ echo ""
 echo "" >> "${TEST_LOG}" || true
 log "=== SUMMARY: ${PASS_COUNT}/${CASE_COUNT} cases passed ==="
 log "end · $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+if [[ "$PASS_COUNT" -ne "$CASE_COUNT" ]]; then
+  PASS_ALL=false
+fi
 
 if [[ "$PASS_ALL" == "true" ]]; then
   log "OVERALL: PASS — all gauntlet mutation cases fired correctly"
