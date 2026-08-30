@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/refs": "warn",
       "react-hooks/immutability": "warn",
+      "react/jsx-no-comment-textnodes": "off",
+      "@next/next/no-html-link-for-pages": "warn",
     },
   },
   // Override default ignores of eslint-config-next.

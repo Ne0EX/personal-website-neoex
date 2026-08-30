@@ -13,8 +13,12 @@ export type NetraClient = SupabaseClient
 export type NetraFilter = NetraArchiveFilter
 export type NetraResult = NetraTrace
 
-const RESULT_COLUMNS = 'slug,kind,title,lang,summary,body,roll,photo_id'
+// Full bodies may participate in server-side search predicates, but they never
+// cross the PostgREST projection boundary. Until the store exposes a bounded
+// excerpt view/RPC, NETRA derives its public excerpt from the authored summary.
+const RESULT_COLUMNS = 'slug,kind,title,lang,summary,roll,photo_id'
 const PATCH_COLUMNS = `${RESULT_COLUMNS},patches`
+const PLACE_COLUMNS = 'id,name'
 const SEARCH_COLUMNS = ['title', 'summary', 'body'] as const
 const SEARCH_TOKEN_PATTERN = /[\p{L}\p{M}\p{N}]+/gu
 const MAX_SEARCH_QUERY_LENGTH = 200
@@ -53,8 +57,8 @@ function stripMarkdown(value: string): string {
     .trim()
 }
 
-function excerpt(body: string | null | undefined): string {
-  return stripMarkdown(body ?? '').slice(0, 800)
+function excerpt(summary: string | null | undefined): string {
+  return stripMarkdown(summary ?? '').slice(0, 800)
 }
 
 function permalink(
@@ -73,12 +77,13 @@ function rowLanguage(value: unknown): NetraLanguage {
 }
 
 function mapRow(row: Record<string, unknown>): NetraResult {
+  const summary = String(row.summary ?? '')
   return {
     title: String(row.title ?? row.slug ?? ''),
     slug: String(row.slug ?? ''),
     lang: rowLanguage(row.lang),
-    summary: String(row.summary ?? ''),
-    excerpt: excerpt(String(row.body ?? '')),
+    summary: summary,
+    excerpt: excerpt(summary),
     permalink: permalink(
       String(row.kind),
       String(row.slug),
@@ -86,6 +91,66 @@ function mapRow(row: Record<string, unknown>): NetraResult {
       row.photo_id as string | null,
     ),
   }
+}
+
+function mapPlaceRow(row: Record<string, unknown>): NetraResult {
+  const id = String(row.id ?? '')
+  const name = String(row.name ?? id)
+  const summary = 'surveyed ATLAS place node'
+  return {
+    title: name,
+    slug: id,
+    lang: 'en',
+    summary,
+    excerpt: summary,
+    permalink: '/#hero',
+  }
+}
+
+function placeSearchFilter(query: string): string | null {
+  const boundedQuery = Array.from(query).slice(0, MAX_SEARCH_QUERY_LENGTH).join('').normalize('NFKC')
+  const tokens = Array.from(
+    new Set(
+      (boundedQuery.match(SEARCH_TOKEN_PATTERN) ?? [])
+        .map((token) => Array.from(token).slice(0, MAX_SEARCH_TOKEN_LENGTH).join(''))
+        .filter(Boolean),
+    ),
+  ).slice(0, MAX_SEARCH_TOKENS)
+
+  if (tokens.length === 0) return null
+  if (tokens.length === 1) return `name.ilike.%${tokens[0]}%`
+  return `and(${tokens.map((token) => `name.ilike.%${token}%`).join(',')})`
+}
+
+export async function searchPlaces(
+  client: NetraClient,
+  query: string,
+  limit = 5,
+): Promise<NetraResult[]> {
+  const filterExpression = placeSearchFilter(query)
+  if (!filterExpression) return []
+  const boundedLimit = Math.min(10, Math.max(1, limit))
+  const { data, error } = await client
+    .from('places')
+    .select(PLACE_COLUMNS)
+    .or(filterExpression)
+    .order('name', { ascending: true })
+    .limit(boundedLimit)
+  if (error) throw new Error(`NETRA place search failed: ${error.message}`)
+  return ((data ?? []) as Record<string, unknown>[]).map(mapPlaceRow)
+}
+
+export async function listPlaces(
+  client: NetraClient,
+  limit = 50,
+): Promise<NetraResult[]> {
+  const { data, error } = await client
+    .from('places')
+    .select(PLACE_COLUMNS)
+    .order('name', { ascending: true })
+    .limit(Math.min(50, Math.max(1, limit)))
+  if (error) throw new Error(`NETRA places failed: ${error.message}`)
+  return ((data ?? []) as Record<string, unknown>[]).map(mapPlaceRow)
 }
 
 function languageCandidates(lang: NetraLanguage): NetraLanguage[] {
@@ -101,6 +166,7 @@ function pickLocalizedRow(
 }
 
 export async function searchEntries(client: NetraClient, query: string, filter: NetraFilter = 'all', limit = 5): Promise<NetraResult[]> {
+  if (filter === 'places') return searchPlaces(client, query, limit)
   const filterExpression = searchFilter(query)
   if (!filterExpression) return []
 
@@ -110,7 +176,11 @@ export async function searchEntries(client: NetraClient, query: string, filter: 
   if (filter === 'fiction') request = request.eq('kind', 'fiction')
   const { data, error } = await request.order('iso_date', { ascending: false }).limit(Math.min(10, Math.max(1, limit)))
   if (error) throw new Error(`NETRA search failed: ${error.message}`)
-  return ((data ?? []) as Record<string, unknown>[]).map(mapRow)
+  const entryResults = ((data ?? []) as Record<string, unknown>[]).map(mapRow)
+  if (filter !== 'all') return entryResults
+
+  const placeResults = await searchPlaces(client, query, limit)
+  return [...placeResults, ...entryResults].slice(0, Math.min(10, Math.max(1, limit)))
 }
 
 export async function getEntry(
@@ -285,6 +355,7 @@ export function createNetraKnowledge(client: NetraClient): NetraKnowledge {
     listRecentPatches: ({ days }) => listRecentPatches(client, days),
     searchPhotos: ({ query, limit }) => searchPhotos(client, query, limit),
     listFiction: () => listFiction(client),
+    listPlaces: () => listPlaces(client),
     getCurrentPage: (page) => getCurrentPage(client, page),
   }
 }

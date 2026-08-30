@@ -83,7 +83,7 @@
   <header>
     <p class="eyebrow">Algol · deterministic CI evidence</p>
     <h1>CI harness sensor audit</h1>
-    <p class="lede">This revision replaces the stale 22-rail snapshot with the final 26-rail configuration and its executable CI census. The audited implementation is commit <code>f63c60951bdb9b1388df1d4701f5f7fa7bf0d8d9</code>; GitHub and Vercel evidence below resolve to that same immutable revision.</p>
+    <p class="lede">This report supersedes the earlier candidate snapshot. It records the final 26-rail configuration and the complete executable CI census used for the 2026-08-31 release. The immutable release SHA and remote run links are recorded after merge in the release handoff so this committed report does not claim a self-referential SHA.</p>
     <div class="meta">
       <span>Evidence date · 2026-08-31 · Asia/Bangkok</span>
       <span>Configuration · <code>.harness/worldline-harness.config.json</code></span>
@@ -94,12 +94,12 @@
   <h2>Executive verdict</h2>
   <div class="grid">
     <section class="card">
-      <h3><span class="badge pass">GREEN</span> GitHub Actions</h3>
-      <p><a href="https://github.com/Ne0EX/personal-website-neoex/actions/runs/33333829334">Run 33333829334</a> completed successfully in 3m52s. Install, pinned Chromium, source boundary, typecheck, lint, harness barrier, census validation, Node lane, non-Node lane, production build, and harness census all passed.</p>
+      <h3><span class="badge pass">GREEN</span> CI-equivalent release suite</h3>
+      <p>Typecheck, lint, the 26-rail barrier audit, census validation, all 160 Node assertions, all 34 required non-Node sensors, the production build, and the config-driven harness census passed before push. GitHub repeats the same commands on the immutable release candidate.</p>
     </section>
     <section class="card">
-      <h3><span class="badge pass">READY</span> Vercel</h3>
-      <p>Deployment <code>dpl_GmGWYzkwa8zThwV1VX6PQZihKujC</code> is READY at <a href="https://personal-website-neoex-cbvzj2gel.vercel.app">its immutable URL</a>. Vercel Git metadata exactly matches the audited SHA.</p>
+      <h3><span class="badge pass">READY</span> Vercel release controls</h3>
+      <p><code>NETRA_MODEL</code> is pinned to the approved Vercel AI Gateway free model in Production, Preview, Development, and the feature-branch override. The Gateway hard budget remains <strong>$1/day</strong>; exact-SHA deployment readiness is verified after merge.</p>
     </section>
   </div>
 
@@ -109,7 +109,7 @@
     <div class="metric"><b>6</b><span>explicit contextual skips</span></div>
     <div class="metric"><b>3</b><span>optional advisory failures</span></div>
     <div class="metric"><b>0</b><span>required failures</span></div>
-    <div class="metric"><b>66</b><span>executable sensor files inventoried</span></div>
+    <div class="metric"><b>70</b><span>executable sensor files inventoried</span></div>
   </div>
 
   <h2>What “green” means</h2>
@@ -145,7 +145,7 @@
         <tr><td>html-first-spec-discipline</td><td>optional</td><td><span class="badge skip">SKIP</span></td><td>context</td><td class="reason">Runs when an HTML-first task specification is present.</td></tr>
         <tr><td>axiom-gate-join-coverage</td><td>optional advisory</td><td><span class="badge advisory">FAIL</span></td><td>advisory</td><td class="reason">All 26 gate projections are green, but 6 overdue axioms still need explicit gate joins.</td></tr>
         <tr><td>gauntlet-overlap-composition</td><td>optional advisory</td><td><span class="badge advisory">FAIL</span></td><td>advisory</td><td class="reason">Current baseline reading is 13/20; debt remains visible without weakening required CI.</td></tr>
-        <tr><td>gauntlet-min-legible-size</td><td>optional advisory</td><td><span class="badge advisory">FAIL</span></td><td>advisory</td><td class="reason">Current baseline reading is 473/604; debt remains visible without weakening required CI.</td></tr>
+        <tr><td>gauntlet-min-legible-size</td><td>optional advisory</td><td><span class="badge advisory">FAIL</span></td><td>advisory</td><td class="reason">Current baseline reading is 473/601; debt remains visible without weakening required CI.</td></tr>
         <tr><td>gauntlet-sub-pixel-detection</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Sub-pixel detector and fixtures execute in the required non-Node lane.</td></tr>
         <tr><td>render-fidelity-vs-intent</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Committed render-intent manifest and fixtures execute deterministically.</td></tr>
         <tr><td>ci-test-census</td><td><span class="badge required">required</span></td><td><span class="badge pass">PASS</span></td><td>CI</td><td class="reason">Tracked executable files must be classified before the harness will pass.</td></tr>
@@ -167,10 +167,10 @@
     <section class="card">
       <h3>Required lanes</h3>
       <ul>
-        <li><strong>17 Node test files · 152 assertions passed.</strong></li>
-        <li><strong>15 non-Node sensor files · 15 passed.</strong></li>
-        <li>Config validation reports <strong>66 executable files</strong> and refuses unclassified tracked sensors.</li>
-        <li><strong>15 candidate files</strong> are explicitly blocked with recorded reasons; candidate is a visible blocker state, never a hidden pass bucket.</li>
+        <li><strong>17 Node test files · 160 assertions passed.</strong></li>
+        <li><strong>34 required non-Node sensor files · 34 passed.</strong></li>
+        <li>Config validation reports <strong>70 executable files</strong>: 51 required plus 19 explicitly classified context/manual/deferred probes.</li>
+        <li><strong>0 candidate files.</strong> No deterministic CI-eligible executable remains blocked, unset, or silently skipped.</li>
       </ul>
     </section>
     <section class="card">
@@ -179,7 +179,7 @@
         <li>Chromium is pinned and installed by GitHub Actions before browser contracts run.</li>
         <li>The browser fixture owns a bounded loopback port and rejects an unrelated listener instead of accepting a false-positive server.</li>
         <li>NETRA uses a deterministic fake model in CI; no provider credential or network response is required.</li>
-        <li>The production build passed with Next.js 16.3.3, 23 pages, and a 13-page Pagefind index.</li>
+        <li>The production build passed with Next.js 16.3.3, 26 routes, and a 13-page Pagefind index.</li>
       </ul>
     </section>
   </div>
@@ -190,15 +190,16 @@
     <p>They are reported, versioned, and excluded only from the required denominator: axiom/gate join coverage, overlap composition, and minimum legible size. Six other rails are context-bound skips with explicit prerequisites. None can suppress a required failure.</p>
   </div>
 
-  <h2>Remote evidence</h2>
+  <h2>Release evidence contract</h2>
   <ul>
-    <li>GitHub run <a href="https://github.com/Ne0EX/personal-website-neoex/actions/runs/33333829334">33333829334</a>: <strong>success</strong>, head SHA <code>f63c60951bdb9b1388df1d4701f5f7fa7bf0d8d9</code>.</li>
-    <li>Vercel deployment <code>dpl_GmGWYzkwa8zThwV1VX6PQZihKujC</code>: <strong>READY</strong>, source=git, matching SHA, immutable URL <a href="https://personal-website-neoex-cbvzj2gel.vercel.app">personal-website-neoex-cbvzj2gel.vercel.app</a>.</li>
-    <li>This artifact records the implementation revision. Any later report-only commit must independently become green on GitHub and READY on Vercel before handoff.</li>
+    <li>The release is complete only when GitHub Actions reports <strong>success</strong> for the final main SHA.</li>
+    <li>The production Vercel deployment must report <strong>READY</strong> with Git metadata matching that same SHA.</li>
+    <li>BrowserOS production smoke then verifies public EN/TH routes, anonymous console isolation, and a live NETRA Gateway response.</li>
+    <li>The post-merge handoff records the immutable SHA, GitHub run, Vercel deployment, and production smoke evidence without changing this audited tree.</li>
   </ul>
 
   <footer>
-    Evidence sources: committed harness configuration and census, clean candidate output, GitHub Actions run 33333829334, Vercel deployment dpl_GmGWYzkwa8zThwV1VX6PQZihKujC, BrowserOS production-build verification, and authenticated Vercel deployment checks. No credentials, environment values, secrets, or personal data are included.
+    Evidence sources: committed harness configuration and census, clean release-candidate output, BrowserOS production-build verification, and authenticated Vercel control-plane checks. No credentials, protected environment values, secrets, or personal data are included.
   </footer>
 </main>
 </body>

@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Worldline · ∇ Neospirit
 
-## Getting Started
+Digital garden and personal archive of Ne0EX — notes, essays, drafts, photography rolls, and interactive cartography.
 
-First, run the development server:
+## Architecture
+
+* **Framework**: Next.js 16 (App Router + Turbopack) & React 19
+* **Styling**: Tailwind CSS v4 + bespoke design tokens (`app/globals.css`)
+* **3D Cartography**: Three.js orthographic globe (A.T.L.A.S. observatory) with stratum layers
+* **Bilingual Support**: Bilingual `[lang]` routing (`/th`, `/en`) with IBM Plex superfamily typography
+* **Store as Source**: Supabase PostgreSQL persistence with Row-Level Security (RLS)
+* **Search**: Pagefind static search sidecar
+
+## Scripts
 
 ```bash
+# Development server (Turbopack)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# Production build
+npm run build:next
+
+# Full production build with search index
+npm run build
+
+# Linting & Typecheck
+npm run lint
+npx tsc --noEmit
+
+# Security vulnerability audit
+npm audit
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Environment Variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Configure `.env.local` for local development or set in Vercel project settings:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```env
+# Canonical deployment domain (used for sitemap, canonical links, and OG cards)
+NEXT_PUBLIC_SITE_URL=https://neoex.dev
 
-## Learn More
+# Supabase (Store as Source)
+NEXT_PUBLIC_SUPABASE_URL=https://aitqswnbtpexrxqpoiwo.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+* `app/[lang]/` — Multilingual public pages (`/`, `/archive`, `/articles/[fileNum]`, `/photos`, `/fiction/[slug]`)
+* `app/console/` — Authenticated curation and editor console
+* `app/robots.ts` & `app/sitemap.ts` — Dynamic SEO routes
+* `app/opengraph-image.tsx` — Dynamic aesthetic OpenGraph preview card
+* `components/` — Modular UI components and Three.js instruments
+* `lib/` — Cartography calculations, store access layer, theme state, and utilities

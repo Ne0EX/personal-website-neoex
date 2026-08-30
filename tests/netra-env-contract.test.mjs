@@ -19,6 +19,10 @@ test('NETRA uses the Vercel AI Gateway free-model runtime without an OpenRouter 
     packageJson.dependencies?.['@openrouter/ai-sdk-provider'],
     undefined,
   )
+  assert.equal(
+    packageJson.dependencies?.['@ai-sdk/anthropic'],
+    undefined,
+  )
 })
 
 test('Gateway attribution uses the same canonical session ID returned in the cookie', () => {

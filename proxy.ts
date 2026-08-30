@@ -155,12 +155,21 @@ async function handleConsoleAuth(request: NextRequest): Promise<NextResponse> {
 
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser()
 
-  if (!user) {
+  // Authentication alone is not authorization. Fail closed unless the
+  // cookie-bound session also belongs to private.owners.
+  let isOwner = false
+  if (!userError && user) {
+    const { data, error } = await supabase.rpc('is_owner')
+    isOwner = !error && data === true
+  }
+
+  if (!user || !isOwner) {
     // /console is itself the guarded login shell. Rewriting it to the same URL
     // re-enters the proxy indefinitely in Next 16 and eventually returns 500.
-    // The page repeats getUser() before rendering, so this pass-through remains
+    // The page repeats assertOwner() before rendering, so this pass-through remains
     // fail closed while giving the rewrite target a terminal route.
     if (request.nextUrl.pathname === '/console') {
       return response
@@ -265,6 +274,6 @@ export const config = {
     // slugs (articles → \d{3}, fiction → kebab, photos → roll/DSCF\d+) so this
     // pattern cannot accidentally eat a real page. The three named dotted files are
     // redundant once `.*\\..*` is present but are retained for clarity.
-    '/((?!_next/static|_next/image|api|console|favicon\\.ico|sitemap\\.xml|robots\\.txt|.*\\..*).*)',
+    '/((?!_next/static|_next/image|api|console|opengraph-image|twitter-image|favicon\\.ico|sitemap\\.xml|robots\\.txt|.*\\..*).*)',
   ],
 }

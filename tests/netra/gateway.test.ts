@@ -28,7 +28,7 @@ test('NETRA defaults to a zero-priced Gateway model and only falls back to zero-
   )
 })
 
-test('NETRA accepts a vetted free-model override and attributes the request to its session', () => {
+test('NETRA keeps the fixed M3 then M2.7 order when a vetted fallback model is configured', () => {
   const configuredModel = 'minimax/minimax-m2.7-free'
   const runtime = createNetraGatewayRuntime({
     configuredModel,
@@ -36,7 +36,10 @@ test('NETRA accepts a vetted free-model override and attributes the request to i
   })
 
   assert.ok(runtime)
-  assert.equal(runtime.modelId, configuredModel)
+  assert.equal(runtime.modelId, 'minimax/minimax-m3-free')
+  assert.deepEqual(runtime.providerOptions.gateway.models, [
+    'minimax/minimax-m2.7-free',
+  ])
   assert.equal(runtime.providerOptions.gateway.user, 'session-42')
   assert.deepEqual(runtime.providerOptions.gateway.tags, [
     'feature:netra',

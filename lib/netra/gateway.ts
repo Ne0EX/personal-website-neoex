@@ -21,12 +21,16 @@ export function createNetraGatewayRuntime(input: {
   configuredModel: string | undefined
   sessionId: string
 }) {
-  const modelId = input.configuredModel ?? NETRA_DEFAULT_FREE_GATEWAY_MODEL
-  if (!isNetraFreeGatewayModel(modelId)) return null
+  // NETRA_MODEL is a deployment-policy guard, not a primary-model selector.
+  // Either vetted free ID is accepted for backwards-compatible envs, but the
+  // runtime order is always M3 primary → M2.7 fallback.
+  if (
+    input.configuredModel !== undefined
+    && !isNetraFreeGatewayModel(input.configuredModel)
+  ) return null
 
-  const fallbackModels = NETRA_FREE_GATEWAY_MODELS.filter(
-    (candidate) => candidate !== modelId,
-  )
+  const modelId = NETRA_DEFAULT_FREE_GATEWAY_MODEL
+  const fallbackModels = NETRA_FREE_GATEWAY_MODELS.slice(1)
 
   return {
     modelId,

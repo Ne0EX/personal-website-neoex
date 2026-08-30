@@ -1,7 +1,7 @@
 export type NetraLanguage = 'en' | 'th'
 
 export type NetraMessage = {
-  role: 'user' | 'assistant'
+  role: 'user'
   content: string
 }
 
@@ -60,7 +60,7 @@ export type NetraUnknownPageContext = {
 
 export type NetraPageContext = NetraKnownPageContext | NetraUnknownPageContext
 
-export type NetraArchiveFilter = 'articles' | 'photos' | 'fiction' | 'all'
+export type NetraArchiveFilter = 'articles' | 'photos' | 'fiction' | 'places' | 'all'
 
 /** Public-safe archive trace. Adapters must never add body, auth, or location fields. */
 export type NetraTrace = {
@@ -112,5 +112,6 @@ export interface NetraKnowledge {
   listRecentPatches(input: NetraRecentPatchesInput): Promise<readonly NetraPatchTrace[]>
   searchPhotos(input: NetraPhotoSearchInput): Promise<readonly NetraTrace[]>
   listFiction(): Promise<readonly NetraTrace[]>
+  listPlaces(): Promise<readonly NetraTrace[]>
   getCurrentPage(page: NetraResourcePageContext): Promise<NetraTrace | null>
 }

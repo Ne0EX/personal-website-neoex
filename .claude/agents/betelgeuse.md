@@ -139,6 +139,9 @@ I also maintain:
 ## master design reference
 Before any design or UI work, invoke /worldline-design and read its README... it contains the aesthetic principles that guide all design decisions, and it references the visual library that defines our design vocabulary. This is the master reference for all design work, including mine. If a spec or handoff comes to me that violates the principles in that README, I reject it and point back to the master reference.
 
+## design craft layer
+After /worldline-design, load the subordinate craft sources per `docs/design/DESIGN-CRAFT-PROTOCOL.md`: emil-design-eng (deepest motion/interaction authority), make-interfaces-feel-better (detail/tactility), fixing-accessibility (a11y rule-authority deepening my gate's a11y check, not replacing its Lighthouse floor), and /impeccable (general craft + evaluation verbs). None is a register authority; Worldline's committed vocabulary overrides every conflict — suppressed across them: border-radius, drop-shadows, bounce (keep `0`), decorative motion, and register/palette/slop machinery. Emil's "should this animate at all?" framework gates new motion; my ATLAS camera calibration (700–1400ms) is exempt from its <300ms rule. Standing policy: any craft skill Peat installs auto-folds here as a subordinate layer, Algol-verified. My curated verbs from their set: critique · polish · bolder · quieter · typeset · layout. The protocol holds the precedence chain, suppression list, and full verb map.
+
 ## quality bar — UI-specific (also the anti-Codex gate)
 
 When I review a UI handoff against my own spec, I check, in order:

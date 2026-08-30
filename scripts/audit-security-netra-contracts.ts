@@ -44,12 +44,16 @@ const FILES = {
   actions: 'lib/server/store/actions.ts',
   actionsCore: 'lib/server/store/actions-core.ts',
   auth: 'lib/server/auth.ts',
+  proxy: 'proxy.ts',
+  consolePage: 'app/console/page.tsx',
+  consoleEditor: 'app/console/editor/page.tsx',
   store: 'lib/store/netra-reads.ts',
   route: 'app/api/chat/route.ts',
   gateway: 'lib/netra/gateway.ts',
   rateLimit: 'lib/server/rate-limit.ts',
   navigator: 'components/NetraNavigator.tsx',
   navigatorCss: 'components/NetraNavigator.css',
+  uiMessage: 'lib/netra/ui-message.ts',
 } as const
 
 function parseArguments(argv: string[]): { root: string; scope: RequestedScope } {
@@ -201,6 +205,9 @@ function auditMain(): AuditOutput {
     const actionsSource = read(FILES.actions, 'console')
     const coreSource = read(FILES.actionsCore, 'console')
     const authSource = read(FILES.auth, 'console')
+    const proxySource = read(FILES.proxy, 'console')
+    const consolePageSource = read(FILES.consolePage, 'console')
+    const consoleEditorSource = read(FILES.consoleEditor, 'console')
     const actionsFile = sourceFile(FILES.actions, actionsSource)
     const coreFile = sourceFile(FILES.actionsCore, coreSource)
     const wrappers = exportedFunctionDeclarations(actionsFile)
@@ -296,6 +303,31 @@ function auditMain(): AuditOutput {
     )
     add(
       'console',
+      'CONSOLE_PROXY_OWNER_GATE',
+      FILES.proxy,
+      /supabase\.auth\.getUser\(\)/.test(proxySource)
+        && /supabase\.rpc\(\s*['"]is_owner['"]\s*\)/.test(proxySource)
+        && /if \(!user \|\| !isOwner\)/.test(proxySource),
+      'the console proxy fails closed for anonymous and authenticated non-owner sessions',
+      "proxy.ts must require both getUser() and rpc('is_owner') before console access",
+    )
+    for (const [file, source] of [
+      [FILES.consolePage, consolePageSource],
+      [FILES.consoleEditor, consoleEditorSource],
+    ] as const) {
+      add(
+        'console',
+        `CONSOLE_PAGE_OWNER_GATE_${file}`,
+        file,
+        /import \{ assertOwner \} from ['"]@\/lib\/server\/auth['"]/.test(source)
+          && /const auth\s*=\s*await assertOwner\(\)/.test(source)
+          && /if \(!auth\.ok\)\s*\{\s*return <ConsoleLogin \/>\s*\}/.test(source),
+        `${file} verifies owner membership before loading console data`,
+        `${file} must call assertOwner() and render ConsoleLogin when owner authorization fails`,
+      )
+    }
+    add(
+      'console',
       'CONSOLE_ERROR_ENVELOPE',
       FILES.actionsCore,
       /type ActionError\s*=\s*\{[\s\S]*?ok:\s*false[\s\S]*?error:\s*\{[\s\S]*?code:\s*string;[\s\S]*?message:\s*string;[\s\S]*?details\?:\s*unknown/.test(coreSource)
@@ -317,8 +349,12 @@ function auditMain(): AuditOutput {
       ?.split(',')
       .map((column) => column.trim())
       .filter(Boolean) ?? []
-    const forbiddenColumns = ['*', 'status', 'draft', 'owner_id', 'user_id', 'email', 'private_notes']
-    const projectionColumns = [...resultColumns, ...patchSuffix]
+    const placeColumns = storeSource.match(/const PLACE_COLUMNS\s*=\s*['"]([^'"]+)['"]/)?.[1]
+      ?.split(',')
+      .map((column) => column.trim())
+      .filter(Boolean) ?? []
+    const forbiddenColumns = ['*', 'body', 'status', 'draft', 'owner_id', 'user_id', 'email', 'private_notes']
+    const projectionColumns = [...resultColumns, ...patchSuffix, ...placeColumns]
     const selectArguments: string[] = []
     const collectSelects = (node: ts.Node): void => {
       if (
@@ -332,10 +368,11 @@ function auditMain(): AuditOutput {
     }
     collectSelects(storeFile)
     const projectionsAreNamed = selectArguments.length > 0
-      && selectArguments.every((argument) => argument === 'RESULT_COLUMNS' || argument === 'PATCH_COLUMNS')
+      && selectArguments.every((argument) => argument === 'RESULT_COLUMNS' || argument === 'PATCH_COLUMNS' || argument === 'PLACE_COLUMNS')
     const projectionSafe = resultColumns.length > 0
       && patchSuffix.length === 1
       && patchSuffix[0] === 'patches'
+      && JSON.stringify(placeColumns) === JSON.stringify(['id', 'name'])
       && forbiddenColumns.every((column) => !projectionColumns.includes(column))
 
     add(
@@ -343,8 +380,8 @@ function auditMain(): AuditOutput {
       'STORE_EXPLICIT_PUBLIC_PROJECTION',
       FILES.store,
       projectionSafe && projectionsAreNamed && !/\.select\(\s*['"]\*['"]\s*\)/.test(storeSource),
-      `NETRA reads use RESULT_COLUMNS (${resultColumns.length}) and PATCH_COLUMNS (+patches) without draft/private control fields`,
-      `NETRA reads must select only RESULT_COLUMNS/PATCH_COLUMNS; PATCH_COLUMNS may add only patches; forbidden: ${forbiddenColumns.join(', ')}; observed selects=${selectArguments.join(', ') || 'none'}`,
+      `NETRA reads use RESULT_COLUMNS (${resultColumns.length}), PATCH_COLUMNS (+patches), and PLACE_COLUMNS (id,name) without private fields`,
+      `NETRA reads must select only RESULT_COLUMNS/PATCH_COLUMNS/PLACE_COLUMNS; places may expose only id,name; forbidden: ${forbiddenColumns.join(', ')}; observed selects=${selectArguments.join(', ') || 'none'}`,
     )
     add(
       'store',
@@ -357,48 +394,65 @@ function auditMain(): AuditOutput {
       'every exported read must receive NetraClient as its first argument and must not construct/use a service or private-schema client',
     )
 
-    const searchEntries = exportedReads.find((node) => node.name?.text === 'searchEntries')
-    const searchFilter = storeFile.statements.find(
-      (node): node is ts.FunctionDeclaration => ts.isFunctionDeclaration(node) && node.name?.text === 'searchFilter',
-    )
-    const searchBody = searchEntries?.body?.getText(storeFile) ?? ''
-    const searchFilterBody = searchFilter?.body?.getText(storeFile) ?? ''
-    let orArgument = ''
-    if (searchEntries?.body) {
-      const visit = (node: ts.Node): void => {
-        if (
-          !orArgument
-          && ts.isCallExpression(node)
-          && ts.isPropertyAccessExpression(node.expression)
-          && node.expression.name.text === 'or'
-        ) {
-          orArgument = node.arguments[0]?.getText(storeFile) ?? ''
-        }
-        ts.forEachChild(node, visit)
-      }
-      visit(searchEntries.body)
-    }
-    const filterBinding = searchBody.match(/\bconst\s+(\w+)\s*=\s*searchFilter\(\s*query\s*\)/)?.[1] ?? ''
     const fixedSearchColumns = storeSource.match(/const SEARCH_COLUMNS\s*=\s*\[([^\]]+)\]/)?.[1]
       ?.match(/['"]([^'"]+)['"]/g)
       ?.map((column) => column.slice(1, -1)) ?? []
-    const helperIsBounded = Boolean(searchFilter)
-      && searchFilter?.parameters[0]?.name.getText(storeFile) === 'query'
-      && /MAX_SEARCH_QUERY_LENGTH/.test(searchFilterBody)
-      && /MAX_SEARCH_TOKENS/.test(searchFilterBody)
-      && /MAX_SEARCH_TOKEN_LENGTH/.test(searchFilterBody)
-      && /SEARCH_TOKEN_PATTERN/.test(searchFilterBody)
-      && /SEARCH_COLUMNS/.test(searchFilterBody)
-    const rawQueryAbsent = orArgument.length > 0 && !/\bquery\b/.test(orArgument)
-    const transformedQueryPresent = filterBinding.length > 0 && orArgument === filterBinding
     const fixedColumnsOnly = JSON.stringify(fixedSearchColumns) === JSON.stringify(['title', 'summary', 'body'])
+    const inspectSearchBoundary = (
+      functionName: 'searchEntries' | 'searchPlaces',
+      helperName: 'searchFilter' | 'placeSearchFilter',
+    ): { safe: boolean; detail: string } => {
+      const searchFunction = exportedReads.find((node) => node.name?.text === functionName)
+      const helper = storeFile.statements.find(
+        (node): node is ts.FunctionDeclaration => ts.isFunctionDeclaration(node) && node.name?.text === helperName,
+      )
+      const searchBody = searchFunction?.body?.getText(storeFile) ?? ''
+      const helperBody = helper?.body?.getText(storeFile) ?? ''
+      const orArguments: string[] = []
+      if (searchFunction?.body) {
+        const visit = (node: ts.Node): void => {
+          if (
+            ts.isCallExpression(node)
+            && ts.isPropertyAccessExpression(node.expression)
+            && node.expression.name.text === 'or'
+          ) {
+            orArguments.push(node.arguments[0]?.getText(storeFile) ?? '')
+          }
+          ts.forEachChild(node, visit)
+        }
+        visit(searchFunction.body)
+      }
+      const filterBinding = searchBody.match(
+        new RegExp(`\\bconst\\s+(\\w+)\\s*=\\s*${helperName}\\(\\s*query\\s*\\)`),
+      )?.[1] ?? ''
+      const helperIsBounded = Boolean(helper)
+        && helper?.parameters[0]?.name.getText(storeFile) === 'query'
+        && /MAX_SEARCH_QUERY_LENGTH/.test(helperBody)
+        && /MAX_SEARCH_TOKENS/.test(helperBody)
+        && /MAX_SEARCH_TOKEN_LENGTH/.test(helperBody)
+        && /SEARCH_TOKEN_PATTERN/.test(helperBody)
+      const columnContract = helperName === 'searchFilter'
+        ? /SEARCH_COLUMNS/.test(helperBody) && fixedColumnsOnly
+        : /name\.ilike/.test(helperBody) && !/(?:title|summary|body|lat|lon)\.ilike/.test(helperBody)
+      const safe = orArguments.length === 1
+        && orArguments[0] === filterBinding
+        && !/\bquery\b/.test(orArguments[0])
+        && helperIsBounded
+        && columnContract
+      return {
+        safe,
+        detail: `${functionName}:${orArguments.join('|') || 'missing'} via ${helperName}`,
+      }
+    }
+    const entrySearchBoundary = inspectSearchBoundary('searchEntries', 'searchFilter')
+    const placeSearchBoundary = inspectSearchBoundary('searchPlaces', 'placeSearchFilter')
     add(
       'store',
       'STORE_SEARCH_FILTER_INPUT',
       FILES.store,
-      rawQueryAbsent && transformedQueryPresent && helperIsBounded && fixedColumnsOnly,
-      'searchEntries passes searchFilter(query) output to .or(); the helper bounds Unicode word tokens and uses fixed public columns',
-      `searchEntries must bind bounded searchFilter(query) output before .or(); fixed columns must be title/summary/body; observed argument=${orArgument || 'missing'} columns=${fixedSearchColumns.join(',') || 'missing'}`,
+      entrySearchBoundary.safe && placeSearchBoundary.safe,
+      'entry and place search pass bounded fixed-column filter output to PostgREST .or()',
+      `search functions must bind bounded helper output before .or(); ${entrySearchBoundary.detail}; ${placeSearchBoundary.detail}; entry columns=${fixedSearchColumns.join(',') || 'missing'}`,
     )
     add(
       'store',
@@ -433,6 +487,15 @@ function auditMain(): AuditOutput {
       parseIndex >= 0 && quotaIndex >= 0 && parseIndex < quotaIndex,
       'the request body is parsed and validated before quota is consumed',
       `ChatRequestSchema validation must precede await quota(); parse_index=${parseIndex} quota_index=${quotaIndex}`,
+    )
+    add(
+      'route',
+      'NETRA_ROUTE_USER_AUTHORED_HISTORY',
+      FILES.route,
+      /role:\s*z\.literal\(\s*['"]user['"]\s*\)/.test(routeSource)
+        && !/role:\s*z\.enum\(\s*\[\s*['"]user['"]\s*,\s*['"]assistant['"]/.test(routeSource),
+      'the route accepts only visitor-authored user history',
+      'client-authored assistant messages must be rejected at the request schema boundary',
     )
     add(
       'route',
@@ -490,6 +553,18 @@ function auditMain(): AuditOutput {
       'the per-session Redis TTL derives from the shared 24-hour RATE_LIMIT_WINDOW_MS contract',
       'route must derive SESSION_WINDOW_SECONDS from RATE_LIMIT_WINDOW_MS and EXPIRE the session key; helper must define the 24-hour window',
     )
+    add(
+      'route',
+      'NETRA_ROUTE_LOCAL_CAPACITY',
+      FILES.rateLimit,
+      /RATE_LIMIT_MAX_SESSIONS\s*=\s*1_024/.test(rateLimitSource)
+        && /while \(sessions\.size >= RATE_LIMIT_MAX_SESSIONS\)/.test(rateLimitSource)
+        && /sessions\.keys\(\)\.next\(\)\.value/.test(rateLimitSource)
+        && /sessions\.delete\(oldestSessionId\)/.test(rateLimitSource)
+        && /reserveSessionSlot\(sessionId\)[\s\S]*?sessions\.set\(sessionId/.test(rateLimitSource),
+      'the process-local fallback evicts oldest records at a hard 1,024-session capacity',
+      'the local session map must enforce RATE_LIMIT_MAX_SESSIONS before inserting a new record',
+    )
     const freeModelBlock = gatewaySource.match(
       /NETRA_FREE_GATEWAY_MODELS\s*=\s*\[([\s\S]*?)\]\s*as const/,
     )?.[1] ?? ''
@@ -502,11 +577,16 @@ function auditMain(): AuditOutput {
       'route',
       'NETRA_ROUTE_GATEWAY_FREE_ONLY',
       FILES.gateway,
-      freeModels.length > 0
+      JSON.stringify(freeModels) === JSON.stringify([
+        'minimax/minimax-m3-free',
+        'minimax/minimax-m2.7-free',
+      ])
         && freeModels.every((model) => model.endsWith('-free'))
         && new Set(freeModels).size === freeModels.length
         && freeModels.includes(defaultModel)
         && /gateway\(modelId\)/.test(gatewaySource)
+        && /const modelId\s*=\s*NETRA_DEFAULT_FREE_GATEWAY_MODEL/.test(gatewaySource)
+        && /NETRA_FREE_GATEWAY_MODELS\.slice\(1\)/.test(gatewaySource)
         && /models:\s*fallbackModels/.test(gatewaySource)
         && /user:\s*input\.sessionId/.test(gatewaySource)
         && /['"]feature:netra['"]/.test(gatewaySource)
@@ -553,6 +633,7 @@ function auditMain(): AuditOutput {
   if (areas.has('ui')) {
     const navigatorSource = read(FILES.navigator, 'ui')
     const cssSource = read(FILES.navigatorCss, 'ui')
+    const uiMessageSource = read(FILES.uiMessage, 'ui')
     const navigatorFile = sourceFile(FILES.navigator, navigatorSource)
     const triggerNode = jsxElementWithStaticClass(navigatorFile, 'button', 'netra-trigger')
     const trigger = triggerNode?.getText(navigatorFile) ?? ''
@@ -641,37 +722,47 @@ function auditMain(): AuditOutput {
       'ui',
       'NETRA_UI_HISTORY',
       FILES.navigator,
-      /localStorage\.getItem\(\s*['"]wl-netra-history['"]\s*\)/.test(navigatorSource)
-        && /localStorage\.setItem\(\s*['"]wl-netra-history['"]/.test(navigatorSource)
-        && /localStorage\.removeItem\(\s*['"]wl-netra-history['"]\s*\)/.test(navigatorSource)
+      /localStorage\.getItem\(HISTORY_KEYS\[scope\]\)/.test(navigatorSource)
+        && /localStorage\.setItem\(HISTORY_KEYS\[historyScope\]/.test(navigatorSource)
+        && /localStorage\.removeItem\(HISTORY_KEYS\[historyScope\]/.test(navigatorSource)
         && /setMessages\(\[\]\)/.test(navigatorSource),
       'history hydrates, persists, and has an explicit local clear action',
       'NETRA history must hydrate/get, persist/set, and clear via removeItem plus setMessages([])',
     )
     add(
       'ui',
+      'NETRA_UI_HISTORY_AUTH_SCOPE',
+      FILES.navigator,
+      /HISTORY_KEYS\s*=\s*\{[\s\S]*?public:\s*['"]wl-netra-history:public['"][\s\S]*?owner:\s*['"]wl-netra-history:owner['"]/.test(navigatorSource)
+        && /fetch\(\s*['"]\/api\/console\/auth-probe['"]/.test(navigatorSource)
+        && /localStorage\.removeItem\(\s*['"]wl-netra-history['"]\s*\)/.test(navigatorSource)
+        && /localStorage\.getItem\(HISTORY_KEYS\[scope\]\)/.test(navigatorSource)
+        && /localStorage\.setItem\(HISTORY_KEYS\[historyScope\]/.test(navigatorSource)
+        && /localStorage\.removeItem\(HISTORY_KEYS\[historyScope\]/.test(navigatorSource),
+      'owner and public transcripts use separate storage keys after an owner probe',
+      'local NETRA history must fail closed into separate public/owner keys and discard the legacy unscoped key',
+    )
+    add(
+      'ui',
       'NETRA_UI_TRANSPORT',
       FILES.navigator,
-      /fetch\(\s*['"]\/api\/chat['"]/.test(navigatorSource)
-        && /method:\s*['"]POST['"]/.test(navigatorSource)
-        && /['"]Content-Type['"]:\s*['"]application\/json['"]/.test(navigatorSource)
-        && /messages:\s*\w+\.slice\(-10\)/.test(navigatorSource)
-        && /served_lang:\s*locale/.test(navigatorSource),
-      'the panel posts the bounded message window and page locale to /api/chat',
-      'transport must POST JSON to /api/chat with the last 10 messages and served_lang',
+      /new DefaultChatTransport<UIMessage>\(\{[\s\S]*?api:\s*['"]\/api\/chat['"]/.test(navigatorSource)
+        && /prepareSendMessagesRequest:\s*\(\{ messages \}\)\s*=>/.test(navigatorSource)
+        && /messages:\s*userMessagesForRequest\(messages\)/.test(navigatorSource)
+        && /served_lang:\s*requestContext\.locale/.test(navigatorSource)
+        && /\.filter\(\(message\)\s*=>\s*message\.role === ['"]user['"]\)/.test(uiMessageSource)
+        && /\.slice\(-10\)/.test(uiMessageSource),
+      'AI SDK transport posts only the latest ten visitor-authored turns plus locale and pathname',
+      'DefaultChatTransport must use userMessagesForRequest; that helper must filter role=user and slice the latest 10',
     )
 
     let transportPayload: ts.ObjectLiteralExpression | null = null
     const findTransportPayload = (node: ts.Node): void => {
       if (
         !transportPayload
-        && ts.isCallExpression(node)
-        && ts.isPropertyAccessExpression(node.expression)
-        && node.expression.expression.getText(navigatorFile) === 'JSON'
-        && node.expression.name.text === 'stringify'
-        && ts.isObjectLiteralExpression(node.arguments[0])
+        && ts.isObjectLiteralExpression(node)
       ) {
-        const candidate = node.arguments[0]
+        const candidate = node
         const keys = candidate.properties.map((property) => objectPropertyName(property, navigatorFile))
         if (keys.includes('messages') && keys.includes('served_lang') && keys.includes('page')) {
           transportPayload = candidate
@@ -703,21 +794,21 @@ function auditMain(): AuditOutput {
         ts.isShorthandPropertyAssignment(pathnameProperty)
         || (
           ts.isPropertyAssignment(pathnameProperty)
-          && pathnameProperty.initializer.getText(navigatorFile) === 'pathname'
+          && ['pathname', 'requestContext.pathname'].includes(pathnameProperty.initializer.getText(navigatorFile))
         )
       ),
     )
     const directMessages = Boolean(
       messagesProperty
       && ts.isPropertyAssignment(messagesProperty)
-      && /^next\.slice\(-10\)$/.test(messagesProperty.initializer.getText(navigatorFile)),
+      && ['userMessages', 'userMessagesForRequest(messages)'].includes(messagesProperty.initializer.getText(navigatorFile)),
     )
     const directLocale = Boolean(
       servedLangProperty
       && ts.isPropertyAssignment(servedLangProperty)
-      && servedLangProperty.initializer.getText(navigatorFile) === 'locale',
+      && ['locale', 'requestContext.locale'].includes(servedLangProperty.initializer.getText(navigatorFile)),
     )
-    const forbiddenContextCapture = /document\.title|document\.body\.(?:innerText|textContent|innerHTML)|navigator\.permissions|permissions\.query|\b(?:toolChoice|tool_choice|requestedTool|pageBody|bodyText)\b/.test(navigatorSource)
+    const forbiddenContextCapture = /document\.title|document\.body\.(?:innerText|textContent|innerHTML)|navigator\.permissions|permissions\.query|\b(?:toolChoice|tool_choice|requestedTool|pageBody|bodyText)\b/.test(`${navigatorSource}\n${uiMessageSource}`)
     add(
       'ui',
       'NETRA_UI_PATHNAME_ONLY_CONTEXT',
@@ -730,8 +821,22 @@ function auditMain(): AuditOutput {
         && directMessages
         && directLocale
         && !forbiddenContextCapture,
-      'the client sends the current usePathname value as the only page hint beside bounded messages and locale',
-      `chat JSON must contain exactly messages=next.slice(-10), served_lang=locale, page={pathname}; DOM/title/permissions/tool-choice capture is forbidden; payload=${payloadKeys.join(',') || 'missing'} page=${pageKeys.join(',') || 'missing'}`,
+      'the client sends usePathname as the only page hint beside bounded user messages and locale',
+      `chat body must contain exactly messages=userMessagesForRequest(messages), served_lang=requestContext.locale, page={pathname:requestContext.pathname}; forbidden context capture is disallowed; payload=${payloadKeys.join(',') || 'missing'} page=${pageKeys.join(',') || 'missing'}`,
+    )
+
+    add(
+      'ui',
+      'NETRA_UI_TOOL_TELEMETRY',
+      FILES.navigator,
+      /toUIMessageStreamResponse\(/.test(read(FILES.route, 'ui'))
+        && /netraToolView\(part\)/.test(navigatorSource)
+        && /className="netra-tool"/.test(navigatorSource)
+        && /href=\{trace\.permalink\}/.test(navigatorSource)
+        && /safePublicPermalink/.test(uiMessageSource)
+        && /\^\\\/\(\?:api\|console\|_next\)/.test(uiMessageSource),
+      'typed AI SDK tool states render status and validated public trace links',
+      'route must emit UIMessage stream; panel must render tool states and links only through safePublicPermalink',
     )
 
     const smallText: Array<{ selector: string; size: number }> = []

@@ -21,12 +21,16 @@ const contractFiles = [
   'lib/server/store/actions.ts',
   'lib/server/store/actions-core.ts',
   'lib/server/auth.ts',
+  'proxy.ts',
+  'app/console/page.tsx',
+  'app/console/editor/page.tsx',
   'lib/store/netra-reads.ts',
   'app/api/chat/route.ts',
   'lib/netra/gateway.ts',
   'lib/server/rate-limit.ts',
   'components/NetraNavigator.tsx',
   'components/NetraNavigator.css',
+  'lib/netra/ui-message.ts',
 ]
 
 function fixture(t) {
@@ -96,8 +100,17 @@ test('console sensor rejects validation before authorization', (t) => {
 test('store projection sensor rejects draft/private control columns', (t) => {
   const directory = fixture(t)
   mutate(directory, 'lib/store/netra-reads.ts', (source) => source.replace(
-    "const RESULT_COLUMNS = 'slug,kind,title,lang,summary,body,roll,photo_id'",
+    "const RESULT_COLUMNS = 'slug,kind,title,lang,summary,roll,photo_id'",
     "const RESULT_COLUMNS = 'slug,kind,title,lang,summary,body,roll,photo_id,status'",
+  ))
+  assertViolation(runAudit(directory, 'store'), 'STORE_EXPLICIT_PUBLIC_PROJECTION')
+})
+
+test('store projection sensor rejects coordinates added to NETRA places', (t) => {
+  const directory = fixture(t)
+  mutate(directory, 'lib/store/netra-reads.ts', (source) => source.replace(
+    "const PLACE_COLUMNS = 'id,name'",
+    "const PLACE_COLUMNS = 'id,name,lat,lon'",
   ))
   assertViolation(runAudit(directory, 'store'), 'STORE_EXPLICIT_PUBLIC_PROJECTION')
 })
@@ -234,8 +247,26 @@ test('NETRA history sensor rejects removal of the local clear contract', (t) => 
 test('NETRA transport sensor rejects title or other authority-bearing page context', (t) => {
   const directory = fixture(t)
   mutate(directory, 'components/NetraNavigator.tsx', (source) => source.replace(
-    'page: { pathname }',
-    'page: { pathname, title: document.title }',
+    'page: { pathname: requestContext.pathname },',
+    'page: { pathname: requestContext.pathname, title: document.title },',
   ))
   assertViolation(runAudit(directory, 'ui'), 'NETRA_UI_PATHNAME_ONLY_CONTEXT')
+})
+
+test('NETRA transport sensor rejects assistant-authored turns crossing back to the model', (t) => {
+  const directory = fixture(t)
+  mutate(directory, 'lib/netra/ui-message.ts', (source) => source.replace(
+    ".filter((message) => message.role === 'user')",
+    ".filter((message) => message.role === 'user' || message.role === 'assistant')",
+  ))
+  assertViolation(runAudit(directory, 'ui'), 'NETRA_UI_TRANSPORT')
+})
+
+test('NETRA tool telemetry sensor rejects removal of private-path link filtering', (t) => {
+  const directory = fixture(t)
+  mutate(directory, 'lib/netra/ui-message.ts', (source) => source.replace(
+    "    if (/^\\/(?:api|console|_next)(?:\\/|$)/i.test(decodedPathname)) return null\n",
+    '',
+  ))
+  assertViolation(runAudit(directory, 'ui'), 'NETRA_UI_TOOL_TELEMETRY')
 })

@@ -6,32 +6,61 @@ brand
 
 ## Users
 
-Worldline serves two closely related audiences. Public visitors explore Peat's open digital garden across articles, photographs, fiction, places, code, and the A.T.L.A.S. observatory; they need the archive to remain legible without losing its mystery. Peat is the authenticated operator who publishes, revises, and surveys that archive through the console; he needs a compact, trustworthy authoring instrument with clear security boundaries. NETRA assists both audiences as a grounded librarian-witness, never as a general-purpose chatbot.
+The visitor who arrives at Worldline — the main exploration site. Two contexts:
+
+- **The curious stranger / peer** — someone who found Peat through his work or words and wants to understand *who he is*, not just what he ships. They have time, attention, and a willingness to wander.
+- **Peat himself** — the site is also a mirror. It must still read as *him* even if his role in the world changes tomorrow.
+
+Their job: not to "read a profile" but to **explore an interior world**. Understanding is earned through doing — searching the archive, digging into an entry, conversing with NETRA — never splayed open for passive consumption. The recruiter / HR fast-scan persona is deliberately **out of scope here**; it lives on a separate surface (resume.neoex.com, product register) so exploration never collapses into exhibition.
+
+Operationally, Peat is also the authenticated custodian who publishes, revises, and surveys the archive through a private console. That studio needs explicit, recoverable actions and structural separation from the public gallery. NETRA serves visitors as a grounded librarian-witness—not a general-purpose chatbot—and must never cross the published/private boundary.
 
 ## Product Purpose
 
-Worldline is an archive of unfinished thought surveyed openly: a personal observatory rather than a conventional blog. Its public surfaces help visitors discover real, published material and follow meaningful connections through the archive. Its private console lets the operator maintain that material safely. Success means every claim remains grounded, private drafts stay private, authoring actions are explicit and recoverable, and the interface continues to feel like one coherent paper instrument.
+Worldline is Ne0EX's **soul-atlas** — a personal digital garden rendered as a surveyed paper instrument / observatory. It exists to make the *whole value-hierarchy* of a person legible through exploration, not to advertise a résumé. It is a gallery that *shows* (distinct from the private studio that *paints*).
+
+Success: a visitor leaves having **discovered** something about Peat's inner world they could not have gotten from a bio — and the act of discovery itself felt like reading a hand-surveyed map, not clicking through a SaaS dashboard. The frame commands the page; content is evidence inside it.
+
+The cosmology underneath (Ne0 = −∞ past, NeX = +∞ future, NeON = 0 the bearer) is the soul, not the surface. It is referenced and earned, never explained on arrival.
+
+The public archive is the gallery that shows; the authenticated console is the studio that paints. Success also requires grounded claims, private drafts that remain private, and authoring controls whose displayed state matches observable system behavior.
 
 ## Brand Personality
 
-Quiet, observant, and precise. The experience should feel unhurried and deeply considered, with warmth appearing through restraint rather than friendliness-as-performance. NETRA adds a slightly wry, mannerly intelligence while preserving clear limits and the visitor's sense of agency.
+Three words: **quiet · surveyed · enduring**.
+
+- **Voice** — lower-case, reflective, first-person interior (Cormorant italic). Speaks to bear witness, not to perform.
+- **Instrument** — UPPERCASE wide-tracked labels, typewritten numerals and coordinates (JetBrains Mono, Special Elite). The machinery of a cartographic / observatory readout.
+- **Emotional goal** — calm, depth, the sense of a hand-aged document that has been *lived in*. High-contrast and precise, never bright, never loud, never decorative-for-its-own-sake. Aesthetic-first: the feeling precedes the form.
+- **NETRA** — mannerly, grounded, and slightly wry. It speaks only when useful, exposes uncertainty, and leaves the visitor in control.
 
 ## Anti-references
 
-- Generic SaaS dashboards, card grids, glossy admin templates, or analytics theatre.
-- Generic AI-chat shells, assistant mascots, prompt suggestion carousels, and conversational over-familiarity.
-- Cyberpunk HUD spectacle, neon gradients, glass panels, decorative motion, and icon-library clutter.
-- Conventional lifestyle blogs that make the instrument frame disappear behind content.
-- Sexy-coded, idol-coded, or anime-cute depictions of NETRA.
+Carried forward verbatim from the established `worldline-design` non-negotiables — battle-tested across the build:
+
+- **NOT a SaaS app.** No dashboard chrome, no hero-metric templates, no card-grid feeds.
+- **NOT a blog / portfolio template.** No reverse-chron post list as the primary affordance, no "About / Work / Contact" marketing scaffold.
+- **NOT a generic AI chat or glossy admin shell.** No assistant mascots, prompt carousels, analytics theatre, or capability claims the system cannot prove.
+- **No gradients** (the A.T.L.A.S. globe is the single sanctioned exception).
+- **No glassmorphism, no drop-shadows.**
+- **No rounded corners** — only true circles (nodes, reticles).
+- **No emoji.** "Icons" are Unicode geometric glyphs (∇ α ◇ ◎ ○ ◆ § ⟶) or inked reticles.
+- **No decorative motion.** Motion communicates a state change only — never ambient loops; always honors `prefers-reduced-motion`.
+- The orange accent is **reserved** — observer α, reticles, active/selected only. Never a generic highlight.
 
 ## Design Principles
 
-1. **The instrument tells the truth.** Every state, claim, count, and control must correspond to observable system behavior; uncertainty and unavailable context remain visible.
-2. **Make the archive legible without exhausting its mystery.** Guide visitors to the right shelf, then let the work speak instead of over-explaining it.
-3. **Privacy is a boundary, not microcopy.** Published and private material, anonymous and owner capabilities, and client and server secrets remain structurally separated and regression-tested.
-4. **Compose from the soul-atlas.** New surfaces reuse the established paper, ink, type roles, reticles, seams, and measured interactions so the observatory remains recognizably Peat's.
-5. **Restraint earns trust.** Motion communicates state, NETRA speaks only when useful, primary actions are unmistakable, and decorative complexity never competes with reading or authoring.
+1. **Exploration, not exhibition.** Understanding is *earned* through search · dig · converse. Resist the AI-default reflex to expose and clarify everything on arrival. The telemetry-shell is the intentional first level.
+2. **The frame commands; content is evidence.** The surveyed-paper instrument is the product. Entries, photos, and nodes sit *inside* the frame as catalogued findings, not as the page's reason to exist.
+3. **Feeling before form.** Understand the core feeling first; the schema comes after. Never blank-slate a direction — every surface declares its soul-baseline, connection-point, and continuity with the prototype.
+4. **One visual language, committed.** Never blend registers. Iterate one variable at a time. Compose from the catalogued atoms — never re-derive what already exists.
+5. **Still Peat if his role changed tomorrow.** The acceptance test for any surface: does it read as *him* — and as a surveyed paper instrument — independent of any title he holds?
+6. **Privacy is a boundary, not microcopy.** Published and private material, anonymous and owner capabilities, and client and server secrets remain structurally separated and regression-tested.
 
 ## Accessibility & Inclusion
 
-Target WCAG 2.2 AA throughout, with visible keyboard focus, semantic controls, screen-reader labels, logical focus management, and touch targets of at least 44 by 44 CSS pixels. Body and placeholder text must meet AA contrast. All motion must honor `prefers-reduced-motion`; the interface must remain usable at a 375px viewport and above the mobile software keyboard. English and Thai are first-class language contexts, and meaning must never depend on color alone.
+- **Two legibility registers** (ambient/squint vs. read-intentional) must stay distinguishable; the dot-grid texture must never swallow the read-tier. Tune texture and contrast together.
+- **Contrast** — body text ≥ 4.5:1, large text ≥ 3:1. The aged-paper bg + teal-ink scale is high-contrast by design; never trade legibility for "elegance."
+- **Reduced motion is law.** Every animation needs a `prefers-reduced-motion: reduce` alternative that *reveals* the already-visible default (crossfade/instant) — never gates content behind a transition that won't fire.
+- **Mobile-native / touch-correct** across all surfaces (iPhone-class), not a desktop layout shrunk down.
+- **WCAG 2.2 AA is the floor.** Controls need visible keyboard focus, semantic and screen-reader names, logical focus management, and touch targets of at least 44 × 44 CSS pixels. The experience must remain usable at 375px and above the mobile software keyboard; English and Thai are first-class contexts, and meaning never depends on color alone.

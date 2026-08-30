@@ -19,10 +19,10 @@
   color: var(--accent-orange);
 }
 
-/* WCAG 2.2 SC 2.5.8: desktop links need a 24px target even before the
- * existing coarse/mobile 44px padding rule takes over. */
+/* Project interaction floor: public controls remain at least 44px on every
+ * pointer type, matching the mobile contract and avoiding density regressions. */
 .footer-channel-link {
-  min-block-size: 24px;
+  min-block-size: 44px;
   display: flex;
   align-items: center;
 }

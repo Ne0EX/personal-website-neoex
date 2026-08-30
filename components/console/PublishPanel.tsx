@@ -419,9 +419,11 @@ export function PublishPanel({
   // S6: real transmit — when onTransmit provided, call it instead of the mock timer.
   // Mock auto-advance kept as fallback when onTransmit is not wired (legacy SAMPLE path).
   const onPhaseChangeRef = useRef(onPhaseChange)
-  onPhaseChangeRef.current = onPhaseChange
   const onTransmitRef = useRef(onTransmit)
-  onTransmitRef.current = onTransmit
+  useEffect(() => {
+    onPhaseChangeRef.current = onPhaseChange
+    onTransmitRef.current = onTransmit
+  }, [onPhaseChange, onTransmit])
 
   useEffect(() => {
     if (phase !== 'running') return
@@ -448,7 +450,9 @@ export function PublishPanel({
   // ESC closes (contract keyboard map is unconditional — unlike the prototype
   // which blocked ESC while running).
   const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCloseRef.current()

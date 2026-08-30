@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { useThemeMode, type ThemeMode } from "@/lib/useThemeMode";
+import { formatWorldlineCount, type WorldlineStats } from "@/lib/worldline-stats";
 // Palette shared with Globe.tsx — single source of truth (lib/globe-palettes.ts).
 // Extracted 2026-06-22 (α-SUR-01 globe-component task). Behavior unchanged.
 import { type GlobePalette, GLOBE_PALETTES } from "@/lib/globe-palettes";
@@ -955,7 +956,7 @@ function buildScene(
 interface WorldlineGlobeProps {
   alphaCoord?: { lat: number; lon: number };
   /** Live content counts from getWorldlineStats() — passed from the server page. */
-  stats?: { surveyed: number; active: number };
+  stats?: WorldlineStats | null;
 }
 
 export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) {
@@ -964,11 +965,9 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
   const alphaLat = alphaCoord?.lat ?? ALPHA_LAT_FALLBACK;
   const alphaLon = alphaCoord?.lon ?? ALPHA_LON_FALLBACK;
 
-  // Live content counts — safe defaults so the readout never shows NaN.
-  // Supplied by getWorldlineStats() on the server page; undefined = not yet wired.
-  // Zero-padded to 3 digits to match the instrument register (047/012/000 style).
-  const surveyed = String(stats?.surveyed ?? 0).padStart(3, "0");
-  const activeCount = String(stats?.active ?? 0).padStart(3, "0");
+  // A real zero remains 000; an unavailable server read remains visibly unknown.
+  const surveyed = formatWorldlineCount(stats?.surveyed);
+  const activeCount = formatWorldlineCount(stats?.active);
 
   // Stable ref so the once-bound THREE effect closure can read the live alpha
   // without going stale across renders (the prop won't change after mount, but
@@ -1255,10 +1254,6 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
   // post-mount value without reading refs during render (react-hooks/refs).
   const reducedMotionRef = useRef(false);
   const [reducedMotion, setReducedMotion] = useState(false);
-
-  // Arc reveal animation state — drives the draw-in from α outward on NeX entry.
-  // active=false when settled (or not in NeX). Tick reads this every frame.
-  const arcRevealRef = useRef<{ startMs: number; active: boolean }>({ startMs: 0, active: false });
 
   // Live scene refs — set inside the THREE setup effect so the place-node
   // build/recolor effect (which depends on async data + selection) can reach
@@ -1732,28 +1727,7 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
       refs.nexField.visible = T.showField;
       refs.axisGroup.visible = T.showAxis;
       refs.contoursGroup.visible = T.showContours;
-      // Arc is NeX-only — hidden in FULL (all) and all other strata.
-      // On NeX entry: animated draw-in from α outward (arc reveal).
-      // Reduced-motion: instant full reveal, no draw animation.
-      if (key === "nex") {
-        refs.arcLine.visible = true;
-        const arcM = refs.arcLine.material as THREE.LineDashedMaterial;
-        const vertexCount = refs.arcLine.geometry.attributes.position.count;
-        if (reducedMotionRef.current) {
-          // Instant reveal — skip animation per prefers-reduced-motion.
-          refs.arcLine.geometry.setDrawRange(0, vertexCount);
-          arcM.opacity = 0.95;
-          arcRevealRef.current = { startMs: 0, active: false };
-        } else {
-          // Animated draw-in: start from zero vertices, opacity 0.
-          refs.arcLine.geometry.setDrawRange(0, 0);
-          arcM.opacity = 0;
-          arcRevealRef.current = { startMs: performance.now(), active: true };
-        }
-      } else {
-        refs.arcLine.visible = false;
-        arcRevealRef.current.active = false;
-      }
+      refs.arcLine.visible = key !== "neon" && key !== "neo";
     };
     // Expose for state changes from outside the effect.
     (window as unknown as { __atlasApplyStratum?: (k: StratumKey) => void }).__atlasApplyStratum = applyStratum;
@@ -2265,27 +2239,8 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
       if (refs.netraTracker.visible) {
         refs.netraTracker.scale.setScalar(1 + 0.08 * Math.sin(now * 0.006));
       }
-      // Arc reveal draw-in — drives animated extension from α outward on NeX entry.
-      // Runs only while arcRevealRef.active; settles in ~700ms then goes dormant.
-      // Recomputes lineDistances each frame during draw so dashes render correctly
-      // over the partial geometry. computeLineDistances is cheap on 65 vertices.
-      const arcReveal = arcRevealRef.current;
+      // Arc dash march.
       const arcM = refs.arcLine.material as THREE.LineDashedMaterial;
-      if (arcReveal.active) {
-        const vertexCount = refs.arcLine.geometry.attributes.position.count;
-        const p = Math.min(1, (now - arcReveal.startMs) / 700);
-        const eased = easeOutQuad(p);
-        refs.arcLine.geometry.setDrawRange(0, Math.ceil(eased * vertexCount));
-        arcM.opacity = eased * 0.95;
-        refs.arcLine.computeLineDistances();
-        if (p >= 1) {
-          arcReveal.active = false;
-          // Ensure full draw settled precisely.
-          refs.arcLine.geometry.setDrawRange(0, vertexCount);
-          arcM.opacity = 0.95;
-        }
-      }
-      // Arc dash march — subtle dashSize breathing. Runs whenever arc is visible.
       arcM.dashSize = 0.04 + Math.sin(now * 0.002) * 0.005;
 
       // ─── Worldline Branching tick — §13.2 steps 3–6 + §7.1 breathing ───
@@ -2952,16 +2907,12 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
               <span>RETICLE</span><b ref={netraCoordRef}>0.00°N · 0.00°E</b>
               <span>RANGE</span><b ref={netraRangeRef}>2.50</b>
             </span>
-            {/* CW-15 · NEXT NODE touch target (ux-journey, α-SUR-01, 2026-06-14)
-                Was 94×24px. minHeight:44px + display:flex + alignItems:center → ≥44px.
-                2026-06-26 · Peat requested desktop-density reduction: minHeight 44→36px.
-                Still ≥ WCAG AA 24px minimum pointer target; desktop pointer context only
-                (mobile dock keeps 44px via atlas-mobile-dock-jump CSS). Visual label
-                and class unchanged. */}
+            {/* NEXT NODE keeps the project-wide 44px interaction floor on every
+                pointer type; the visual label and dense instrument style stay unchanged. */}
             <button
               className="jump"
               type="button"
-              style={{ minHeight: "36px", display: "flex", alignItems: "center" }}
+              style={{ minHeight: "44px", display: "flex", alignItems: "center" }}
               onClick={() => {
                 const fn = (window as unknown as { __atlasNetraJump?: () => void }).__atlasNetraJump;
                 if (fn) fn();
@@ -3107,6 +3058,7 @@ function PlaceFrontDoorPanel(props: {
       className="z-[6] flex flex-col overflow-y-auto"
       aria-label={panelLabel}
       aria-hidden={!open}
+      inert={!open}
       style={isMobile ? mobileStyle : desktopStyle}
     >
       {/* CW-15 · ESC button touch target (ux-journey, α-SUR-01, 2026-06-14)

@@ -19,7 +19,7 @@ import {
 
 // contract
 // method · POST /api/chat
-// request · { messages: Array<{ role: 'user' | 'assistant'; content: string }>; served_lang?: 'en' | 'th'; page: { pathname: string (bounded public path) } }
+// request · { messages: Array<{ role: 'user'; content: string }>; served_lang?: 'en' | 'th'; page: { pathname: string (bounded public path) } }
 // response · streamed text; X-NETRA-Remaining and wl_session cookie headers
 // errors · 400 INVALID_BODY (malformed body or unknown/private page) · 429 RATE_LIMITED · 503 UPSTREAM_UNAVAILABLE
 // rate limit · 50 validated messages per 24h per canonical UUIDv4 session
@@ -30,7 +30,8 @@ export const dynamic = 'force-dynamic'
 const SESSION_WINDOW_SECONDS = Math.floor(RATE_LIMIT_WINDOW_MS / 1000)
 
 const MessageSchema = z.object({
-  role: z.enum(['user', 'assistant']),
+  // Assistant turns are display data, never trusted client-authored context.
+  role: z.literal('user'),
   content: z.string().min(1).max(8_000),
 })
 const ChatRequestSchema = z.object({
@@ -247,17 +248,15 @@ export async function POST(request: NextRequest): Promise<Response> {
       },
     )
 
-    void result.consumeStream({
-      onError: (error) => {
-        logSafeError('upstream stream unavailable', error)
-      },
-    })
-
-    return result.toTextStreamResponse({
+    return result.toUIMessageStreamResponse({
       headers: {
         'X-NETRA-Remaining': String(quotaResult.remaining),
         'Set-Cookie': sessionCookie,
         'X-Accel-Buffering': 'no',
+      },
+      onError: (error) => {
+        logSafeError('upstream stream unavailable', error)
+        return 'UPSTREAM_UNAVAILABLE'
       },
     })
   } catch (error) {

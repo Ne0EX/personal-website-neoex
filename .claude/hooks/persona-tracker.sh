@@ -294,7 +294,8 @@ if [[ "$IS_FIRST_MESSAGE" == "true" ]] && [[ "$SESSION_MODE" == "pending" ]]; th
   printf '%s · [BETA-DETECT] running beta pattern match on first message\n' \
     "$TIMESTAMP" >> "$LOG" 2>/dev/null || true
 
-  if printf '%s' "$USER_PROMPT" | grep -qiE '(beta|เบต้า|betelgeuse[[:space:]]+chan)'; then
+  if printf '%s' "$USER_PROMPT" \
+    | grep -qiE '(^|[^[:alnum:]_])beta([^[:alnum:]_]|$)|เบต้า|(^|[^[:alnum:]_])betelgeuse[[:space:]]+chan([^[:alnum:]_]|$)'; then
     SESSION_MODE="beta"
     printf '%s · [BETA-DETECT] MATCH → mode=beta\n' "$TIMESTAMP" >> "$LOG" 2>/dev/null || true
   else
@@ -380,9 +381,10 @@ if [[ "$IS_NEGATIVE" == "false" ]]; then
 
     # Pattern group 5: bare codename at start of prompt + task content (not third-person)
     # Must NOT be followed by a third-person predicate verb
-    THIRD_PERSON_VERBS='เป็น[[:space:]]|บ่น[[:space:]]|เขียน[[:space:]]|ทำงาน[[:space:]]|พูด[[:space:]]'
+    THIRD_PERSON_VERBS='เป็น|บ่น|เขียน|ทำงาน|พูด|ก็ต้อง'
     if printf '%s' "$LOWER_PROMPT_FOR_MATCH" | grep -qiE "^[[:space:]]*${codename}[[:space:]]"; then
-      if ! printf '%s' "$LOWER_PROMPT_FOR_MATCH" | grep -qiE "^[[:space:]]*${codename}[[:space:]]+($THIRD_PERSON_VERBS)"; then
+      if ! printf '%s' "$LOWER_PROMPT_FOR_MATCH" \
+        | grep -qiE "^[[:space:]]*${codename}[[:space:]]+($THIRD_PERSON_VERBS)"; then
         # Additional guard: "ของ + codename" possessive
         if ! printf '%s' "$LOWER_PROMPT_FOR_MATCH" | grep -qiE "ของ[[:space:]]*${codename}"; then
           DETECTED_CODENAME="$codename"; break

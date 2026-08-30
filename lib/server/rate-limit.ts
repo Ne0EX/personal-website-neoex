@@ -24,6 +24,9 @@ export const RATE_LIMIT_MAX = 50
 /** Window duration in milliseconds. */
 export const RATE_LIMIT_WINDOW_MS = 24 * 60 * 60 * 1000 // 24 hours
 
+/** Hard memory bound for the process-local fallback. */
+export const RATE_LIMIT_MAX_SESSIONS = 1_024
+
 /** Cookie name for session identity. */
 export const SESSION_COOKIE_NAME = 'wl_session'
 
@@ -98,6 +101,17 @@ export type RateLimitResult =
  */
 const sessions = new Map<string, SessionRecord>()
 
+/** Reserve one slot for a previously unseen ID, evicting oldest records first. */
+function reserveSessionSlot(sessionId: string): void {
+  if (sessions.has(sessionId)) return
+
+  while (sessions.size >= RATE_LIMIT_MAX_SESSIONS) {
+    const oldestSessionId = sessions.keys().next().value
+    if (typeof oldestSessionId !== 'string') break
+    sessions.delete(oldestSessionId)
+  }
+}
+
 /**
  * Periodic cleanup: drop sessions whose window expired more than 48h ago
  * to prevent unbounded map growth. Runs at most once per hour (lazy trigger).
@@ -138,6 +152,7 @@ export function checkRateLimit(existingSessionId: string | undefined): RateLimit
 
   if (!rec || now - rec.windowStart >= RATE_LIMIT_WINDOW_MS) {
     // First message in window or window expired — reset.
+    reserveSessionSlot(sessionId)
     sessions.set(sessionId, { count: 1, windowStart: now })
     return {
       allowed: true,

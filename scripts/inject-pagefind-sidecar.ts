@@ -74,6 +74,13 @@
 
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
+import {
+  localizedSidecarKey,
+  localizedSidecarRows,
+  sidecarLanguage,
+  splitLocalizedHtmlPath,
+  type SidecarLanguage,
+} from './pagefind-sidecar-routing'
 
 // ---------------------------------------------------------------------------
 // Types (mirrors velite schema fields we need — no import from .velite to
@@ -81,6 +88,7 @@ import path from 'node:path'
 // ---------------------------------------------------------------------------
 
 interface ArticleRecord {
+  lang: SidecarLanguage
   fileNum: string
   title: string
   date: string       // YYYY.MM.DD
@@ -97,6 +105,7 @@ interface ArticleRecord {
 }
 
 interface FictionRecord {
+  lang: SidecarLanguage
   slug: string
   title: string
   date: string
@@ -119,6 +128,7 @@ interface PhotoRecord {
 }
 
 interface PhotoSidecarRecord {
+  lang: SidecarLanguage
   roll: string
   id: string
   caption?: string
@@ -471,7 +481,7 @@ async function main(): Promise<void> {
   }
 
   const ENTRY_COLS = [
-    'kind', 'slug', 'status', 'title', 'date', 'iso_date', 'domain', 'tags',
+    'kind', 'slug', 'status', 'title', 'lang', 'date', 'iso_date', 'domain', 'tags',
     'summary', 'served_coords', 'share_location', 'patches', 'worldline_links',
     'maturity', 'reading_time', 'roll', 'photo_id', 'caption',
   ].join(',')
@@ -485,6 +495,7 @@ async function main(): Promise<void> {
 
   // DL1 mapping: served status = maturity
   const articles: ArticleRecord[] = rawArticles.map((r) => ({
+    lang: sidecarLanguage(r.lang),
     fileNum: r.slug as string,
     title: (r.title as string) ?? '',
     date: r.date as string,
@@ -500,6 +511,7 @@ async function main(): Promise<void> {
   }))
 
   const fictions: FictionRecord[] = rawFiction.map((r) => ({
+    lang: sidecarLanguage(r.lang),
     slug: r.slug as string,
     title: (r.title as string) ?? '',
     date: r.date as string,
@@ -510,6 +522,7 @@ async function main(): Promise<void> {
   }))
 
   const photoSidecars: PhotoSidecarRecord[] = rawPhotos.map((r) => ({
+    lang: sidecarLanguage(r.lang),
     roll: r.roll as string,
     id: r.photo_id as string,
     caption: r.caption as string | undefined,
@@ -523,19 +536,26 @@ async function main(): Promise<void> {
   log(`loaded from store: ${articles.length} articles, ${fictions.length} fiction, ${photoSidecars.length} photo sidecars (published only via RLS)`)
 
   // Build lookup maps
-  const articleByFileNum = new Map(articles.map(a => [a.fileNum, a]))
-  const fictionBySlug    = new Map(fictions.map(f => [f.slug, f]))
+  const articleByFileNum = new Map(
+    articles.map(a => [localizedSidecarKey(a.lang, a.fileNum), a]),
+  )
+  const fictionBySlug = new Map(
+    fictions.map(f => [localizedSidecarKey(f.lang, f.slug), f]),
+  )
 
   // Group sidecars by roll
   const sidecarsByRoll = new Map<string, PhotoSidecarRecord[]>()
   for (const s of photoSidecars) {
-    const arr = sidecarsByRoll.get(s.roll) ?? []
+    const key = localizedSidecarKey(s.lang, s.roll)
+    const arr = sidecarsByRoll.get(key) ?? []
     arr.push(s)
-    sidecarsByRoll.set(s.roll, arr)
+    sidecarsByRoll.set(key, arr)
   }
 
   // Sidecar lookup by roll+id
-  const sidecarByKey = new Map(photoSidecars.map(s => [`${s.roll}/${s.id}`, s]))
+  const sidecarByKey = new Map(
+    photoSidecars.map(s => [localizedSidecarKey(s.lang, s.roll, s.id), s]),
+  )
 
   log(`loaded: ${articles.length} articles, ${fictions.length} fiction, ${photoSidecars.length} photo sidecars`)
 
@@ -585,9 +605,9 @@ async function main(): Promise<void> {
     // Determine what content to inject based on path
     let sidecar: string | null = null
 
-    // Normalise: strip the optional locale prefix emitted by [lang] routes.
-    const parts = relPath.replace(/\\/g, '/').split('/')
-    const routeParts = parts[0] === 'en' || parts[0] === 'th' ? parts.slice(1) : parts
+    // Preserve the served locale while normalising the route path. Translated
+    // siblings share slugs, so locale must remain part of every lookup key.
+    const { lang: pageLang, routeParts } = splitLocalizedHtmlPath(relPath)
 
     // routeParts breakdown for path 'a/b/c.html': ['a', 'b', 'c.html']
     // routeParts.length === 1: 'index.html' or 'archive.html'
@@ -602,7 +622,7 @@ async function main(): Promise<void> {
     } else if (routeParts[0] === 'articles' && routeParts.length === 2) {
       // articles/<fileNum>.html
       const fileNum = path.basename(routeParts[1], '.html')
-      const article = articleByFileNum.get(fileNum)
+      const article = articleByFileNum.get(localizedSidecarKey(pageLang, fileNum))
       if (article) {
         sidecar = articleSidecar(article)
         logv(`article ${fileNum}: ${article.title}`)
@@ -613,7 +633,7 @@ async function main(): Promise<void> {
     } else if (routeParts[0] === 'fiction' && routeParts.length === 2) {
       // fiction/<slug>.html
       const slug = path.basename(routeParts[1], '.html')
-      const fiction = fictionBySlug.get(slug)
+      const fiction = fictionBySlug.get(localizedSidecarKey(pageLang, slug))
       if (fiction) {
         sidecar = fictionSidecar(fiction)
         logv(`fiction ${slug}: ${fiction.title}`)
@@ -624,14 +644,14 @@ async function main(): Promise<void> {
     } else if (routeParts[0] === 'photos' && routeParts.length === 2) {
       // photos/<roll>.html — roll index
       const roll = path.basename(routeParts[1], '.html')
-      const rollSidecars = sidecarsByRoll.get(roll) ?? []
+      const rollSidecars = sidecarsByRoll.get(localizedSidecarKey(pageLang, roll)) ?? []
       sidecar = rollIndexSidecar(roll, rollSidecars)
       logv(`roll index ${roll}: ${rollSidecars.length} frames`)
     } else if (routeParts[0] === 'photos' && routeParts.length === 3) {
       // photos/<roll>/<id>.html — photo entry
       const roll = routeParts[1]
       const id   = path.basename(routeParts[2], '.html')
-      const key  = `${roll}/${id}`
+      const key = localizedSidecarKey(pageLang, roll, id)
       const sc   = sidecarByKey.get(key)
       if (sc) {
         sidecar = photoSidecar(sc)
@@ -648,8 +668,11 @@ async function main(): Promise<void> {
       relPath === 'archive.html'
     ) {
       // /archive route — cross-stratum ledger (docs/design/21-archive-route.md §7.3)
-      sidecar = archiveSidecar(articles, fictions, photoSidecars)
-      logv(`archive: ${articles.length} articles, ${fictions.length} fiction, ${photoSidecars.length} photos injected`)
+      const localizedArticles = localizedSidecarRows(articles, pageLang)
+      const localizedFictions = localizedSidecarRows(fictions, pageLang)
+      const localizedPhotos = localizedSidecarRows(photoSidecars, pageLang)
+      sidecar = archiveSidecar(localizedArticles, localizedFictions, localizedPhotos)
+      logv(`archive (${pageLang}): ${localizedArticles.length} articles, ${localizedFictions.length} fiction, ${localizedPhotos.length} photos injected`)
     } else {
       logv(`unrecognised path pattern: ${relPath}`)
       unmatched++

@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { animate } from "animejs";
 import { DivergenceMeter } from "./DivergenceMeter";
 import { WorldlineGlobe } from "./WorldlineGlobe";
+import type { WorldlineStats } from "@/lib/worldline-stats";
 
 /**
  * HeroBlock — compact title strip above a full-width A.T.L.A.S. artifact.
@@ -19,7 +20,7 @@ import { WorldlineGlobe } from "./WorldlineGlobe";
 /** movable-alpha: alpha locus coords + live content stats passed down from the server page. */
 interface HeroBlockProps {
   alphaCoord?: { lat: number; lon: number };
-  stats?: { surveyed: number; active: number };
+  stats?: WorldlineStats | null;
 }
 
 export function HeroBlock({ alphaCoord, stats }: HeroBlockProps = {}) {

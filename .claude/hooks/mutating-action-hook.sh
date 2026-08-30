@@ -14,6 +14,7 @@
 # CHECK ORDER (important):
 #   1. Hard structural denies (ALWAYS run first — no allowlist bypass):
 #      process-substitution RCE (source/. <(...), interpreter <(curl/wget ...))
+#      deterministic curl/wget pipe/chain/newline to interpreter RCE
 #      output-redirection (>>/>/|/tee), shell-inject (bash -c, sh -c)
 #      NOTE: curl/wget fetch verbs are FULLY un-gated per TASK-2026-06-06-CURL-WGET-UNBLOCK
 #      (Peat directive). The RCE floor (bash <(curl), source <(curl), pipe to interpreter)
@@ -41,6 +42,7 @@
 #
 # WHAT IT BLOCKS:
 #   Bash: process-substitution RCE: source/. <(curl/wget ...) or interpreter <(curl/wget ...)
+#         curl/wget fetch-to-interpreter via |, |&, &&, ;, &, or newline,
 #         rm -rf/-r/-f, chmod/chown/mv, cp,
 #         git push/reset --hard/rebase/merge/rm/mv/tag,
 #         npm/pnpm/yarn install/add/remove/update,
@@ -56,7 +58,7 @@
 #   flags (-d, --data*, -F, --form*, -T, --upload-file, -X POST/PUT/DELETE, --json, etc.)
 #   are now fully un-gated per TASK-2026-06-06-CURL-WGET-UNBLOCK (Peat directive).
 #   EXCEPTION: feeding fetched content into a shell interpreter remains BLOCKED —
-#   bash <(curl ...), source <(curl ...), curl ... | bash, etc.
+#   bash <(curl ...), source <(curl ...), curl ... | bash, curl ... && bash, etc.
 #   git read ops, npm run/test/exec/ci, npx tsx/vitest/eslint/tsc/pagefind/velite,
 #   node scripts/, bash .claude/hooks/*, bash scripts/audit-*, bash .harness/*,
 #   python3 -m http.server/json.tool, python3 scripts/,
@@ -277,11 +279,49 @@ if [[ "$TOOL_NAME" == "Bash" ]]; then
     block "process-substitution RCE: interpreter <(curl/wget ...) feeds fetched content into the shell — not permitted." "$CMD"
   fi
 
+  # ---- PHASE 1 GLOBAL: deterministic fetch-and-execute RCE ----
+  # Ordinary curl/wget remains un-gated. Block only a literal fetch command whose
+  # output is fed directly (| or |&) to a known interpreter/execution sink. This
+  # is intentionally a bounded shell-shape classifier, not a wholesale fetch gate.
+  #
+  # Keep these fragments POSIX-ERE compatible: the hook runs with the platform
+  # grep in local development and GNU grep in Ubuntu CI.
+  FETCH_COMMAND="${CMD_LEADIN}[[:space:]]*(([A-Za-z_][A-Za-z0-9_]*=[^[:space:];&|(){}]+[[:space:]]+)*)([^[:space:];&|(){}]*/)?(curl|wget)[[:space:]]+"
+  FETCH_PIPE="${FETCH_COMMAND}[^|;&]*[[:space:]]*\|&?[[:space:]]*"
+  CMD_FETCH_CHAINS="${CMD//$'\n'/;}"
+  FETCH_CHAIN="${FETCH_COMMAND}[^|;&]*[[:space:]]*(&&|;|&)[[:space:]]*"
+  EXEC_PATH='([^[:space:];&|(){}]*/)?'
+  EXEC_ASSIGNMENT='[A-Za-z_][A-Za-z0-9_]*=[^[:space:];&|(){}]+[[:space:]]+'
+  EXEC_SIMPLE_WRAPPER="${EXEC_PATH}(command|builtin|env|exec|sudo|doas|nice|time|stdbuf|nohup|unbuffer|watch)([[:space:]]+-[^[:space:];&|(){}]+)*[[:space:]]+"
+  EXEC_TIMEOUT_WRAPPER="${EXEC_PATH}timeout([[:space:]]+-[^[:space:];&|(){}]+([[:space:]]+[^[:space:];&|(){}]+)?)*[[:space:]]+[0-9]+([.][0-9]+)?[smhd]?[[:space:]]+"
+  EXEC_CHROOT_WRAPPER="${EXEC_PATH}chroot[[:space:]]+[^[:space:];&|()]+[[:space:]]+"
+  EXEC_XARGS_WRAPPER="${EXEC_PATH}xargs([[:space:]]+-[^[:space:];&|()]+)*[[:space:]]+"
+  EXEC_PREFIX="(${EXEC_ASSIGNMENT}|${EXEC_SIMPLE_WRAPPER}|${EXEC_TIMEOUT_WRAPPER}|${EXEC_CHROOT_WRAPPER}|${EXEC_XARGS_WRAPPER})*"
+  EXEC_INTERPRETER='(sh|bash|zsh|dash|ksh|fish|csh|tcsh|xonsh|pwsh|python([0-9]+([.][0-9]+)*)?|ruby([0-9]+([.][0-9]+)*)?|perl([0-9]+([.][0-9]+)*)?|php([0-9]+([.][0-9]+)*)?|node|lua([0-9]+([.][0-9]+)*)?|deno|bun|tclsh|Rscript|osascript|julia|expect|gdb|source|\.)'
+  EXEC_BOUNDARY='([[:space:];&|)}]|$)'
+
+  if echo "$CMD" | grep -qiE "${FETCH_PIPE}${EXEC_PREFIX}${EXEC_PATH}${EXEC_INTERPRETER}${EXEC_BOUNDARY}"; then
+    block "fetch-and-execute RCE: curl/wget output piped to an interpreter — not permitted." "$CMD"
+  fi
+
+  if echo "$CMD_FETCH_CHAINS" | grep -qiE "${FETCH_CHAIN}${EXEC_PREFIX}${EXEC_PATH}${EXEC_INTERPRETER}${EXEC_BOUNDARY}"; then
+    block "fetch-and-execute RCE: curl/wget chained to an interpreter — not permitted." "$CMD"
+  fi
+
+  # awk is normally a safe stream processor; only stdin-as-program/system forms
+  # are execution sinks. Likewise, make/crontab are blocked only when the pipe is
+  # explicitly consumed as instructions rather than ordinary data.
+  if echo "$CMD" | grep -qiE "${FETCH_PIPE}${EXEC_PREFIX}${EXEC_PATH}(awk|gawk|mawk)[[:space:]]+[^;&|]*(system[[:space:]]*\(|-f[[:space:]]+(-|/dev/stdin)${EXEC_BOUNDARY})" \
+  || echo "$CMD" | grep -qiE "${FETCH_PIPE}${EXEC_PREFIX}${EXEC_PATH}make[[:space:]]+[^;&|]*-f[[:space:]]+(-|/dev/stdin)${EXEC_BOUNDARY}" \
+  || echo "$CMD" | grep -qiE "${FETCH_PIPE}${EXEC_PREFIX}${EXEC_PATH}crontab[[:space:]]+(-|/dev/stdin)${EXEC_BOUNDARY}"; then
+    block "fetch-and-execute RCE: curl/wget output piped to an instruction-consuming command — not permitted." "$CMD"
+  fi
+
   # curl/wget fetch verbs: FULLY UN-GATED per TASK-2026-06-06-CURL-WGET-UNBLOCK.
   # Peat directive: no wholesale block, no precision-gating of curl/wget command position.
   # The RCE floor (source/. <(...), interpreter <(curl/wget ...), pipe/chain to interpreter)
-  # is handled above in PHASE 1 GLOBAL and below in PHASE 2 (denylist). Generic
-  # redirect (>>/>) and rm guards below remain unchanged.
+  # is handled above in PHASE 1 GLOBAL. Generic redirect (>>/>) and rm guards below
+  # remain unchanged.
   # Historical wholesale block (adversarial harden NOT TIGHT verdict, 2026-06-03) is
   # superseded. See docs/harness/RAIL-DEFINITIONS.md §least-agency-config for archaeology.
 

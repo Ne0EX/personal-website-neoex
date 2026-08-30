@@ -3,11 +3,22 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { animate, createScope } from 'animejs'
+import { useChat } from '@ai-sdk/react'
+import { DefaultChatTransport, type UIMessage } from 'ai'
+import {
+  netraToolView,
+  plainNetraText,
+  readStoredNetraHistory,
+  storedHistoryToUIMessages,
+  uiMessageText,
+  uiMessagesToStoredHistory,
+  userMessagesForRequest,
+} from '@/lib/netra/ui-message'
 import './NetraNavigator.css'
 
 type Lang = 'en' | 'th'
-type Message = { role: 'user' | 'assistant'; content: string }
 type NetraError = { code: string; message: string }
+type HistoryScope = 'public' | 'owner'
 type NetraUiState = 'ready' | 'open' | 'busy'
 type NetraCopy = {
   open: string; close: string; title: string; attached: string
@@ -17,7 +28,13 @@ type NetraCopy = {
   quota: string; empty: string; question: string; response: string
   transcript: string; transmission: string; clear: string; cleared: string
   responseReady: string; live: string; signal: string
+  surveyingTool: string; resolvedTool: string; unresolvedTool: string; traces: string
 }
+
+const HISTORY_KEYS = {
+  public: 'wl-netra-history:public',
+  owner: 'wl-netra-history:owner',
+} as const
 
 const copy: Record<Lang, NetraCopy> = {
   en: {
@@ -27,12 +44,13 @@ const copy: Record<Lang, NetraCopy> = {
     idle: 'standing by · archive in view', survey: 'surveying archive ·─────',
     placeholder: 'ask the archive', send: 'transmit',
     offline: 'signal lost · α holding · try again',
-    rateLimited: 'i need to step away from the instrument for the day. α drift has hit the ceiling.',
+    rateLimited: 'daily ceiling reached · channel closed',
     invalidRequest: 'transmission rejected · check the query', quota: 'quota remaining',
     empty: 'the archive is quiet here. transmit a question to begin the survey.',
     question: 'query', response: 'trace', transcript: 'FIELD TRANSCRIPT',
     transmission: 'TRANSMISSION', clear: 'CLEAR LOG', cleared: 'local history cleared',
     responseReady: 'NETRA response received', live: 'LIVE', signal: 'SIGNAL',
+    surveyingTool: 'surveying', resolvedTool: 'resolved', unresolvedTool: 'unresolved', traces: 'traces',
   },
   th: {
     open: 'เปิดเครื่องนำทาง NETRA', close: 'ปิดเครื่องนำทาง NETRA',
@@ -41,31 +59,14 @@ const copy: Record<Lang, NetraCopy> = {
     idle: 'เตรียมพร้อม · มองเห็นคลังแล้ว', survey: 'กำลังสำรวจคลัง ·─────',
     placeholder: 'ถามคลังข้อมูล', send: 'ส่งสัญญาณ',
     offline: 'สัญญาณขาดหาย · α คงที่ · ลองอีกครั้ง',
-    rateLimited: 'ฉันต้องหยุดสำรวจสักพักค่ะ — วันนี้ α drift เกินเพดานแล้ว.',
+    rateLimited: 'ถึงเพดานประจำวัน · ปิดช่องสัญญาณ',
     invalidRequest: 'รูปแบบการส่งสัญญาณไม่ถูกต้อง · ตรวจสอบคำถาม', quota: 'โควตาคงเหลือ',
     empty: 'คลังข้อมูลยังเงียบอยู่ที่นี่ ส่งคำถามเพื่อเริ่มการสำรวจ',
     question: 'คำถาม', response: 'ร่องรอย', transcript: 'บันทึกภาคสนาม',
     transmission: 'การส่งสัญญาณ', clear: 'ล้างบันทึก', cleared: 'ล้างประวัติในเครื่องแล้ว',
     responseReady: 'ได้รับคำตอบจาก NETRA แล้ว', live: 'กำลังรับ', signal: 'สัญญาณ',
+    surveyingTool: 'กำลังสำรวจ', resolvedTool: 'สำรวจแล้ว', unresolvedTool: 'ไม่พบสัญญาณ', traces: 'ร่องรอย',
   },
-}
-
-function readHistory(raw: string | null): Message[] {
-  if (!raw || raw.length > 200_000) return []
-  try {
-    const value: unknown = JSON.parse(raw)
-    if (!Array.isArray(value)) return []
-    return value.filter((item): item is Message => {
-      if (!item || typeof item !== 'object') return false
-      const candidate = item as Record<string, unknown>
-      return (candidate.role === 'user' || candidate.role === 'assistant')
-        && typeof candidate.content === 'string'
-        && candidate.content.length > 0
-        && candidate.content.length <= 8_000
-    }).slice(-20)
-  } catch {
-    return []
-  }
 }
 
 function errorCodeFrom(value: unknown): string | null {
@@ -94,6 +95,37 @@ async function readHttpError(response: Response, t: NetraCopy): Promise<NetraErr
     return { code, message: t.invalidRequest }
   }
   return { code, message: t.offline }
+}
+
+function thrownNetraError(error: unknown, t: NetraCopy): NetraError {
+  const code = errorCodeFrom(error)
+  if (code && error instanceof Error && error.message) return { code, message: error.message }
+  return { code: code ?? 'NETWORK_UNAVAILABLE', message: t.offline }
+}
+
+function NetraToolStatus({ part, t }: {
+  part: UIMessage['parts'][number]
+  t: NetraCopy
+}) {
+  const view = netraToolView(part)
+  if (!view) return null
+  const failed = view.state === 'output-error' || view.state === 'output-denied'
+  const resolved = view.state === 'output-available'
+  const phase = failed ? t.unresolvedTool : resolved ? t.resolvedTool : t.surveyingTool
+  const state = failed ? 'error' : resolved ? 'resolved' : 'surveying'
+
+  return <div className="netra-tool" data-state={state}>
+    <p className="netra-tool-status">
+      <span aria-hidden="true">{resolved ? '◇' : failed ? '△' : '◆'}</span>
+      NETRA · {phase}: {view.name.replaceAll('_', ' ')}
+      {resolved ? ` · ${view.traces.length} ${t.traces}` : ''}
+    </p>
+    {view.traces.length > 0 && <ul className="netra-tool-traces">
+      {view.traces.map((trace) => <li key={`${view.id}-${trace.permalink}`}>
+        <a href={trace.permalink}>{trace.title}<span aria-hidden="true"> ↗</span></a>
+      </li>)}
+    </ul>}
+  </div>
 }
 
 function NetraReticle() {
@@ -148,11 +180,9 @@ export function NetraNavigator({ lang }: { lang: string }) {
   const t = copy[locale]
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
-  const [messages, setMessages] = useState<Message[]>([])
-  const [answer, setAnswer] = useState('')
-  const [busy, setBusy] = useState(false)
   const [problem, setProblem] = useState<NetraError | null>(null)
   const [remaining, setRemaining] = useState<number | null>(null)
+  const [historyScope, setHistoryScope] = useState<HistoryScope | null>(null)
   const [historyReady, setHistoryReady] = useState(false)
   const [announcement, setAnnouncement] = useState('')
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -160,13 +190,61 @@ export function NetraNavigator({ lang }: { lang: string }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const transcriptEndRef = useRef<HTMLDivElement>(null)
   const wasOpenRef = useRef(false)
-  const requestRef = useRef<AbortController | null>(null)
   const mountedRef = useRef(true)
   const motionScopeRef = useRef<ReturnType<typeof createScope> | null>(null)
   const mountMotionHandledRef = useRef(false)
   const previousMotionStateRef = useRef<NetraUiState>('ready')
+  const [requestContext] = useState(() => ({ locale, pathname, t }))
+  const [transport] = useState(() => new DefaultChatTransport<UIMessage>({
+    api: '/api/chat',
+    credentials: 'same-origin',
+    prepareSendMessagesRequest: ({ messages }) => ({
+      body: {
+        messages: userMessagesForRequest(messages),
+        served_lang: requestContext.locale,
+        page: { pathname: requestContext.pathname },
+      },
+    }),
+    fetch: async (input, init) => {
+      const response = await fetch(input, init)
+      const header = response.headers.get('X-NETRA-Remaining')
+      if (header !== null) {
+        const value = Number(header)
+        if (Number.isInteger(value) && value >= 0) setRemaining(value)
+      }
+      if (!response.ok) {
+        const problem = await readHttpError(response, requestContext.t)
+        throw Object.assign(new Error(problem.message), { code: problem.code })
+      }
+      return response
+    },
+  }))
+  const {
+    messages,
+    setMessages,
+    sendMessage,
+    status,
+    stop,
+    clearError,
+  } = useChat({
+    transport,
+    experimental_throttle: 40,
+    onError: (error) => {
+      if (!mountedRef.current) return
+      setProblem(thrownNetraError(error, requestContext.t))
+    },
+    onFinish: ({ isAbort, isError }) => {
+      if (!mountedRef.current || isAbort || isError) return
+      setAnnouncement(requestContext.t.responseReady)
+    },
+  })
+  const busy = status === 'submitted' || status === 'streaming'
   const state: NetraUiState = busy ? 'busy' : open ? 'open' : 'ready'
   const stateLabel = busy ? t.busyState : open ? t.openState : t.readyState
+
+  useEffect(() => {
+    Object.assign(requestContext, { locale, pathname, t })
+  }, [locale, pathname, requestContext, t])
 
   useEffect(() => {
     const root = triggerRef.current
@@ -434,32 +512,59 @@ export function NetraNavigator({ lang }: { lang: string }) {
   }, [state])
 
   useEffect(() => {
-    let saved: string | null = null
-    try { saved = localStorage.getItem('wl-netra-history') } catch { /* storage can be unavailable */ }
-    queueMicrotask(() => {
-      if (!mountedRef.current) return
-      setMessages(readHistory(saved))
+    const controller = new AbortController()
+
+    async function hydrateScopedHistory() {
+      let scope: HistoryScope = 'public'
+      try {
+        const response = await fetch('/api/console/auth-probe', {
+          cache: 'no-store',
+          credentials: 'same-origin',
+          signal: controller.signal,
+        })
+        if (response.ok) scope = 'owner'
+      } catch {
+        // Network/auth uncertainty fails closed into public history.
+      }
+
+      let saved: string | null = null
+      try {
+        // Never migrate the legacy auth-agnostic transcript: it may contain a
+        // prior owner-only answer from this browser profile.
+        localStorage.removeItem('wl-netra-history')
+        saved = localStorage.getItem(HISTORY_KEYS[scope])
+      } catch {
+        // Storage can be unavailable; the in-memory navigator still works.
+      }
+
+      if (!mountedRef.current || controller.signal.aborted) return
+      setHistoryScope(scope)
+      setMessages(storedHistoryToUIMessages(readStoredNetraHistory(saved), scope))
       setHistoryReady(true)
-    })
-  }, [])
+    }
+
+    void hydrateScopedHistory()
+    return () => controller.abort()
+  }, [setMessages])
 
   useEffect(() => {
-    if (!historyReady) return
+    if (!historyReady || !historyScope || status === 'submitted' || status === 'streaming') return
     try {
-      if (messages.length) localStorage.setItem('wl-netra-history', JSON.stringify(messages.slice(-20)))
-      else localStorage.removeItem('wl-netra-history')
+      const storedMessages = uiMessagesToStoredHistory(messages)
+      if (storedMessages.length) localStorage.setItem(HISTORY_KEYS[historyScope], JSON.stringify(storedMessages))
+      else localStorage.removeItem(HISTORY_KEYS[historyScope])
     } catch {
       // The navigator remains usable when storage is unavailable or full.
     }
-  }, [historyReady, messages])
+  }, [historyReady, historyScope, messages, status])
 
   useEffect(() => {
     mountedRef.current = true
     return () => {
       mountedRef.current = false
-      requestRef.current?.abort()
+      void stop()
     }
-  }, [])
+  }, [stop])
 
   useEffect(() => {
     if (!open) {
@@ -507,76 +612,27 @@ export function NetraNavigator({ lang }: { lang: string }) {
 
   useEffect(() => {
     if (open) transcriptEndRef.current?.scrollIntoView({ block: 'end' })
-  }, [answer, messages, open])
+  }, [messages, open])
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const text = input.trim()
-    if (!text || busy) return
-    const userMessage: Message = { role: 'user', content: text }
-    const next = [...messages, userMessage].slice(-20)
-    const controller = new AbortController()
-    requestRef.current = controller
-    setMessages(next)
+    if (!text || busy || !historyReady) return
     setInput('')
-    setAnswer('')
-    setBusy(true)
     setProblem(null)
+    clearError()
     setAnnouncement(t.survey)
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: next.slice(-10), served_lang: locale, page: { pathname } }),
-        signal: controller.signal,
-      })
-      const header = response.headers.get('X-NETRA-Remaining')
-      if (header !== null && mountedRef.current) {
-        const value = Number(header)
-        if (Number.isInteger(value) && value >= 0) setRemaining(value)
-      }
-      if (!response.ok) {
-        const error = await readHttpError(response, t)
-        if (mountedRef.current) {
-          setProblem(error)
-        }
-        return
-      }
-      const reader = response.body?.getReader()
-      if (!reader) throw new Error('NETRA_STREAM_UNAVAILABLE')
-      const decoder = new TextDecoder()
-      let value = ''
-      while (true) {
-        const chunk = await reader.read()
-        if (chunk.done) {
-          value += decoder.decode()
-          break
-        }
-        value += decoder.decode(chunk.value, { stream: true })
-        if (mountedRef.current) setAnswer(value)
-      }
-      if (!value.trim()) throw new Error('NETRA_STREAM_EMPTY')
-      if (mountedRef.current) {
-        setMessages([...next, { role: 'assistant' as const, content: value }].slice(-20))
-        setAnnouncement(t.responseReady)
-      }
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return
-      if (mountedRef.current) {
-        setProblem({ code: 'NETWORK_UNAVAILABLE', message: t.offline })
-      }
-    } finally {
-      if (requestRef.current === controller) requestRef.current = null
-      if (mountedRef.current) setBusy(false)
-    }
+    await sendMessage({ text })
   }
 
   function clearHistory() {
     setMessages([])
-    setAnswer('')
     setProblem(null)
+    clearError()
     setAnnouncement(t.cleared)
-    try { localStorage.removeItem('wl-netra-history') } catch { /* state still clears */ }
+    try {
+      if (historyScope) localStorage.removeItem(HISTORY_KEYS[historyScope])
+    } catch { /* state still clears */ }
     inputRef.current?.focus()
   }
 
@@ -642,19 +698,26 @@ export function NetraNavigator({ lang }: { lang: string }) {
         <div id="netra-transcript" className="netra-transcript" role="log" aria-label={t.transcript} aria-busy={busy}>
           <p className="netra-status"><span aria-hidden="true">◆</span> NETRA · {busy ? t.survey : t.idle}</p>
           {!messages.length && !busy && !problem && <p className="netra-empty"><span aria-hidden="true">∇</span>{t.empty}</p>}
-          {messages.map((message, index) => <div
-            key={message.role + '-' + index}
-            className={'netra-record netra-record-' + message.role
-              + (message.role === 'assistant' ? ' atlas-netra-voice' : '')}
-          >
-            <p className={'netra-record-label' + (message.role === 'assistant' ? ' voice-tag' : '')}>
-              {message.role === 'user' ? t.question : t.response} · {String(index + 1).padStart(2, '0')}
-            </p>
-            <p className={message.role === 'user' ? 'netra-user' : 'netra-message voice-body'}>{message.content}</p>
-          </div>)}
-          {busy && <div className="netra-record netra-record-assistant atlas-netra-voice" aria-live="off">
+          {messages.map((message, index) => {
+            if (message.role !== 'user' && message.role !== 'assistant') return null
+            return <div
+              key={message.id}
+              className={'netra-record netra-record-' + message.role
+                + (message.role === 'assistant' ? ' atlas-netra-voice' : '')}
+            >
+              <p className={'netra-record-label' + (message.role === 'assistant' ? ' voice-tag' : '')}>
+                {message.role === 'user' ? t.question : t.response} · {String(index + 1).padStart(2, '0')}
+              </p>
+              {message.role === 'user'
+                ? <p className="netra-user">{uiMessageText(message)}</p>
+                : message.parts.map((part, partIndex) => part.type === 'text'
+                  ? <p key={`text-${partIndex}`} className="netra-message voice-body">{plainNetraText(part.text)}</p>
+                  : <NetraToolStatus key={`part-${partIndex}`} part={part} t={t} />)}
+            </div>
+          })}
+          {busy && messages.at(-1)?.role !== 'assistant' && <div className="netra-record netra-record-assistant atlas-netra-voice" aria-live="off">
             <p className="netra-record-label voice-tag">{t.response} · {t.live}</p>
-            <p className="netra-message voice-body">{answer || '···'}</p>
+            <p className="netra-message voice-body">···</p>
           </div>}
           {problem && <div className="netra-error" role="alert" aria-live="assertive">
             <p className="netra-error-code"><span aria-hidden="true">△</span> {t.signal} · {problem.code}</p>
@@ -672,11 +735,11 @@ export function NetraNavigator({ lang }: { lang: string }) {
               value={input}
               onChange={(event) => setInput(event.target.value)}
               placeholder={t.placeholder}
-              disabled={busy}
+              disabled={busy || !historyReady}
               maxLength={8_000}
               autoComplete="off"
             />
-            <button type="submit" disabled={busy || !input.trim()}><span aria-hidden="true">⟶</span> {t.send}</button>
+            <button type="submit" disabled={busy || !historyReady || !input.trim()}><span aria-hidden="true">⟶</span> {t.send}</button>
           </div>
         </form>
         <footer className="netra-footer"><span>{t.attached}</span><span>WORLDLINE // NETRA</span></footer>

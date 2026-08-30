@@ -1104,10 +1104,11 @@ Expected scenarios: (a) P-01 through P-23 positive cases → correct codename wr
 
 ## Rail: parse-conversation skill (C6)
 
-**Skill files:** `~/.claude/skills/parse-conversation/SKILL.md` + `parse.sh`
+**Canonical parser:** `scripts/parse-conversation.sh`
+**Optional personal wrapper:** `~/.claude/skills/parse-conversation/SKILL.md`
 **Trigger:** `/parse-conversation` (user slash command)
 **Implemented:** 2026-05-23 · TASK-2026-05-23-BETA-HARNESS · Canopus
-**Staged at:** `.claude/skill-staging/parse-conversation/` (Polaris installs to `~/.claude/skills/`)
+**CI contract:** the tracked canonical parser runs directly; CI never depends on an ignored staging or home directory.
 
 ### What it does
 
@@ -2204,20 +2205,22 @@ NOTE: The prior `deny-present` assertion (curl AND wget must be in `permissions.
 
 **curl/wget posture: FETCH VERBS UN-GATED (2026-06-06 · TASK-2026-06-06-CURL-WGET-UNBLOCK — Peat directive)**
 
-Per Peat's explicit directive, curl/wget fetch verbs are fully un-gated. This includes all invocations in command position, including data/exfil flags (`-d`, `--data*`, `-F`, `--form*`, `-T`, `--upload-file`, `-X POST/PUT/DELETE`, `--json`, etc.), absolute paths (`/usr/bin/curl`), env-prefixed forms (`FOO=bar curl`), pipe-to-non-interpreter (`curl | jq`), chain-to-non-interpreter (`curl -o f && cat f`), and all historical adversarial bypass forms from rounds 1–7.
+Per Peat's explicit directive, curl/wget fetch verbs are un-gated except for the deterministic fetch-and-execute RCE floor below. Allowed forms include data/exfil flags (`-d`, `--data*`, `-F`, `--form*`, `-T`, `--upload-file`, `-X POST/PUT/DELETE`, `--json`, etc.), absolute paths (`/usr/bin/curl`), env-prefixed forms (`FOO=bar curl`), pipe-to-non-interpreter (`curl | jq`), chain-to-non-interpreter (`curl -o f && cat f`), and the ordinary-fetch adversarial forms from rounds 1–7.
 
 The prior wholesale block (2026-06-03, NOT TIGHT verdict) is superseded. Historical archaeology of those 7 adversarial rounds is preserved below for record purposes only.
 
 **What remains BLOCKED — the RCE floor:**
 
-The following two structural blocks remain unconditionally in Phase 1 Global of `mutating-action-hook.sh`. They are independent of any curl/wget command-position detection and cannot be bypassed by the un-gate:
+The following structural blocks remain unconditionally in Phase 1 Global of `mutating-action-hook.sh`:
 
 | Block | What it catches | Why kept |
 |-------|----------------|----------|
 | `source/. <(...)` procsub RCE | `source <(curl URL)`, `. <(curl URL)` — the outer command is `source`/`.`, not `curl`; feeds fetched content into shell | Purely structural; does not rely on curl/wget command-position detection |
 | `interpreter <(curl/wget ...)` procsub RCE | `bash <(curl URL)`, `python3 <(wget ...)` — interpreter directly on a process-sub that contains a fetch | Same; gated on the fetch token inside the process-sub, not curl/wget in command position |
+| fetch-to-interpreter pipe RCE | `curl URL \| bash`, `wget -qO- URL \|& python3`, including enumerated wrappers and path-qualified interpreters | Literal fetched output is consumed as executable instructions |
+| fetch-then-interpreter chain RCE | `curl -o f URL && bash f`, plus `;`, `&`, and newline forms, including enumerated wrappers and path-qualified interpreters | Deterministic adjacent download-and-execute shape |
 
-These blocks are the irreducible RCE floor: feeding remotely-fetched content into a shell interpreter via process substitution `<(curl ...)` is blocked regardless of any other posture.
+These blocks are the irreducible RCE floor. The pipe/chain classifier is intentionally bounded to literal command shapes; it is not a full shell parser and does not claim to resolve aliases, variables, substitutions, or provenance across separate tool calls.
 
 Generic guards that also remain unchanged: output-redirection (`>>` / `>`), rm, tee, shell-inject (`bash -c`), sed -i, find -delete.
 

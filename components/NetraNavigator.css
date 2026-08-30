@@ -472,6 +472,7 @@
   margin: 0;
   color: var(--ink-read);
   font-size: 1.15rem;
+  font-family: var(--font-mono);
   line-height: 1.55;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
@@ -493,7 +494,7 @@
 }
 
 .netra-message {
-  font: italic 1.15rem/1.55 var(--font-display);
+  font: 1rem/1.7 var(--font-mono);
 }
 
 .netra-user {
@@ -511,7 +512,7 @@
 .netra-error p {
   margin: 0;
   color: var(--ink-read);
-  font: italic 1.05rem/1.55 var(--font-display);
+  font: 0.95rem/1.6 var(--font-mono);
 }
 
 .netra-error .netra-error-code {
@@ -553,7 +554,7 @@
   border-radius: 0;
   background: rgb(var(--paper-base-rgb) / 0.65);
   color: var(--ink-primary);
-  font: 1rem/1.5 var(--font-body-en);
+  font: 0.95rem/1.6 var(--font-mono);
 }
 
 .netra-composer input::placeholder {
@@ -563,6 +564,61 @@
 
 .netra-composer input:focus-visible {
   border-color: var(--accent-orange);
+}
+
+.netra-tool {
+  margin: 0.65rem 0 0.9rem;
+  padding-left: 0.75rem;
+  border-left: 1px dashed var(--netra-soft);
+}
+
+.netra-tool-status {
+  margin: 0;
+  color: var(--ink-read);
+  font: 0.75rem/1.6 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.netra-tool-status span {
+  margin-right: 0.35rem;
+  color: var(--netra);
+}
+
+.netra-tool[data-state='resolved'] .netra-tool-status span {
+  color: var(--accent-orange);
+}
+
+.netra-tool[data-state='error'] .netra-tool-status {
+  color: var(--accent-orange);
+}
+
+.netra-tool-traces {
+  margin: 0.35rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.netra-tool-traces li + li {
+  border-top: 1px solid var(--ink-hairline);
+}
+
+.netra-tool-traces a {
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  color: var(--ink-primary);
+  font: 0.8rem/1.5 var(--font-mono);
+  text-decoration: none;
+}
+
+.netra-tool-traces a:hover {
+  color: var(--netra);
+}
+
+.netra-tool-traces a:focus-visible {
+  outline: 2px dashed var(--ctl-focus-ring);
+  outline-offset: 2px;
 }
 
 .netra-composer button {
@@ -616,15 +672,20 @@
   letter-spacing: 0.04em;
 }
 
-.netra-panel:lang(th) .netra-user,
-.netra-panel:lang(th) .netra-composer input {
+.netra-panel:lang(th) .netra-user {
   font-family: var(--font-thai-body);
   line-height: 1.8;
 }
 
 .netra-panel:lang(th) .netra-message,
-.netra-panel:lang(th) .netra-empty,
-.netra-panel:lang(th) .netra-error p {
+.netra-panel:lang(th) .netra-error p,
+.netra-panel:lang(th) .netra-composer input {
+  font-family: var(--font-mono), var(--font-thai-body);
+  font-style: normal;
+  line-height: 1.7;
+}
+
+.netra-panel:lang(th) .netra-empty {
   font-family: var(--font-display), var(--font-thai-display);
   font-style: normal;
   line-height: 1.7;

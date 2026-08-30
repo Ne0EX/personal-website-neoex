@@ -18,7 +18,7 @@
     "backup:content": "npx tsx scripts/export-mdx.ts && git add -f content && git commit -m \"backup(content): MDX export $(date +%Y-%m-%dT%H:%M:%S) [backup/content]\" -- content"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.81",
+    "@ai-sdk/react": "3.0.195",
     "@mdx-js/mdx": "^3.1.1",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",

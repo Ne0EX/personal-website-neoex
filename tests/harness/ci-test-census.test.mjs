@@ -98,11 +98,13 @@ function blocker(observed) {
 
 test('valid census passes with required Node and non-Node lanes', (t) => {
   const result = validate(t, cloneManifest(), 'valid')
+  const requiredNonNodeCount = baseline.required.filter((entry) => entry.kind !== 'node-test').length
+  const candidateCount = baseline.candidate.length
 
   assert.equal(result.status, 0, result.output)
   assert.match(result.output, /PASS · executable=/)
-  assert.match(result.output, /non_node_required=15/)
-  assert.match(result.output, /candidate_blocked=15/)
+  assert.match(result.output, new RegExp(`non_node_required=${requiredNonNodeCount}`))
+  assert.match(result.output, new RegExp(`candidate_blocked=${candidateCount}`))
 })
 
 test('omitting a tracked executable sensor fails closed', (t) => {
@@ -148,8 +150,11 @@ test('downgrading a tracked Node test from required fails closed', (t) => {
 
 test('candidate without complete blocker evidence fails closed', (t) => {
   const manifest = cloneManifest()
-  const candidate = manifest.candidate[0]
-  assert.ok(candidate?.blocker, 'baseline must include a blocked candidate')
+  const candidate = manifest.required.find((entry) => entry.kind !== 'node-test')
+  assert.ok(candidate, 'baseline must include a required non-Node sensor')
+  manifest.required = manifest.required.filter((entry) => entry.path !== candidate.path)
+  candidate.blocker = blocker('fixture incomplete candidate evidence')
+  manifest.candidate.push(candidate)
   delete candidate.blocker.verified_on
 
   const result = validate(t, manifest, 'missing-blocker')
@@ -173,11 +178,11 @@ test('emptying the required non-Node lane fails closed', (t) => {
   assert.match(result.output, /required shell\/Python lane is empty/)
 })
 
-test('non-Node lane executes all 15 required sensors when the first child reads stdin', (t) => {
+test('non-Node lane executes every required sensor when the first child reads stdin', (t) => {
   const root = createFixture(t)
   symlinkSync(join(repoRoot, 'node_modules'), join(root, 'node_modules'), 'dir')
   const requiredNonNode = baseline.required.filter((entry) => entry.kind !== 'node-test')
-  assert.equal(requiredNonNode.length, 15, 'fixture must exercise the complete required non-Node lane')
+  assert.ok(requiredNonNode.length > 0, 'fixture must exercise the complete required non-Node lane')
   assert.match(requiredNonNode[0].kind, /^shell-/, 'the stdin-reading first child must use the shell runner')
 
   for (const [index, entry] of requiredNonNode.entries()) {
@@ -200,12 +205,15 @@ test('non-Node lane executes all 15 required sensors when the first child reads 
     .filter((line) => /^\[ci-test-census\] PASS · (?!executable=|all )/.test(line))
 
   assert.equal(result.status, 0, result.output)
-  assert.equal(sensorPassLines.length, 15, result.output)
+  assert.equal(sensorPassLines.length, requiredNonNode.length, result.output)
   for (const entry of requiredNonNode) {
     assert.ok(
       sensorPassLines.some((line) => line.endsWith(` · ${entry.path}`)),
       `runner omitted ${entry.path}:\n${result.output}`,
     )
   }
-  assert.match(result.output, /PASS · all 15 required non-Node sensors passed/)
+  assert.match(
+    result.output,
+    new RegExp(`PASS · all ${requiredNonNode.length} required non-Node sensors passed`),
+  )
 })

@@ -118,6 +118,10 @@ function createFakeKnowledge(overrides: Partial<NetraKnowledge> = {}) {
       calls.push({ method: 'listFiction' })
       return overrides.listFiction ? overrides.listFiction() : []
     },
+    listPlaces: async () => {
+      calls.push({ method: 'listPlaces' })
+      return overrides.listPlaces ? overrides.listPlaces() : []
+    },
     getCurrentPage: async (page) => {
       calls.push({ method: 'getCurrentPage', input: page })
       return overrides.getCurrentPage ? overrides.getCurrentPage(page) : null
@@ -361,7 +365,7 @@ test('offline fake model can answer directly with no tool or live knowledge depe
   const fake = createFakeKnowledge()
   const model = scriptedModel([textStep('archive in view.')])
   const messages = Array.from({ length: 12 }, (_, index) => ({
-    role: index % 2 === 0 ? 'user' as const : 'assistant' as const,
+    role: 'user' as const,
     content: `message-${String(index).padStart(2, '0')}`,
   }))
 
@@ -383,6 +387,7 @@ test('offline fake model can answer directly with no tool or live knowledge depe
       'list_recent_patches',
       'search_photos',
       'list_fiction',
+      'list_places',
     ],
   )
   assert.deepEqual(model.doStreamCalls[0].toolChoice, { type: 'auto' })
@@ -392,6 +397,45 @@ test('offline fake model can answer directly with no tool or live knowledge depe
   for (let index = 2; index < 12; index += 1) {
     assert.match(rollingPrompt, new RegExp(`message-${String(index).padStart(2, '0')}`))
   }
+})
+
+test('list_places exposes public traces without place coordinates or private fields', async () => {
+  const unsafePlace = {
+    ...fixtureTrace({
+      title: 'Bangkok · TH',
+      slug: 'bangkok',
+      summary: 'surveyed ATLAS place node',
+      excerpt: 'surveyed ATLAS place node',
+      permalink: '/#hero',
+    }),
+    coordinates: { lat: 13.7563, lon: 100.5018 },
+    owner_id: 'private-owner',
+  }
+  const fake = createFakeKnowledge({ listPlaces: async () => [unsafePlace] })
+  const model = scriptedModel([
+    toolStep('places-1', 'list_places', {}),
+    textStep('one place surveyed.', 'places-answer'),
+  ])
+
+  const result = await runNetraTurn(
+    {
+      messages: [{ role: 'user', content: 'which places are on atlas?' }],
+      servedLang: 'en',
+      page: { pathname: '/en' },
+    },
+    { model, knowledge: fake.knowledge },
+  )
+
+  assert.equal(await result.text, 'one place surveyed.')
+  assert.deepEqual(fake.calls, [{ method: 'listPlaces' }])
+  assert.deepEqual(toolResultValue(model.doStreamCalls[1], 'list_places'), [{
+    title: 'Bangkok · TH',
+    slug: 'bangkok',
+    lang: 'en',
+    summary: 'surveyed ATLAS place node',
+    excerpt: 'surveyed ATLAS place node',
+    permalink: '/#hero',
+  }])
 })
 
 test('scripted ambiguous path emits one clarification and performs no retrieval', async () => {

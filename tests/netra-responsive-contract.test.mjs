@@ -6,6 +6,10 @@ const navigatorCss = readFileSync(
   new URL('../components/NetraNavigator.css', import.meta.url),
   'utf8',
 )
+const navigatorSource = readFileSync(
+  new URL('../components/NetraNavigator.tsx', import.meta.url),
+  'utf8',
+)
 
 function blockFor(prelude, source = navigatorCss) {
   const start = source.indexOf(prelude)
@@ -94,4 +98,24 @@ test('the narrow NETRA sheet preserves title space without removing clear-log ac
   assert.match(clear, /font-size:\s*0\s*;/)
   assert.match(clear, /min-(?:width|height):\s*3rem\s*;/)
   assert.match(clearGlyph, /font-size:\s*1rem\s*;/)
+})
+
+test('NETRA prompt, response, and error copy use instrument mono typography', () => {
+  for (const selector of ['.netra-message', '.netra-error p', '.netra-composer input']) {
+    const declarations = declarationsFor(selector)
+    assert.match(declarations, /var\(--font-mono\)/, `${selector} must use instrument mono`)
+    assert.doesNotMatch(declarations, /var\(--font-display\)/, `${selector} must not use display serif`)
+  }
+
+  const thaiInstrument = declarationsFor(
+    ".netra-panel:lang(th) .netra-message,\n.netra-panel:lang(th) .netra-error p,\n.netra-panel:lang(th) .netra-composer input",
+  )
+  assert.match(thaiInstrument, /var\(--font-mono\)/)
+  assert.doesNotMatch(thaiInstrument, /var\(--font-display\)/)
+})
+
+test('daily ceiling copy remains terse instrument status, not conversational apology', () => {
+  assert.match(navigatorSource, /daily ceiling reached · channel closed/)
+  assert.match(navigatorSource, /ถึงเพดานประจำวัน · ปิดช่องสัญญาณ/)
+  assert.doesNotMatch(navigatorSource, /i need to step away|ฉันต้องหยุดสำรวจ/i)
 })

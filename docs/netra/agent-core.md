@@ -42,7 +42,7 @@ projection, the rolling context bound, and the model-step bound.
 
 ```ts
 type NetraTurnInput = {
-  messages: Array<{ role: 'user' | 'assistant'; content: string }>
+  messages: Array<{ role: 'user'; content: string }>
   servedLang: 'en' | 'th'
   page: { pathname: string }
   abortSignal?: AbortSignal
@@ -61,9 +61,10 @@ async function runNetraTurn(
 ): Promise<NetraTurnResult>
 ```
 
-`NetraTurnResult` is the installed AI SDK's `StreamTextResult`. Altair can keep
-using `toTextStreamResponse()`. `abortSignal` is passed unchanged to
-`ToolLoopAgent.stream()`. The core keeps the latest 10 messages, uses
+`NetraTurnResult` is the installed AI SDK's `StreamTextResult`. The route uses
+`toUIMessageStreamResponse()` so typed tool states and public trace links reach
+the client without parsing model prose. `abortSignal` is passed unchanged to
+`ToolLoopAgent.stream()`. The core keeps the latest 10 user messages, uses
 `stepCountIs(3)`, and caps generated output at 600 tokens; no turn can make more
 than three model calls. Request-scoped Gateway attribution and fallback options
 are injected through the same typed dependency seam and covered by the fake
@@ -75,7 +76,7 @@ The storage port is deliberately method-shaped rather than query-shaped:
 interface NetraKnowledge {
   searchEntries(input: {
     query: string
-    filter: 'articles' | 'photos' | 'fiction' | 'all'
+    filter: 'articles' | 'photos' | 'fiction' | 'places' | 'all'
     limit: number
   }): Promise<readonly NetraTrace[]>
 
@@ -87,6 +88,7 @@ interface NetraKnowledge {
   listRecentPatches(input: { days: number }): Promise<readonly NetraPatchTrace[]>
   searchPhotos(input: { query: string; limit: number }): Promise<readonly NetraTrace[]>
   listFiction(): Promise<readonly NetraTrace[]>
+  listPlaces(): Promise<readonly NetraTrace[]>
   getCurrentPage(page: NetraResourcePageContext): Promise<NetraTrace | null>
 }
 
@@ -100,10 +102,23 @@ type NetraTrace = {
 }
 ```
 
+Only visitor-authored `user` turns cross the request boundary. Assistant text
+is untrusted browser display/history data and is never accepted back as model
+context; this prevents a visitor from seeding fabricated prior NETRA claims.
+Local display history is partitioned into `public` and `owner` keys after the
+existing owner probe, and the legacy unscoped key is discarded rather than
+migrated.
+
 `createNetraTools` projects these six trace fields explicitly and re-applies
 the 800-character excerpt cap. Extra adapter properties cannot reach the model.
 Adapters must still omit full bodies, coordinates, auth fields, draft controls,
 and other private columns at the query boundary.
+
+The current store has no bounded excerpt view. Therefore the adapter may use
+`body` only in a server-side search predicate and derives the returned excerpt
+from the authored summary; `body` must never appear in a `.select(...)`
+projection. A future richer excerpt requires a database view or RPC that caps
+and strips content before it crosses the query boundary.
 
 ## Normalized page context
 
@@ -144,6 +159,8 @@ docent snapshot. Resource pages (`article`, `fiction`, `photo-roll`,
 | Photo-only discovery | `search_photos` |
 | Recent changes or repairs | `list_recent_patches` |
 | Fiction shelf overview | `list_fiction` |
+| ATLAS place overview | `list_places` |
+| Named place | `search_entries` with `filter=places` |
 | Genuinely split target | Ask one concise clarification |
 | Empty retrieval | Stop and say `no trace surveyed` |
 
@@ -162,7 +179,7 @@ Export a request-scoped factory from Procyon's territory with this boundary:
 function createNetraKnowledge(client: NetraClient): NetraKnowledge
 ```
 
-Map the five existing reads to the object arguments above. Implement
+Map the seven narrow reads to the object arguments above. Implement
 `getCurrentPage` with an exhaustive switch:
 
 - `article` -> visible entry by `page.fileNum` and `page.lang`
@@ -209,7 +226,10 @@ void result.consumeStream({
   onError: (error) => logSafeError('upstream stream unavailable', error),
 })
 
-return result.toTextStreamResponse({ headers })
+return result.toUIMessageStreamResponse({
+  headers,
+  onError: () => 'NETRA_UPSTREAM_UNAVAILABLE',
+})
 ```
 
 `createNetraGatewayRuntime` accepts only the explicit `-free` model allowlist,

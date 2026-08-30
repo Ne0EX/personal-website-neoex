@@ -1,17 +1,17 @@
 # PRD 05 — NETRA Navigator (Grounded Chat)
 
-> Status: Draft v0.2 — 2026.08.26
+> Status: Implemented v1.0 release candidate — 2026.08.31
 > Supersedes: `prd-05-netra-chat.md` v0.1 (kept as history; structure/tone carried forward)
 > Decisions: D1–D7 grilled + settled by Peat, 2026.08.26 — canonical record in `.claude/handoffs/from-polaris/PROPOSED-REVISION-2026-08-26-NETRA-NAVIGATOR--to-peat.md`
 > Line-hold: *navigator, not bolted-on chatbot* — `docs/team/VISION-FIDELITY.md`
 > Phase: E · Companion: `worldline-feature-brainstorm.md` §4.1 · `docs/netra/architecture-v2.md` (in flight)
-> Tech: `ai`@6 (Vercel AI SDK, already in package.json) · OpenRouter AI SDK provider package (new dependency) · `@ai-sdk/anthropic` stays installed but **out of this lane** · Supabase request-scoped client · Upstash Redis day 1
+> Tech: `ai`@6 + `@ai-sdk/react` · Vercel AI Gateway with free-only MiniMax M3 → M2.7 fallback · Supabase request-scoped client · Upstash Redis when configured with a bounded process-local quota fallback
 
 ---
 
 ## Goal
 
-Resurrect the original Ne0EX vision of a chat assistant — but this time it has *grounding*, a home on every page, and a settled lane. NETRA ships as a corner button opening a slide-in panel on every page; the ATLAS bay keeps its voice strip. Tools read the archive through the visitor's own session — anonymous sees published-only through existing RLS, Peat's signed-in session sees drafts, fail-closed either way. Grounding covers archive content (articles, photos, fiction, places), an authored static docent map of the site's areas and components, and the owner persona exactly as far as `content/soul.md` surveys it — no further. The lane is a Vercel route handler + Vercel AI SDK against ox-alpha via OpenRouter. Replies default to the page locale and follow the visitor's language per message. Cost is guarded from day one: 50 messages / 24h per session plus a daily dollar ceiling, both on Upstash Redis. Voice continues the established register: italic, lowercase, terse, instrument-narrator — same as the existing `atlas-netra-voice` strip. Streamed responses.
+Resurrect the original Ne0EX vision of a chat assistant — but this time it has *grounding*, a home on every page, and a settled lane. NETRA ships as a corner button opening a slide-in panel on every page; the ATLAS bay keeps its voice strip. Tools read the archive through the visitor's own session — anonymous sees published-only through existing RLS, Peat's signed-in session sees drafts, fail-closed either way. Grounding covers archive content (articles, photos, fiction, places), an authored static docent map of the site's areas and components, and the owner persona exactly as far as `content/soul.md` surveys it — no further. The lane is a Vercel route handler + Vercel AI SDK through Vercel AI Gateway, with a code-level allowlist that can select only MiniMax M3 Free and M2.7 Free in that order. Replies default to the page locale and follow the visitor's language per message. Cost is guarded by 50 messages / 24h per session and a hard Vercel project budget of $1/day. Voice continues the established register: italic, lowercase, terse, instrument-narrator — same as the existing `atlas-netra-voice` strip. Streamed typed UI responses expose tool state and safe public trace links.
 
 ## User stories
 
@@ -21,21 +21,21 @@ Resurrect the original Ne0EX vision of a chat assistant — but this time it has
 - **As a visitor curious about the keeper**, I want NETRA to speak of peat exactly as far as his soul survey goes — and close the door cleanly beyond it.
 - **As peat (owner, signed in)**, I want NETRA to see my drafts so i can interrogate work-in-progress before publishing.
 - **As an anonymous visitor**, I want proof that asking about an unpublished draft yields "no trace surveyed" — the archive doesn't leak.
-- **As peat (operator)**, I want a hard session quota and a daily dollar ceiling so a single visitor (or bot) can't run up an OpenRouter bill.
+- **As peat (operator)**, I want a hard session quota, free-only model allowlist, and $1/day Gateway ceiling so a single visitor (or bot) cannot create an unbounded bill.
 - **As peat**, I want NETRA to refuse questions about content that isn't on the site instead of hallucinating, and to redirect jailbreaks back to the archive.
 
 ## Scope
 
 ### In scope
 
-- `POST /api/chat` route handler (shell already exists: zod, rate limit, streaming, abortSignal) streaming ox-alpha via the Vercel AI SDK on the OpenRouter lane.
-- OpenRouter AI SDK provider package added as a dependency; model string = ox-alpha's exact OpenRouter id (open item).
+- `POST /api/chat` route handler (zod, quota, typed UI streaming, abortSignal) through Vercel AI Gateway.
+- Fixed free-only model order: `minimax/minimax-m3-free` primary, `minimax/minimax-m2.7-free` fallback. Any other `NETRA_MODEL` value fails closed before dispatch.
 - Tool-call interface over request-scoped Supabase clients: archive search, entry fetch by file number, recent patches, photo search, fiction list, places list.
 - Static docent map — authored copy describing the site's areas and components — loaded into context at build time. **No live UI introspection in v1.**
 - Owner persona from `content/soul.md`, consumed as a build-time snapshot (file itself TBD by peat).
 - Corner button + slide-in panel present on every page; ATLAS bay keeps its voice strip untouched.
 - Language rule: default reply = page locale (`[lang]` route, en/th); per-message mirroring of the visitor's language.
-- Cost guard from day 1: session quota 50 msgs/24h + daily dollar ceiling, both on Upstash Redis.
+- Cost guard from day 1: session quota 50 msgs/24h (shared Upstash when configured; bounded 1,024-session local fallback) + hard Vercel AI Gateway project budget of $1/day.
 - Voice prompt continuing NETRA's established register (italic, lowercase, terse, instrument-narrator).
 - Session history client-side via a localStorage hook (zustand has left the stack).
 - Streaming rendering with the paper-aesthetic typography; tool calls render as survey status lines in the instrument register.
@@ -44,7 +44,7 @@ Resurrect the original Ne0EX vision of a chat assistant — but this time it has
 
 - Multi-user accounts / auth beyond passthrough of the existing visitor session.
 - Voice mode / audio.
-- Custom fine-tuned model — base ox-alpha with tools + system prompt.
+- Custom fine-tuned or paid model — v1 is free-only Gateway models with tools + system prompt.
 - Live UI introspection — NETRA reads authored docent copy, not runtime component state (future phase if ever).
 - Cross-session server memory; conversation history never persists server-side.
 - Whispers / daily intercept (Tier 4 sub-features) — separate surface, ships later.
@@ -56,7 +56,7 @@ Resurrect the original Ne0EX vision of a chat assistant — but this time it has
 
 ### Lane & hosting (D1)
 
-Vercel route handler `/api/chat` + Vercel AI SDK (`ai`@6, already in `package.json`). LLM lane = OpenRouter through an OpenRouter AI SDK provider package added as a dependency (pin latest compatible with `ai`@6). Model = ox-alpha; exact OpenRouter string is an open item pending peat's seam #1. `@ai-sdk/anthropic` stays installed for other lanes but is out of this one — no Anthropic import reaches this route. Gemini Enterprise Agent Platform rejected for v1 (pass-through middleware; agent logic belongs in-repo). Cloud Run remains the named migration trigger only if resume.neoex.dev and worldline must someday share one backend.
+Vercel route handler `/api/chat` + Vercel AI SDK (`ai`@6 and `@ai-sdk/react`). Vercel AI Gateway is the only model egress. The runtime selects `minimax/minimax-m3-free` first and may fall back only to `minimax/minimax-m2.7-free`; both IDs are explicitly allowlisted and paid/non-free IDs fail closed. Vercel deployments authenticate Gateway through OIDC, so no provider API key is part of the application lane. Cloud Run remains a future migration trigger only if resume.neoex.dev and worldline must someday share one backend.
 
 ### Read privilege (D2)
 
@@ -95,10 +95,10 @@ Corner button + slide-in panel available on every page; ATLAS bay keeps its voic
 
 ### Cost guard (D6)
 
-Both guards on Upstash Redis from day 1 (no in-memory shortcut):
+The two guards have separate sources of truth:
 
-- session quota: key `wl:session:<id>:count`, TTL 24h, cap 50 messages; session id from the existing `wl_session` cookie (HttpOnly, SameSite=Lax); quota surfaced as `X-NETRA-Remaining`.
-- daily ceiling: counter `wl:daily:spend`, reset 00:00 UTC; `WL_DAILY_COST_CEILING` default **TBD** until ox-alpha pricing on OpenRouter is known (v1.3's $20/day was Haiku-priced).
+- session quota: key `wl:session:<id>:count`, TTL 24h, cap 50 messages when Upstash is configured; otherwise a process-local map with a hard 1,024-session capacity. Session identity is a server-generated UUIDv4 in the HttpOnly, SameSite=Lax `wl_session` cookie; quota is surfaced as `X-NETRA-Remaining`.
+- daily ceiling: Vercel AI Gateway project budget, hard limit **$1**, refresh period **daily**. This is centrally managed outside application estimates; the code cannot silently raise it.
 
 Ceiling trips return canned dormancy microcopy — zero LLM tokens spent:
 
@@ -112,14 +112,15 @@ Every tool result returns **summary + body excerpt ≤800 chars hard cap (markdo
 
 ```typescript
 const tools = {
-  search_archive: {   // articles | photos | fiction | places | all
+  get_current_page: { parameters: z.object({}) },
+  search_entries: {   // articles | photos | fiction | places | all
     parameters: z.object({
       query: z.string(),
       filter: z.enum(['articles', 'photos', 'fiction', 'places', 'all']).default('all'),
       limit: z.number().min(1).max(10).default(5),
     }),
   },
-  get_entry:        { parameters: z.object({ file_num: z.string() }) },
+  get_entry:        { parameters: z.object({ slugOrFileNum: z.string(), lang: z.enum(['en', 'th']).optional() }) },
   list_recent_patches: { parameters: z.object({ days: z.number().min(1).max(90).default(7) }) },
   search_photos:    { parameters: z.object({ query: z.string(), limit: z.number().default(5) }) },
   list_fiction:     { parameters: z.object({}) },
@@ -167,7 +168,7 @@ operational rules:
 
 ### Streaming & status lines
 
-Tokens stream via the AI SDK's `useChat` (or App Router equivalent), rendered in the `t-display italic` register with paper-aesthetic typography. Tool invocations surface as survey status lines (see Surface) and disappear once the response continues.
+Tokens stream through the AI SDK's `useChat` UI-message transport, rendered in NETRA's lowercase mono instrument register (with the Thai mono fallback where needed). Tool invocations surface as typed survey status lines and settle into compact resolved/unresolved provenance with safe same-site public permalinks.
 
 ### Session history
 
@@ -204,7 +205,7 @@ History persists across page navigation; never synced server-side; cleared when 
 - [ ] Persona probe beyond soul.md scope returns the closed-boundary redirect.
 - [ ] Jailbreak attempt ("ignore previous instructions") redirects to archive framing across 5+ phrasings.
 - [ ] Quota: 51st message inside 24h returns 429 + dormancy microcopy; Upstash key `wl:session:<id>:count` TTL verified as 24h.
-- [ ] Ceiling: with `WL_DAILY_COST_CEILING` forced low, next message returns canned dormancy line + TH companion line and makes **zero** upstream LLM calls (verify via mock/no request).
+- [ ] Ceiling: Vercel AI Gateway reports a project budget of `$1`, refresh `daily`; requests are rejected by Gateway after the hard limit and no paid/non-free model can be selected by application configuration.
 - [ ] First streamed token <3s warm cache; status lines appear during tool execution and resolve cleanly.
 - [ ] Mobile ≤600px: panel usable above the keyboard.
 - [ ] Focus trap holds while panel open; ESC closes and restores focus; aria roles correct; `prefers-reduced-motion` honored.
@@ -215,10 +216,10 @@ History persists across page navigation; never synced server-side; cleared when 
 ## Dependencies
 
 - `ai`@6 (Vercel AI SDK) — already in `package.json`.
-- OpenRouter AI SDK provider package — new dependency (exact package name pinned at implementation).
-- `@ai-sdk/anthropic` — stays installed; out of this lane.
-- `OPENROUTER_API_KEY` env var (+ exact ox-alpha model string — peat seam #1).
-- Upstash REST URL + token (peat seam #2; free tier sufficient).
+- `@ai-sdk/react` — typed client transport and UI message stream consumption.
+- Vercel AI Gateway OIDC in Vercel deployments; no OpenRouter or direct-provider credential.
+- Vercel project budget configured at `$1`, refresh `daily`.
+- Upstash REST URL + token are optional; the bounded local fallback preserves availability when absent.
 - Supabase request-scoped auth + existing RLS policies (published-only for anon).
 - `content/soul.md` first draft (peat seam #3; v1 consumes build-time snapshot).
 - Static docent map authored copy (Vega copy slice).
@@ -227,10 +228,8 @@ History persists across page navigation; never synced server-side; cleared when 
 
 ## Open questions
 
-- **Exact OpenRouter model string for ox-alpha** — needed before wire-up; also unlocks per-Mtok pricing → recompute of `WL_DAILY_COST_CEILING`.
-- **`WL_DAILY_COST_CEILING` default value** — TBD until ox-alpha pricing is known (v1.3's $20/day was Haiku-priced).
-- **Context window size** — how many prior messages per request? v0.1's 10-message rolling window is conventional; NETRA's terseness keeps tokens small even there.
-- **Graceful degradation** — OpenRouter down/upstream error: recommend offline state in-panel: *signal lost · α holding · try again*. Confirm microcopy with peat.
+- **Context window size** — settled at the latest 10 user turns; client-authored assistant history is never trusted by the route.
+- **Graceful degradation** — Gateway/upstream errors resolve to the sanitized in-panel line *signal lost · α holding · try again*.
 - **Logging shape** — log message counts + tool-call types only (for quotas/debugging); never content. Final field list at implementation.
 - **soul.md snapshot refresh cadence** — v1 is build-time; decide later whether a redeploy-per-update loop is acceptable or a dynamic vault refresh phase is warranted.
 - **Publishing resume date** — anonymous article grounding stays thin until the 15 draft rows publish; photo/fiction/places/docent material carries until then.

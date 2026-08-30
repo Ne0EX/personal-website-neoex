@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/harness/beta-access-log.test.ts
+# tests/harness/beta-access-log.test.sh
 # Regression test: C5 · access-log-beta.sh
 #
 # Coverage:
@@ -14,7 +14,7 @@
 #   (i) invalid usage (no args, no stdin) → exits 0 with stderr warning
 #
 # Usage:
-#   bash tests/harness/beta-access-log.test.ts
+#   bash tests/harness/beta-access-log.test.sh
 #
 # Exit codes:
 #   0 — all scenarios passed
@@ -49,7 +49,6 @@ run_log_pipe() {
   local event_line="$1"
   (cd "$TMPDIR_RUN" && printf '%s' "$event_line" | env -i \
     PATH="$PATH" \
-    HOME="$HOME" \
     WL_TASK_ID="TEST-ACCESS-LOG" \
     bash "$HOOK" 2>/dev/null)
 }
@@ -59,10 +58,9 @@ run_log_pipe_exit() {
   local exit_code=0
   (cd "$TMPDIR_RUN" && printf '%s' "$event_line" | env -i \
     PATH="$PATH" \
-    HOME="$HOME" \
     WL_TASK_ID="TEST-ACCESS-LOG" \
-    bash "$HOOK" 2>/dev/null) || exit_code=$?
-  echo "$exit_code"
+    bash "$HOOK" >/dev/null 2>/dev/null) || exit_code=$?
+  printf '%s\n' "$exit_code"
 }
 
 # Helper: run hook from TMPDIR_RUN (explicit args mode)
@@ -70,16 +68,14 @@ run_log_args_exit() {
   local exit_code=0
   (cd "$TMPDIR_RUN" && env -i \
     PATH="$PATH" \
-    HOME="$HOME" \
     WL_TASK_ID="TEST-ACCESS-LOG" \
-    bash "$HOOK" "$@" 2>/dev/null) || exit_code=$?
-  echo "$exit_code"
+    bash "$HOOK" "$@" >/dev/null 2>/dev/null) || exit_code=$?
+  printf '%s\n' "$exit_code"
 }
 
 run_log_args() {
   (cd "$TMPDIR_RUN" && env -i \
     PATH="$PATH" \
-    HOME="$HOME" \
     WL_TASK_ID="TEST-ACCESS-LOG" \
     bash "$HOOK" "$@" 2>/dev/null)
 }
@@ -235,7 +231,7 @@ mkdir -p "$ACCESS_LOG"
 
 exit_code=0
 (cd "$TMPDIR_RUN" && printf '%s' "${TS} · algol · READ · .claude/beta/x.md · grant#- · TASK-X · OK" | \
-  env -i PATH="$PATH" HOME="$HOME" WL_TASK_ID="TEST-ACCESS-LOG" \
+  env -i PATH="$PATH" WL_TASK_ID="TEST-ACCESS-LOG" \
   bash "$HOOK" 2>/dev/null) || exit_code=$?
 
 if [[ "$exit_code" -eq 0 ]]; then
@@ -252,14 +248,21 @@ rmdir "$ACCESS_LOG" 2>/dev/null || true
 printf '\n=== (i) invalid usage → exits 0 (non-blocking) ===\n'
 
 exit_code=0
+stderr_file="$TMPDIR_RUN/invalid-usage.stderr"
 (cd "$TMPDIR_RUN" && env -i \
-  PATH="$PATH" HOME="$HOME" WL_TASK_ID="TEST-ACCESS-LOG" \
-  bash "$HOOK" 2>/dev/null < /dev/null) || exit_code=$?
+  PATH="$PATH" WL_TASK_ID="TEST-ACCESS-LOG" \
+  bash "$HOOK" >/dev/null 2>"$stderr_file" < /dev/null) || exit_code=$?
 
 if [[ "$exit_code" -eq 0 ]]; then
   pass "(i) invalid usage exits 0 (non-blocking)"
 else
   fail "(i) invalid usage exited $exit_code (expected 0)"
+fi
+
+if grep -q "usage error" "$stderr_file" 2>/dev/null; then
+  pass "(i) invalid usage emits a diagnostic"
+else
+  fail "(i) invalid usage did not emit a diagnostic"
 fi
 
 # ---- summary ----------------------------------------------------------------

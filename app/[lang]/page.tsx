@@ -34,7 +34,7 @@ export default async function Home({
   // Parallel server data fetches — alphaPlace + content stats.
   const [alphaPlace, stats] = await Promise.all([
     getAlphaPlace(),
-    getWorldlineStats(),
+    getWorldlineStats().catch(() => null),
   ])
   const alphaCoord = { lat: alphaPlace.coord.lat, lon: alphaPlace.coord.lon }
   const initialTag = resolvedParams.tag ?? 'all'

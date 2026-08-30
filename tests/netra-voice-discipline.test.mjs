@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -89,4 +89,10 @@ test('the active NETRA prompt and UI satisfy their source voice contract', () =>
   const result = run(repoRoot)
   assert.equal(result.status, 0, result.stderr || JSON.stringify(result.output))
   assert.equal(result.output.pass, true)
+})
+
+test('the active NETRA prompt keeps transcript output free of raw markdown', () => {
+  const prompt = readFileSync(join(repoRoot, 'lib/netra/prompts/system.ts'), 'utf8')
+  assert.match(prompt, /plain text only/i)
+  assert.match(prompt, /do not use markdown/i)
 })

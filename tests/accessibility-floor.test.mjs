@@ -9,6 +9,8 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const auditPath = join(repoRoot, 'scripts/audit-a11y.ts')
 const passFixture = join(repoRoot, 'tests/harness/fixtures/a11y/pass.html')
 const failFixture = join(repoRoot, 'tests/harness/fixtures/a11y/missing-button-name.html')
+const globeSource = readFileSync(join(repoRoot, 'components/WorldlineGlobe.tsx'), 'utf8')
+const publicChromeCss = readFileSync(join(repoRoot, 'app/[lang]/public-chrome-accessibility.css'), 'utf8')
 
 function runFixture(path) {
   const result = spawnSync(
@@ -49,4 +51,20 @@ test('known missing accessible button name is detected by mutation fixture', () 
   assert.equal(result.status, 1, result.stderr || JSON.stringify(result.output))
   assert.equal(result.output.pass, false)
   assert.ok(result.output.violations.some((violation) => violation.id === 'button-name'))
+})
+
+test('public footer and ATLAS controls retain the 44px project target floor', () => {
+  assert.match(publicChromeCss, /\.footer-channel-link\s*\{[^}]*min-block-size:\s*44px/s)
+  assert.match(globeSource, /className="jump"[\s\S]*?minHeight:\s*"44px"/)
+  assert.doesNotMatch(globeSource, /className="jump"[\s\S]*?minHeight:\s*"36px"/)
+})
+
+test('the closed ATLAS place panel removes its controls from focus navigation', () => {
+  const panelTag = globeSource.match(
+    /<section\s+className="z-\[6\] flex flex-col overflow-y-auto"[\s\S]*?>/,
+  )?.[0]
+
+  assert.ok(panelTag, 'place panel section must remain discoverable by the accessibility sensor')
+  assert.match(panelTag, /aria-hidden=\{!open\}/)
+  assert.match(panelTag, /inert=\{!open\}/)
 })

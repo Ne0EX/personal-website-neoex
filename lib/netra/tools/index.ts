@@ -88,7 +88,7 @@ export function createNetraTools(
       description: 'Search session-visible archive entries by words. Use for archive-wide topics or when no exact resource identifier is known.',
       inputSchema: z.object({
         query: z.string().min(1).max(200),
-        filter: z.enum(['articles', 'photos', 'fiction', 'all']).default('all'),
+        filter: z.enum(['articles', 'photos', 'fiction', 'places', 'all']).default('all'),
         limit: z.number().int().min(1).max(10).default(5),
       }),
       execute: async (input) => {
@@ -136,6 +136,14 @@ export function createNetraTools(
       inputSchema: z.object({}),
       execute: async () => {
         const traces = await knowledge.listFiction()
+        return traces.slice(0, MAX_LIST_RESULTS).map(publicTrace)
+      },
+    }),
+    list_places: tool({
+      description: 'List visible ATLAS place nodes. Use for place overviews; coordinates are never available.',
+      inputSchema: z.object({}),
+      execute: async () => {
+        const traces = await knowledge.listPlaces()
         return traces.slice(0, MAX_LIST_RESULTS).map(publicTrace)
       },
     }),

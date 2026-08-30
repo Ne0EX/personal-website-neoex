@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/harness/beta-grant-cleanup.test.ts
+# tests/harness/beta-grant-cleanup.test.sh
 # Regression test: C2 · grant-cleanup.sh
 #
 # Coverage:
@@ -10,9 +10,10 @@
 #   (e) --dry-run reports what would be removed without deleting
 #   (f) missing grants directory → exits 0 (nothing to clean)
 #   (g) corrupt grant file is skipped (not removed, not crashing)
+#   (h) grant with invalid expiry is preserved for manual inspection
 #
 # Usage:
-#   bash tests/harness/beta-grant-cleanup.test.ts
+#   bash tests/harness/beta-grant-cleanup.test.sh
 #
 # Exit codes:
 #   0 — all assertions passed
@@ -34,6 +35,11 @@ if [[ ! -f "$HOOK" ]]; then
   exit 1
 fi
 
+if ! command -v jq >/dev/null 2>&1; then
+  printf 'FATAL: jq is required\n' >&2
+  exit 1
+fi
+
 TMPDIR_RUN="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR_RUN"' EXIT
 
@@ -45,7 +51,6 @@ mkdir -p "$FAKE_GRANTS" "$FAKE_LOG_DIR"
 run_cleanup() {
   (cd "$TMPDIR_RUN" && env -i \
     PATH="$PATH" \
-    HOME="$HOME" \
     WL_TASK_ID="TEST-CLEANUP" \
     bash "$HOOK" "$@" 2>/dev/null)
 }
@@ -54,10 +59,9 @@ run_cleanup_exit() {
   local exit_code=0
   (cd "$TMPDIR_RUN" && env -i \
     PATH="$PATH" \
-    HOME="$HOME" \
     WL_TASK_ID="TEST-CLEANUP" \
-    bash "$HOOK" "$@" 2>/dev/null) || exit_code=$?
-  echo "$exit_code"
+    bash "$HOOK" "$@" >/dev/null 2>/dev/null) || exit_code=$?
+  printf '%s\n' "$exit_code"
 }
 
 # Helper: write a grant file with explicit expires_at
@@ -81,7 +85,7 @@ write_grant_ts() {
       expires_at: $exp,
       max_reads: $max,
       reads_consumed: $cons,
-      nonce: "testnonce"
+      nonce: "0123456789abcdef0123456789abcdef"
     }' > "$FAKE_GRANTS/${filename}.json"
 }
 
@@ -102,13 +106,13 @@ future_ts() {
 printf '\n=== (a) expired grant removed ===\n'
 
 rm -f "$FAKE_GRANTS"/*.json 2>/dev/null || true
-write_grant_ts "g_expired" "$(past_ts)" 5 0
+write_grant_ts "g_00000001" "$(past_ts)" 5 0
 
 before="$(find "$FAKE_GRANTS" -name "*.json" | wc -l | tr -d ' ')"
 run_cleanup
 after="$(find "$FAKE_GRANTS" -name "*.json" | wc -l | tr -d ' ')"
 
-if [[ "$after" -lt "$before" ]] && [[ ! -f "$FAKE_GRANTS/g_expired.json" ]]; then
+if [[ "$after" -lt "$before" ]] && [[ ! -f "$FAKE_GRANTS/g_00000001.json" ]]; then
   pass "(a) expired grant removed"
 else
   fail "(a) expired grant not removed (before=$before after=$after)"
@@ -119,13 +123,13 @@ fi
 printf '\n=== (b) fully-consumed grant removed ===\n'
 
 rm -f "$FAKE_GRANTS"/*.json 2>/dev/null || true
-write_grant_ts "g_consumed" "$(future_ts)" 2 2  # reads_consumed == max_reads
+write_grant_ts "g_00000002" "$(future_ts)" 2 2  # reads_consumed == max_reads
 
 before="$(find "$FAKE_GRANTS" -name "*.json" | wc -l | tr -d ' ')"
 run_cleanup
 after="$(find "$FAKE_GRANTS" -name "*.json" | wc -l | tr -d ' ')"
 
-if [[ ! -f "$FAKE_GRANTS/g_consumed.json" ]]; then
+if [[ ! -f "$FAKE_GRANTS/g_00000002.json" ]]; then
   pass "(b) fully-consumed grant removed"
 else
   fail "(b) fully-consumed grant not removed (reads_consumed=max_reads=2)"
@@ -136,11 +140,11 @@ fi
 printf '\n=== (c) active grant kept ===\n'
 
 rm -f "$FAKE_GRANTS"/*.json 2>/dev/null || true
-write_grant_ts "g_active" "$(future_ts)" 3 1  # reads remaining = 2
+write_grant_ts "g_00000003" "$(future_ts)" 3 1  # reads remaining = 2
 
 run_cleanup
 
-if [[ -f "$FAKE_GRANTS/g_active.json" ]]; then
+if [[ -f "$FAKE_GRANTS/g_00000003.json" ]]; then
   pass "(c) active grant kept"
 else
   fail "(c) active grant was incorrectly removed"
@@ -151,8 +155,8 @@ fi
 printf '\n=== (d) idempotency — cleanup twice ===\n'
 
 rm -f "$FAKE_GRANTS"/*.json 2>/dev/null || true
-write_grant_ts "g_active2" "$(future_ts)" 3 0
-write_grant_ts "g_expired2" "$(past_ts)" 3 0
+write_grant_ts "g_00000004" "$(future_ts)" 3 0
+write_grant_ts "g_00000005" "$(past_ts)" 3 0
 
 run_cleanup  # first run
 after_1="$(find "$FAKE_GRANTS" -name "*.json" | wc -l | tr -d ' ')"
@@ -166,7 +170,7 @@ else
   fail "(d) idempotency failed (after_1=$after_1, after_2=$after_2)"
 fi
 
-if [[ -f "$FAKE_GRANTS/g_active2.json" ]]; then
+if [[ -f "$FAKE_GRANTS/g_00000004.json" ]]; then
   pass "(d) active grant still present after double cleanup"
 else
   fail "(d) active grant was removed during idempotency run"
@@ -177,13 +181,13 @@ fi
 printf '\n=== (e) --dry-run — reports but does not delete ===\n'
 
 rm -f "$FAKE_GRANTS"/*.json 2>/dev/null || true
-write_grant_ts "g_dry_expired" "$(past_ts)" 1 0
-write_grant_ts "g_dry_active" "$(future_ts)" 1 0
+write_grant_ts "g_00000006" "$(past_ts)" 1 0
+write_grant_ts "g_00000007" "$(future_ts)" 1 0
 
 before="$(find "$FAKE_GRANTS" -name "*.json" | wc -l | tr -d ' ')"
 
 dry_output="$(cd "$TMPDIR_RUN" && env -i \
-  PATH="$PATH" HOME="$HOME" WL_TASK_ID="TEST-CLEANUP" \
+  PATH="$PATH" WL_TASK_ID="TEST-CLEANUP" \
   bash "$HOOK" --dry-run 2>&1 || true)"
 
 after="$(find "$FAKE_GRANTS" -name "*.json" | wc -l | tr -d ' ')"
@@ -205,19 +209,20 @@ fi
 printf '\n=== (f) missing grants directory → exit 0 ===\n'
 
 MISSING_DIR="$TMPDIR_RUN/.claude/beta/no-such-grants"
-exit_code=0
-(cd "$TMPDIR_RUN" && env -i \
-  PATH="$PATH" HOME="$HOME" WL_TASK_ID="TEST-CLEANUP" \
-  bash -c "GRANTS_DIR='$MISSING_DIR' bash '$HOOK'" 2>/dev/null) || exit_code=$?
-
-# Cleanup always exits 0 even with missing dir
-# Alternate approach: just run normally — the hook handles missing dir gracefully
+# Run against the hook's actual relative grants path after removing it.
+rm -rf "$FAKE_GRANTS"
 exit_code="$(run_cleanup_exit)"
 if [[ "$exit_code" -eq 0 ]]; then
-  pass "(f) hook exits 0 even when grants dir is empty/nonexistent"
+  pass "(f) hook exits 0 when grants directory is missing"
 else
   fail "(f) unexpected non-zero exit when grants dir is missing: $exit_code"
 fi
+if [[ ! -e "$MISSING_DIR" ]]; then
+  pass "(f) cleanup does not create an unrelated grants directory"
+else
+  fail "(f) cleanup unexpectedly created $MISSING_DIR"
+fi
+mkdir -p "$FAKE_GRANTS"
 
 # ---- scenario (g): corrupt grant file is skipped ---------------------------
 
@@ -225,7 +230,7 @@ printf '\n=== (g) corrupt grant file skipped ===\n'
 
 rm -f "$FAKE_GRANTS"/*.json 2>/dev/null || true
 printf 'NOT VALID JSON{{{' > "$FAKE_GRANTS/g_corrupt.json"
-write_grant_ts "g_valid" "$(future_ts)" 2 0
+write_grant_ts "g_00000008" "$(future_ts)" 2 0
 
 exit_code="$(run_cleanup_exit)"
 
@@ -236,10 +241,30 @@ else
 fi
 
 # Active grant should still be present
-if [[ -f "$FAKE_GRANTS/g_valid.json" ]]; then
+if [[ -f "$FAKE_GRANTS/g_00000008.json" ]]; then
   pass "(g) valid grant kept after skipping corrupt file"
 else
   fail "(g) valid grant removed during corrupt-file cleanup"
+fi
+
+# ---- scenario (h): invalid expiry is preserved -----------------------------
+
+printf '\n=== (h) invalid-expiry grant preserved ===\n'
+
+rm -f "$FAKE_GRANTS"/*.json 2>/dev/null || true
+write_grant_ts "g_00000009" "not-a-time" 1 0
+
+exit_code="$(run_cleanup_exit)"
+if [[ "$exit_code" -eq 0 ]]; then
+  pass "(h) structurally invalid grant does not crash cleanup"
+else
+  fail "(h) structurally invalid grant crashed cleanup (exit $exit_code)"
+fi
+
+if [[ -f "$FAKE_GRANTS/g_00000009.json" ]]; then
+  pass "(h) grant with invalid expiry preserved for manual inspection"
+else
+  fail "(h) grant with invalid expiry was deleted"
 fi
 
 # ---- summary ----------------------------------------------------------------

@@ -550,7 +550,7 @@
       "main_branch_refs": [
         {
           "file": "components/WorldlineGlobe.tsx",
-          "line": 2163,
+          "line": 2137,
           "value": "new THREE.RingGeometry(0.010, 0.016, 24)",
           "role": "fiction node hollow-ring glyph geometry (default variant) — NeX orbital fiction glyph loop"
         },
@@ -562,7 +562,7 @@
         },
         {
           "file": "components/WorldlineGlobe.tsx",
-          "line": 2157,
+          "line": 2131,
           "value": "opacity: 0.75,",
           "role": "fiction node ring opacity on the orbital shell (default variant)"
         },
@@ -574,7 +574,7 @@
         }
       ],
       "render": "#atom-fiction-node",
-      "impl_ref": "components/WorldlineGlobe.tsx (NeX orbital fiction glyph loop, L1395-1413)",
+      "impl_ref": "components/WorldlineGlobe.tsx (NeX orbital fiction glyph loop)",
       "production_ref": {
         "component": "components/WorldlineGlobe.tsx",
         "screenshot": null

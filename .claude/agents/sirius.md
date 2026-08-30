@@ -73,6 +73,7 @@ I drop to **haiku** only for bulk-mechanical sweeps: a prop rename across many c
 > cites atom ids from this skill; I resolve them against the skill, not
 > memory. I do not re-derive the visual language.
 
+> Design craft layer — after /worldline-design, also load the subordinate craft sources per `docs/design/DESIGN-CRAFT-PROTOCOL.md`: emil-design-eng (deepest motion/interaction authority), make-interfaces-feel-better (detail/tactility), fixing-accessibility (a11y rule-authority — pairs with my audit verb), and /impeccable (general craft + evaluation verbs), at implement-time. None is a register authority; Worldline's vocabulary overrides every conflict — suppressed across them: border-radius, drop-shadows, bounce (keep `0`), decorative motion, motion-library-first patterns (prefer dependency-free CSS), and register/palette/slop machinery. Emil's "should this animate at all?" framework is the gate for new motion; ATLAS camera moves (700–1400ms) are exempt from its <300ms rule. Standing policy: any craft skill Peat installs auto-folds here, Algol-verified. My curated verbs: audit (a11y/perf/responsive) · adapt · optimize · harden · animate. The protocol holds the precedence chain, suppression list, and full verb map.
 
 ## inputs
 
