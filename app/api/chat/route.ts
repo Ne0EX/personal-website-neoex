@@ -70,15 +70,32 @@ function logSafeError(context: string, error: unknown): void {
   )
 }
 
-async function redis(command: string[]): Promise<string | number | null> {
-  const url = process.env.UPSTASH_RESTORE_URL
-  const token = process.env.UPSTASH_RESTORE_TOKEN
-  if (!url || !token) return null
+type RedisCredentials = { url: string; token: string }
 
-  const response = await fetch(url, {
+function resolveRedisCredentials(): RedisCredentials | null {
+  const candidates = [
+    [
+      process.env.UPSTASH_REDIS_REST_URL,
+      process.env.UPSTASH_REDIS_REST_TOKEN,
+    ],
+    [process.env.KV_REST_API_URL, process.env.KV_REST_API_TOKEN],
+    [process.env.UPSTASH_RESTORE_URL, process.env.UPSTASH_RESTORE_TOKEN],
+  ] as const
+
+  for (const [url, token] of candidates) {
+    if (url && token) return { url, token }
+  }
+  return null
+}
+
+async function redis(command: string[]): Promise<string | number | null> {
+  const credentials = resolveRedisCredentials()
+  if (!credentials) return null
+
+  const response = await fetch(credentials.url, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${credentials.token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(command),
@@ -123,11 +140,8 @@ async function recordDailySpend(nowMs: number = Date.now()): Promise<void> {
 
 async function quota(sessionId: string): Promise<QuotaResult | null> {
   const ceilingValue = process.env.WL_DAILY_COST_CEILING
-  const hasRedis = Boolean(
-    process.env.UPSTASH_RESTORE_URL &&
-      process.env.UPSTASH_RESTORE_TOKEN &&
-      ceilingValue,
-  )
+  const redisCredentials = resolveRedisCredentials()
+  const hasRedis = Boolean(redisCredentials && ceilingValue)
 
   if (!hasRedis) {
     if (process.env.NODE_ENV !== 'production') {
