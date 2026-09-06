@@ -36,7 +36,7 @@ export function ConsoleLogout({ hasUnsavedChanges = false }: { hasUnsavedChanges
         type="submit"
         className="ch-exit"
         disabled={pending}
-        style={{ minHeight: 44, position: 'relative', zIndex: 3 }}
+        style={{ minHeight: 44, position: 'relative', zIndex: 3, color: 'var(--ink-read)' }}
       >
         {pending ? 'Signing out…' : failed ? 'Retry sign out' : 'Sign out'}
       </button>
