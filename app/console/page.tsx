@@ -70,13 +70,18 @@ function gridPosition(index: number): { x: number; y: number } {
 // Route
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default async function ConsolePage() {
+export default async function ConsolePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ auth_error?: string | string[] }>
+}) {
   // S4: server-side auth gate (defence-in-depth behind proxy.ts choke point).
   // Authentication is insufficient: verify private.owners membership before
   // any admin read so an authenticated non-owner cannot load draft material.
   const auth = await assertOwner()
   if (!auth.ok) {
-    return <ConsoleLogin />
+    const { auth_error } = await searchParams
+    return <ConsoleLogin errorCode={typeof auth_error === 'string' ? auth_error : undefined} />
   }
 
   // S6: Fetch all collections from the store (admin-reads — includes drafts).

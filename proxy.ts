@@ -48,6 +48,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { isOwnerGoogleIdentity } from '@/lib/server/owner-identity'
 
 // ---------------------------------------------------------------------------
 // Locale constants
@@ -161,7 +162,7 @@ async function handleConsoleAuth(request: NextRequest): Promise<NextResponse> {
   // Authentication alone is not authorization. Fail closed unless the
   // cookie-bound session also belongs to private.owners.
   let isOwner = false
-  if (!userError && user) {
+  if (!userError && isOwnerGoogleIdentity(user)) {
     const { data, error } = await supabase.rpc('is_owner')
     isOwner = !error && data === true
   }

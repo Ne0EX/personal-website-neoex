@@ -64,6 +64,7 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 - `app/api/**`
 - `lib/server/**`
 - `middleware.ts` (root or per-route segment)
+- `proxy.ts` (Next.js 16 auth and locale boundary; successor to middleware.ts)
 - Any `'use server'` block in Sirius's files (marked `// server-action: altair`)
 
 ! `lib/netra/**` — Arcturus owns prompts; Altair owns the route handler that consumes them

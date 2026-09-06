@@ -97,6 +97,32 @@ test('console sensor rejects validation before authorization', (t) => {
   assertViolation(runAudit(directory, 'console'), 'CONSOLE_IMPL_ORDER_createEntryImpl')
 })
 
+for (const page of ['app/console/page.tsx', 'app/console/editor/page.tsx']) {
+  for (const [label, transform] of [
+    ['data loading before owner validation', (source) => source.replace(
+      'const auth = await assertOwner()',
+      'await getAllArticles()\n  const auth = await assertOwner()',
+    )],
+    ['private loading inside the denied branch', (source) => source.replace(
+      'if (!auth.ok) {',
+      'if (!auth.ok) {\n    const privateEntries = await getAllArticles()',
+    )],
+    ['private loading in login props', (source) => source.replace(
+      'return <ConsoleLogin',
+      'return <ConsoleLogin privateEntries={getAllArticles()}',
+    )],
+    ['an inverted authorization guard', (source) => source.replace('if (!auth.ok) {', 'if (auth.ok) {')],
+    ['an admin component in the denied branch', (source) => source.replace('return <ConsoleLogin', 'return <ConsoleApp')],
+    ['a fabricated owner result', (source) => source.replace('const auth = await assertOwner()', 'const auth = { ok: true }')],
+  ]) {
+    test(`console page sensor rejects ${label} in ${page}`, (t) => {
+      const directory = fixture(t)
+      mutate(directory, page, transform)
+      assertViolation(runAudit(directory, 'console'), `CONSOLE_PAGE_OWNER_GATE_${page}`)
+    })
+  }
+}
+
 test('store projection sensor rejects draft/private control columns', (t) => {
   const directory = fixture(t)
   mutate(directory, 'lib/store/netra-reads.ts', (source) => source.replace(

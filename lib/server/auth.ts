@@ -11,6 +11,7 @@
  *
  * assertOwner() contract:
  *   - Calls supabase.auth.getUser() via the cookie-bound server client.
+ *   - Requires the allowlisted, provider-verified Google identity.
  *   - Calls rpc('is_owner') to verify the user is in private.owners.
  *   - Returns {ok: true, userId: string} on success.
  *   - Returns {ok: false, error: {code: 'AUTH', message, details?}} on any failure.
@@ -26,6 +27,7 @@
  */
 
 import { createSupabaseServerClient } from '@/lib/store/supabase/server'
+import { isOwnerGoogleIdentity } from '@/lib/server/owner-identity'
 
 // ---------------------------------------------------------------------------
 // Shared error envelope (mirrors highlight-core.ts ActionError)
@@ -75,6 +77,13 @@ export async function assertOwner(): Promise<AuthResult> {
       }
     }
 
+    if (!isOwnerGoogleIdentity(user)) {
+      return {
+        ok: false,
+        error: { code: 'AUTH', message: 'Not authorized as owner' },
+      }
+    }
+
     // Double-check: user must be in private.owners via the is_owner() RPC
     // (security definer function — callable by anon/authenticated, never
     // exposes private.owners directly). Signups are disabled (DL12), so an
@@ -82,7 +91,7 @@ export async function assertOwner(): Promise<AuthResult> {
     // defence-in-depth for the rare case of a rogue session.
     const { data: isOwner, error: rpcError } = await supabase.rpc('is_owner')
 
-    if (rpcError || !isOwner) {
+    if (rpcError || isOwner !== true) {
       return {
         ok: false,
         error: { code: 'AUTH', message: 'Not authorized as owner' },
@@ -90,7 +99,7 @@ export async function assertOwner(): Promise<AuthResult> {
     }
 
     return { ok: true, userId: user.id }
-  } catch (err) {
+  } catch {
     // Catch-all: network errors, unexpected throws — never leak details.
     return {
       ok: false,

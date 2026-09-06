@@ -1,5 +1,27 @@
 # STATUS — running ledger of active and recent tasks
 
+## TASK-2026-09-06-CONSOLE-GOOGLE-OAUTH · in-flight
+
+scope · Replace manual console login with Google OAuth for the existing owner,
+deploy to Vercel, verify CI/CD, then hand off personal login testing to Peat.
+
+state · Peat directly confirmed implementation, deployment and Supabase GitHub
+dashboard sign-in on 2026-09-07. Google PKCE start/callback, verified Google owner
+identity with existing private.owners authorization, safe errors, replacement
+login UI and same-origin logout are implemented in the isolated checkout from
+live main 09f69dd. OAuth regression suite passes 74 cases; targeted ESLint and
+TypeScript pass. Integrated release gates and browser checks are underway.
+
+provider · Dashboard access restored. Google client fields and callback allowlist
+were empty; provider setup is in progress. Production release remains pending
+provider readiness and exact-commit CI/Vercel verification. Peat will perform
+personal Google sign-in after release.
+
+owner · Polaris. Task details and acceptance remain in
+.claude/handoffs/from-polaris/TASK-2026-09-06-CONSOLE-GOOGLE-OAUTH.md.
+
+---
+
 > Polaris maintains this file. One entry per TASK. Format: TASK id · scope summary · status · slices with owner/state/signature-hash.
 >
 > `in-flight` means at least one slice not yet accepted. `closed` means all slices accepted and integrated. `parked` means deliberate pause with reason logged.

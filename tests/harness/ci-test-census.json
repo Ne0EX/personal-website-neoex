@@ -28,6 +28,11 @@
       "reason": "console security regression"
     },
     {
+      "path": "tests/console-google-oauth.test.mjs",
+      "kind": "node-test",
+      "reason": "executed Google OAuth redirect, verified owner authorization, failure, cookie and protected-route regression"
+    },
+    {
       "path": "tests/console-nav-contract.test.mjs",
       "kind": "node-test",
       "reason": "console interaction regression"

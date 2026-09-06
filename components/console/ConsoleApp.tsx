@@ -52,6 +52,7 @@ import { createEntry, setAlphaPlace } from '@/lib/server/store/actions'
 // simple-upload: frictionless photo drop zone on the console front door
 import { QuickUploadBar } from './QuickUploadBar'
 import type { QuickUploadSuccess } from './QuickUploadBar'
+import { ConsoleLogout } from './ConsoleLogout'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CSS — shell, header, body grid, NETRA foot, offline
@@ -99,6 +100,12 @@ const CONSOLE_CSS = `
 }
 .ch-exit:hover { color: var(--accent-orange); }
 .ch-exit:focus-visible { outline: 1px dashed var(--accent-orange); outline-offset: 2px; }
+.ch-exit:disabled { cursor: wait; }
+.ch-actions { display: flex; align-items: center; justify-self: end; gap: 12px; }
+@media (max-width: 880px) {
+  .console-header { grid-template-columns: 1fr auto; }
+  .ch-center { display: none; }
+}
 
 /* ── body — two pane ─────────────────────────────────────────── */
 .console-body {
@@ -469,6 +476,7 @@ export function ConsoleApp({ initialNodes, initialEdges, initialPlaces, knownTag
           <div className="corner-marks" />
           <div className="offline-msg">INSTRUMENT OFFLINE · NARROW VIEWPORT</div>
           <div className="offline-sub">peat tends from desktop. the console does not fold to a phone.</div>
+          <ConsoleLogout />
         </div>
       </>
     )
@@ -505,17 +513,20 @@ export function ConsoleApp({ initialNodes, initialEdges, initialPlaces, knownTag
             <span className="ch-title">CONSOLE · WORLDLINE AUTHORING</span>
           </div>
           <div className="ch-center">∇ neospirit // worldline 1.130426</div>
-          {/* ESC·EXIT: in browser deselects current node / closes form (spec §header) */}
-          <button
-            type="button"
-            className="ch-exit"
-            onClick={() => {
-              if (formOpen) closeForm()
-              else setSelectedId(null)
-            }}
-          >
-            [ ESC · EXIT ]
-          </button>
+          <div className="ch-actions">
+            {/* ESC·EXIT keeps its selection/form meaning; sign out ends the session. */}
+            <button
+              type="button"
+              className="ch-exit"
+              onClick={() => {
+                if (formOpen) closeForm()
+                else setSelectedId(null)
+              }}
+            >
+              [ ESC · EXIT ]
+            </button>
+            <ConsoleLogout hasUnsavedChanges={dirty || placeEditorOpen} />
+          </div>
         </header>
 
         {/* ── Quick upload bar — simple-upload track.

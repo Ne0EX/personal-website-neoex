@@ -101,6 +101,42 @@ function sourceFile(path: string, source: string): ts.SourceFile {
   return ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, path.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
 }
 
+function hasOwnerPageGate(file: ts.SourceFile): boolean {
+  const page = exportedFunctionDeclarations(file).find((declaration) => (
+    ts.getModifiers(declaration)?.some((modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword)
+  ))
+  const statements = page?.body?.statements
+  if (!statements || statements.length < 2) return false
+  const ownerCheck = statements[0].getText(file).replace(/\s+/g, ' ').replace(/;$/, '')
+  if (ownerCheck !== 'const auth = await assertOwner()') return false
+
+  const guard = statements[1]
+  if (!ts.isIfStatement(guard) || guard.expression.getText(file).replace(/\s+/g, '') !== '!auth.ok') return false
+  if (!ts.isBlock(guard.thenStatement) || guard.elseStatement) return false
+  const deniedStatements = guard.thenStatement.statements
+  const deniedReturn = deniedStatements.at(-1)
+  if (!deniedReturn || !ts.isReturnStatement(deniedReturn)) return false
+  const login = deniedReturn.expression
+  if (!login || !ts.isJsxSelfClosingElement(login) || login.tagName.getText(file) !== 'ConsoleLogin') return false
+  if (!deniedStatements.slice(0, -1).every(ts.isVariableStatement)) return false
+
+  // Error presentation may read searchParams before returning the login shell.
+  // Do not permit private loaders, helper calls, or other asynchronous work
+  // inside the denied branch, including expressions passed as JSX props.
+  let presentationOnly = true
+  const inspect = (node: ts.Node): void => {
+    if (
+      ts.isCallExpression(node)
+      || ts.isNewExpression(node)
+      || ts.isTaggedTemplateExpression(node)
+      || (ts.isAwaitExpression(node) && node.expression.getText(file) !== 'searchParams')
+    ) presentationOnly = false
+    ts.forEachChild(node, inspect)
+  }
+  inspect(guard.thenStatement)
+  return presentationOnly
+}
+
 function jsxElementWithStaticClass(
   file: ts.SourceFile,
   tagName: string,
@@ -320,10 +356,9 @@ function auditMain(): AuditOutput {
         `CONSOLE_PAGE_OWNER_GATE_${file}`,
         file,
         /import \{ assertOwner \} from ['"]@\/lib\/server\/auth['"]/.test(source)
-          && /const auth\s*=\s*await assertOwner\(\)/.test(source)
-          && /if \(!auth\.ok\)\s*\{\s*return <ConsoleLogin \/>\s*\}/.test(source),
+          && hasOwnerPageGate(sourceFile(file, source)),
         `${file} verifies owner membership before loading console data`,
-        `${file} must call assertOwner() and render ConsoleLogin when owner authorization fails`,
+        `${file} must begin with assertOwner() and return ConsoleLogin on failure before any data loader`,
       )
     }
     add(
