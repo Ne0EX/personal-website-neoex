@@ -9,11 +9,26 @@ state · Peat directly confirmed implementation, deployment and Supabase GitHub
 dashboard sign-in on 2026-09-07. Google PKCE start/callback, verified Google owner
 identity with existing private.owners authorization, safe errors, replacement
 login UI and same-origin logout are implemented in the isolated checkout from
-live main 09f69dd. OAuth regression suite passes 74 cases; targeted ESLint and
-TypeScript pass. Integrated release gates and browser checks are underway.
+live main 09f69dd. OAuth and security regression suites pass 112 cases; the
+console source audit passes 44 checks. Integrated lint, TypeScript and the full
+Next/Pagefind production build pass. Desktop contrast and keyboard-focus QA pass;
+mobile browser verification remains unavailable after browser transport failure.
 
-provider · Dashboard access restored. Google client fields and callback allowlist
-were empty; provider setup is in progress. Production release remains pending
+release · Feature commit 352a80c8ce42ff529774505a60ed0fe936288d27 is pushed on
+codex/console-google-oauth. GitHub CI run 34048836057 passed: 251 Node tests,
+34 required non-Node sensors and 17 required harness rails. Three optional rails
+failed and six checks were explicitly skipped; required failures are zero.
+Vercel preview dpl_9bhjdwyeXGDypvHbFKQAqUZgn6YJ is READY for that exact commit.
+Nine hosted HTTP smoke checks pass via temporary Vercel share access without
+changing deployment protection: Google-only login, denied admin access, fixed
+error redirects, exact HTTPS callback origin, and logout origin handling.
+Production/main remain unchanged at 09f69dd.
+
+provider · Dashboard login succeeded, but subsequent browser interactions keep
+timing out. Google client fields and callback allowlist were empty; no provider
+settings have been saved. Google remains disabled. Chrome installation,
+extension and native-host checks pass; permission to open a fresh Chrome window
+for the supported recovery step was requested. Production release is held until
 provider readiness and exact-commit CI/Vercel verification. Peat will perform
 personal Google sign-in after release.
 

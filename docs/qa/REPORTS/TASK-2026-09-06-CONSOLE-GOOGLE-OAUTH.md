@@ -5,9 +5,11 @@ Task: TASK-2026-09-06-CONSOLE-GOOGLE-OAUTH.
 
 ## Current verdict
 
-The implemented OAuth and logout behavior passed all 79 deterministic tests.
-Production-provider configuration, deployed behavior, and final release/signature
-evidence remain separate acceptance items. Peat completes the personal sign-in.
+PASS for the implemented authorization, logout, local runtime, and Vercel preview
+failure/anonymous behavior. The Google provider is still disabled, so successful
+Google sign-in is not ready and the full user objective is not complete. Peat
+completes the personal sign-in after provider setup. No production release or
+successful owner authentication is claimed here.
 
 Verification uses `/private/tmp/personal-website-console-google-oauth`, based on
 production commit `09f69ddf80f7a2517989322f3e2ac55964096304`. The original dirty
@@ -62,9 +64,10 @@ not inspect.
 Twelve added mutation cases in `tests/security-netra-contracts.test.mjs` cover
 both console pages: loading before auth, loading inside denial, loading through
 login props, inverted guards, returning admin UI on failure, and fabricated
-owner results. Mutations operate on disposable copies only. The final source
-sensor rerun belongs to the integrated check evidence; no unrun result is claimed
-by this report revision.
+owner results. Mutations operate on disposable copies only. The resulting source
+regression suite passed all 33 cases; the combined OAuth/security run passed all
+112 cases with zero failures or skips. The console audit itself passed all 44
+checks with zero violations.
 
 ## Verification evidence and limits
 
@@ -73,21 +76,63 @@ by this report revision.
   before baseline verification.
 - `node --test tests/console-google-oauth.test.mjs`: 79 passed, zero failed,
   zero skipped after the final OAuth/logout test additions.
-- Explicit test ESLint and `git diff --check` passed before the detector repair;
-  those commands must run on the final detector/test change too.
+- Final explicit ESLint on the detector and both changed test files,
+  `npx --no-install tsc --noEmit`, and `git diff --check` all passed after the
+  detector repair.
 - Read-through confirms shared Google identity checks at both `assertOwner` and
   proxy, page guards before private reads, existing membership/RLS preservation,
   no new service-role runtime access, and no private provider error reflection.
-- Canopus reported a passing isolated integrated lint/typecheck/Next/Pagefind
-  build. Browser QA proceeds on its production server at port 3087 using the
+- Canopus completed isolated integrated lint/typecheck/Next/Pagefind build.
+  Algol independently verified its production server on port 3087 using the
   existing public Supabase settings. The earlier local dev error came from
   missing public environment configuration, not from the OAuth implementation.
-- Sirius reported an inspected 1280px production render with no overflow, a
-  44px action, keyboard focus, and corrected contrast in the nested dark panel;
-  independent QA browser and HTTP results remain to be recorded.
+- Algol's real local HTTP checks passed: console and nested editor return 200
+  with only the Google login action; access-denied query gives fixed copy;
+  missing callback code returns 303 with oauth_failed and no-store; auth probe
+  returns 401 AUTH; logout GET returns 405; hostile-origin logout POST returns
+  403 AUTH; Google start returns the truthful oauth_unavailable redirect.
+- Algol independently viewed Sirius's 1280×800 production screenshot at
+  `.claude/visual-diffs/TASK-2026-09-06-CONSOLE-GOOGLE-OAUTH-sirius/after/login-desktop-focus.png`:
+  readable centered dark panel, Google as the sole login action, visible keyboard
+  focus, and no visible overflow. Sirius measured a 44px action and foreground
+  rgb(216,224,222) against rgb(10,10,10). Mobile rendering and a numerical
+  Lighthouse accessibility score were not verified after browser transport
+  failure; no pass is claimed for those checks.
+
+## Remote release evidence
+
+Root independently verified GitHub CI run `34048836057` completed SUCCESS for
+commit `352a80c8ce42ff529774505a60ed0fe936288d27`. The Vercel preview for that
+same commit is READY at
+`https://personal-website-neoex-dzly92mui.vercel.app`.
+
+Canopus accessed the protected preview using Vercel's temporary share mechanism,
+without changing deployment protection. Nine HTTP smoke cases passed:
+
+| Request | Observed result |
+| --- | --- |
+| GET /console | 200, Google-only login |
+| GET /console/editor | 200, Google-only login |
+| GET /console?auth_error=access_denied | Fixed account-denied copy |
+| GET /api/auth/google | 303, oauth_unavailable |
+| GET /api/auth/callback without code | 303, oauth_failed |
+| GET /api/console/auth-probe | 401 |
+| GET /api/auth/logout | 405 |
+| POST /api/auth/logout with hostile Origin | 403 |
+| POST /api/auth/logout with same-origin anonymous request | 303 |
+
+Redirects retain the exact preview HTTPS origin; OAuth responses are private,
+no-store, and no-referrer. The earlier SSO 302 from the protected preview was not
+counted as an application smoke result. No share token or session cookie is
+included in this report.
+
+The live provider setup remains unsaved after browser transport failures; root
+confirmed Google is disabled. This is the remaining functional blocker, so the
+unavailable redirect is verified graceful failure, not a successful OAuth flow.
+Public production-alias deployment and the owner's personal login remain open.
 
 Automatic post-edit hooks operate in the outer checkout and had one concurrent
 build-lock failure; root recovery subsequently passed. Those outer hooks are
 not substituted for the isolated integrated build. Canopus is producing scoped
 temporary-checkout signatures so concurrent peers' files are not attributed to
-Algol. Final signature integrity and production release evidence remain pending.
+Algol. Signature integrity is audited separately after this report is finalized.
