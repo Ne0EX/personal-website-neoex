@@ -3,6 +3,21 @@
   "owner": "Algol · α-VER-06",
   "required": [
     {
+      "path": "tests/photo-media-observability.test.mjs",
+      "kind": "node-test",
+      "reason": "executed fixed-enum media failure logging, silent denials and hostile error privacy regression"
+    },
+    {
+      "path": "tests/production-monitor.test.mjs",
+      "kind": "node-test",
+      "reason": "bounded credential-free monitoring, timeout, privacy and sanitized failure output regression"
+    },
+    {
+      "path": "tests/production-monitor-workflow.test.mjs",
+      "kind": "node-test",
+      "reason": "public-only free-tier scheduled monitoring, pinned workflow permissions and dangling cron regression"
+    },
+    {
       "path": "tests/accessibility-floor.test.mjs",
       "kind": "node-test",
       "reason": "deterministic production-browser accessibility sensor regression"

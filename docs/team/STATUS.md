@@ -1,5 +1,34 @@
 # STATUS — running ledger of active and recent tasks
 
+## TASK-2026-09-08-FREE-OBSERVABILITY · in-flight
+
+scope · Peat approved closing post-deploy monitoring gaps using free tiers only.
+Baseline is deployed main41a73a8, independently confirmed on 2026-09-08 Bangkok.
+Work is isolated in /private/tmp/personal-website-observability.CiDfPw; original
+dirty workspace and prior release artifacts remain untouched.
+
+implementation · Altair added fixed-enum unexpected media-failure logs; Canopus
+added an hourly dependency-free GitHub Actions public-health/private-bucket
+sentinel and removed the dangling Vercel cron; Algol owns regression/privacy/cost verification.
+Polaris owns acceptance and release. The separate weekly rebuild remains intact.
+No paid plans, drains, external vendors, new credentials or content mutations.
+
+cost · Repository is PUBLIC; standard Actions runners are free. Job must skip
+before runner allocation if repository becomes private or runs in a fork.
+Hourly probes are bounded and do not build/deploy/upload artifacts. Vercel and
+Supabase plans were verified as Hobby and Free and remain unchanged. Existing
+GitHub failed-workflow email is enabled; delivery itself is not tested. The
+runbook documents best-effort scheduling and inactivity auto-disable limits.
+
+acceptance · Implementation is prepared for integrated gates and release, not
+yet deployed at this ledger snapshot. The task contract and append-only CLOSE
+release receipt are under .claude/handoffs/from-polaris/ for this task. Release
+requires exact production SHA/READY, required CI and an actual GitHub monitor
+run. Operations and limitations: docs/harness/FREE-OBSERVABILITY.md.
+Historical entries below retain their original context, not current release state.
+
+---
+
 ## TASK-2026-09-06-CONSOLE-GOOGLE-OAUTH · in-flight
 
 scope · Replace manual console login with Google OAuth for the existing owner,

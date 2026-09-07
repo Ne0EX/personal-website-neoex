@@ -163,6 +163,8 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 - `scripts/visual-capture.sh`
 - `scripts/fetch-design-bundle.sh`
 - `.github/workflows/**`
+- `scripts/production-monitor.mjs` (credential-free production health/private-bucket sentinel; TASK-2026-09-08-FREE-OBSERVABILITY)
+- `vercel.json` (deployment and cron configuration; TASK-2026-09-08-FREE-OBSERVABILITY)
 - `docs/harness/**`
 - `eslint.config.mjs` — lint gate that `post-edit.sh` depends on; Canopus tunes ignore lists and rule wiring (project lint *rules* themselves are still cross-cutting, but the gate configuration is harness)
 - `.gitignore` (runtime artifact entries — harness section only; non-harness entries remain cross-cutting)

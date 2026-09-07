@@ -1,0 +1,42 @@
+name: Production Monitor
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    # Skip BEFORE runner allocation if visibility/ownership changes. Not a health PASS.
+    if: >-
+      github.event.repository.private == false &&
+      github.event.repository.fork == false &&
+      github.repository == 'Ne0EX/personal-website-neoex' &&
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check out trusted source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/production-monitor.mjs
+          sparse-checkout-cone-mode: false
+      - name: Use Node 24 without dependency installation or caching
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Run five bounded credential-free checks
+        shell: bash
+        run: node scripts/production-monitor.mjs | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Report failure without response data
+        if: failure()
+        run: echo '::error::Production monitor failed. Inspect sanitized check results; see the observability runbook.'
