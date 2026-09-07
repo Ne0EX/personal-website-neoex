@@ -132,7 +132,7 @@ export async function createRoll(input: unknown): Promise<CreateRollResult> {
  *   1. Downloads the original from originals bucket (owner session)
  *   2. Extracts EXIF with exifr (GPS dropped unless share_location — Layer 1)
  *   3. Generates 3×3 sharp variants (NO .withMetadata() — spec explicit)
- *   4. Uploads variants to photos bucket (cacheControl:3600)
+ *   4. Uploads variants to private photos bucket (cacheControl:0)
  *   5. Upserts entries (draft) + photo_assets
  *
  * Refuses without overwrite:true if the entry already has variants.

@@ -19,7 +19,7 @@
  *   - Downloads original from `originals` bucket (owner session)
  *   - Extracts EXIF with exifr (GPS dropped unless shareLocation — Layer 1 gate)
  *   - Generates 3×3 sharp variants (NO .withMetadata() — spec explicit)
- *   - Uploads variants to `photos` bucket with cacheControl:3600
+ *   - Uploads variants to private `photos` with cacheControl:0
  *   - Upserts entries + photo_assets (collision-guard without overwrite:true)
  *
  * Privacy invariants (spec §4.3, §2.5):
@@ -1269,14 +1269,14 @@ export async function ingestPhotoImpl(rawInput: unknown): Promise<IngestPhotoRes
           variantBuffer = await pipeline.avif({ quality: VARIANT_QUALITY[size.name].avif }).toBuffer()
         }
 
-        // Upload to photos bucket with cacheControl:3600 (CDN stop within 1h on delete)
+        // Recheck access on new requests; draft variants never use a public bucket.
         const mimeType = fmt === 'jpg' ? 'image/jpeg' : fmt === 'webp' ? 'image/webp' : 'image/avif'
         const { error: uploadError } = await supabase
           .storage
           .from('photos')
           .upload(objectKey, variantBuffer, {
             contentType: mimeType,
-            cacheControl: '3600',
+            cacheControl: '0',
             upsert: true,  // safe: key is content-addressed (sourceHash10); same content = same key
           })
 

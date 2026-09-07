@@ -38,6 +38,11 @@
       "reason": "console interaction regression"
     },
     {
+      "path": "tests/draft-media-privacy.test.mjs",
+      "kind": "node-test",
+      "reason": "checked photo delivery, exact variant authorization, draft privacy and cache isolation regression"
+    },
+    {
       "path": "tests/harness/ci-repair-regressions.test.mjs",
       "kind": "node-test",
       "reason": "CI census regression"

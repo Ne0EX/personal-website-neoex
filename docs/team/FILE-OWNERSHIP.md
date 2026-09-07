@@ -63,6 +63,9 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 
 - `app/api/**`
 - `lib/server/**`
+- `lib/store/media.ts` (checked photo delivery URL boundary; TASK-2026-09-07-DRAFT-MEDIA-PRIVACY)
+- `lib/store/map.ts` (photo URL and legacy embedded-media normalization; TASK-2026-09-07-DRAFT-MEDIA-PRIVACY)
+- `supabase/migrations/*_draft_media_privacy.sql` (Storage privacy/RLS migration; TASK-2026-09-07-DRAFT-MEDIA-PRIVACY)
 - `middleware.ts` (root or per-route segment)
 - `proxy.ts` (Next.js 16 auth and locale boundary; successor to middleware.ts)
 - Any `'use server'` block in Sirius's files (marked `// server-action: altair`)

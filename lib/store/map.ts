@@ -10,7 +10,7 @@
  *         Raw coords never reaches anon — the column grant in §3.2 enforces this
  *         at the DB boundary. We consume served_coords, not coords.
  *   isoDate: iso_date column (YYYY-MM-DD) → string form
- *   photo variants: bucket-relative keys → full public URLs via media.ts
+ *   photo variants: bucket-relative keys → checked same-origin URLs via media.ts
  *
  * Owner: Procyon (α-IDX-03) · store-as-source S3
  */
@@ -242,7 +242,7 @@ export function mapFiction(row: DbEntryRow): Fiction {
 }
 
 /**
- * Maps a DB photo_assets row + variant keys to full public URLs.
+ * Maps a DB photo_assets row + variant keys to checked delivery URLs.
  * Returns undefined when the assets row has no variants (pipeline not run).
  */
 function mapVariants(dbVariants: DbVariantKeys | null | undefined): PhotoVariants | undefined {
