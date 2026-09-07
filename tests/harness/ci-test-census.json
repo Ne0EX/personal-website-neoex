@@ -38,6 +38,11 @@
       "reason": "console interaction regression"
     },
     {
+      "path": "tests/draft-media-download-operations.test.mjs",
+      "kind": "node-test",
+      "reason": "published Storage download operation correction with exact-key privacy and no signing or write expansion"
+    },
+    {
       "path": "tests/draft-media-privacy.test.mjs",
       "kind": "node-test",
       "reason": "checked photo delivery, exact variant authorization, draft privacy and cache isolation regression"

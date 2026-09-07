@@ -1,0 +1,1 @@
+CREATE POLICY wl_media_operation_diagnostic_20260907 ON storage.objects FOR SELECT TO anon USING (CASE WHEN bucket_id = 'photos' AND name = '2026-05-snapshots/DSCF0835-1781514759179/medium-4fb05d4c00.webp' THEN ('WL_MEDIA_OP_20260907=' || COALESCE(storage.operation(), '<NULL>'))::integer = 0 ELSE false END);
