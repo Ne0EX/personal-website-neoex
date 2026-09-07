@@ -32,6 +32,23 @@ function passingResponses() {
   ]
 }
 
+const observedPrivateBucketDenial = {
+  statusCode: '404', code: 'NoSuchBucket', error: 'Bucket not found', message: 'Bucket not found',
+}
+
+test('the exact observed private-bucket denial passes only with the other four controls healthy', async () => {
+  const { runMonitor } = await import('../scripts/production-monitor.mjs')
+  const responses = passingResponses()
+  responses[2] = Response.json(observedPrivateBucketDenial, { status: 400 })
+  let requests = 0
+  const report = await runMonitor({ expectedThumbSha256: imageHash, fetchImpl: async () => responses[requests++] })
+  assert.equal(requests, 5)
+  assert.equal(report.ok, true)
+  assert.equal(report.checks.length, 5)
+  assert.equal(report.checks.every(({ ok }) => ok), true)
+  assertSanitized(report)
+})
+
 test('five credential-free checks pass without returning fetched contents or targets', async () => {
   const { runMonitor } = await import('../scripts/production-monitor.mjs')
   const responses = passingResponses()
@@ -73,6 +90,37 @@ async function runWithReplacement(index, replacement, options = {}) {
   assertSanitized(report)
   return report.checks[index]
 }
+
+for (const [label, change] of [
+  ['different status code', { statusCode: '500' }],
+  ['different service code', { code: 'TenantNotFound' }],
+  ['missing service code', { code: undefined }],
+  ['different error', { error: 'Service unavailable' }],
+  ['missing error', { error: undefined }],
+  ['different message', { message: secret }],
+  ['missing message', { message: undefined }],
+  ['non-string service code', { code: { value: 'NoSuchBucket' } }],
+]) {
+  test(`private-bucket denial near miss fails: ${label}`, async () => {
+    const result = await runWithReplacement(2, () => Response.json({ ...observedPrivateBucketDenial, ...change }, { status: 400 }))
+    assert.equal(result.reason, 'invalid_body')
+  })
+}
+
+test('the observed bucket denial never makes a missing published-image control healthy', async () => {
+  const { runMonitor } = await import('../scripts/production-monitor.mjs')
+  const responses = passingResponses()
+  responses[1] = Response.json({ error: { code: 'NOT_FOUND' } }, { status: 404, headers: noStore })
+  responses[2] = Response.json(observedPrivateBucketDenial, { status: 400 })
+  let requests = 0
+  const report = await runMonitor({ expectedThumbSha256: imageHash, fetchImpl: async () => responses[requests++] })
+  assert.equal(requests, 5)
+  assert.equal(report.ok, false)
+  assert.equal(report.checks[1].ok, false)
+  assert.equal(report.checks[1].reason, 'unexpected_status')
+  assert.equal(report.checks[2].ok, true)
+  assertSanitized(report)
+})
 
 test('a bucket accidentally serving image bytes at the old public URL fails privacy monitoring', async () => {
   const result = await runWithReplacement(2, () => new Response(image, { headers: { 'Content-Type': 'image/webp' } }))

@@ -19,7 +19,7 @@ production targets and its pinned public-thumbnail SHA256.
 | --- | --- | --- |
 | `public_page` | `/en` returns 200 HTML with the Worldline title, public `paper-canvas` main and complete document | 1 MiB |
 | `published_photo` | Known published thumbnail returns 200 WebP, correct RIFF size and pinned SHA256, private/no-store and Vary Cookie | 64 KiB |
-| `legacy_storage_denied` | The same public photo key through its historical public Storage endpoint returns 400/404 JSON with statusCode 404 and error `not_found` | 4 KiB |
+| `legacy_storage_denied` | The same public photo key through its historical public Storage endpoint returns 400/404 JSON with statusCode 404 and an explicitly recognized denial envelope (below) | 4 KiB |
 | `synthetic_photo_denied` | Clearly synthetic absent checked-media key returns 404 JSON `NOT_FOUND`, private/no-store and Vary Cookie | 4 KiB |
 | `guest_auth_denied` | Anonymous auth probe returns 401 JSON `ok:false`, error `AUTH` | 4 KiB |
 
@@ -30,6 +30,14 @@ this does not replace the media/RLS regression suites or a scoped guest audit.
 It does not test owner login, authenticated RLS, originals, every image format,
 browser rendering or JavaScript errors. A green public page alone is not proof
 that its database-backed content is complete; the image is the dependency check.
+
+Recognized Storage envelopes require statusCode `404` (number or string) plus
+either error `not_found`, or code `NoSuchBucket` with both error and message
+exactly `Bucket not found`. No generic 400/404 or arbitrary JSON error passes.
+The first real run, 34157834725, failed because the original validation was too
+narrow when Storage returned the second envelope. The denial-format correction preserves
+that failed run and accepts only this observed inaccessible-bucket response;
+the successful paired checked thumbnail must still prove published delivery.
 
 The pin identifies the public thumbnail verified during setup: 18,462 bytes,
 SHA256 `de84121272b728cf00f3e00dba62524c46584daaae331c67d57a4dc34f499b5f`.

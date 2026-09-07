@@ -155,3 +155,29 @@ outside this helper, Pagefind lifecycle concerns, unrelated advisory notices and
 any pre-existing optional harness failures are outside scope. Preserve the
 current authorization/RLS policies and private photos bucket during recovery;
 never reopen Storage to restore availability.
+
+## Addendum: live denial-envelope correction
+
+Task: `TASK-2026-09-08-FREE-OBSERVABILITY-DENIAL`, baseline `65b6a87`.
+The candidate evidence above is preserved as written. Initial live GitHub run
+`34157834725` failed `legacy_storage_denied` with `invalid_body`; it is not
+retroactively a passing run. Root's bounded receipt `1db7f1` identified HTTP400
+JSON with statusCode `404`, code `NoSuchBucket`, and both error/message exactly
+`Bucket not found`. Root reports that checked drafts and old public URLs still
+denied image delivery: this was a monitor false negative, not observed exposure.
+
+The [Storage error documentation](https://supabase.com/docs/guides/storage/debugging/error-codes)
+explains that a missing-bucket code can also indicate inaccessible Storage.
+The repair accepts only the complete observed shape alongside the existing
+`not_found` shape. The coupled published-photo control remains mandatory;
+generic HTTP400/404, outages, redirects and unexpected image success still fail.
+
+Algol's new fixture reproduced the mismatch before repair (`5abb43`, exit 1).
+Ten added cases cover the observed envelope, eight near misses and a failed
+published-image control despite an accepted denial. After Canopus's repair,
+runner **54/54** and all affected observability suites **92/92 PASS** (`51d693`,
+exit 0); targeted test ESLint PASS (`5c3016`). No application/auth/Storage policy
+was changed, no new real draft metadata entered tests, and Algol made no live
+request or build. New CI, successful actual GitHub run and final release
+acceptance remain pending this addendum; retain the initial failure and original
+signatures as historical evidence against their original candidate.

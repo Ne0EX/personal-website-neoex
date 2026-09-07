@@ -48,7 +48,11 @@ function validateBody(check, bytes, expectedThumbSha256) {
   try {
     const data = JSON.parse(text)
     if (check.name === 'legacy_storage_denied') {
-      return (data?.statusCode === '404' || data?.statusCode === 404) && data?.error === 'not_found'
+      const knownDenial = data?.error === 'not_found' || (
+        data?.code === 'NoSuchBucket' && data?.error === 'Bucket not found'
+        && data?.message === 'Bucket not found'
+      )
+      return (data?.statusCode === '404' || data?.statusCode === 404) && knownDenial
         ? 'ok' : 'invalid_body'
     }
     if (check.name === 'synthetic_photo_denied') return data?.error?.code === 'NOT_FOUND' ? 'ok' : 'invalid_body'
