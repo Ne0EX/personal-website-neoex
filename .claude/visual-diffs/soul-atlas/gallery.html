@@ -250,30 +250,30 @@
         <div class="variant" data-atom-variant="default">
           <span class="variant-label"><b>default</b> · 12×12 arm, inset 16</span>
           <div class="stage">
-            <!-- gate: main_branch_ref value="16px" — .corner-marks inset (globals.css L151) -->
-            <!-- gate: main_branch_ref value="12px" — reticle arm length (globals.css L159) -->
+            <!-- gate: main_branch_ref value="12px" — reticle arm length (default variant) — .corner-marks::before/::after width + height (app/globals.css L607) -->
+            <!-- gate: main_branch_ref value="16px" — inset from edge (default variant) — .corner-marks inset (app/globals.css L596) -->
             <div class="corner-marks"></div>
             <span class="t-meta">MEASURED SURFACE</span>
           </div>
           <span class="variant-note">Top-left + bottom-right L-brackets, one-pixel <code>var(--accent-orange)</code>, inset 16px — globals.css <code>.corner-marks</code>.</span>
         </div>
         <div class="variant" data-atom-variant="micro">
-          <span class="variant-label"><b>micro</b> · 8×8 arm, flush −1</span>
+          <span class="variant-label"><b>micro</b> · 12×12 arm, flush −1</span>
           <div class="stage">
-            <!-- gate: main_branch_ref value="8px" — micro arm length (globals.css L340) -->
-            <!-- gate: main_branch_ref value="-1px" — flush offset (globals.css L345) -->
+            <!-- gate: main_branch_ref value="12px" — arm length (micro variant) — .diverge-panel::before/::after width + height (app/globals.css L1480) -->
+            <!-- gate: main_branch_ref value="-1px" — micro variant top/left offset — positions L-bracket flush with panel border (app/globals.css L1485) -->
             <div class="diverge-panel" style="min-width:0;">
               <span class="t-meta" style="grid-column:1/-1;">MICRO — ON DIVERGE CARD</span>
             </div>
           </div>
-          <span class="variant-note">Same atom at 8×8px flush to the panel border (one-pixel inset) — globals.css <code>.diverge-panel::before/::after</code>.</span>
+          <span class="variant-note">Historical micro variant, currently 12×12px flush to the panel border (one-pixel inset) — globals.css <code>.diverge-panel::before/::after</code>.</span>
         </div>
       </div>
       <div class="cite">
         <span class="ttl">token_refs</span>
         <code>--accent-orange</code> (L-bracket border, one pixel, both variants)
         <span class="ttl">main_branch_refs</span>
-        globals.css L159 <code>12px</code> · L151 <code>16px</code> · L340 <code>8px</code> · L345 <code>-1px</code> · impl_ref <code>app/globals.css</code>
+        app/globals.css L607 <code>12px</code> · app/globals.css L596 <code>16px</code> · app/globals.css L1480 <code>12px</code> · app/globals.css L1485 <code>-1px</code>
       </div>
     </div>
   </section>
@@ -368,11 +368,11 @@
         <div class="variant" data-atom-variant="default">
           <span class="variant-label"><b>default</b> · resting reading</span>
           <div class="stage">
-            <!-- gate: main_branch_ref value="border: 1px solid rgb(var(--ink-rgb) / 0.22)" — panel border (globals.css L332) -->
-            <!-- gate: main_branch_ref value="background: rgba(240, 235, 221, 0.45)" — panel surface (globals.css L333) -->
-            <!-- gate: main_branch_ref value="min-width: 300px" — panel min width (globals.css .diverge-panel) -->
-            <!-- gate: main_branch_ref value="8px" — micro reticle arm (globals.css L340) -->
-            <!-- gate: main_branch_ref value="font-size: 8px" — diverge panel head (globals.css .diverge-panel-head) -->
+            <!-- gate: main_branch_ref value="border: 1.5px solid rgb(var(--ink-rgb) / 0.38);" — diverge-panel border — 1.5px ink hairline (updated from legacy 1px/0.22 cite) (app/globals.css L1471) -->
+            <!-- gate: main_branch_ref value="background: rgb(var(--ink-rgb) / 0.035);" — diverge-panel background — ink tint at 0.035 (updated from legacy paper-glass cite) (app/globals.css L1472) -->
+            <!-- gate: main_branch_ref value="min-width: 300px;" — diverge-panel min-width (updated from legacy 280px cite) (app/globals.css L1473) -->
+            <!-- gate: main_branch_ref value="12px" — micro corner-reticle arm length — .diverge-panel::before/::after (shared with corner-reticle micro variant) (app/globals.css L1480) -->
+            <!-- gate: main_branch_ref value="font-size: 8px;" — diverge-panel-head type size (updated from legacy 26px cite) (app/globals.css L1499) -->
             <div class="diverge-panel">
               <div class="diverge-panel-head">
                 <span class="diverge-panel-label">DIVERGENCE <b>α</b></span>
@@ -403,7 +403,7 @@
         <span class="ttl">token_refs</span>
         <code>--ink-rgb</code> · <code>--ink-primary</code> · <code>--ink-soft</code> · <code>--ink-faint</code> · <code>--accent-orange</code> · <code>--paper-base</code> · <code>--font-mono</code> · <code>--font-type</code> · <code>--font-display</code>
         <span class="ttl">main_branch_refs</span>
-        globals.css L1357 border · L1358 background · L1359 <code>300px</code> · L1385 <code>8px</code> · impl_ref <code>app/globals.css</code>
+        app/globals.css L1471 <code>border: 1.5px solid rgb(var(--ink-rgb) / 0.38);</code> · app/globals.css L1472 <code>background: rgb(var(--ink-rgb) / 0.035);</code> · app/globals.css L1473 <code>min-width: 300px;</code> · app/globals.css L1480 <code>12px</code> · app/globals.css L1499 <code>font-size: 8px;</code>
       </div>
     </div>
   </section>
@@ -421,7 +421,7 @@
         <div class="variant" data-atom-variant="default">
           <span class="variant-label"><b>default</b> · resting console</span>
           <div class="stage">
-            <!-- gate: main_branch_ref value="background: rgba(232, 226, 213, 0.92)" — console surface (globals.css L743) -->
+            <!-- gate: main_branch_ref value="background: rgb(var(--paper-base-rgb) / 0.92);" — NETRA console ground — paper-base at 0.92 (tokenized) (app/globals.css L1988) -->
             <div class="atlas-netra">
               <!-- SVG crosshair — mirrors production: 4 line arms + 2 circles (outer ring + inner dot) -->
               <span class="reticle" aria-hidden="true">
@@ -453,7 +453,7 @@
         <div class="variant" data-atom-variant="jump-hover">
           <span class="variant-label"><b>jump-hover</b> · NEXT NODE button activated</span>
           <div class="stage">
-            <!-- gate: main_branch_ref value="background: rgb(var(--netra-rgb) / 0.12)" — jump hover (globals.css L783) -->
+            <!-- gate: main_branch_ref value="background: rgb(var(--netra-rgb) / 0.12);" — NETRA console tint — netra at 0.12 (app/globals.css L2032) -->
             <div class="atlas-netra">
               <span class="reticle" aria-hidden="true">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="display:block;">
@@ -476,14 +476,14 @@
               <button class="jump netra-jump-hover-demo" type="button">⟶ NEXT NODE</button>
             </div>
           </div>
-          <span class="variant-note">Jump button fills with <code>rgb(var(--netra-rgb) / 0.12)</code> on hover — all other console elements unchanged. globals.css <code>.atlas-netra .jump:hover</code> (L783).</span>
+          <span class="variant-note">Jump button fills with <code>rgb(var(--netra-rgb) / 0.12)</code> on hover — all other console elements unchanged. globals.css <code>.atlas-netra .jump:hover</code> (L2032).</span>
         </div>
       </div>
       <div class="cite">
         <span class="ttl">token_refs</span>
         <code>--netra</code> · <code>--netra-soft</code> · <code>--netra-rgb</code> · <code>--ink-primary</code> · <code>--ink-faint</code> · <code>--font-mono</code> · <code>--font-type</code>
         <span class="ttl">main_branch_refs</span>
-        globals.css L743 console surface · globals.css L783 jump-hover fill · impl_ref <code>app/globals.css</code>
+        app/globals.css L1988 <code>background: rgb(var(--paper-base-rgb) / 0.92);</code> · app/globals.css L2032 <code>background: rgb(var(--netra-rgb) / 0.12);</code>
       </div>
     </div>
   </section>
@@ -501,7 +501,7 @@
         <div class="variant" data-atom-variant="rest">
           <span class="variant-label"><b>rest</b> · standing by</span>
           <div class="stage">
-            <!-- gate: main_branch_ref value="background: rgba(79, 110, 128, 0.07)" — voice surface (globals.css L714) -->
+            <!-- gate: main_branch_ref value="background: rgba(79, 110, 128, 0.07)" — voice-strip surface — netra at 7% (cited raw literal; matches --netra-rgb 77 122 146) (app/globals.css L1959) -->
             <div class="atlas-netra-voice">
               <span class="voice-tag">NETRA</span>
               <span class="voice-body">standing by · ne0ex aggregate in view. any node anchors the reticle. keys 1 · 2 · 3 narrow to a stratum.</span>
@@ -524,7 +524,7 @@
         <span class="ttl">token_refs</span>
         <code>--netra</code> · <code>--netra-rgb</code> · <code>--ink-primary</code> · <code>--font-mono</code> · <code>--font-display</code>
         <span class="ttl">main_branch_refs</span>
-        globals.css L714 voice surface · impl_ref <code>app/globals.css</code>
+        app/globals.css L1959 <code>background: rgba(79, 110, 128, 0.07)</code>
       </div>
     </div>
   </section>
@@ -543,7 +543,7 @@
         <div class="variant" data-atom-variant="default">
           <span class="variant-label"><b>default</b> · four corners</span>
           <div class="stage">
-            <!-- gate: main_branch_ref value="font-size: 7px; letter-spacing: 0.22em;" — HUD type metrics (globals.css L600) -->
+            <!-- gate: main_branch_ref value="font-size: 7px; letter-spacing: 0.22em;" — HUD corner type metrics — .atlas-hud-corner (app/globals.css L1842) -->
             <div class="atlas-hud">
               <div class="atlas-hud-corner tl">OBSERVING<br/><b>FULL · Ne0EX</b></div>
               <div class="atlas-hud-corner tr">CAMERA<br/><b>ORBIT · 0°</b></div>
@@ -558,7 +558,7 @@
         <span class="ttl">token_refs</span>
         <code>--ink-soft</code> · <code>--ink-primary</code> · <code>--accent-orange</code> · <code>--font-mono</code>
         <span class="ttl">main_branch_refs</span>
-        globals.css L600 type metrics · impl_ref <code>app/globals.css</code>
+        app/globals.css L1842 <code>font-size: 7px; letter-spacing: 0.22em;</code>
       </div>
     </div>
   </section>
@@ -577,8 +577,8 @@
         <div class="variant" data-atom-variant="default">
           <span class="variant-label"><b>default</b> · rim annotation</span>
           <div class="stage">
-            <!-- gate: main_branch_ref value="font-size: 7.5px; letter-spacing: 0.18em;" — axis-label metrics (globals.css L573) -->
-            <!-- gate: main_branch_ref value="padding: 1px 5px" — paper patch padding (globals.css L575) -->
+            <!-- gate: main_branch_ref value="font-size: 7.5px; letter-spacing: 0.18em;" — axis-label type metrics — .atlas-axis-label (app/globals.css L1815) -->
+            <!-- gate: main_branch_ref value="padding: 1px 5px" — paper-base background patch padding bridging the dashed wrap border (app/globals.css L1817) -->
             <div class="axis-demo" style="border:1px dashed var(--ink-dashed);">
               <span class="atlas-axis-label t">+Z · NORTH</span>
               <span class="atlas-axis-label b">−Z · SOUTH</span>
@@ -593,7 +593,7 @@
         <span class="ttl">token_refs</span>
         <code>--ink-soft</code> · <code>--paper-base</code> · <code>--font-mono</code>
         <span class="ttl">main_branch_refs</span>
-        globals.css L573 metrics · L575 patch padding · impl_ref <code>app/globals.css</code>
+        app/globals.css L1815 <code>font-size: 7.5px; letter-spacing: 0.18em;</code> · app/globals.css L1817 <code>padding: 1px 5px</code>
       </div>
     </div>
   </section>
@@ -612,8 +612,8 @@
         <div class="variant" data-atom-variant="default">
           <span class="variant-label"><b>default</b> · behind-canvas</span>
           <div class="stage">
-            <!-- gate: main_branch_ref value="font-size: 200px;" — watermark glyph size (globals.css L587) -->
-            <!-- gate: main_branch_ref value="color: rgba(212, 96, 42, 0.10)" — watermark colour (globals.css L588) -->
+            <!-- gate: main_branch_ref value="font-size: 200px;" — watermark glyph size — .atlas-alpha-mark (app/globals.css L1829) -->
+            <!-- gate: main_branch_ref value="color: rgba(212, 96, 42, 0.10)" — watermark colour — accent-orange at 10% (cited raw literal; matches --accent-orange #D4602A) (app/globals.css L1830) -->
             <div class="atlas-alpha-mark">α</div>
           </div>
           <span class="variant-note">Italic Cormorant 200px, accent-orange at 10%, centred, non-interactive — globals.css <code>.atlas-alpha-mark</code>.</span>
@@ -623,7 +623,7 @@
         <span class="ttl">token_refs</span>
         <code>--font-display</code>
         <span class="ttl">main_branch_refs</span>
-        globals.css L587 <code>200px</code> · L588 watermark colour · impl_ref <code>app/globals.css</code>
+        app/globals.css L1829 <code>font-size: 200px;</code> · app/globals.css L1830 <code>color: rgba(212, 96, 42, 0.10)</code>
       </div>
     </div>
   </section>
@@ -725,8 +725,8 @@
         <div class="variant" data-atom-variant="full">
           <span class="variant-label"><b>full</b> · Three.js fidelity · wide viewport</span>
           <div class="stage full-stage" style="padding:0; place-items:stretch;">
-            <!-- gate: main_branch_ref value="border: 1px dashed rgb(var(--ink-rgb) / 0.22)" — globe-wrap frame (globals.css L558) -->
-            <!-- gate: main_branch_ref value="min-height: 540px" — globe-wrap stage height (globals.css L564) -->
+            <!-- gate: main_branch_ref value="border: 1px dashed rgb(var(--ink-rgb) / 0.22)" — globe-wrap cartographic frame border (full variant) — .atlas-globe-wrap (app/globals.css L1777) -->
+            <!-- gate: main_branch_ref value="min-height: 540px" — globe-wrap stage height (full variant) — .atlas-globe-wrap (app/globals.css L1783) -->
             <div class="atlas-globe-wrap">
               <div class="atlas-alpha-mark">α</div>
               <span class="atlas-axis-label t">+Z · NORTH</span>
@@ -791,7 +791,7 @@
         <span class="ttl">token_refs</span>
         <code>--paper-base</code> · <code>--paper-warm</code> · <code>--paper-deep</code> · <code>--ink-rgb</code> · <code>--ink-soft</code> · <code>--accent-orange</code> · <code>--font-mono</code> · <code>--font-type</code> · <code>--font-display</code>
         <span class="ttl">main_branch_refs</span>
-        globals.css L558 frame border · L564 stage height (full) · spec-globe-v1-direction.md §11 L327 canonical mini-globe descriptor (standby) · impl_ref <code>components/WorldlineGlobe.tsx</code> (full) · <code>components/ATLASStandby.tsx</code> (standby — Rule-5 follow-up surface)
+        app/globals.css L1777 <code>border: 1px dashed rgb(var(--ink-rgb) / 0.22)</code> · app/globals.css L1783 <code>min-height: 540px</code> · docs/design/spec-globe-v1-direction.md L366 <code>140px at MID (601–880px) / 120px at NARROW</code>
       </div>
     </div>
   </section>
@@ -804,7 +804,7 @@
       <span class="atom-desc">The teal Ne0 surface mark — a fixed past archive entry surveyed at real GPS. "Where it was recorded."</span>
     </div>
     <div class="atom-body">
-      <p class="atom-rationale">SBA-1 §2.4 / §summary 4 / spec §5.2–5.3 — surveyed nodes at real GPS with narrative reasons; not data points, surveyed marks. The archive node is the <em>fixed past</em> counterpart to the movable α observer: <code>var(--ink-primary)</code> teal, 0.012 radius sphere, no halo, quiet. Six exist today (003 Kyoto · 002 Chiang Mai · 001 Yirgacheffe · 000 SF · 012 Tokyo · 047 Point Nemo). Teal = archive; orange = live observer. <b>Note (Sirius):</b> this CSS render is a colour/concept guide only — the canonical render is the Three.js <code>SphereGeometry(0.012)</code> in <code>nodeMatInk</code> teal at 3D GPS projection (<code>components/WorldlineGlobe.tsx</code> RECENT_ENTRIES pin loop, L699–714); use the Three.js implementation, not this 2D approximation.</p>
+      <p class="atom-rationale">SBA-1 §2.4 / §summary 4 / spec §5.2–5.3 — surveyed nodes at real GPS with narrative reasons; not data points, surveyed marks. The archive node is the <em>fixed past</em> counterpart to the movable α observer: <code>var(--ink-primary)</code> teal, 0.012 radius sphere, no halo, quiet. Six exist today (003 Kyoto · 002 Chiang Mai · 001 Yirgacheffe · 000 SF · 012 Tokyo · 047 Point Nemo). Teal = archive; orange = live observer. <b>Note (Sirius):</b> this CSS render is a colour/concept guide only — the canonical render is the Three.js <code>SphereGeometry(0.012)</code> in <code>nodeMatInk</code> teal at 3D GPS projection (<code>components/WorldlineGlobe.tsx</code> place-node geometry, L767); use the Three.js implementation, not this 2D approximation.</p>
       <div class="variant-grid">
         <div class="variant" data-atom-variant="default">
           <span class="variant-label"><b>default</b> · resting survey mark</span>
@@ -839,7 +839,7 @@
         <span class="ttl">token_refs</span>
         <code>--ink-primary</code> · <code>--ink-faint</code> · <code>--accent-orange</code> · <code>--accent-orange-soft</code> · <code>--paper-base</code>
         <span class="ttl">main_branch_refs</span>
-        none (fully tokenized; glyph geometry is renderer-side Three.js) · impl_ref <code>components/WorldlineGlobe.tsx</code> (RECENT_ENTRIES pin loop)
+        components/WorldlineGlobe.tsx L767 <code>new THREE.SphereGeometry(0.012, 12, 12),</code> · components/WorldlineGlobe.tsx L510 <code>const PLACE_INK_HEX = 0x1f5063;</code> · docs/design/attractor-binding-mechanic.md L245 <code>· 0.32 (the in-membership default is 1.0)</code>
       </div>
     </div>
   </section>
@@ -887,7 +887,7 @@
         <span class="ttl">token_refs</span>
         <code>--ink-primary</code> · <code>--ink-faint</code> · <code>--accent-orange</code> · <code>--accent-orange-soft</code> · <code>--paper-base</code>
         <span class="ttl">main_branch_refs</span>
-        none (fully tokenized; glyph geometry is renderer-side Three.js) · impl_ref <code>components/WorldlineGlobe.tsx</code> (fiction glyph loop)
+        components/WorldlineGlobe.tsx L2167 <code>new THREE.RingGeometry(0.010, 0.016, 24)</code> · components/WorldlineGlobe.tsx L2159 <code>color: palette.ink,</code> · components/WorldlineGlobe.tsx L2161 <code>opacity: 0.75,</code> · docs/design/attractor-binding-mechanic.md L245 <code>· 0.32 (the in-membership default is 1.0)</code>
       </div>
     </div>
   </section>
@@ -927,12 +927,12 @@
       <span class="atom-desc">Stratum navigation / camera-focus control — ink-bordered button with glyph, label-id, label-role, and key badge; default / hover / is-active states.</span>
     </div>
     <div class="atom-body">
-      <p class="atom-rationale">SBA-1 §1.7 / spec §8.1 — the strata sidebar is the primary interaction surface for redirecting the globe camera. Like the attractor-pill (A10), the focus button is a first-class control atom: transparent-fill default, orange-bordered hover with a 2px translate, and an is-active state where the instrument-tick hairline at left marks where the camera is aimed. Source: globals.css <code>.atlas-strata-btn</code> (L471–522). Cataloged here because it was missing from the master design as a named atom (G3 gap — TASK-2026-05-29-SOUL-FACTORY-NODE-FAMILY §4 audit).</p>
+      <p class="atom-rationale">SBA-1 §1.7 / spec §8.1 — the strata sidebar is the primary interaction surface for redirecting the globe camera. Like the attractor-pill (A10), the focus button is a first-class control atom: transparent-fill default, orange-bordered hover with a 2px translate, and an is-active state where the instrument-tick hairline at left marks where the camera is aimed. Source: globals.css <code>.atlas-strata-btn</code> (L1627–1699). Cataloged here because it was missing from the master design as a named atom (G3 gap — TASK-2026-05-29-SOUL-FACTORY-NODE-FAMILY §4 audit).</p>
       <div class="variant-grid">
         <div class="variant" data-atom-variant="default">
           <span class="variant-label"><b>default</b> · resting</span>
           <div class="stage">
-            <!-- gate: main_branch_ref value="appearance: none; background: transparent; border: 1px solid rgb(var(--ink-rgb) / 0.15)" — default state (globals.css L471) -->
+            <!-- gate: main_branch_ref value="border: 1px solid rgb(var(--ink-rgb) / 0.15);" — focus-button default state — ink-rgb border at 15% opacity (app/globals.css L1629) -->
             <button type="button" class="atlas-strata-btn focus-btn-demo">
               <span class="glyph" aria-hidden="true">◎</span>
               <span>
@@ -947,7 +947,7 @@
         <div class="variant" data-atom-variant="hover">
           <span class="variant-label"><b>hover</b> · pointer-over</span>
           <div class="stage">
-            <!-- gate: main_branch_ref value="border-color: rgba(212, 96, 42, 0.5); transform: translateX(2px);" — hover state (globals.css L481) -->
+            <!-- gate: main_branch_ref value="border-color: rgba(212, 96, 42, 0.5);" — focus-button hover state — accent-orange border at 50% (app/globals.css L1648) -->
             <button type="button" class="atlas-strata-btn focus-btn-demo focus-btn-hover-demo">
               <span class="glyph" aria-hidden="true">◎</span>
               <span>
@@ -962,8 +962,8 @@
         <div class="variant" data-atom-variant="is-active">
           <span class="variant-label"><b>is-active</b> · camera locked</span>
           <div class="stage">
-            <!-- gate: main_branch_ref value="border-color: var(--accent-orange); background: rgba(212, 96, 42, 0.06)" — is-active state (globals.css L485) -->
-            <!-- gate: main_branch_ref value="left: -6px; width: 4px; height: 1px; background: var(--accent-orange)" — is-active ::before tick (globals.css L489) -->
+            <!-- gate: main_branch_ref value="background: rgba(212, 96, 42, 0.06);" — focus-button is-active state — accent-orange fill at 6% (app/globals.css L1653) -->
+            <!-- gate: main_branch_ref value="left: -6px; top: 50%;" — focus-button is-active ::before — left-edge instrument-tick hairline position (app/globals.css L1658) -->
             <button type="button" class="atlas-strata-btn is-active focus-btn-demo">
               <span class="glyph" aria-hidden="true">◎</span>
               <span>
@@ -980,7 +980,7 @@
         <span class="ttl">token_refs</span>
         <code>--ink-rgb</code> · <code>--ink-primary</code> · <code>--ink-soft</code> · <code>--ink-faint</code> · <code>--accent-orange</code> · <code>--font-mono</code> · <code>--font-type</code>
         <span class="ttl">main_branch_refs</span>
-        globals.css L471 default · L481 hover · L485 is-active border/bg · L489 is-active ::before tick · L505 label-id metrics · L509 label-role metrics · L513 key badge size · impl_ref <code>app/globals.css#.atlas-strata-btn</code>
+        app/globals.css L1629 <code>border: 1px solid rgb(var(--ink-rgb) / 0.15);</code> · app/globals.css L1648 <code>border-color: rgba(212, 96, 42, 0.5);</code> · app/globals.css L1649 <code>transform: translateX(2px);</code> · app/globals.css L1653 <code>background: rgba(212, 96, 42, 0.06);</code> · app/globals.css L1658 <code>left: -6px; top: 50%;</code> · app/globals.css L1659 <code>width: 4px; height: 1px;</code> · app/globals.css L1671 <code>font-size: 10px; letter-spacing: 0.1em; color: var(--ink-primary);</code> · app/globals.css L1677 <code>font-size: 7.5px; letter-spacing: 0.22em;</code> · app/globals.css L1686 <code>font-family: var(--font-type); font-size: 8.5px;</code>
       </div>
     </div>
   </section>
