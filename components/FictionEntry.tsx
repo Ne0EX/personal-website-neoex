@@ -31,6 +31,7 @@ import type { Fiction } from '@/lib/content/types'
 import { EntryShell } from '@/components/EntryShell'
 
 interface FictionEntryProps {
+  requestedLang?: string
   fiction: Fiction
   /** Optional rendered MDX body (DL4 store-as-source S3). When omitted, falls back to summary placeholder. */
   body?: React.ReactNode
@@ -39,7 +40,7 @@ interface FictionEntryProps {
 /** Site canonical alpha — for drift computation when variant.drift is absent. */
 const SITE_ALPHA = 1.130426
 
-export function FictionEntry({ fiction, body }: FictionEntryProps) {
+export function FictionEntry({ fiction, body, requestedLang = fiction.lang }: FictionEntryProps) {
   const {
     slug,
     title,
@@ -63,6 +64,7 @@ export function FictionEntry({ fiction, body }: FictionEntryProps) {
   return (
     <EntryShell
       kind="fiction"
+      lang={requestedLang}
       identifier={slug}
       title={title}
       date={date}
@@ -115,8 +117,8 @@ export function FictionEntry({ fiction, body }: FictionEntryProps) {
       <div
         style={{
           fontFamily: 'var(--font-mono)',
-          fontSize: '9px',
-          letterSpacing: '0.3em',
+          fontSize: "var(--public-meta-size)",
+          letterSpacing: "var(--public-meta-tracking)",
           textTransform: 'uppercase',
           color: 'var(--ink-faint)',
           marginBottom: '24px',
@@ -135,7 +137,7 @@ export function FictionEntry({ fiction, body }: FictionEntryProps) {
         <span
           style={{
             fontFamily: 'var(--font-type)',
-            fontSize: '9px',
+            fontSize: "var(--public-meta-size)",
             letterSpacing: '0.04em',
             textTransform: 'none',
             color: 'var(--ink-soft)',
@@ -150,7 +152,7 @@ export function FictionEntry({ fiction, body }: FictionEntryProps) {
         className="wl-body"
         style={{
           fontFamily: 'var(--font-mono)',
-          fontSize: '13.5px',
+          fontSize: fiction.lang === 'th' ? 'var(--public-body-thai-size)' : 'var(--public-body-size)',
           lineHeight: 1.75,
           color: 'var(--ink-primary)',
           marginBottom: '40px',
@@ -192,8 +194,8 @@ export function FictionEntry({ fiction, body }: FictionEntryProps) {
             className="t-meta"
             style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: '9px',
-              letterSpacing: '0.3em',
+              fontSize: "var(--public-meta-size)",
+              letterSpacing: "var(--public-meta-tracking)",
               textTransform: 'uppercase',
               color: 'var(--ink-soft)',
               marginBottom: '4px',
@@ -206,8 +208,8 @@ export function FictionEntry({ fiction, body }: FictionEntryProps) {
           <div
             style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: '8px',
-              letterSpacing: '0.22em',
+              fontSize: "var(--public-meta-size)",
+              letterSpacing: "var(--public-meta-tracking)",
               textTransform: 'uppercase',
               color: 'var(--ink-faint)',
               marginBottom: '16px',
@@ -267,7 +269,7 @@ export function FictionEntry({ fiction, body }: FictionEntryProps) {
                     <span
                       style={{
                         fontFamily: 'var(--font-mono)',
-                        fontSize: '11px',
+                        fontSize: "var(--public-meta-size)",
                         color: 'var(--ink-soft)',
                         letterSpacing: 0,
                         userSelect: 'none',
@@ -296,8 +298,8 @@ export function FictionEntry({ fiction, body }: FictionEntryProps) {
                   <div
                     style={{
                       fontFamily: 'var(--font-mono)',
-                      fontSize: '9px',
-                      letterSpacing: '0.22em',
+                      fontSize: "var(--public-meta-size)",
+                      letterSpacing: "var(--public-meta-tracking)",
                       textTransform: 'uppercase',
                       color: 'var(--ink-soft)',
                       display: 'flex',
@@ -309,7 +311,7 @@ export function FictionEntry({ fiction, body }: FictionEntryProps) {
                     <span
                       style={{
                         fontFamily: 'var(--font-type)',
-                        fontSize: '11px',
+                        fontSize: "var(--public-meta-size)",
                         letterSpacing: '0.04em',
                         textTransform: 'none',
                         color: 'var(--ink-primary)',
@@ -325,7 +327,7 @@ export function FictionEntry({ fiction, body }: FictionEntryProps) {
                     style={{
                       fontFamily: 'var(--font-display)',
                       fontStyle: 'italic',
-                      fontSize: '13px',
+                      fontSize: 'var(--public-body-size)',
                       color: 'var(--ink-primary)',
                       lineHeight: 1.5,
                       margin: 0,
@@ -342,12 +344,12 @@ export function FictionEntry({ fiction, body }: FictionEntryProps) {
                   {variant.slug && (
                     <div style={{ marginTop: '4px' }}>
                       <a
-                        href={`/fiction/${variant.slug}`}
+                        href={`${requestedLang === "th" ? "/th" : ""}/fiction/${variant.slug}`}
                         aria-label={`enter α ${variant.alpha} branch`}
                         style={{
                           display: 'inline-block',
                           fontFamily: 'var(--font-mono)',
-                          fontSize: '10px',
+                          fontSize: "var(--public-meta-size)",
                           letterSpacing: '0.15em',
                           textTransform: 'uppercase',
                           padding: '0.5em 0.85em',

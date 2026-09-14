@@ -9,9 +9,8 @@
  * Import sites do NOT change: they still import from '@/lib/content'.
  *
  * Draft visibility: public reads return published rows only (RLS enforces).
- * isHiddenFromPublic() is a no-op shim on public paths (DL2).
- * getArticleByFileNum() returns the row regardless of status;
- * public routes call notFound() when draft===true.
+ * getArticleByFileNum() returns undefined for unpublished or missing entries.
+ * Public routes retain isHiddenFromPublic() as a defensive check (DL2).
  *
  * Owner: Procyon (α-IDX-03) · store-as-source S3
  */

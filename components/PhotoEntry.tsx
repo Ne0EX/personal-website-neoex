@@ -120,8 +120,8 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
           padding: "14px 32px 12px",
           borderBottom: "1px dashed var(--ink-dashed)",
           fontFamily: "var(--font-mono)",
-          fontSize: "9px",
-          letterSpacing: "0.22em",
+          fontSize: "var(--public-meta-size)",
+          letterSpacing: "var(--public-meta-tracking)",
           color: "var(--ink-soft)",
           textTransform: "uppercase",
           position: "relative",
@@ -137,7 +137,7 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
                 style={{
                   color: "var(--accent-orange)",
                   fontWeight: 500,
-                  letterSpacing: "0.26em",
+                  letterSpacing: "var(--public-meta-tracking)",
                 }}
               >
                 {seqLabel}
@@ -221,7 +221,7 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
             <span
               style={{
                 fontFamily: "var(--font-type)",
-                fontSize: "9.5px",
+                fontSize: "var(--public-meta-size)",
                 letterSpacing: "0.04em",
                 color: "var(--ink-primary)",
               }}
@@ -234,7 +234,7 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
             <span
               style={{
                 fontFamily: "var(--font-type)",
-                fontSize: "9.5px",
+                fontSize: "var(--public-meta-size)",
                 letterSpacing: "0.04em",
                 color: "var(--ink-primary)",
               }}
@@ -299,8 +299,8 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
           <div
             style={{
               fontFamily: "var(--font-mono)",
-              fontSize: "9px",
-              letterSpacing: "0.3em",
+              fontSize: "var(--public-meta-size)",
+              letterSpacing: "var(--public-meta-tracking)",
               color: "var(--ink-soft)",
               textTransform: "uppercase",
               paddingBottom: "8px",
@@ -316,8 +316,8 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
             <span
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: "9px",
-                letterSpacing: "0.22em",
+                fontSize: "var(--public-meta-size)",
+                letterSpacing: "var(--public-meta-tracking)",
                 color: "var(--ink-primary)",
                 textTransform: "uppercase",
               }}
@@ -329,7 +329,7 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
             <span
               style={{
                 fontFamily: "var(--font-type)",
-                fontSize: "11px",
+                fontSize: "var(--public-meta-size)",
                 letterSpacing: "0.05em",
                 color: "var(--ink-soft)",
               }}
@@ -341,8 +341,8 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
             <span
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: "9px",
-                letterSpacing: "0.22em",
+                fontSize: "var(--public-meta-size)",
+                letterSpacing: "var(--public-meta-tracking)",
                 color: "var(--ink-faint)",
                 textTransform: "uppercase",
               }}
@@ -416,8 +416,8 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
                 <span
                   style={{
                     fontFamily: "var(--font-mono)",
-                    fontSize: "9px",
-                    letterSpacing: "0.3em",
+                    fontSize: "var(--public-meta-size)",
+                    letterSpacing: "var(--public-meta-tracking)",
                     color: "var(--ink-faint)",
                     textTransform: "uppercase",
                   }}
@@ -427,8 +427,8 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
                 <span
                   style={{
                     fontFamily: "var(--font-mono)",
-                    fontSize: "8px",
-                    letterSpacing: "0.22em",
+                    fontSize: "var(--public-meta-size)",
+                    letterSpacing: "var(--public-meta-tracking)",
                     color: "var(--ink-faint)",
                     textTransform: "uppercase",
                   }}
@@ -479,8 +479,8 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
           <h2
             style={{
               fontFamily: "var(--font-mono)",
-              fontSize: "9px",
-              letterSpacing: "0.3em",
+              fontSize: "var(--public-meta-size)",
+              letterSpacing: "var(--public-meta-tracking)",
               color: "var(--ink-soft)",
               textTransform: "uppercase",
               fontWeight: 400,
@@ -501,10 +501,10 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
               gap: "8px 12px",
               margin: 0,
               fontFamily: "var(--font-mono)",
-              fontSize: "9px",
+              fontSize: "var(--public-meta-size)",
               color: "var(--ink-soft)",
               textTransform: "uppercase",
-              letterSpacing: "0.22em",
+              letterSpacing: "var(--public-meta-tracking)",
               lineHeight: 1.6,
             }}
           >
@@ -554,9 +554,9 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
                       style={{
                         display: "block",
                         color: "var(--ink-soft)",
-                        fontSize: "8.5px",
+                        fontSize: "var(--public-meta-size)",
                         marginTop: "2px",
-                        letterSpacing: "0.18em",
+                        letterSpacing: "var(--public-meta-tracking)",
                       }}
                     >
                       35eq: {exif.focal35}mm
@@ -587,9 +587,9 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
                     style={{
                       display: "block",
                       color: "var(--ink-soft)",
-                      fontSize: "8.5px",
+                      fontSize: "var(--public-meta-size)",
                       marginTop: "2px",
-                      letterSpacing: "0.18em",
+                      letterSpacing: "var(--public-meta-tracking)",
                     }}
                   >
                     {servedCoords.place.toUpperCase()}
@@ -649,8 +649,8 @@ export function PhotoEntry({ photo, sequenceIndex, rollTotal }: PhotoEntryProps)
           padding: "16px 32px",
           borderTop: "1px dashed var(--ink-dashed)",
           fontFamily: "var(--font-mono)",
-          fontSize: "9px",
-          letterSpacing: "0.3em",
+          fontSize: "var(--public-meta-size)",
+          letterSpacing: "var(--public-meta-tracking)",
           color: "var(--ink-soft)",
           textTransform: "uppercase",
           position: "relative",

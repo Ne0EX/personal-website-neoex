@@ -43,13 +43,15 @@ function hrefForNeighbor(neighbor: ResolvedNeighbor): string {
 }
 
 interface WorldlineNeighborRowProps {
+  lang?: string
   neighbor: ResolvedNeighbor
 }
 
-export function WorldlineNeighborRow({ neighbor }: WorldlineNeighborRowProps) {
+export function WorldlineNeighborRow({ neighbor, lang = "en" }: WorldlineNeighborRowProps) {
   const glyph = KIND_GLYPH[neighbor.kind] ?? '○'
   const kindLabel = KIND_LABEL[neighbor.kind] ?? neighbor.kind.toUpperCase()
-  const href = hrefForNeighbor(neighbor)
+  const baseHref = hrefForNeighbor(neighbor)
+  const href = lang === "th" && baseHref.startsWith("/") ? `/th${baseHref}` : baseHref
 
   return (
     /*
@@ -88,7 +90,7 @@ export function WorldlineNeighborRow({ neighbor }: WorldlineNeighborRowProps) {
           className="wl-neighbor-glyph"
           style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '11px',
+            fontSize: "var(--public-meta-size)",
             letterSpacing: 0,
             color: 'var(--ink-soft)',
             width: '20px',
@@ -110,7 +112,7 @@ export function WorldlineNeighborRow({ neighbor }: WorldlineNeighborRowProps) {
           className="entry-glitch"
           style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '11px',
+            fontSize: "var(--public-meta-size)",
             letterSpacing: '0.05em',
             color: 'var(--ink-primary)',
             flex: 1,
@@ -127,8 +129,8 @@ export function WorldlineNeighborRow({ neighbor }: WorldlineNeighborRowProps) {
         <span
           style={{
             fontFamily: 'var(--font-mono)',
-            fontSize: '8px',
-            letterSpacing: '0.18em',
+            fontSize: "var(--public-meta-size)",
+            letterSpacing: "var(--public-meta-tracking)",
             textTransform: 'uppercase',
             color: 'var(--ink-faint)',
             flexShrink: 0,
@@ -146,7 +148,7 @@ export function WorldlineNeighborRow({ neighbor }: WorldlineNeighborRowProps) {
           className="t-type wl-neighbor-date"
           style={{
             fontFamily: 'var(--font-type)',
-            fontSize: '9px',
+            fontSize: "var(--public-meta-size)",
             letterSpacing: '0.04em',
             color: 'var(--ink-faint)',
             flexShrink: 0,

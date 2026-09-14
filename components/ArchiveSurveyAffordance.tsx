@@ -27,6 +27,7 @@ export function ArchiveSurveyAffordance() {
     <span
       style={{
         display: 'inline-flex',
+        flexWrap: 'wrap',
         alignItems: 'center',
         gap: '8px',
       }}
@@ -41,9 +42,10 @@ export function ArchiveSurveyAffordance() {
           background: 'none',
           border: 'none',
           fontFamily: 'var(--font-mono)',
-          fontSize: '9px',
-          letterSpacing: '0.3em',
+          fontSize: 'var(--public-meta-size)',
+          letterSpacing: 'var(--public-meta-tracking)',
           textTransform: 'uppercase',
+          whiteSpace: 'nowrap',
           color: 'var(--ink-soft)',
           cursor: 'pointer',
           padding: 0,
@@ -76,9 +78,10 @@ export function ArchiveSurveyAffordance() {
         className="t-mono"
         style={{
           fontFamily: 'var(--font-mono)',
-          fontSize: '9px',
-          letterSpacing: '0.22em',
+          fontSize: 'var(--public-meta-size)',
+          letterSpacing: 'var(--public-meta-tracking)',
           textTransform: 'uppercase',
+          whiteSpace: 'nowrap',
           color: 'var(--ink-faint)',
           userSelect: 'none',
           pointerEvents: 'none',

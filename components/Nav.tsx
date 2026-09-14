@@ -124,8 +124,8 @@ function StratumIndicator() {
         opacity: isVisible ? 1 : 0,
         transition: "opacity 200ms ease",
         // Instrument-dashboard text (§3.6): subordinate to NAV STANDBY.
-        fontSize: "9px",
-        letterSpacing: "0.3em",
+        fontSize: "var(--public-meta-size)",
+        letterSpacing: "var(--public-meta-tracking)",
         textTransform: "uppercase",
         color: "var(--ink-soft)",
         // NOT clickable per §3.6.

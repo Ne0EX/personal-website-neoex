@@ -152,7 +152,7 @@ export function ContinueSection({ nextEntry }: ContinueSectionProps) {
           padding: '6px 0',
           textDecoration: 'none',
           color: 'inherit',
-          outline: 'none',
+          // F1: inline outline:none removed — lets :focus-visible ring in ContinueSection.css win
           position: 'relative',
         }}
       >
@@ -167,10 +167,8 @@ export function ContinueSection({ nextEntry }: ContinueSectionProps) {
             fontFamily: 'var(--font-mono)',
             fontSize: '11px',
             letterSpacing: 0,
-            color: 'var(--ink-soft)',
             width: '20px',
             flexShrink: 0,
-            transition: 'color 150ms ease',
             userSelect: 'none',
           }}
           aria-hidden
@@ -220,6 +218,8 @@ export function ContinueSection({ nextEntry }: ContinueSectionProps) {
                 textTransform: 'uppercase',
                 color: 'var(--accent-orange)',
                 fontWeight: 500,
+                // F2: tabular-nums prevents width jitter across entries with different digit counts
+                fontVariantNumeric: 'tabular-nums',
               }}
             >
               {fileNumDisplay}
@@ -317,6 +317,8 @@ export function ContinueSection({ nextEntry }: ContinueSectionProps) {
                     textTransform: 'uppercase',
                     color: 'var(--ink-soft)',
                     fontWeight: 400,
+                    // F2: tabular-nums prevents width jitter across entries with different digit counts
+                    fontVariantNumeric: 'tabular-nums',
                   }}
                 >
                   {readLabel}
@@ -337,9 +339,7 @@ export function ContinueSection({ nextEntry }: ContinueSectionProps) {
             fontFamily: 'var(--font-mono)',
             fontSize: '11px',
             letterSpacing: 0,
-            color: 'var(--ink-soft)',
             flexShrink: 0,
-            transition: 'color 150ms ease',
             userSelect: 'none',
             marginLeft: '8px',
           }}
@@ -362,7 +362,8 @@ export function ContinueSection({ nextEntry }: ContinueSectionProps) {
             paddingLeft: '28px',
             paddingTop: '6px',
             paddingBottom: '8px',
-            borderBottom: '1px dashed var(--ink-dashed)',
+            // F6: borderBottom removed — single-entry section needs no row separator;
+            // the footer's dashed rule already closes the section visually.
             marginBottom: '4px',
             fontFamily: 'var(--font-display)',
             fontStyle: 'italic',

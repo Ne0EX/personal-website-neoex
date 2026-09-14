@@ -3,6 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { animate } from "animejs";
 
+export const BOOT_STORAGE_KEY = "wl:boot-seen";
+
+// Same parser-time approach as the root theme bootstrap. Only this cover's
+// display changes; React's initial tree stays identical to its server output.
+const SKIP_SEEN_BOOT = `(function(){try{if(sessionStorage.getItem(${JSON.stringify(BOOT_STORAGE_KEY)})){document.currentScript.parentElement.style.display='none';}}catch(e){}})();`;
+
 const LINES = [
   "INITIALIZING WORLDLINE …",
   "ATTACHING TRACE :: ATLAS / NETRA",
@@ -17,68 +23,93 @@ const LINES = [
  * BootSequence — terminal-style typing → divergence calibration → fade out.
  * Used as <BootSequence onDoneAction={...} /> from a wrapper that gates the page.
  */
-export function BootSequence({ onDoneAction }: { onDoneAction?: () => void }) {
+export function BootSequence({ active = true, onDoneAction }: {
+  active?: boolean;
+  onDoneAction?: () => void;
+}) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [printed, setPrinted] = useState<string[]>([]);
+  const [exiting, setExiting] = useState(false);
 
   useEffect(() => {
+    if (!active) return;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let cancelled = false;
+    const finish = () => {
+      if (cancelled) return;
+      cancelled = true;
+      onDoneAction?.();
+    };
 
     if (reduce) {
-      queueMicrotask(() => setPrinted(LINES));
-      const t = setTimeout(() => onDoneAction?.(), 200);
-      return () => clearTimeout(t);
+      queueMicrotask(() => {
+        if (!cancelled) setPrinted(LINES);
+      });
+      const t = setTimeout(finish, 200);
+      return () => {
+        cancelled = true;
+        clearTimeout(t);
+      };
     }
 
-    let cancelled = false;
     let i = 0;
+    let timer: ReturnType<typeof setTimeout>;
+    let fade: ReturnType<typeof animate> | undefined;
 
     const next = () => {
       if (cancelled) return;
       if (i >= LINES.length) {
         // Fade entire boot panel out, then resolve.
         if (rootRef.current) {
-          animate(rootRef.current, {
+          setExiting(true);
+          fade = animate(rootRef.current, {
             opacity: [1, 0],
             duration: 700,
             ease: "outCubic",
-            onComplete: () => onDoneAction?.(),
+            onComplete: finish,
           });
         } else {
-          onDoneAction?.();
+          finish();
         }
         return;
       }
-      setPrinted((p) => [...p, LINES[i]]);
+      // Capture before advancing: React may execute the updater later.
+      const line = LINES[i];
+      setPrinted((p) => [...p, line]);
       i += 1;
-      setTimeout(next, 220 + Math.random() * 120);
+      timer = setTimeout(next, 220 + Math.random() * 120);
     };
 
-    const startId = setTimeout(next, 220);
+    timer = setTimeout(next, 220);
     return () => {
       cancelled = true;
-      clearTimeout(startId);
+      clearTimeout(timer);
+      fade?.pause();
     };
-  }, [onDoneAction]);
+  }, [active, onDoneAction]);
 
   // Whenever a new line prints, animate it in.
   useEffect(() => {
-    if (!rootRef.current) return;
+    if (!active || !rootRef.current) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const lines = rootRef.current.querySelectorAll<HTMLDivElement>(".boot-line");
     const last = lines[lines.length - 1];
     if (!last) return;
-    animate(last, {
+    const animation = animate(last, {
       opacity: [0, 1],
       translateX: [-6, 0],
       duration: 320,
       ease: "outCubic",
     });
-  }, [printed.length]);
+    // Restoring the unanimated, visible line also stops any unfinished entry.
+    return () => { animation.revert(); };
+  }, [active, printed.length]);
 
   // Caret blink.
   const caretRef = useRef<HTMLSpanElement | null>(null);
   useEffect(() => {
-    if (!caretRef.current) return;
+    if (!active || !caretRef.current) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const a = animate(caretRef.current, {
       opacity: [1, 0],
       duration: 600,
@@ -87,7 +118,7 @@ export function BootSequence({ onDoneAction }: { onDoneAction?: () => void }) {
       direction: "alternate",
     });
     return () => { a.pause(); };
-  }, []);
+  }, [active]);
 
   return (
     // boot-footer fix (α-SUR-01, 2026-06-14): paper-canvas sets position:relative
@@ -97,8 +128,17 @@ export function BootSequence({ onDoneAction }: { onDoneAction?: () => void }) {
     // to an absolute inner child so it doesn't clobber `position:fixed`.
     <div
       ref={rootRef}
-      className="fixed inset-0 z-[50] flex items-center justify-center bg-[var(--paper-base)]"
+      data-worldline-boot=""
+      data-boot-phase={!active ? "pending" : exiting ? "exiting" : "loading"}
+      // The parser-time returning-session check changes only display on this
+      // root; suppress only that known attribute difference, not descendants.
+      suppressHydrationWarning
+      className="fixed inset-0 z-[10000] flex items-center justify-center bg-[var(--paper-base)]"
     >
+      <script dangerouslySetInnerHTML={{ __html: SKIP_SEEN_BOOT }} />
+      <noscript dangerouslySetInnerHTML={{
+        __html: "<style>[data-worldline-boot]{display:none!important}</style>",
+      }} />
       {/* paper texture layer — absolute so it doesn't disturb the fixed positioning */}
       <div className="paper-canvas absolute inset-0 z-[0]" aria-hidden="true" />
       <div className="corner-marks" />
@@ -111,7 +151,7 @@ export function BootSequence({ onDoneAction }: { onDoneAction?: () => void }) {
 
         <div className="t-mono text-[12px] leading-[1.9] text-[var(--ink-primary)]">
           {printed.map((line, idx) => (
-            <div key={idx} className="boot-line opacity-0">
+            <div key={idx} className="boot-line">
               <span className="text-[var(--accent-orange)] mr-2">›</span>
               {line}
             </div>

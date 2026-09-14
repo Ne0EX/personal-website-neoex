@@ -57,6 +57,7 @@ const KIND_GLYPH: Record<'article' | 'fiction' | 'photo', string> = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 interface WorldlineLinksProps {
+  lang?: string
   /** Content kind of THIS entry — used to look up outgoing + incoming. */
   kind: 'article' | 'fiction' | 'photo'
   /**
@@ -74,8 +75,8 @@ interface WorldlineLinksProps {
 // Component — server async (no 'use client')
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function WorldlineLinks({ kind, identifier, title }: WorldlineLinksProps) {
-  const { incoming, outgoing } = await resolveNeighborhood(kind, identifier)
+export async function WorldlineLinks({ kind, identifier, title, lang = "en" }: WorldlineLinksProps) {
+  const { incoming, outgoing } = await resolveNeighborhood(kind, identifier, lang)
 
   // Gate: render nothing when both lists are empty (spec §states "NO EMPTY STATE").
   if (incoming.length === 0 && outgoing.length === 0) {
@@ -109,8 +110,9 @@ export async function WorldlineLinks({ kind, identifier, title }: WorldlineLinks
         }}
       />
 
-      {/* Section header: § WORLDLINE — .t-meta (9px mono, 0.3em, UPPER, --ink-soft) */}
-      <div
+      {/* Section header: § WORLDLINE — .t-meta (9px mono, 0.3em, UPPER, --ink-soft); h2 for heading jump (F7) */}
+      <h2
+        id="worldline"
         className="t-meta"
         style={{
           fontSize: '9px',
@@ -118,12 +120,12 @@ export async function WorldlineLinks({ kind, identifier, title }: WorldlineLinks
           textTransform: 'uppercase',
           color: 'var(--ink-soft)',
           fontFamily: 'var(--font-mono)',
-          marginBottom: '20px',
+          margin: '0 0 20px',
           fontWeight: 400,
         }}
       >
         § WORLDLINE
-      </div>
+      </h2>
 
       {/* ── INCOMING block: "← seeded by" ──────────────────────── */}
       {incoming.length > 0 && (
@@ -145,7 +147,7 @@ export async function WorldlineLinks({ kind, identifier, title }: WorldlineLinks
           {/* Accessible list: aria-label="seeded by" per spec §accessibility */}
           <div role="list" aria-label="seeded by">
             {incoming.map((neighbor) => (
-              <WorldlineNeighborRow key={neighbor.key} neighbor={neighbor} />
+              <WorldlineNeighborRow key={neighbor.key} neighbor={neighbor} lang={lang} />
             ))}
           </div>
         </div>
@@ -238,7 +240,7 @@ export async function WorldlineLinks({ kind, identifier, title }: WorldlineLinks
           {/* Accessible list: aria-label="seeds" per spec §accessibility */}
           <div role="list" aria-label="seeds">
             {outgoing.map((neighbor) => (
-              <WorldlineNeighborRow key={neighbor.key} neighbor={neighbor} />
+              <WorldlineNeighborRow key={neighbor.key} neighbor={neighbor} lang={lang} />
             ))}
           </div>
         </div>

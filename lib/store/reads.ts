@@ -313,6 +313,42 @@ export async function getPublishedArticleCount(requestedLang = 'en'): Promise<nu
 // Fiction
 // ---------------------------------------------------------------------------
 
+/** Preserve branch descriptions while withholding unpublished destinations. */
+function filterFictionBranchTargets(entries: Fiction[], publishedSlugs: Set<string>): Fiction[] {
+  return entries.map((entry) => ({
+    ...entry,
+    variants: entry.variants.map((variant) => {
+      if (!variant.slug || publishedSlugs.has(variant.slug)) return variant
+      const publicVariant = { ...variant }
+      delete publicVariant.slug
+      return publicVariant
+    }),
+  }))
+}
+
+/** Detail/sibling reads resolve only their authored branch targets. */
+async function resolveFictionBranchTargets(entries: Fiction[], requestedLang: string): Promise<Fiction[]> {
+  const targets = [...new Set(entries.flatMap((entry) =>
+    entry.variants.flatMap((variant) => variant.slug ? [variant.slug] : []),
+  ))]
+  if (targets.length === 0) return entries
+
+  const { data, error } = await anonClient
+    .from('entries')
+    .select('slug,lang')
+    .eq('kind', 'fiction')
+    .eq('status', 'published')
+    .in('slug', targets)
+    .in('lang', Array.from(new Set([requestedLang, 'en'])))
+
+  if (error) {
+    console.warn(`resolveFictionBranchTargets: ${error.message}`)
+    return filterFictionBranchTargets(entries, new Set())
+  }
+  const publishedSlugs = new Set((data ?? []).map((row) => row.slug as string))
+  return filterFictionBranchTargets(entries, publishedSlugs)
+}
+
 /**
  * All published fiction entries, sorted newest-first.
  * Deduped by slug — each entry appears once, in requestedLang if translated,
@@ -331,7 +367,8 @@ export async function getFiction(requestedLang = 'en'): Promise<Fiction[]> {
     return []
   }
   const rows = (data ?? []) as unknown as DbEntryRow[]
-  return dedupBySlug(rows, requestedLang).map(mapFiction)
+  const fiction = dedupBySlug(rows, requestedLang).map(mapFiction)
+  return filterFictionBranchTargets(fiction, new Set(fiction.map((entry) => entry.slug)))
 }
 
 /**
@@ -357,7 +394,8 @@ export async function getFictionBySlug(
   }
   const row = pickSibling((data ?? []) as unknown as DbEntryRow[], requestedLang)
   if (!row) return undefined
-  return mapFiction(row)
+  const [fiction] = await resolveFictionBranchTargets([mapFiction(row)], requestedLang)
+  return fiction
 }
 
 const SITE_ALPHA = 1.130426
@@ -393,12 +431,13 @@ export async function getFictionSiblings(slug: string): Promise<Fiction[]> {
 
   const selfAlpha = _pickAlpha(self)
   // Dedup by slug (pick 'en' for each cluster member) before alpha-distance sort.
-  return dedupBySlug((data as unknown as DbEntryRow[]), 'en')
+  const siblings = dedupBySlug((data as unknown as DbEntryRow[]), 'en')
     .map(mapFiction)
     .map((f) => ({ entry: f, dist: Math.abs(_pickAlpha(f) - selfAlpha) }))
     .sort((a, b) => a.dist - b.dist)
     .slice(0, 2)
     .map(({ entry }) => entry)
+  return resolveFictionBranchTargets(siblings, 'en')
 }
 
 // ---------------------------------------------------------------------------
@@ -407,11 +446,13 @@ export async function getFictionSiblings(slug: string): Promise<Fiction[]> {
 
 const ROLL_COLS = 'roll,id,caption,share_location,served_coords,date,iso_date,body'
 
-/** All rolls, sorted newest-first. */
+/** Rolls with at least one published frame, sorted newest-first. */
 export async function getPhotos(): Promise<Photo[]> {
   const { data, error } = await anonClient
     .from('rolls')
-    .select(ROLL_COLS)
+    .select(`${ROLL_COLS},entries!inner(id)`)
+    .eq('entries.kind', 'photo')
+    .eq('entries.status', 'published')
     .order('iso_date', { ascending: false })
 
   if (error) {
@@ -421,11 +462,13 @@ export async function getPhotos(): Promise<Photo[]> {
   return ((data ?? []) as unknown as DbRollRow[]).map(mapRoll)
 }
 
-/** Roll body text for a specific roll. Returns null when roll not found. */
+/** Roll body text, available only while the roll has a published frame. */
 export async function getRollBody(roll: string): Promise<string | null> {
   const { data, error } = await anonClient
     .from('rolls')
-    .select('body')
+    .select('body,entries!inner(id)')
+    .eq('entries.kind', 'photo')
+    .eq('entries.status', 'published')
     .eq('roll', roll)
     .maybeSingle()
 
@@ -502,6 +545,7 @@ export async function getPhotoByRollAndId(roll: string, id: string): Promise<Pho
     .from('entries')
     .select(ENTRY_COLS)
     .eq('kind', 'photo')
+    .eq('status', 'published')
     .eq('roll', roll)
     .eq('photo_id', id)
     .maybeSingle()
@@ -597,11 +641,13 @@ export async function getRollNavigation(
   }
 }
 
-/** Roll descriptors for a specific roll (compat with getPhotosByRoll). */
+/** Roll descriptors for a specific roll with at least one published frame. */
 export async function getPhotosByRoll(roll: string): Promise<Photo[]> {
   const { data, error } = await anonClient
     .from('rolls')
-    .select(ROLL_COLS)
+    .select(`${ROLL_COLS},entries!inner(id)`)
+    .eq('entries.kind', 'photo')
+    .eq('entries.status', 'published')
     .eq('roll', roll)
     .order('iso_date', { ascending: true })
 

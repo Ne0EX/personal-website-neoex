@@ -99,6 +99,12 @@
   --h1-tracking:   -0.01em;
   --body-size:     14.5px;
   --meta-size:     9px;
+  /* Public reading scale. Existing authoring/console defaults stay above;
+     public roots opt in below and portals consume these tokens directly. */
+  --public-meta-size: 0.75rem;
+  --public-meta-tracking: 0.16em;
+  --public-body-size: 1rem;
+  --public-body-thai-size: 1.0625rem;
   /* --meta-tracking: AMBIENT label tracking. Wide 0.3em = "this is scaffolding,
      a label, squint past it." Keep on the FILE line, tags, type badge. */
   --meta-tracking: 0.3em;
@@ -408,6 +414,114 @@
   --font-body-en:      var(--font-plex-mono), 'IBM Plex Mono', ui-monospace, monospace;
   --font-thai-body:    var(--font-plex-thai), 'IBM Plex Sans Thai', sans-serif;
   --font-thai-display: var(--font-trirong), 'Trirong', serif;
+}
+
+/* =============================================================
+   WORLDLINE HOME FOCUS — scoped nocturnal observatory field
+   TASK-2026-08-31-WORLDLINE-FOCUS-RESET · α-VIS-04
+
+   This is deliberately a subtree token swap, not a global theme. Apply
+   .wl-home-focus to the public-home root only. Archive, entry, photo,
+   fiction, search, console, and NETRA panel routes keep their existing
+   paper registers unless they are rendered inside that explicit subtree.
+   ============================================================= */
+.wl-home-focus {
+  color-scheme: dark;
+
+  /* Semantic field — first-fold components should consume these names. */
+  --home-ground: #070B0E;
+  --home-surface: #0D1418;
+  --home-surface-raised: #121D22;
+  --home-ink-primary: #E6ECEA;
+  --home-ink-body: #BBC6C4;
+  --home-ink-muted: #879795;
+  --home-rule-strong: #53666D;
+  --home-rule-subtle: #26343A;
+  --home-signal: #E2743E;
+  --home-signal-hover: #F08A56;
+  --home-netra: #78A6BC;
+  --home-action-ink: #070B0E;
+
+  --home-font-interface: ui-sans-serif, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
+  --home-font-instrument: var(--font-mono, var(--font-jetbrains),
+    'JetBrains Mono', ui-monospace, monospace);
+  --home-motion-fast: 140ms;
+  --home-motion-ease: cubic-bezier(0.25, 1, 0.5, 1);
+
+  /* Legacy bridge for progressively disclosed A.T.L.A.S. descendants.
+     Every override remains inside .wl-home-focus; :root is untouched. */
+  --paper-base: var(--home-ground);
+  --paper-warm: var(--home-surface);
+  --paper-deep: var(--home-ground);
+  --paper-bright: var(--home-surface-raised);
+  --paper-base-rgb: 7 11 14;
+  --paper-warm-rgb: 13 20 24;
+  --paper-deep-rgb: 7 11 14;
+  --paper-bright-rgb: 18 29 34;
+
+  --ink-rgb: 230 236 234;
+  --ink-primary: var(--home-ink-primary);
+  --ink-body: var(--home-ink-body);
+  --ink-label: var(--home-ink-body);
+  --ink-read: var(--home-ink-primary);
+  --ink-soft: var(--home-ink-muted);
+  --ink-faint: var(--home-rule-strong);
+  --ink-hairline: var(--home-rule-subtle);
+  --ink-dashed: var(--home-rule-strong);
+
+  --accent-orange: var(--home-signal);
+  --accent-orange-rgb: 226 116 62;
+  --accent-orange-soft: rgb(var(--accent-orange-rgb) / 0.18);
+  --netra-rgb: 120 166 188;
+  --netra: var(--home-netra);
+  --netra-soft: rgb(var(--netra-rgb) / 0.62);
+
+  /* Home interface copy departs from the archive's reflective/mono body.
+     The override is scoped so long-form reading routes retain IBM Plex. */
+  --font-body-en: var(--home-font-interface);
+
+  background: var(--home-ground);
+  color: var(--home-ink-primary);
+  font-family: var(--home-font-interface);
+  accent-color: var(--home-signal);
+}
+
+.wl-home-focus::selection,
+.wl-home-focus ::selection {
+  background: var(--home-signal);
+  color: var(--home-action-ink);
+}
+
+.wl-home-focus.wl-home-interface,
+.wl-home-focus .wl-home-interface {
+  font-family: var(--home-font-interface);
+}
+
+.wl-home-focus .wl-home-interface:lang(th) {
+  font-family: var(--font-thai-body), ui-sans-serif, sans-serif;
+  letter-spacing: 0;
+}
+
+.wl-home-focus.wl-home-instrument,
+.wl-home-focus .wl-home-instrument {
+  font-family: var(--home-font-instrument);
+  font-size: 11px;
+  line-height: 1.5;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.wl-home-focus .wl-home-instrument:lang(th) {
+  font-family: var(--font-thai-body), ui-sans-serif, sans-serif;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.wl-home-focus .wl-home-focus-ring:focus-visible {
+  outline: 2px solid var(--home-focus-color, var(--home-signal));
+  outline-offset: var(--home-focus-offset, 4px);
 }
 
 /* =============================================================
@@ -1101,7 +1215,7 @@ body {
   .archive-globe-readout [data-arl-row="reticle"] .arl-key,
   .archive-globe-readout [data-arl-row="drift"] .arl-key {
     letter-spacing: 0.1em;        /* tighten the tracking that ate width */
-    font-size: 8px;
+    font-size: var(--public-meta-size);
   }
   .archive-globe-readout [data-arl-row="reticle"] .arl-val {
     white-space: normal;          /* allow the locus label to wrap, never clip */
@@ -1125,12 +1239,12 @@ body {
     padding-top: 4px;
   }
   .archive-globe-readout [data-arl-row="alpha"] .arl-alpha:first-child {
-    font-size: 9px;               /* the α glyph stays legible */
+    font-size: var(--public-meta-size);
   }
   .archive-globe-readout [data-arl-row="alpha"] .arl-alpha:last-child {
     text-align: left;
     white-space: normal;
-    font-size: 8px;
+    font-size: var(--public-meta-size);
   }
 
   /* NEXT NODE — survey-cycle affordance survives but tightens to fit the strip. */
@@ -1817,7 +1931,10 @@ body {
 }
 .atlas-foot-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr minmax(220px, 1.4fr);
+  grid-template-columns: 1fr 1fr 1fr minmax(400px, 1.75fr);
+  /* Fixed NETRA trigger occupies the lower-right rail. Keep the instrument
+     controls clear of its 52px target in every desktop scroll position. */
+  padding-right: 48px;
   gap: 14px; align-items: center;
 }
 .atlas-foot .cell { display: flex; flex-direction: column; gap: 2px; }
@@ -1887,7 +2004,9 @@ body {
 .atlas-netra .id-box .lab { color: var(--netra); font-weight: 500; letter-spacing: 0.22em; }
 .atlas-netra .id-box .tgt {
   font-family: var(--font-type); font-size: 9.5px;
-  letter-spacing: 0.04em; color: var(--ink-primary); text-transform: none;
+  letter-spacing: 0.04em; line-height: 1.35;
+  color: var(--ink-primary); text-transform: none;
+  text-wrap: balance;
 }
 .atlas-netra .readout {
   display: grid; grid-template-columns: auto 1fr;
@@ -1899,6 +2018,7 @@ body {
   font-family: var(--font-type); font-size: 9.5px;
   letter-spacing: 0.04em; color: var(--ink-primary);
   font-weight: 400; text-transform: none; justify-self: end;
+  white-space: nowrap;
 }
 .atlas-netra .jump {
   appearance: none; background: transparent;
@@ -1906,6 +2026,7 @@ body {
   color: var(--netra); font-family: var(--font-mono);
   font-size: 8px; letter-spacing: 0.22em;
   padding: 4px 10px; cursor: pointer; text-transform: uppercase;
+  white-space: nowrap;
   transition: background 0.2s;
 }
 .atlas-netra .jump:hover { background: rgb(var(--netra-rgb) / 0.12); }
@@ -1999,6 +2120,7 @@ body {
 }
 .atlas-mobile-dock-jump:hover {
   background: rgb(var(--netra-rgb) / 0.12);
+  color: var(--netra);
 }
 .atlas-mobile-dock-jump:focus-visible {
   outline: 2px solid var(--netra);
@@ -2117,6 +2239,7 @@ body {
   /* Foot drops to 1 column */
   .atlas-foot-row {
     grid-template-columns: 1fr;
+    padding-right: 0;
   }
 
   /* NETRA voice can wrap freely */
@@ -2891,6 +3014,512 @@ body {
    and takes no space should it be rendered during the transition. */
 .wl-summary__seam {
   display: none;
+}
+
+/* =============================================================
+   Readable public exploration · TASK-2026-09-12-PUBLICATION
+   Atoms: type-roles · strata-button · netra-console · nav.
+   Public roots are explicit: console canvas and authoring previews
+   also use paper-canvas, so that class alone must not opt them in.
+   ============================================================= */
+main.paper-canvas,
+.wl-home-focus,
+[data-photo-entry-root] {
+  --meta-size: var(--public-meta-size);
+  --meta-tracking: var(--public-meta-tracking);
+  --body-size: var(--public-body-size);
+}
+
+:is(main.paper-canvas, .wl-home-focus, [data-photo-entry-root]) .t-meta:not(:where([data-home-production-upper] :is(.nav-shell, .nav-slim, #hero) *)) {
+  line-height: 1.5;
+}
+
+/* Complete instrument data may occupy another line at the readable size. */
+.archive-ledger-row .alr-id-head,
+.archive-ledger-row .alr-meta,
+.archive-ledger-row .alr-col-locus {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.archive-ledger-row .alr-meta {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.wl-skip-link,
+.archive-query .aq-section,
+.archive-query .aq-status,
+.archive-filters .af-pill,
+.nav-slim-wordmark:not(:where([data-home-production-upper] *)),
+.nav-slim-readout:not(:where([data-home-production-upper] *)),
+.nav-slim-link:not(:where([data-home-production-upper] *)),
+.register:not(:where([data-home-production-upper] ~ .register)) .rlab,
+.register:not(:where([data-home-production-upper] ~ .register)) button {
+  font-size: var(--public-meta-size);
+  letter-spacing: var(--public-meta-tracking);
+}
+
+.archive-query .aq-input {
+  font-size: var(--public-body-size);
+}
+
+.nav-links:not(:where([data-home-production-upper] *)) {
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+
+.atlas-frame:not(:where([data-home-production-upper] *)) :is(
+  .atlas-head,
+  .atlas-strata-head,
+  .atlas-strata-btn .label-id,
+  .atlas-strata-btn .label-role,
+  .atlas-strata-btn .key,
+  .atlas-current-key,
+  .atlas-current-val,
+  .atlas-current-meta,
+  .atlas-hud-corner,
+  .atlas-readout-head,
+  .atlas-readout-row .key,
+  .atlas-readout-row .val,
+  .atlas-readout-row .meta,
+  .atlas-flow,
+  .atlas-foot,
+  .atlas-foot .cell span,
+  .atlas-foot .cell b,
+  .atlas-netra,
+  .atlas-netra .id-box .tgt,
+  .atlas-netra .readout,
+  .atlas-netra .readout b,
+  .atlas-netra .jump,
+  .atlas-netra-voice .voice-tag,
+  .atlas-mobile-dock-chip,
+  .atlas-mobile-dock-jump
+) {
+  font-size: var(--public-meta-size);
+  line-height: 1.5;
+  letter-spacing: var(--public-meta-tracking);
+}
+
+.atlas-frame:not(:where([data-home-production-upper] *)) :is(.atlas-readout-row .val, .atlas-foot .cell b, .atlas-netra .readout b) {
+  letter-spacing: 0.04em;
+}
+
+.atlas-frame:not(:where([data-home-production-upper] *)) .atlas-strata-btn {
+  grid-template-columns: 22px minmax(0, 1fr);
+}
+
+.atlas-frame:not(:where([data-home-production-upper] *)) .atlas-strata-btn .label-role {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.atlas-frame:not(:where([data-home-production-upper] *)) .atlas-readout-row.is-pair {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.atlas-frame:not(:where([data-home-production-upper] *)) .atlas-readout-row.is-pair .val {
+  text-align: left;
+  white-space: normal;
+}
+
+.atlas-frame:not(:where([data-home-production-upper] *)) .atlas-readout-row.is-trio {
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 6px;
+}
+
+.atlas-frame:not(:where([data-home-production-upper] *)) .atlas-readout-row.is-trio > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: baseline;
+  column-gap: 10px;
+  overflow: visible;
+}
+
+.atlas-frame:not(:where([data-home-production-upper] *)) .atlas-readout-row.is-trio .val {
+  justify-self: end;
+}
+
+.atlas-frame:not(:where([data-home-production-upper] *)) .atlas-readout-row .key {
+  white-space: nowrap;
+}
+
+.atlas-frame:not(:where([data-home-production-upper] *)) .atlas-netra .id-box,
+.atlas-frame:not(:where([data-home-production-upper] *)) .atlas-netra .readout {
+  min-width: 0;
+}
+
+.atlas-frame:not(:where([data-home-production-upper] *)) .atlas-netra .id-box .tgt {
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: normal;
+  text-wrap: wrap;
+}
+
+.atlas-frame:not(:where([data-home-production-upper] *)) .atlas-netra .readout b {
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: nowrap;
+}
+
+:is(main.paper-canvas, .wl-home-focus, [data-photo-entry-root]) .atlas-netra-voice:not(:where([data-home-production-upper] *)) .voice-body {
+  font-size: var(--public-body-size);
+  line-height: 1.5;
+}
+
+/* Public summaries and prose preserve the existing bilingual families.
+   Console previews keep their independent type scale. */
+main.paper-canvas .wl-summary__label {
+  font-size: var(--public-meta-size);
+  letter-spacing: var(--public-meta-tracking);
+}
+
+main.paper-canvas .wl-summary__body {
+  font-size: var(--public-body-size);
+}
+
+:lang(th) main.paper-canvas .wl-body .wlc-p,
+main.paper-canvas .wl-body .wlc-p:lang(th),
+:lang(th) main.paper-canvas .wl-body .wlc-ul,
+main.paper-canvas .wl-body .wlc-ul:lang(th),
+:lang(th) main.paper-canvas .wl-body .wlc-ol,
+main.paper-canvas .wl-body .wlc-ol:lang(th) {
+  font-size: var(--public-body-thai-size);
+}
+
+:lang(th) main.paper-canvas .wl-summary__body,
+main.paper-canvas .wl-summary__body:lang(th) {
+  font-size: var(--public-body-thai-size);
+  transform: none;
+}
+
+/* Restored masthead keeps its original voice at the public reading floor. */
+main.paper-canvas:not([data-home-production-upper]) #hero p.t-display {
+  font-size: var(--public-body-size);
+}
+
+main.paper-canvas:not([data-home-production-upper]) #hero .flex.t-meta {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+
+/* Reflow the instrument by its available space. Containers belong to the
+   content and foot, not atlas-frame: its fixed mobile place panel must keep
+   the viewport as its containing block. Existing mobile hiding/order stays. */
+.atlas-frame:not(:where([data-home-production-upper] *)) .atlas-content {
+  container: atlas-content / inline-size;
+  grid-template-columns: min(220px, 25%) minmax(0, 1fr) min(240px, 27%);
+}
+
+.atlas-content:not(:where([data-home-production-upper] *)) > aside,
+.atlas-content:not(:where([data-home-production-upper] *)) > .atlas-globe-wrap {
+  min-width: 0;
+  grid-column: 1 / -1;
+}
+
+@container atlas-content (min-width: 62rem) {
+  .atlas-content:not(:where([data-home-production-upper] *)) > aside,
+  .atlas-content:not(:where([data-home-production-upper] *)) > .atlas-globe-wrap {
+    grid-column: auto;
+  }
+}
+
+@container atlas-content (min-width: 40rem) and (max-width: 61.999rem) {
+  .atlas-strata-list:not(:where([data-home-production-upper] *)) {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .atlas-readout:not(:where([data-home-production-upper] *)) {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+    gap: 12px;
+  }
+  .atlas-readout-head:not(:where([data-home-production-upper] *)),
+  .atlas-flow:not(:where([data-home-production-upper] *)) {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Count cells and NETRA keep their source order. At narrower instrument
+   widths the navigator occupies its own complete row, still inside ATLAS. */
+.atlas-frame:not(:where([data-home-production-upper] *)) .atlas-foot-row {
+  container: atlas-foot / inline-size;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.atlas-foot-row:not(:where([data-home-production-upper] *)) > .cell {
+  grid-column: span 2;
+  min-width: 0;
+}
+
+.atlas-frame:not(:where([data-home-production-upper] *)) .atlas-foot-row > .atlas-netra {
+  grid-column: 1 / -1;
+  grid-template-columns: 14px minmax(8rem, 1fr) minmax(13rem, max-content) max-content;
+  gap: 0 10px;
+}
+
+.atlas-frame:not(:where([data-home-production-upper] *)) .atlas-foot-row > .atlas-netra .readout {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: 10px;
+  row-gap: 4px;
+}
+
+.atlas-frame:not(:where([data-home-production-upper] *)) .atlas-foot-row > .atlas-netra .readout b {
+  justify-self: end;
+}
+
+@container atlas-foot (min-width: 76rem) {
+  .atlas-foot-row:not(:where([data-home-production-upper] *)) > .cell {
+    grid-column: span 1;
+  }
+  .atlas-frame:not(:where([data-home-production-upper] *)) .atlas-foot-row > .atlas-netra {
+    grid-column: span 3;
+  }
+}
+
+@container atlas-foot (max-width: 33.999rem) {
+  .atlas-frame:not(:where([data-home-production-upper] *)) .atlas-foot-row > .atlas-netra {
+    grid-template-columns: 14px minmax(0, 1fr) max-content;
+    row-gap: 8px;
+  }
+  .atlas-foot-row:not(:where([data-home-production-upper] *)) > .atlas-netra .id-box {
+    border-right: none;
+    padding-right: 0;
+  }
+  .atlas-foot-row:not(:where([data-home-production-upper] *)) > .atlas-netra .readout {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .atlas-foot-row:not(:where([data-home-production-upper] *)) > .atlas-netra .jump {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 600px) {
+  .atlas-frame:not(:where([data-home-production-upper] *)) .atlas-foot-row > .atlas-netra {
+    grid-template-columns: 14px minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 881px) and (max-width: 1100px) {
+  .archive-body {
+    grid-template-columns: minmax(0, 1fr) 260px;
+    column-gap: 24px;
+  }
+}
+
+@media (max-width: 880px) {
+  .archive-body {
+    grid-template-columns: minmax(0, 1fr);
+    column-gap: 0;
+    padding: 20px 18px 48px;
+  }
+  .archive-body > .archive-rail-col {
+    position: static;
+  }
+}
+
+@media (min-width: 601px) and (max-width: 1200px) {
+  .nav-shell:not(:where([data-home-production-upper] *)) {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .nav-links:not(:where([data-home-production-upper] *)) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .nav-clock:not(:where([data-home-production-upper] *)) {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
+@media (max-width: 600px) {
+  .archive-ledger-row {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 10px;
+    padding-block: 18px;
+  }
+  .archive-ledger-row .alr-col-locus {
+    text-align: left;
+  }
+  .archive-ledger-row .alr-col-locus:empty {
+    display: none;
+  }
+  .atlas-frame:not(:where([data-home-production-upper] *)) .atlas-mobile-dock {
+    flex-wrap: wrap;
+  }
+  .atlas-frame:not(:where([data-home-production-upper] *)) .atlas-mobile-dock-jump {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+}
+
+/* Live production upper homepage · TASK-2026-09-12-PROD-UPPER-HOME.
+   The structural marker ends this exception at #hero; #index and later
+   sections retain the public reading scale. Values verified against the
+   CSS served by neoex.dev on 2026-09-12, not an assumed git baseline. */
+[data-home-production-upper] :is(.nav-shell, .nav-slim, #hero) {
+  --meta-size: 9px;
+  --meta-tracking: 0.3em;
+  --body-size: 14.5px;
+}
+
+[data-home-production-upper] :is(.nav-shell, .nav-slim) {
+  --public-meta-size: 9px;
+  --public-meta-tracking: 0.3em;
+}
+
+[data-home-production-upper] > .survey-cursor {
+  --public-meta-size: 9px;
+  --public-meta-tracking: 0.18em;
+}
+
+/* These few base declarations also differ from the served production CSS.
+   All other Atlas values fall through to the original rules above. */
+:where([data-home-production-upper] #hero) .atlas-foot-row {
+  padding-right: 0;
+}
+
+@media (min-width: 881px) {
+  :where([data-home-production-upper] #hero) .atlas-foot-row {
+    grid-template-columns: 1fr 1fr 1fr minmax(360px, 1.4fr);
+  }
+}
+
+/* Stable NETRA · TASK-2026-09-13-STABLE-NETRA.
+   Atom: netra-console. Reserve semantic tracks before a target arrives;
+   target text and coordinate visibility must not move the instrument. */
+:where([data-home-production-upper] #hero) .atlas-netra {
+  grid-template-columns: 14px minmax(0, 1fr) 104px 98px;
+  block-size: 54px;
+}
+
+:where([data-home-production-upper] #hero) .atlas-netra .id-box {
+  min-width: 0;
+  block-size: 42.25px;
+}
+
+:where([data-home-production-upper] #hero) .atlas-netra .id-box .tgt {
+  display: grid;
+  grid-template-rows: repeat(2, 14.25px);
+  min-width: 0;
+  line-height: 14.25px;
+  text-wrap: nowrap;
+}
+
+:where([data-home-production-upper] #hero) .netra-identity-primary {
+  display: flex;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+:where([data-home-production-upper] #hero) .netra-node-name {
+  display: flex;
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 35%;
+}
+
+:where([data-home-production-upper] #hero) .netra-node-name:empty {
+  display: none;
+}
+
+:where([data-home-production-upper] #hero) :is(.netra-node-label, .netra-place-name) {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:where([data-home-production-upper] #hero) :is(.netra-node-separator, .netra-identity-separator) {
+  flex: none;
+  white-space: pre;
+}
+
+:where([data-home-production-upper] #hero) .netra-identity-secondary {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+:where([data-home-production-upper] #hero) .atlas-netra .readout {
+  min-width: 0;
+  grid-template-columns: 40.25px minmax(0, 1fr);
+  grid-template-rows: 28.5px 14.25px;
+  block-size: 43.75px;
+  align-items: start;
+}
+
+:where([data-home-production-upper] #hero) .atlas-netra .readout > span {
+  margin-block-start: 2px;
+}
+
+:where([data-home-production-upper] #hero) .atlas-netra .readout b {
+  min-width: 0;
+  inline-size: 100%;
+  line-height: 14.25px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+:where([data-home-production-upper] #hero) .netra-coordinates {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: repeat(2, 14.25px);
+  block-size: 28.5px;
+}
+
+:where([data-home-production-upper] #hero) :is(.netra-latitude, .netra-longitude) {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+:where([data-home-production-upper] #hero) .atlas-netra .jump {
+  min-width: 0;
+  block-size: 44px;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  /* The fixed place sheet remains inside the hero stacking context.
+     Lift that context above later z3 sections only while the sheet is open. */
+  [data-home-production-upper] #hero:has(.atlas-frame > section[aria-hidden="false"]) {
+    z-index: 4;
+  }
+
+  :where([data-home-production-upper] #hero) .atlas-netra {
+    grid-template-columns: 14px minmax(0, 1fr);
+    grid-template-rows: 42.25px 14.25px;
+    block-size: 73.5px;
+  }
+
+  /* Preserve the production dock and compact left-aligned readout cluster.
+     Empty coordinates retain their two slots, so RANGE cannot slide left. */
+  :where([data-home-production-upper] #hero) .atlas-netra .readout {
+    display: grid;
+    grid-template-columns: 40.25px 104px 28.75px 32px;
+    grid-template-rows: 14.25px;
+    justify-content: start;
+    block-size: 14.25px;
+  }
+
+  :where([data-home-production-upper] #hero) .atlas-netra .readout b {
+    text-align: left;
+  }
+
+  :where([data-home-production-upper] #hero) .netra-coordinates {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: 14.25px;
+    block-size: 14.25px;
+  }
+}
+
+:where([data-home-production-upper] #hero) .atlas-mobile-dock-jump:hover {
+  color: var(--paper-base);
 }
 
 /* =============================================================

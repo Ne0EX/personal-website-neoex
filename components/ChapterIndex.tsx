@@ -6,7 +6,7 @@
  * §01 filtered entry list — recent traces.
  *
  * Props contract (lifted state — see AttractorFilterShell.tsx):
- *   entries          — filtered subset of RECENT_ENTRIES (or full list when activeAttractor="all")
+ *   entries          — filtered public records supplied by the server page
  *   activeAttractor  — used as the useEffect dependency to re-trigger stagger animation
  *                      whenever the filter changes. The value itself is not rendered.
  *
@@ -21,15 +21,20 @@
 
 import { useEffect, useRef } from "react";
 import { animate, stagger } from "animejs";
-import { type Entry } from "@/lib/entries";
+import type { Article } from "@/lib/content/types";
+
+export type ChapterIndexEntry = Pick<Article,
+  'fileNum' | 'title' | 'date' | 'tags' | 'status' | 'readingTime' | 'lang'
+>;
 
 interface Props {
-  entries: Entry[];
+  entries: ChapterIndexEntry[];
+  lang: string;
   /** Active attractor pill label — used as animation trigger only. */
   activeAttractor: string;
 }
 
-export function ChapterIndex({ entries, activeAttractor }: Props) {
+export function ChapterIndex({ entries, lang, activeAttractor }: Props) {
   const gridRef = useRef<HTMLDivElement | null>(null);
 
   // Re-run stagger animation whenever the filter changes (activeAttractor dep).
@@ -78,7 +83,7 @@ export function ChapterIndex({ entries, activeAttractor }: Props) {
       delay: stagger(110),
       ease: "outCubic",
     });
-  }, [activeAttractor]);
+  }, [activeAttractor, entries]);
 
   return (
     <section
@@ -87,6 +92,14 @@ export function ChapterIndex({ entries, activeAttractor }: Props) {
       className="relative z-[3] px-10 py-9 section-rule"
     >
       <SectionLabel num="01" label="CHAPTER INDEX // RECENT TRACES" />
+
+      {entries.length === 0 && (
+        <p className="t-meta py-6 text-[var(--ink-soft)]" role="status">
+          {activeAttractor === "all"
+            ? (lang === "th" ? "// ยังไม่มีบทความที่เผยแพร่" : "// no published article traces yet.")
+            : (lang === "th" ? "// ไม่พบบทความในแนวสำรวจนี้" : "// no published articles match this survey.")}
+        </p>
+      )}
 
       <div ref={gridRef} className="grid grid-cols-1 md:grid-cols-2">
         {entries.map((e, i) => {
@@ -97,10 +110,7 @@ export function ChapterIndex({ entries, activeAttractor }: Props) {
           return (
             <a
               key={e.fileNum}
-              // href was #entry-${e.fileNum} (self-link); changed to real route
-              // matching dig-panel idiom at WorldlineGlobe.tsx:2461
-              // (fix: chapter-index-cards · α-SUR-01 · wiring-wave1)
-              href={`/articles/${e.fileNum}`}
+              href={`${lang === "th" ? "/th" : ""}/articles/${e.fileNum}`}
               id={`entry-${e.fileNum}`}
               className={`entry-card group relative cursor-pointer px-7 py-6 transition-colors hover:bg-[rgba(212,96,42,0.04)]
                 ${isRight ? "" : "md:border-r md:border-[var(--ink-hairline)]"}
@@ -116,7 +126,7 @@ export function ChapterIndex({ entries, activeAttractor }: Props) {
                 FILE — {e.fileNum} {"//"} {e.date}
               </div>
 
-              <div className="t-display italic font-medium text-[22px] leading-[1.2] text-[var(--ink-primary)] mb-2.5 transition-colors">
+              <div lang={e.lang} className="t-display italic font-medium text-[22px] leading-[1.2] text-[var(--ink-primary)] mb-2.5 transition-colors">
                 <span className="entry-glitch" data-text={e.title}>
                   {e.title}
                 </span>
@@ -130,7 +140,7 @@ export function ChapterIndex({ entries, activeAttractor }: Props) {
                 ))}
               </div>
 
-              <div className="t-type text-[10px] tracking-[0.05em] text-[var(--ink-faint)]">
+              <div className="t-type text-[length:var(--public-meta-size)] tracking-[0.05em] text-[var(--ink-faint)]">
                 {e.readingTime} min · {e.status}
               </div>
             </a>

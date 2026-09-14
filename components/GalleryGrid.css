@@ -44,7 +44,7 @@
 .gallery-cell .paper-mount .paper-mount-label {
   margin-top: 8px;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--public-meta-size);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -120,7 +120,7 @@
   background: transparent;
   border: none;
   font-family: var(--font-mono);
-  font-size: 8.5px;
+  font-size: var(--public-meta-size);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--ink-soft);
@@ -147,7 +147,7 @@
 /* flat-mode two-line cell label (spec §FLAT: roll label below frame ID) */
 .paper-mount-label-flat {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: var(--public-meta-size);
   letter-spacing: 0.22em;
   text-transform: uppercase;
   overflow: hidden;

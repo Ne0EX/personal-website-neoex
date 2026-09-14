@@ -16,7 +16,7 @@
         },
         {
           "name": "micro",
-          "description": "8x8px L-brackets flush to the panel border (-1px offset) on the divergence card (.diverge-panel::before/::after) — same atom, smaller scale, same accent token."
+          "description": "12x12px L-brackets flush to the panel border (-1px offset) on the divergence card (.diverge-panel::before/::after) — the historical micro variant name remains; current approved production uses 12px arms."
         }
       ],
       "token_refs": [
@@ -25,25 +25,25 @@
       "main_branch_refs": [
         {
           "file": "app/globals.css",
-          "line": 147,
+          "line": 607,
           "value": "12px",
           "role": "reticle arm length (default variant) — .corner-marks::before/::after width + height"
         },
         {
           "file": "app/globals.css",
-          "line": 476,
+          "line": 596,
           "value": "16px",
           "role": "inset from edge (default variant) — .corner-marks inset"
         },
         {
           "file": "app/globals.css",
-          "line": 142,
-          "value": "8px",
+          "line": 1480,
+          "value": "12px",
           "role": "arm length (micro variant) — .diverge-panel::before/::after width + height"
         },
         {
           "file": "app/globals.css",
-          "line": 1371,
+          "line": 1485,
           "value": "-1px",
           "role": "micro variant top/left offset — positions L-bracket flush with panel border"
         }
@@ -131,31 +131,31 @@
       "main_branch_refs": [
         {
           "file": "app/globals.css",
-          "line": 1357,
+          "line": 1471,
           "value": "border: 1.5px solid rgb(var(--ink-rgb) / 0.38);",
           "role": "diverge-panel border — 1.5px ink hairline (updated from legacy 1px/0.22 cite)"
         },
         {
           "file": "app/globals.css",
-          "line": 1358,
+          "line": 1472,
           "value": "background: rgb(var(--ink-rgb) / 0.035);",
           "role": "diverge-panel background — ink tint at 0.035 (updated from legacy paper-glass cite)"
         },
         {
           "file": "app/globals.css",
-          "line": 1359,
+          "line": 1473,
           "value": "min-width: 300px;",
           "role": "diverge-panel min-width (updated from legacy 280px cite)"
         },
         {
           "file": "app/globals.css",
-          "line": 142,
-          "value": "8px",
+          "line": 1480,
+          "value": "12px",
           "role": "micro corner-reticle arm length — .diverge-panel::before/::after (shared with corner-reticle micro variant)"
         },
         {
           "file": "app/globals.css",
-          "line": 1104,
+          "line": 1499,
           "value": "font-size: 8px;",
           "role": "diverge-panel-head type size (updated from legacy 26px cite)"
         }
@@ -190,13 +190,13 @@
       "main_branch_refs": [
         {
           "file": "app/globals.css",
-          "line": 1871,
+          "line": 1988,
           "value": "background: rgb(var(--paper-base-rgb) / 0.92);",
           "role": "NETRA console ground — paper-base at 0.92 (tokenized)"
         },
         {
           "file": "app/globals.css",
-          "line": 1911,
+          "line": 2032,
           "value": "background: rgb(var(--netra-rgb) / 0.12);",
           "role": "NETRA console tint — netra at 0.12"
         }
@@ -229,7 +229,7 @@
       "main_branch_refs": [
         {
           "file": "app/globals.css",
-          "line": 1842,
+          "line": 1959,
           "value": "background: rgba(79, 110, 128, 0.07)",
           "role": "voice-strip surface — netra at 7% (cited raw literal; matches --netra-rgb 77 122 146)"
         }
@@ -258,7 +258,7 @@
       "main_branch_refs": [
         {
           "file": "app/globals.css",
-          "line": 1728,
+          "line": 1842,
           "value": "font-size: 7px; letter-spacing: 0.22em;",
           "role": "HUD corner type metrics — .atlas-hud-corner"
         }
@@ -286,13 +286,13 @@
       "main_branch_refs": [
         {
           "file": "app/globals.css",
-          "line": 1701,
+          "line": 1815,
           "value": "font-size: 7.5px; letter-spacing: 0.18em;",
           "role": "axis-label type metrics — .atlas-axis-label"
         },
         {
           "file": "app/globals.css",
-          "line": 1703,
+          "line": 1817,
           "value": "padding: 1px 5px",
           "role": "paper-base background patch padding bridging the dashed wrap border"
         }
@@ -318,13 +318,13 @@
       "main_branch_refs": [
         {
           "file": "app/globals.css",
-          "line": 1715,
+          "line": 1829,
           "value": "font-size: 200px;",
           "role": "watermark glyph size — .atlas-alpha-mark"
         },
         {
           "file": "app/globals.css",
-          "line": 1716,
+          "line": 1830,
           "value": "color: rgba(212, 96, 42, 0.10)",
           "role": "watermark colour — accent-orange at 10% (cited raw literal; matches --accent-orange #D4602A)"
         }
@@ -436,13 +436,13 @@
       "main_branch_refs": [
         {
           "file": "app/globals.css",
-          "line": 1663,
+          "line": 1777,
           "value": "border: 1px dashed rgb(var(--ink-rgb) / 0.22)",
           "role": "globe-wrap cartographic frame border (full variant) — .atlas-globe-wrap"
         },
         {
           "file": "app/globals.css",
-          "line": 1669,
+          "line": 1783,
           "value": "min-height: 540px",
           "role": "globe-wrap stage height (full variant) — .atlas-globe-wrap"
         },
@@ -493,13 +493,13 @@
       "main_branch_refs": [
         {
           "file": "components/WorldlineGlobe.tsx",
-          "line": 761,
+          "line": 767,
           "value": "new THREE.SphereGeometry(0.012, 12, 12),",
           "role": "place-node dot geometry (nodeMatInk refactored to palette-driven material)"
         },
         {
           "file": "components/WorldlineGlobe.tsx",
-          "line": 504,
+          "line": 510,
           "value": "const PLACE_INK_HEX = 0x1f5063;",
           "role": "place-node ink color — module-level constant (refactored from inline nodeMatInk)"
         },
@@ -550,19 +550,19 @@
       "main_branch_refs": [
         {
           "file": "components/WorldlineGlobe.tsx",
-          "line": 2137,
+          "line": 2167,
           "value": "new THREE.RingGeometry(0.010, 0.016, 24)",
           "role": "fiction node hollow-ring glyph geometry (default variant) — NeX orbital fiction glyph loop"
         },
         {
           "file": "components/WorldlineGlobe.tsx",
-          "line": 804,
+          "line": 2159,
           "value": "color: palette.ink,",
           "role": "fiction glyph material color — palette-driven ink (refactored from literal 0x1f5063)"
         },
         {
           "file": "components/WorldlineGlobe.tsx",
-          "line": 2131,
+          "line": 2161,
           "value": "opacity: 0.75,",
           "role": "fiction node ring opacity on the orbital shell (default variant)"
         },
@@ -631,55 +631,55 @@
       "main_branch_refs": [
         {
           "file": "app/globals.css",
-          "line": 1515,
+          "line": 1629,
           "value": "border: 1px solid rgb(var(--ink-rgb) / 0.15);",
           "role": "focus-button default state — ink-rgb border at 15% opacity"
         },
         {
           "file": "app/globals.css",
-          "line": 1534,
+          "line": 1648,
           "value": "border-color: rgba(212, 96, 42, 0.5);",
           "role": "focus-button hover state — accent-orange border at 50%"
         },
         {
           "file": "app/globals.css",
-          "line": 1535,
+          "line": 1649,
           "value": "transform: translateX(2px);",
           "role": "focus-button hover state — 2px X-translate (the path the camera can take)"
         },
         {
           "file": "app/globals.css",
-          "line": 1539,
+          "line": 1653,
           "value": "background: rgba(212, 96, 42, 0.06);",
           "role": "focus-button is-active state — accent-orange fill at 6%"
         },
         {
           "file": "app/globals.css",
-          "line": 1544,
+          "line": 1658,
           "value": "left: -6px; top: 50%;",
           "role": "focus-button is-active ::before — left-edge instrument-tick hairline position"
         },
         {
           "file": "app/globals.css",
-          "line": 1545,
+          "line": 1659,
           "value": "width: 4px; height: 1px;",
           "role": "focus-button is-active ::before — instrument-tick hairline dimensions"
         },
         {
           "file": "app/globals.css",
-          "line": 1557,
+          "line": 1671,
           "value": "font-size: 10px; letter-spacing: 0.1em; color: var(--ink-primary);",
           "role": "focus-button label-id type metrics — .atlas-strata-btn .label-id"
         },
         {
           "file": "app/globals.css",
-          "line": 1563,
+          "line": 1677,
           "value": "font-size: 7.5px; letter-spacing: 0.22em;",
           "role": "focus-button label-role type metrics — .atlas-strata-btn .label-role, uppercase mono"
         },
         {
           "file": "app/globals.css",
-          "line": 1572,
+          "line": 1686,
           "value": "font-family: var(--font-type); font-size: 8.5px;",
           "role": "focus-button key badge size + font — .atlas-strata-btn .key, Special Elite"
         }

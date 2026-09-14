@@ -38,6 +38,7 @@ import type { Article, NextEntry } from '@/lib/content'
 import { EntryShell } from '@/components/EntryShell'
 
 interface ArticleEntryProps {
+  requestedLang?: string
   article: Article
   /** Optional rendered MDX body (DL4 store-as-source S3). When omitted, falls back to summary placeholder. */
   body?: React.ReactNode
@@ -194,6 +195,8 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
           color: 'var(--ink-primary)',
           margin: '0 0 32px',
           letterSpacing: '-0.01em',
+          // F5: balance prevents awkward last-line orphans in multi-line titles
+          textWrap: 'balance',
         }}
       >
         {title}
@@ -203,8 +206,8 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
       <div
         style={{
           fontFamily: 'var(--font-mono)',
-          fontSize: '10px',
-          letterSpacing: '0.2em',
+          fontSize: "var(--meta-size)",
+          letterSpacing: "var(--public-meta-tracking)",
           textTransform: 'uppercase',
           color: 'var(--ink-body)',
           marginBottom: '24px',
@@ -283,7 +286,7 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
           className="wl-body"
           style={{
             fontFamily: 'var(--font-mono), var(--font-thai-body)',
-            fontSize: '13.5px',
+            fontSize: 'var(--body-size)',
             lineHeight: 1.75,
             color: 'var(--ink-primary)',
             marginBottom: '40px',
@@ -306,21 +309,22 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
             style={{ borderBottom: '1px dashed var(--ink-dashed)', marginBottom: '16px' }}
           />
 
-          {/* Section header — t-meta instrument register */}
-          <div
+          {/* Section header — t-meta instrument register; h2 for screen-reader heading jump (F7) */}
+          <h2
+            id="patches"
             className="t-meta"
             style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: '9px',
-              letterSpacing: '0.3em',
+              fontSize: "var(--meta-size)",
+              letterSpacing: "var(--public-meta-tracking)",
               textTransform: 'uppercase',
               color: 'var(--ink-soft)',
-              marginBottom: '12px',
+              margin: '0 0 12px',
               fontWeight: 400,
             }}
           >
             § PATCHES
-          </div>
+          </h2>
 
           {/*
            * Patches panel — paper-warm-surface (atom).
@@ -364,8 +368,8 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
                       <span
                         style={{
                           fontFamily: 'var(--font-mono)',
-                          fontSize: '9px',
-                          letterSpacing: '0.22em',
+                          fontSize: "var(--meta-size)",
+                          letterSpacing: "var(--public-meta-tracking)",
                           textTransform: 'uppercase',
                           color: 'var(--accent-orange)',
                           fontWeight: 500,
@@ -380,7 +384,7 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
                       <span
                         style={{
                           fontFamily: 'var(--font-type)',
-                          fontSize: '11px',
+                          fontSize: "var(--meta-size)",
                           letterSpacing: '0.04em',
                           color: 'var(--ink-soft)',
                           flexShrink: 0,
@@ -396,7 +400,7 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
                       <span
                         style={{
                           fontFamily: 'var(--font-mono)',
-                          fontSize: '11px',
+                          fontSize: "var(--meta-size)",
                           letterSpacing: '0.08em',
                           color: 'var(--ink-body)',
                           lineHeight: 1.5,
@@ -425,7 +429,7 @@ export function ArticleEntryContent({ article, body }: ArticleEntryContentProps)
 // ArticleEntry — public page component (byte-identical to pre-refactor output)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function ArticleEntry({ article, body, nextEntries, articlesCount }: ArticleEntryProps) {
+export function ArticleEntry({ article, body, nextEntries, articlesCount, requestedLang }: ArticleEntryProps) {
   const {
     fileNum,
     title,
@@ -452,7 +456,7 @@ export function ArticleEntry({ article, body, nextEntries, articlesCount }: Arti
       fileNum={fileNum}
       nextEntries={nextEntries}
       articlesCount={articlesCount}
-      lang={lang}
+      lang={requestedLang ?? lang}
     >
       {/* DL4: body prop threads the MDX-rendered ReactNode from the store down
           to ArticleEntryContent. When null/undefined, the summary placeholder renders. */}

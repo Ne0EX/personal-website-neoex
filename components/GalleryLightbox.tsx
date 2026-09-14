@@ -242,8 +242,8 @@ export function GalleryLightbox({
           href={`/photos/${photo.roll}/${photo.id}`}
           style={{
             fontFamily: "var(--font-mono)",
-            fontSize: "var(--meta-size)",
-            letterSpacing: "0.22em",
+            fontSize: "var(--public-meta-size)",
+            letterSpacing: "var(--public-meta-tracking)",
             textTransform: "uppercase",
             color: "var(--ink-soft)",
             textDecoration: "none",
@@ -265,8 +265,8 @@ export function GalleryLightbox({
             border: "none",
             cursor: "pointer",
             fontFamily: "var(--font-mono)",
-            fontSize: "var(--meta-size)",
-            letterSpacing: "0.22em",
+            fontSize: "var(--public-meta-size)",
+            letterSpacing: "var(--public-meta-tracking)",
             textTransform: "uppercase",
             color: "var(--ink-faint)",
             padding: "4px 8px",
@@ -328,8 +328,8 @@ export function GalleryLightbox({
             <span
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: "var(--meta-size)",
-                letterSpacing: "0.3em",
+                fontSize: "var(--public-meta-size)",
+                letterSpacing: "var(--public-meta-tracking)",
                 textTransform: "uppercase",
                 color: "var(--ink-faint)",
               }}
@@ -339,8 +339,8 @@ export function GalleryLightbox({
             <span
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: "8px",
-                letterSpacing: "0.22em",
+                fontSize: "var(--public-meta-size)",
+                letterSpacing: "var(--public-meta-tracking)",
                 textTransform: "uppercase",
                 color: "var(--ink-faint)",
               }}
@@ -355,8 +355,8 @@ export function GalleryLightbox({
           <span
             style={{
               fontFamily: "var(--font-mono)",
-              fontSize: "var(--meta-size)",
-              letterSpacing: "0.22em",
+              fontSize: "var(--public-meta-size)",
+              letterSpacing: "var(--public-meta-tracking)",
               textTransform: "uppercase",
               color: "var(--ink-faint)",
             }}

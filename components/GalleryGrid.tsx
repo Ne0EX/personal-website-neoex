@@ -64,6 +64,10 @@ export interface GalleryRollGroup {
   photos: LightboxPhoto[];
 }
 
+export type GallerySidecar = Pick<PhotoSidecar,
+  'roll' | 'id' | 'caption' | 'isoDate' | 'variants' | 'authoredCoords'
+>;
+
 interface GalleryGridProps {
   /** Photos grouped by roll, newest-roll-first (server sorts). */
   rollGroups: GalleryRollGroup[];
@@ -73,7 +77,7 @@ interface GalleryGridProps {
    * Raw sidecars for flat + place mode computation.
    * These carry isoDate and place metadata not in LightboxPhoto.
    */
-  sidecars?: PhotoSidecar[];
+  sidecars?: GallerySidecar[];
   /** Total frame count (passed from server for the page header). */
   totalFrames?: number;
   /** Total roll count (passed from server for the page header). */
@@ -98,7 +102,7 @@ const VIEW_MODES: { id: GalleryView; label: string }[] = [
 // When both are absent → UNLOCATED.
 // ─────────────────────────────────────────────────────────────────────────────
 
-function resolvePlaceLabel(sidecar: PhotoSidecar): string {
+function resolvePlaceLabel(sidecar: GallerySidecar): string {
   // authoredCoords.place is the canonical string label (from the entry's coords JSON)
   if (sidecar.authoredCoords?.place) return sidecar.authoredCoords.place.toUpperCase();
   // placeId present but no place string — mark as located but label unknown
@@ -302,7 +306,7 @@ export function GalleryGrid({
                 margin: 0,
                 fontFamily: "var(--font-mono)",
                 fontSize: "var(--meta-size)",
-                letterSpacing: "0.3em",
+                letterSpacing: "var(--public-meta-tracking)",
                 textTransform: "uppercase",
                 fontWeight: 400,
                 color: "var(--ink-soft)",
@@ -315,7 +319,7 @@ export function GalleryGrid({
               style={{
                 fontFamily: "var(--font-mono)",
                 fontSize: "var(--meta-size)",
-                letterSpacing: "0.3em",
+                letterSpacing: "var(--public-meta-tracking)",
                 textTransform: "uppercase",
                 color: "var(--ink-soft)",
                 whiteSpace: "nowrap",
@@ -420,7 +424,7 @@ export function GalleryGrid({
                           margin: 0,
                           fontFamily: "var(--font-mono)",
                           fontSize: "var(--meta-size)",
-                          letterSpacing: "0.22em",
+                          letterSpacing: "var(--public-meta-tracking)",
                           textTransform: "uppercase",
                           fontWeight: 400,
                           color: "var(--ink-faint)",
@@ -440,7 +444,7 @@ export function GalleryGrid({
                           style={{
                             color: "var(--ink-soft)",
                             textDecoration: "none",
-                            letterSpacing: "0.22em",
+                            letterSpacing: "var(--public-meta-tracking)",
                             fontFamily: "var(--font-mono)",
                             fontSize: "var(--meta-size)",
                             display: "flex",
@@ -457,7 +461,7 @@ export function GalleryGrid({
                         style={{
                           fontFamily: "var(--font-mono)",
                           fontSize: "var(--meta-size)",
-                          letterSpacing: "0.22em",
+                          letterSpacing: "var(--public-meta-tracking)",
                           textTransform: "uppercase",
                           color: "var(--ink-faint)",
                           whiteSpace: "nowrap",
@@ -472,7 +476,7 @@ export function GalleryGrid({
                         style={{
                           fontFamily: "var(--font-mono)",
                           fontSize: "var(--meta-size)",
-                          letterSpacing: "0.22em",
+                          letterSpacing: "var(--public-meta-tracking)",
                           textTransform: "uppercase",
                           color: "var(--ink-faint)",
                           paddingBottom: "24px",
@@ -557,10 +561,10 @@ export function GalleryGrid({
                                         gap: "6px",
                                       }}
                                     >
-                                      <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--meta-size)", letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--ink-faint)" }}>
+                                      <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--meta-size)", letterSpacing: "var(--public-meta-tracking)", textTransform: "uppercase", color: "var(--ink-faint)" }}>
                                         {photo.id}
                                       </span>
-                                      <span style={{ fontFamily: "var(--font-mono)", fontSize: "8px", letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--ink-faint)" }}>
+                                      <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--public-meta-size)", letterSpacing: "var(--public-meta-tracking)", textTransform: "uppercase", color: "var(--ink-faint)" }}>
                                         AWAITING IMAGE
                                       </span>
                                     </div>
@@ -702,10 +706,10 @@ export function GalleryGrid({
                                 gap: "6px",
                               }}
                             >
-                              <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--meta-size)", letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--ink-faint)" }}>
+                              <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--meta-size)", letterSpacing: "var(--public-meta-tracking)", textTransform: "uppercase", color: "var(--ink-faint)" }}>
                                 {photo.id}
                               </span>
-                              <span style={{ fontFamily: "var(--font-mono)", fontSize: "8px", letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--ink-faint)" }}>
+                              <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--public-meta-size)", letterSpacing: "var(--public-meta-tracking)", textTransform: "uppercase", color: "var(--ink-faint)" }}>
                                 AWAITING IMAGE
                               </span>
                             </div>
@@ -800,7 +804,7 @@ export function GalleryGrid({
                             margin: 0,
                             fontFamily: "var(--font-mono)",
                             fontSize: "var(--meta-size)",
-                            letterSpacing: "0.22em",
+                            letterSpacing: "var(--public-meta-tracking)",
                             textTransform: "uppercase",
                             fontWeight: 400,
                             color: "var(--ink-faint)",
@@ -823,7 +827,7 @@ export function GalleryGrid({
                           style={{
                             fontFamily: "var(--font-mono)",
                             fontSize: "var(--meta-size)",
-                            letterSpacing: "0.22em",
+                            letterSpacing: "var(--public-meta-tracking)",
                             textTransform: "uppercase",
                             color: "var(--ink-faint)",
                             whiteSpace: "nowrap",
@@ -913,10 +917,10 @@ export function GalleryGrid({
                                       gap: "6px",
                                     }}
                                   >
-                                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--meta-size)", letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--ink-faint)" }}>
+                                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--meta-size)", letterSpacing: "var(--public-meta-tracking)", textTransform: "uppercase", color: "var(--ink-faint)" }}>
                                       {photo.id}
                                     </span>
-                                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "8px", letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--ink-faint)" }}>
+                                    <span style={{ fontFamily: "var(--font-mono)", fontSize: "var(--public-meta-size)", letterSpacing: "var(--public-meta-tracking)", textTransform: "uppercase", color: "var(--ink-faint)" }}>
                                       AWAITING IMAGE
                                     </span>
                                   </div>
