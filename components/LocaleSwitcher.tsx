@@ -12,7 +12,7 @@ import { useEffect, useState } from "react";
  * SYS // CALIBRATED + UTC+7 // HH:MM lines, alongside StratumIndicator.
  *
  * DESIGN CONTRACT
- * - Visual: t-meta mono register (9px, var(--font-mono), letter-spacing 0.3em,
+ * - Visual: public t-meta mono register (12px, var(--font-mono), public tracking,
  *   uppercase). The switch is a CONTROL, not translated chrome — it stays in
  *   the English-register instrument style even on /th pages (DL3, §6.3).
  * - Current locale emphasized at full --ink-primary; the other at --ink-soft.
@@ -30,11 +30,13 @@ import { useEffect, useState } from "react";
  *
  * PATH LOGIC (en-unprefixed, th-prefixed per DL2):
  * - Choose TH: cookie ← "th"; navigate to "/th" + currentUnprefixedPath.
- *   currentUnprefixedPath = pathname with any leading "/th" stripped.
- * - Choose EN: cookie ← "en"; navigate to currentPathWithThStripped.
+ *   currentUnprefixedPath = pathname with a leading "/en" or "/th" stripped.
+ * - Choose EN: cookie ← "en"; navigate to the same unprefixed path.
  *   e.g. /th/articles/002 → /articles/002
  *        /th → /
+ *        /en → /th when choosing TH
  *        /articles/002 → /articles/002 (already unprefixed)
+ * - Preserve the query string and fragment in both directions.
  *
  * A11Y
  * - role="group" on the container; each button has aria-label and aria-pressed.
@@ -49,11 +51,19 @@ import { useEffect, useState } from "react";
 
 type Locale = "en" | "th";
 
-/** Strip a leading /th prefix and return the bare path (always starts with /). */
-function stripThPrefix(pathname: string): string {
-  if (pathname === "/th") return "/";
-  if (pathname.startsWith("/th/")) return pathname.slice(3); // "/th/x" → "/x"
-  return pathname;
+/** Build a public locale URL, including when an internal /en path is visited. */
+export function localeSwitchHref(
+  pathname: string,
+  target: Locale,
+  search = "",
+  hash = "",
+): string {
+  // Match whole locale segments so routes such as /enigma remain intact.
+  const barePath = pathname.replace(/^\/(?:en|th)(?=\/|$)/, "") || "/";
+  const destination = target === "th"
+    ? "/th" + (barePath === "/" ? "" : barePath)
+    : barePath;
+  return destination + search + hash;
 }
 
 /** Derive the current locale from window.location.pathname. */
@@ -91,19 +101,12 @@ export function LocaleSwitcher() {
     document.cookie = `wl_locale=${target}; Path=/; Max-Age=31536000; SameSite=Lax`;
 
     // Compute destination URL.
-    const rawPath = window.location.pathname;
-    const search = window.location.search;
-    let dest: string;
-
-    if (target === "th") {
-      // Unprefixed path (strip any existing /th, then add /th prefix).
-      const unprefixed = stripThPrefix(rawPath);
-      dest = "/th" + (unprefixed === "/" ? "" : unprefixed) + search;
-    } else {
-      // EN: strip /th prefix.
-      const stripped = stripThPrefix(rawPath);
-      dest = stripped + search;
-    }
+    const dest = localeSwitchHref(
+      window.location.pathname,
+      target,
+      window.location.search,
+      window.location.hash,
+    );
 
     if (fadeDuration === 0) {
       // prefers-reduced-motion: instant navigate, no crossfade.
@@ -141,8 +144,8 @@ export function LocaleSwitcher() {
         gap: "0.35em",
         // Inherit the t-meta register from the parent nav-clock cell.
         fontFamily: "var(--font-mono)",
-        fontSize: "9px",
-        letterSpacing: "0.3em",
+        fontSize: "var(--public-meta-size)",
+        letterSpacing: "var(--public-meta-tracking)",
         textTransform: "uppercase",
         // Not a block element — flows naturally beside StratumIndicator.
         whiteSpace: "nowrap",

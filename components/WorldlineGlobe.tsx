@@ -22,11 +22,16 @@ import {
 } from "@/lib/content/places";
 import {
   dampVec3,
-  formatNetraCoord,
   globeSurfacePointAtRotation,
   latLonFromGlobeHit,
   latLonToVec3 as geoLatLonToVec3,
 } from "@/lib/globe-coordinates";
+import {
+  createNetraPlaceIdentity,
+  formatNetraTargetIdentity,
+  resolveNetraCoordinateRows,
+  type NetraTargetIdentity,
+} from "./worldline-netra-readout";
 import {
   WL_STRATUM_EVENT, type StratumChangeDetail,
   WL_GLOBE_COORD_EVENT,
@@ -1017,10 +1022,19 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
   // loop) — keeps the component from re-rendering 60×/sec and prevents the
   // ResizeObserver→renderer.setSize feedback that produced the shake.
   const hudCamRef = useRef<HTMLSpanElement | null>(null);
-  const netraCoordRef = useRef<HTMLSpanElement | null>(null);
+  const netraLatitudeRef = useRef<HTMLSpanElement | null>(null);
+  const netraLongitudeRef = useRef<HTMLSpanElement | null>(null);
   const netraRangeRef = useRef<HTMLSpanElement | null>(null);
-  // Target name only changes on click — fine to use React state.
-  const [netraTarget, setNetraTarget] = useState("STANDBY");
+  // Identity changes at target/stratum transitions; live coordinates stay in refs.
+  const [netraTarget, setNetraTargetState] = useState<NetraTargetIdentity>({ kind: "field", name: "STANDBY" });
+  const netraTargetRef = useRef(netraTarget);
+  const setNetraTarget = useCallback((target: NetraTargetIdentity) => {
+    // The frame loop must see the same identity immediately, without depending
+    // on camera flags that a place-panel dismissal can reset independently.
+    netraTargetRef.current = target;
+    setNetraTargetState(target);
+  }, []);
+  const targetIdentity = formatNetraTargetIdentity(netraTarget);
   // Branch voice — overrides stratum voice when NeX branching is active.
   // Q-F/Q-G lines from Vega (TASK-2026-05-17-VEGA-BRANCHING-VOICE).
   const [branchVoice, setBranchVoice] = useState<string | null>(null);
@@ -1169,7 +1183,11 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
       if (e.key === "Escape") {
         if (selectedIdRef.current && digOpenRef.current) setDigOpen(false);
         else if (selectedIdRef.current) setSelectedId(null);
-        else setStratum("all");
+        else {
+          // The stratum may already be all; still clear a prior orbital target.
+          setNetraTarget({ kind: "field", name: STRATA.all.netra });
+          setStratum("all");
+        }
       } else if (e.key === "d" || e.key === "D") {
         if (selectedIdRef.current && !digOpenRef.current) setDigOpen(true);
       } else if (e.key === "1") setStratum((s) => (s === "neo" ? "all" : "neo"));
@@ -1179,7 +1197,7 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [setNetraTarget]);
 
   // Jump-to-next-node (NETRA) — cycles through observer + place + fiction nodes.
   // movable-alpha: initialised to -1 so the first click increments to 0 (the α
@@ -1207,17 +1225,15 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
 
     // tokyo-alpha: observer-α cycle stop REMOVED (2026-06-15, α-SUR-01).
     // The standalone observer α entry is gone — the alpha-locus PLACE is now
-    // the first cycle stop, rendered with orange accent + 'α · ' prefix.
+    // the first cycle stop, rendered with orange accent + the genuine α label.
     // Place nodes: alpha place first (isAlpha=true sorted top), then the rest.
-    // The alpha place gets the 'α · ' prefix on its label so the NETRA readout
-    // shows e.g. "α · BANGKOK · Bangkok · TH" — distinguishing it as the locus.
+    // City comes from place.name once; it is not an extra internal node name.
     const surface: JumpTarget[] = summaries
       .slice()
       .sort((a, b) => (b.isAlpha ? 1 : 0) - (a.isAlpha ? 1 : 0))
       .map((s) => {
-        const baseName = s.place.name.split(" · ")[0].toUpperCase();
         return {
-          label: s.isAlpha ? `α · ${baseName}` : baseName,
+          label: s.isAlpha ? "α" : "",
           place: s.place.name,
           coords: { lat: s.place.coord.lat, lon: s.place.coord.lon },
           placeId: s.place.id,
@@ -1671,7 +1687,7 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
 
     // ─── Camera transitions per stratum ───
     let cameraAnim: ((now: number) => void) | null = null;
-    const applyStratum = (key: StratumKey) => {
+    const applyStratum = (key: StratumKey, updateIdentity = true) => {
       // Stratum change = deactivate branches (spec §5.1 option iii rejection logic:
       // framing change calls deactivateDrift — same applies here).
       deactivateBranches();
@@ -1689,6 +1705,14 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
         clearNetraLock();
       }
       const T = STRATA[key];
+      if (updateIdentity) {
+        const alphaPlace = key === "neo"
+          ? placeSummariesRef.current.find((summary) => summary.isAlpha)
+          : undefined;
+        setNetraTarget(alphaPlace
+          ? createNetraPlaceIdentity(alphaPlace.place.name, "α")
+          : { kind: "field", name: T.netra });
+      }
       const isNeo = key === "neo";
       const startPos = camera.position.clone();
       const startLook = currentLook.clone();
@@ -1737,11 +1761,17 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
     // `id` is now a placeId; coords resolve from the async-built place registry.
     const applySelected = (id: string | null) => {
       if (!id) {
-        applyStratum(stratumRef.current);
+        // Entering an orbital target also dismisses the place panel. Preserve
+        // its new identity while retaining that existing camera-reset path.
+        applyStratum(stratumRef.current, netraTargetRef.current.kind !== "orbital");
         return;
       }
       const node = refs.placeObjects.find((p) => p.summary.place.id === id);
       if (!node) return;
+      setNetraTarget(createNetraPlaceIdentity(
+        node.summary.place.name,
+        node.summary.isAlpha ? "α" : undefined,
+      ));
       const coords = {
         lat: node.summary.place.coord.lat,
         lon: node.summary.place.coord.lon,
@@ -2036,7 +2066,7 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
       nexActiveRef.current = true;
       const label = slug.replace(/^transmission-/, "t.");
       const place = `NeX · ${pin?.domain ?? "identity"}`;
-      setNetraTarget(`${label} · ${place}`);
+      setNetraTarget({ kind: "orbital", name: label, detail: place });
     };
 
     // NETRA jump — extended for fiction NeX nodes.
@@ -2060,7 +2090,7 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
       if (n.placeId) {
         deactivateBranches();
         openPlaceRef.current(n.placeId);
-        setNetraTarget(`${n.label} · ${n.place}`);
+        setNetraTarget(createNetraPlaceIdentity(n.place, n.label));
         return;
       }
 
@@ -2082,7 +2112,7 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
         camera.lookAt(currentLook);
         if (k >= 1) cameraAnim = null;
       };
-      setNetraTarget(`${n.label} · ${n.place}`);
+      setNetraTarget(createNetraPlaceIdentity(n.place, n.label));
     };
 
     // QA debug-state hook — read-only snapshot for deterministic verification.
@@ -2396,7 +2426,9 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
         hudCamRef.current.textContent = hudCamText;
       }
 
-      // NETRA coordinate readout — priority order:
+      // NETRA coordinate readout — an explicitly orbital target has no GPS.
+      // Camera resets must not turn its retained identity into a surface fix.
+      // For other targets, keep the existing priority order:
       //   1. netraLock (a pinned surface node) → show its earth-fixed coords.
       //   2. nexActive (a NeX possibility node is the active target) → show the
       //      absence-of-place token "—". A NeX node is ORBITAL, not a place
@@ -2406,22 +2438,22 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
       //      fix" — NOT a richer telemetry/orbit readout (guardrail (b)/(d)).
       //   3. live hover over the globe sphere → show the hit-point's lat/lon.
       //   4. no hit / pointer outside globe / pointer over any overlay → hide.
-      if (netraCoordRef.current) {
+      if (netraLatitudeRef.current && netraLongitudeRef.current) {
         const lockCoords = netraLockRef.current?.coords ?? null;
         const hoverCoords = hoverGlobeCoordRef.current;
-        let coordText: string;
-        if (lockCoords) {
-          coordText = formatNetraCoord(lockCoords.lat, lockCoords.lon);
-        } else if (nexActiveRef.current) {
-          // Orbital node active — absence-of-place marker, never a fake lat/lon.
-          coordText = "—";
-        } else if (hoverCoords) {
-          coordText = formatNetraCoord(hoverCoords.lat, hoverCoords.lon);
-        } else {
-          coordText = "";
+        const rows = resolveNetraCoordinateRows(
+          netraTargetRef.current,
+          lockCoords,
+          hoverCoords,
+          nexActiveRef.current,
+        );
+        // Only mutate the leaf text. Replacing the parent's textContent would
+        // destroy the stable latitude/longitude slots and reintroduce reflow.
+        if (netraLatitudeRef.current.textContent !== rows.latitude) {
+          netraLatitudeRef.current.textContent = rows.latitude;
         }
-        if (netraCoordRef.current.textContent !== coordText) {
-          netraCoordRef.current.textContent = coordText;
+        if (netraLongitudeRef.current.textContent !== rows.longitude) {
+          netraLongitudeRef.current.textContent = rows.longitude;
         }
       }
       const rangeText = camera.position.length().toFixed(2);
@@ -2901,10 +2933,23 @@ export function WorldlineGlobe({ alphaCoord, stats }: WorldlineGlobeProps = {}) 
             </span>
             <span className="id-box">
               <span className="lab">◎ NETRA</span>
-              <span className="tgt">{netraTarget}</span>
+              <span className="tgt" title={targetIdentity.full}>
+                <span className="netra-identity-primary">
+                  <span className="netra-node-name">{targetIdentity.nodeName ? <>
+                    <span className="netra-node-label">{targetIdentity.nodeName}</span>
+                    <span className="netra-node-separator">{" · "}</span>
+                  </> : null}</span>
+                  <span className="netra-place-name">{targetIdentity.name}</span>
+                  <span className="netra-identity-separator">{targetIdentity.secondary ? " ·" : ""}</span>
+                </span>{" "}
+                <span className="netra-identity-secondary">{targetIdentity.secondary}</span>
+              </span>
             </span>
             <span className="readout">
-              <span>RETICLE</span><b ref={netraCoordRef}>0.00°N · 0.00°E</b>
+              <span>RETICLE</span><b className="netra-coordinates">
+                <span className="netra-latitude" ref={netraLatitudeRef} />{" "}
+                <span className="netra-longitude" ref={netraLongitudeRef} />
+              </b>
               <span>RANGE</span><b ref={netraRangeRef}>2.50</b>
             </span>
             {/* NEXT NODE keeps the project-wide 44px interaction floor on every

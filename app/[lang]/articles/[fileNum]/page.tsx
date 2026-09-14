@@ -166,10 +166,10 @@ export default async function ArticlePage({
   // SPEC 1+2: run getNextEntries + getPublishedArticleCount in parallel with the body render.
   // All three are independent reads — no sequential dependency.
   const [body, nextEntries, articlesCount] = await Promise.all([
-    renderMdxBody(article.body),
+    renderMdxBody(article.body, { pathname: `${requestedLang === 'th' ? '/th' : ''}/articles/${fileNum}` }),
     getNextEntries(article, requestedLang),
     getPublishedArticleCount(requestedLang),
   ])
 
-  return <ArticleEntry article={article} body={body} nextEntries={nextEntries} articlesCount={articlesCount} />
+  return <ArticleEntry requestedLang={requestedLang} article={article} body={body} nextEntries={nextEntries} articlesCount={articlesCount} />
 }

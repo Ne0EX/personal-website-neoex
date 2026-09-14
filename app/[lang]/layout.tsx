@@ -24,7 +24,6 @@
  * Owner: Altair (α-BND-02) · bilingual P3
  */
 
-import { getArchiveEntries, getMiniGlobePins } from '@/lib/content'
 import { TriangulateSearchPortal } from '@/components/TriangulateSearchPortal'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { NetraNavigator } from '@/components/NetraNavigator'
@@ -50,12 +49,8 @@ export default async function LangLayout({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { lang: _lang } = await params
 
-  // Full privacy-gated pin set for the Triangulate Search OVERLAY.
-  // Computed here (server) since the overlay is a global client mount with no
-  // corpus of its own. RootLayout is statically rendered (no request-time API
-  // read), so this stays in the static graph.
-  const allEntries = await getArchiveEntries()
-  const allPins = getMiniGlobePins(allEntries)
+  // Search refreshes publication membership and public loci for every query;
+  // a cached layout snapshot must not authorize a stale build-index result.
 
   return (
     <>
@@ -68,7 +63,7 @@ export default async function LangLayout({
        * listener, so the SEARCH surface opens OVER any public page without
        * navigating. Console routes do NOT get this portal (not under [lang]).
        */}
-      <TriangulateSearchPortal allPins={allPins} />
+      <TriangulateSearchPortal lang={_lang} />
     </>
   )
 }

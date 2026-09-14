@@ -114,8 +114,8 @@ export function ArchiveFilters({ counts, activeType, onTypeChange }: ArchiveFilt
         className="af-section"
         style={{
           fontFamily: 'var(--font-mono)',
-          fontSize: '9px',
-          letterSpacing: '0.3em',
+          fontSize: "var(--public-meta-size)",
+          letterSpacing: "var(--public-meta-tracking)",
           textTransform: 'uppercase',
           paddingBottom: '8px',
           borderBottom: '1px dashed var(--ink-dashed)',
@@ -132,8 +132,8 @@ export function ArchiveFilters({ counts, activeType, onTypeChange }: ArchiveFilt
             className="af-family"
             style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: '9px',
-              letterSpacing: '0.3em',
+              fontSize: "var(--public-meta-size)",
+              letterSpacing: "var(--public-meta-tracking)",
               textTransform: 'uppercase',
               marginBottom: '6px',
             }}
@@ -168,8 +168,8 @@ export function ArchiveFilters({ counts, activeType, onTypeChange }: ArchiveFilt
                   style={{
                     // Typography — t-meta register (§8)
                     fontFamily: 'var(--font-mono)',
-                    fontSize: '9px',
-                    letterSpacing: '0.3em',
+                    fontSize: "var(--public-meta-size)",
+                    letterSpacing: "var(--public-meta-tracking)",
                     textTransform: 'uppercase',
                     // Layout
                     appearance: 'none',

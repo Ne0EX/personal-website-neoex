@@ -115,7 +115,7 @@ export default async function FictionPage({
     notFound()
   }
 
-  const body = await renderMdxBody(fiction.body)
+  const body = await renderMdxBody(fiction.body, { pathname: `${requestedLang === 'th' ? '/th' : ''}/fiction/${slug}` })
 
-  return <FictionEntry fiction={fiction} body={body} />
+  return <FictionEntry requestedLang={requestedLang} fiction={fiction} body={body} />
 }

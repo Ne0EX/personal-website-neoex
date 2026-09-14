@@ -1,4 +1,4 @@
-/** Request-scoped, RLS-backed reads for NETRA. Never use the anon singleton here. */
+/** Request-scoped public reads for NETRA. Published-only even for a signed-in owner. */
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type {
   NetraArchiveFilter,
@@ -170,7 +170,7 @@ export async function searchEntries(client: NetraClient, query: string, filter: 
   const filterExpression = searchFilter(query)
   if (!filterExpression) return []
 
-  let request = client.from('entries').select(RESULT_COLUMNS).or(filterExpression)
+  let request = client.from('entries').select(RESULT_COLUMNS).eq('status', 'published').or(filterExpression)
   if (filter === 'articles') request = request.eq('kind', 'article')
   if (filter === 'photos') request = request.eq('kind', 'photo')
   if (filter === 'fiction') request = request.eq('kind', 'fiction')
@@ -191,6 +191,7 @@ export async function getEntry(
   const { data, error } = await client
     .from('entries')
     .select(RESULT_COLUMNS)
+    .eq('status', 'published')
     .eq('slug', slugOrFileNum)
     .in('lang', languageCandidates(lang))
     .order('lang')
@@ -207,6 +208,7 @@ export async function listRecentPatches(
   const { data, error } = await client
     .from('entries')
     .select(PATCH_COLUMNS)
+    .eq('status', 'published')
     .not('patches', 'is', null)
     .order('iso_date', { ascending: false })
     .limit(100)
@@ -223,7 +225,7 @@ export async function searchPhotos(client: NetraClient, query: string, limit = 5
 }
 
 export async function listFiction(client: NetraClient): Promise<NetraResult[]> {
-  const { data, error } = await client.from('entries').select(RESULT_COLUMNS).eq('kind', 'fiction').order('iso_date', { ascending: false }).limit(50)
+  const { data, error } = await client.from('entries').select(RESULT_COLUMNS).eq('status', 'published').eq('kind', 'fiction').order('iso_date', { ascending: false }).limit(50)
   if (error) throw new Error(`NETRA fiction failed: ${error.message}`)
   return ((data ?? []) as Record<string, unknown>[]).map(mapRow)
 }
@@ -237,6 +239,7 @@ async function getLocalizedResource(
   const { data, error } = await client
     .from('entries')
     .select(RESULT_COLUMNS)
+    .eq('status', 'published')
     .eq('kind', kind)
     .eq('slug', slug)
     .in('lang', languageCandidates(lang))
@@ -259,6 +262,7 @@ async function getCurrentPhotoEntry(
   const { data, error } = await client
     .from('entries')
     .select(RESULT_COLUMNS)
+    .eq('status', 'published')
     .eq('kind', 'photo')
     .eq('roll', roll)
     .eq('photo_id', photoId)
@@ -285,6 +289,7 @@ async function getCurrentPhotoRoll(
   const { data, error } = await client
     .from('entries')
     .select(RESULT_COLUMNS)
+    .eq('status', 'published')
     .eq('kind', 'photo')
     .eq('roll', roll)
     .order('photo_id', { ascending: true })

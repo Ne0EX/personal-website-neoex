@@ -104,7 +104,7 @@ export function ArchiveGlobeReadout({
       aria-live="polite"
       style={{
         width: '100%',
-        fontSize: '9px',
+        fontSize: "var(--public-meta-size)",
         textTransform: 'uppercase',
         border: '1px dashed var(--ink-dashed)',
         padding: '10px 12px',
@@ -117,7 +117,7 @@ export function ArchiveGlobeReadout({
       <div
         className="arl-head"
         style={{
-          letterSpacing: '0.3em',
+          letterSpacing: "var(--public-meta-tracking)",
           marginBottom: '6px',
           paddingBottom: '6px',
           borderBottom: '1px dashed var(--ink-dashed)',
@@ -169,7 +169,7 @@ export function ArchiveGlobeReadout({
       {/* α — fixed observer locus (orange, RESERVED; .arl-alpha keeps it orange
           regardless of the read-tier lift). */}
       <div data-arl-row="alpha">
-        <span className="arl-alpha" style={{ letterSpacing: '0.18em', color: 'var(--accent-orange)' }}>α</span>
+        <span className="arl-alpha" style={{ letterSpacing: "var(--public-meta-tracking)", color: 'var(--accent-orange)' }}>α</span>
         <span className="arl-alpha" style={{ ...valStyle, color: 'var(--accent-orange)' }}>
           {ALPHA_COORD_LABEL}
         </span>
@@ -188,7 +188,7 @@ export function ArchiveGlobeReadout({
           background: 'none',
           border: '1px dashed var(--ink-dashed)',
           fontFamily: 'var(--font-mono)',
-          fontSize: '9px',
+          fontSize: "var(--public-meta-size)",
           textTransform: 'uppercase',
           // Resting enabled colour comes from .arl-next (read-tier lift); only the
           // disabled state forces ink-faint inline.

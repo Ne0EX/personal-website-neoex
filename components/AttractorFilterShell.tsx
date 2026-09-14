@@ -26,9 +26,9 @@
  */
 
 import { useState, useMemo } from "react";
-import { ATTRACTOR_FIELDS, RECENT_ENTRIES, type Entry } from "@/lib/entries";
+import { ATTRACTOR_FIELDS } from "@/lib/entries";
 import { AttractorFields } from "@/components/AttractorFields";
-import { ChapterIndex } from "@/components/ChapterIndex";
+import { ChapterIndex, type ChapterIndexEntry } from "@/components/ChapterIndex";
 
 /** Normalize a tag/pill string for fuzzy matching. */
 function normalize(s: string): string {
@@ -36,10 +36,10 @@ function normalize(s: string): string {
 }
 
 /**
- * Compute how many RECENT_ENTRIES match each ATTRACTOR_FIELDS pill.
+ * Compute membership from the same published entries rendered in Traces.
  * "all" is always the full count.
  */
-function buildMemberCounts(entries: Entry[]): Record<string, number> {
+function buildMemberCounts(entries: ChapterIndexEntry[]): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const pill of ATTRACTOR_FIELDS) {
     if (pill === "all") {
@@ -55,6 +55,8 @@ function buildMemberCounts(entries: Entry[]): Record<string, number> {
 }
 
 interface AttractorFilterShellProps {
+  entries: ChapterIndexEntry[];
+  lang: string;
   /**
    * CW-10 · initial active filter from /?tag= URL param (ux-journey, α-SUR-01).
    * Tag links on entry pages link to /?tag=essay etc. The server page reads
@@ -64,22 +66,19 @@ interface AttractorFilterShellProps {
   initialTag?: string;
 }
 
-export function AttractorFilterShell({ initialTag = "all" }: AttractorFilterShellProps) {
+export function AttractorFilterShell({ entries, lang, initialTag = "all" }: AttractorFilterShellProps) {
   const [activeAttractor, setActiveAttractor] = useState<string>(initialTag);
 
-  // memberCounts never changes across the page lifetime (entries are static
-  // build-time data) — compute once.
-  const memberCounts = useMemo(() => buildMemberCounts(RECENT_ENTRIES), []);
+  const memberCounts = useMemo(() => buildMemberCounts(entries), [entries]);
 
-  // Filter entries. "all" (or any pill with count 0 somehow becoming active)
-  // returns the full list. useMemo because RECENT_ENTRIES is static.
+  // An empty public corpus stays empty; no static entries fill the gap.
   const filteredEntries = useMemo(() => {
-    if (activeAttractor === "all") return RECENT_ENTRIES;
+    if (activeAttractor === "all") return entries;
     const normPill = normalize(activeAttractor);
-    return RECENT_ENTRIES.filter((e) =>
+    return entries.filter((e) =>
       e.tags.some((t) => normalize(t) === normPill)
     );
-  }, [activeAttractor]);
+  }, [entries, activeAttractor]);
 
   function handleSelect(tag: string) {
     // Clicking the active pill again resets to "all" (clear behavior).
@@ -94,7 +93,7 @@ export function AttractorFilterShell({ initialTag = "all" }: AttractorFilterShel
     <div className="flex flex-col">
       {/* §01 — filtered by activeAttractor; desktop-first (order-1 default) */}
       <div className="max-[600px]:order-last">
-        <ChapterIndex entries={filteredEntries} activeAttractor={activeAttractor} />
+        <ChapterIndex entries={filteredEntries} lang={lang} activeAttractor={activeAttractor} />
       </div>
 
       {/* §02 — pill strip; drives filter; lifted above entries on mobile only */}

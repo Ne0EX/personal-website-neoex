@@ -128,8 +128,8 @@ export function FilmSimSwitcher() {
         aria-hidden
         style={{
           fontFamily: "var(--font-mono)",
-          fontSize: "9px",
-          letterSpacing: "0.22em",
+          fontSize: "var(--public-meta-size)",
+          letterSpacing: "var(--public-meta-tracking)",
           textTransform: "uppercase",
           color: "var(--ink-soft)",
           paddingBottom: "8px",
@@ -155,7 +155,7 @@ export function FilmSimSwitcher() {
             border: "1px solid var(--ink-faint)",
             color: "var(--ink-primary)",
             fontFamily: "var(--font-mono)",
-            fontSize: "9px",
+            fontSize: "var(--public-meta-size)",
             letterSpacing: "0.15em",
             textTransform: "uppercase",
             padding: "0.6em 0.9em",

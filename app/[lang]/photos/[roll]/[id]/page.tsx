@@ -54,7 +54,7 @@ export default async function PhotoEntryPage({
 }: {
   params: Promise<{ lang: string; roll: string; id: string }>
 }) {
-  const { roll, id } = await params
+  const { lang, roll, id } = await params
 
   const photo = await getPhotoByRollAndId(roll, id)
 
@@ -116,6 +116,7 @@ export default async function PhotoEntryPage({
           </PhotoSwipeViewer>
 
           <WorldlineLinks
+            lang={lang}
             kind="photo"
             identifier={`${roll}/${id}`}
             title={photo.caption ?? id}

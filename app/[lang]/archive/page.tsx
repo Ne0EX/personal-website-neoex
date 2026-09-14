@@ -48,8 +48,9 @@ function deriveFilterCountsServer(
   return { all: entries.length, article, photo, fiction }
 }
 
-export default async function ArchivePage() {
-  const allEntries = await getArchiveEntries()
+export default async function ArchivePage({ params }: { params: Promise<{ lang: string }> }) {
+  const { lang } = await params
+  const allEntries = await getArchiveEntries({ requestedLang: lang })
   const byYear = await getArchiveEntriesByYear(allEntries)
   const pins = getMiniGlobePins(allEntries)
   const counts = deriveFilterCountsServer(allEntries)
@@ -119,12 +120,12 @@ export default async function ArchivePage() {
         </div>
         <div
           className="t-meta"
-          style={{ display: 'flex', alignItems: 'center', gap: '16px' }}
+          style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px 16px' }}
         >
           <Link
             href="/"
             className="archive-atlas-link"
-            style={{ color: 'var(--ink-soft)', textDecoration: 'none' }}
+            style={{ color: 'var(--ink-soft)', textDecoration: 'none', whiteSpace: 'nowrap' }}
           >
             [ ◯ ATLAS ]
           </Link>

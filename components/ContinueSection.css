@@ -18,15 +18,26 @@
  */
 
 /* ── Glyph + caret color shift on row hover ──────────────────── */
-/* Both shift to --accent-orange on hover (spec §1.6 tokens + §1.9 states). */
-[data-continue-section] .entry-card:hover .cs-glyph {
-  color: var(--accent-orange);
+/* Both shift to --accent-orange on hover (spec §1.6 tokens + §1.9 states).  */
+/* F3: touch-gated — hover colour shift only fires on true pointer devices.   */
+/* Touch taps must not produce a stuck orange state (no :hover on touchscreen).*/
+/* Keep the rest state here so the stylesheet hover rule wins without !important. */
+[data-continue-section] .cs-glyph,
+[data-continue-section] .cs-caret {
+  color: var(--ink-soft);
   transition: color 150ms ease;
 }
 
-[data-continue-section] .entry-card:hover .cs-caret {
-  color: var(--accent-orange);
-  transition: color 150ms ease;
+@media (hover: hover) and (pointer: fine) {
+  [data-continue-section] .entry-card:hover .cs-glyph {
+    color: var(--accent-orange);
+    transition: color 150ms ease;
+  }
+
+  [data-continue-section] .entry-card:hover .cs-caret {
+    color: var(--accent-orange);
+    transition: color 150ms ease;
+  }
 }
 
 /* ── Focus ring ──────────────────────────────────────────────── */

@@ -10,8 +10,8 @@
  *         All confirmed public links supplied by Peat.
  * CW-08 · Footer link touch targets: mobile-only paddingBlock 18px → ~44px tap zone.
  *         All footer links were 12px tall, functionally un-tappable on mobile.
- *         Achieved via .footer-channel-link CSS class gated at @media (max-width: 768px)
- *         so desktop retains original tight spacing. Inline paddingBlock removed.
+ *         Achieved via .footer-channel-link CSS class gated at @media (max-width: 900px)
+ *         so desktop keeps its measured 1.6 line-height rhythm. Inline paddingBlock removed.
  */
 export function FooterManifesto() {
   return (
@@ -50,16 +50,16 @@ export function FooterManifesto() {
         <h4 className="t-meta tracking-[0.3em] mb-3">{"//"} CHANNELS</h4>
         {/*
          * CW-08 — touch target: links were 12px tall. display:block + paddingBlock
-         * brings tap zone to ~44px on mobile. leading-[2] kept on the <ul> for
-         * desktop visual rhythm but overridden per-link for mobile tap safety.
+         * brings tap zone to ~44px on mobile. .footer-link-list owns the shared
+         * desktop rhythm while per-link padding provides mobile tap safety.
          */}
         {/*
          * boot-footer fix (α-SUR-01, 2026-06-14): removed style={{ lineHeight: 1 }}
-         * which was overriding the leading-[2] Tailwind class and cramping desktop
-         * spacing. The mobile 44px tap zone is handled by .footer-channel-link
-         * @media rule in globals.css — no inline style needed here.
+         * which was cramping desktop spacing. The shared leading-[1.6] rhythm now
+         * lives on .footer-link-list; the mobile tap zone remains in
+         * .footer-channel-link.
          */}
-        <ul className="leading-[2] text-[var(--ink-primary)]">
+        <ul className="footer-link-list leading-[1.6] text-[var(--ink-primary)]">
           {[
             /* CW-07: All three URLs wired to confirmed public profiles. */
             { label: "anilist",         href: "https://anilist.co/user/NeospiritTH/",                                       live: true },
@@ -86,8 +86,8 @@ export function FooterManifesto() {
 
       <div>
         <h4 className="t-meta tracking-[0.3em] mb-3">{"//"} TRANSMIT</h4>
-        {/* boot-footer fix: same inline override removed here for TRANSMIT column */}
-        <ul className="leading-[2] text-[var(--ink-primary)]">
+        {/* boot-footer fix: CHANNELS and TRANSMIT share one measured rhythm. */}
+        <ul className="footer-link-list leading-[1.6] text-[var(--ink-primary)]">
           {[
             /* address authorized by Peat; visible label stays obfuscated
                (fix: footer-mailto · α-SUR-01 · wiring-wave1) */
@@ -111,7 +111,7 @@ export function FooterManifesto() {
            * Dimmed at var(--ink-faint), pointer-events:none, no href until live.
            * Visual treatment = disabled attractor pill register (same faint opacity).
            * When the domain goes live: remove pointerEvents+opacity override, add href.
-           * footer-channel-link class provides mobile tap zone on @media ≤768px.
+           * footer-channel-link class provides touch tap zone on @media ≤900px.
            */}
           <li>
             <span

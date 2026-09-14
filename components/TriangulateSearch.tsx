@@ -51,7 +51,8 @@ import { ArchiveMiniGlobe } from "./ArchiveMiniGlobe";
 import type { MiniGlobeReadout } from "./ArchiveMiniGlobe";
 import { ArchiveGlobeReadout } from "./ArchiveGlobeReadout";
 import { canonicalPath } from "@/lib/client-state/usePagefind";
-import type { MiniGlobePin } from "@/lib/content";
+import { getArchiveEntries, getMiniGlobePins, type MiniGlobePin } from "@/lib/content";
+import { filterPublicSearchResults, type PublicSearchResult as PagefindResult } from "@/lib/client-state/public-search";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -60,108 +61,10 @@ import type { MiniGlobePin } from "@/lib/content";
 type KindFilter = "ALL" | "ARTICLE" | "PHOTO" | "FICTION";
 type SortDir = "NEWEST" | "OLDEST";
 
-interface PagefindResult {
-  url: string;
-  meta: {
-    title?: string;
-    /** pagefind-meta: kind — article | photo | fiction */
-    kind?: string;
-    /** pagefind-meta: fileNum — e.g. "001" */
-    fileNum?: string;
-    /** pagefind-meta: date — YYYY.MM.DD */
-    date?: string;
-    /** pagefind-meta: isoDate — YYYY-MM-DD (for sort) */
-    isoDate?: string;
-    /** pagefind-meta: tags — comma-separated */
-    tags?: string;
-    /** pagefind-meta: coord — "lat°N · lon°E" or blank */
-    coord?: string;
-    /** pagefind-meta: place — locality label for the readout RETICLE meta */
-    place?: string;
-    /** pagefind-meta: drift — "N.Nk" distance from α locus */
-    drift?: string;
-    /** pagefind-meta: tended-count — number of revisions */
-    "tended-count"?: string;
-    /** pagefind-meta: tended-last — YYYY.MM.DD of last revision */
-    "tended-last"?: string;
-  };
-  excerpt: string;
-}
-
 interface SearchState {
   phase: "idle" | "loading" | "results" | "empty" | "failure";
   items: PagefindResult[];
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PagefindResult → MiniGlobePin conversion
-// The pagefind `coord` meta is a display string: "13.76°N · 100.50°E".
-// We parse it here so the globe receives typed numeric coords.
-// Results without a coord string are omitted (they have no locus to plot).
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Parse the pagefind coord meta string ("13.76°N · 100.50°E") into a
- * { lat, lon } pair. Returns null if the string is absent or malformed.
- *
- * Format contract (ArticleEntry.tsx L85–86, PhotoEntry.tsx):
- *   `${lat.toFixed(2)}°N · ${lon.toFixed(2)}°E`
- */
-function parseCoordString(
-  coord: string | undefined,
-): { lat: number; lon: number } | null {
-  if (!coord) return null;
-  // Match: optional minus, digits, optional decimal, °N (or °S), separator, same for lon
-  const m = coord.match(
-    /^(-?[\d.]+)°([NS])\s*·\s*(-?[\d.]+)°([EW])$/i,
-  );
-  if (!m) return null;
-  const lat = parseFloat(m[1]) * (m[2].toUpperCase() === "S" ? -1 : 1);
-  const lon = parseFloat(m[3]) * (m[4].toUpperCase() === "W" ? -1 : 1);
-  if (Number.isNaN(lat) || Number.isNaN(lon)) return null;
-  return { lat, lon };
-}
-
-/**
- * Map a PagefindResult[] to MiniGlobePin[].
- * Only results that carry a parseable coord string are included.
- * Privacy gate is already applied upstream (pagefind only indexes entries
- * where the coord meta was written; coords are written only when
- * shareLocation===true in the entry component).
- */
-function resultsToPins(results: PagefindResult[]): MiniGlobePin[] {
-  const pins: MiniGlobePin[] = [];
-  for (const r of results) {
-    const coords = parseCoordString(r.meta.coord);
-    if (!coords) continue;
-    // "photo-roll" maps to the same pin kind as "photo" — roll index pages
-    // sit in the photo stratum. Rolls carry no coord today so this path is
-    // currently defensive; kept for correctness when coords land.
-    const kind: MiniGlobePin["kind"] =
-      r.meta.kind === "photo" || r.meta.kind === "photo-roll"
-        ? "photo"
-        : r.meta.kind === "fiction"
-        ? "fiction"
-        : "article";
-    // id mirrors how getMiniGlobePins() derives stable ids:
-    // article → fileNum; photo → fileNum (stored as roll/id); fiction → fileNum (slug).
-    const id = r.meta.fileNum ?? r.url;
-    pins.push({
-      id,
-      kind,
-      lat: coords.lat,
-      lon: coords.lon,
-      // Canonicalize at the SOURCE: r.url is a raw pagefind URL ending in .html
-      // ("…/DSCF0005.html"). Storing it clean here means every consumer of
-      // pin.route — onPinClick's router.push (desktop + mobile) and any future
-      // reader — gets the 404-free clean route. Pins from allPins are already
-      // clean; this fallback is the only path that injects a raw URL.
-      route: canonicalPath(r.url),
-      title: r.meta.title ?? "",
-      place: r.meta.place ?? "",
-    });
-  }
-  return pins;
+  pins?: MiniGlobePin[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -315,8 +218,8 @@ function ResultCard({
         <div
           style={{
             fontFamily: "var(--font-mono)",
-            fontSize: "9px",
-            letterSpacing: "0.3em",
+            fontSize: "var(--public-meta-size)",
+            letterSpacing: "var(--public-meta-tracking)",
             textTransform: "uppercase",
             color: "var(--ink-soft)",
             marginBottom: "3px",
@@ -350,8 +253,8 @@ function ResultCard({
           <div
             style={{
               fontFamily: "var(--font-mono)",
-              fontSize: "9px",
-              letterSpacing: "0.22em",
+              fontSize: "var(--public-meta-size)",
+              letterSpacing: "var(--public-meta-tracking)",
               color: "var(--ink-faint)",
               marginBottom: "3px",
             }}
@@ -365,8 +268,8 @@ function ResultCard({
           <div
             style={{
               fontFamily: "var(--font-mono)",
-              fontSize: "9px",
-              letterSpacing: "0.22em",
+              fontSize: "var(--public-meta-size)",
+              letterSpacing: "var(--public-meta-tracking)",
               color: "var(--ink-soft)",
               marginBottom: aliveText ? "3px" : undefined,
             }}
@@ -380,8 +283,8 @@ function ResultCard({
           <div
             style={{
               fontFamily: "var(--font-mono)",
-              fontSize: "9px",
-              letterSpacing: "0.22em",
+              fontSize: "var(--public-meta-size)",
+              letterSpacing: "var(--public-meta-tracking)",
               color: "var(--ink-faint)",
             }}
           >
@@ -416,8 +319,8 @@ function KindChip({
       onClick={onClick}
       style={{
         fontFamily: "var(--font-mono)",
-        fontSize: "9px",
-        letterSpacing: "0.3em",
+        fontSize: "var(--public-meta-size)",
+        letterSpacing: "var(--public-meta-tracking)",
         textTransform: "uppercase",
         padding: "0.4em 0.75em",
         /* ctl-pill: active = filled-ink (--ctl-pill-bg-active / --ctl-pill-fg-active);
@@ -459,8 +362,8 @@ function SortToggle({
       title={`Sort: ${dir} first. Click to toggle.`}
       style={{
         fontFamily: "var(--font-mono)",
-        fontSize: "9px",
-        letterSpacing: "0.22em",
+        fontSize: "var(--public-meta-size)",
+        letterSpacing: "var(--public-meta-tracking)",
         textTransform: "uppercase",
         padding: "0.4em 0.75em",
         background: "transparent",
@@ -494,17 +397,10 @@ function SortToggle({
 
 interface TriangulateSearchProps {
   onClose: () => void;
-  /**
-   * The FULL privacy-gated pin set (getMiniGlobePins over the whole corpus) —
-   * the SAME source /archive uses. Result pins are derived by intersecting this
-   * with the pagefind result URLs (canonicalPath), so the overlay globe plots the
-   * SAME loci /archive plots. This is what keeps the two globes consistent in
-   * DATA as well as instrument.
-   */
-  allPins?: MiniGlobePin[];
+  lang: string;
 }
 
-export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchProps) {
+export function TriangulateSearch({ onClose, lang }: TriangulateSearchProps) {
   const uid = useId();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -540,44 +436,14 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pagefindRef = useRef<any>(null);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRequestId = useRef(0);
 
-  // ── Mini-globe pin derivations — SAME DATA SOURCE as /archive ──────────────
-  // CONSISTENCY (Peat 2026-06-04): the overlay globe plots the SAME loci /archive
-  // plots. /archive derives pins from getMiniGlobePins(corpus) (server). The
-  // overlay receives that exact full pin set as `allPins` and INTERSECTS it with
-  // the current pagefind result URLs (canonicalPath, the same normaliser used by
-  // usePagefind + ArchiveClient). A result with no public locus (privacy-gated,
-  // or no coord) simply contributes no pin — same as /archive.
-  //
-  // Fallback: any result whose URL is NOT in allPins but DOES carry a parseable
-  // coord meta is plotted via resultsToPins (belt-and-suspenders for index/route
-  // skew). allPins wins on URL collision so the id/place/title match /archive.
-  const { items: searchItems } = searchState;
-
+  // Public loci and result metadata come from the same current public read.
+  // Never reconstruct a withdrawn location from the deployment's index.
   const publicLociPins = useMemo(() => {
-    const byRoute = new Map<string, MiniGlobePin>();
-    for (const p of allPins) byRoute.set(canonicalPath(p.route), p);
-
-    const out: MiniGlobePin[] = [];
-    const seen = new Set<string>();
-    for (const item of searchItems) {
-      const key = canonicalPath(item.url);
-      const pin = byRoute.get(key);
-      if (pin && !seen.has(key)) {
-        out.push(pin);
-        seen.add(key);
-      }
-    }
-    // Fallback for results not covered by allPins but carrying coord meta.
-    for (const fb of resultsToPins(searchItems)) {
-      const key = canonicalPath(fb.route);
-      if (!seen.has(key)) {
-        out.push(fb);
-        seen.add(key);
-      }
-    }
-    return out;
-  }, [searchItems, allPins]);
+    const matchedRoutes = new Set(searchState.items.map((item) => canonicalPath(item.url)));
+    return (searchState.pins ?? []).filter((pin) => matchedRoutes.has(canonicalPath(pin.route)));
+  }, [searchState]);
 
   // Triangulate overlay: no additional filter beyond the search query — all
   // visible results are "in membership". activePins === publicLociPins.
@@ -752,14 +618,16 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
 
   // ── pagefind search ──────────────────────────────────────────────────────────
   const runSearch = useCallback(
-    async (q: string, kind: KindFilter, sort: SortDir) => {
+    async (q: string, kind: KindFilter, sort: SortDir, requestId: number) => {
+      const isCurrent = () => requestId === searchRequestId.current;
       if (!q.trim()) {
         setSearchState({ phase: "idle", items: [] });
         setKeyboardIndex(-1);
         return;
       }
 
-      setSearchState((prev) => ({ ...prev, phase: "loading" }));
+      setSearchState({ phase: "loading", items: [] });
+      setKeyboardIndex(-1);
 
       try {
         // Lazy-load pagefind from the built index
@@ -778,6 +646,7 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
           );
         }
 
+        if (!isCurrent()) return;
         if (!pagefindRef.current) {
           setSearchState({ phase: "failure", items: [] });
           return;
@@ -806,10 +675,14 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
             ? { isoDate: "desc" }
             : { isoDate: "asc" };
 
-        const searchResult = await pf.search(q, {
-          filters: Object.keys(filters).length > 0 ? filters : undefined,
-          sort: sortParam,
-        });
+        const [searchResult, publicEntries] = await Promise.all([
+          pf.search(q, {
+            filters: Object.keys(filters).length > 0 ? filters : undefined,
+            sort: sortParam,
+          }),
+          getArchiveEntries({ requestedLang: lang }),
+        ]);
+        if (!isCurrent()) return;
 
         if (!searchResult || !searchResult.results) {
           setSearchState({ phase: "empty", items: [] });
@@ -824,26 +697,34 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
           )
         );
 
-        if (resolved.length === 0) {
+        if (!isCurrent()) return;
+        const publishedResults = filterPublicSearchResults(resolved, publicEntries, lang);
+        if (publishedResults.length === 0) {
           setSearchState({ phase: "empty", items: [] });
         } else {
-          setSearchState({ phase: "results", items: resolved });
+          setSearchState({
+            phase: "results",
+            items: publishedResults,
+            pins: getMiniGlobePins(publicEntries),
+          });
         }
         setKeyboardIndex(-1);
       } catch {
-        setSearchState({ phase: "failure", items: [] });
+        if (isCurrent()) setSearchState({ phase: "failure", items: [] });
       }
     },
-    []
+    [lang]
   );
 
   // ── Debounced search trigger ─────────────────────────────────────────────────
   useEffect(() => {
+    const requestId = ++searchRequestId.current;
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(() => {
-      runSearch(query, kindFilter, sortDir);
+      runSearch(query, kindFilter, sortDir, requestId);
     }, 120);
     return () => {
+      ++searchRequestId.current;
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
   }, [query, kindFilter, sortDir, runSearch]);
@@ -964,8 +845,8 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
             <span
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: "11px",
-                letterSpacing: "0.3em",
+                fontSize: "var(--public-meta-size)",
+                letterSpacing: "var(--public-meta-tracking)",
                 textTransform: "uppercase",
                 color: "var(--ink-primary)",
                 paddingLeft: "18px",
@@ -981,8 +862,8 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
               aria-label="Close search overlay"
               style={{
                 fontFamily: "var(--font-mono)",
-                fontSize: "9px",
-                letterSpacing: "0.22em",
+                fontSize: "var(--public-meta-size)",
+                letterSpacing: "var(--public-meta-tracking)",
                 textTransform: "uppercase",
                 color: "var(--ink-soft)",
                 background: "transparent",
@@ -1161,6 +1042,7 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
                     flex: 1,
                     display: "flex",
                     flexDirection: "column",
+                    minHeight: 0,
                     overflowY: "auto",
                     padding: "12px 0 0",
                   }
@@ -1168,6 +1050,8 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
                     flex: 1,
                     display: "grid",
                     gridTemplateColumns: "1fr 380px",
+                    // Keep both scroll areas inside the remaining modal height.
+                    gridTemplateRows: "minmax(0, 1fr)",
                     gap: "24px",
                     minHeight: 0,
                     padding: "12px 0 0",
@@ -1179,16 +1063,19 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
               style={{
                 display: "flex",
                 flexDirection: "column",
+                // Mobile shares one scroller with the globe below. Let the
+                // results keep their content height instead of shrinking away.
+                flexShrink: isMobile ? 0 : undefined,
                 minHeight: 0,
-                overflow: "hidden",
+                overflow: isMobile ? "visible" : "hidden",
               }}
             >
               {/* Section label */}
               <div
                 style={{
                   fontFamily: "var(--font-mono)",
-                  fontSize: "7px",
-                  letterSpacing: "0.22em",
+                  fontSize: "var(--public-meta-size)",
+                  letterSpacing: "var(--public-meta-tracking)",
                   textTransform: "uppercase",
                   color: "var(--ink-soft)",
                   padding: "0 16px 6px",
@@ -1200,7 +1087,12 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
               </div>
 
               {/* Results list */}
-              <div style={{ flex: 1, overflowY: "auto" }}>
+              <div
+                style={{
+                  flex: isMobile ? "0 0 auto" : 1,
+                  overflowY: isMobile ? "visible" : "auto",
+                }}
+              >
                 {/* Loading only shows the bare "surveying" state on the FIRST
                     search (no prior items). On subsequent keystrokes the list
                     below stays mounted (items.length > 0) so it doesn't flicker
@@ -1211,8 +1103,8 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
                     style={{
                       padding: "16px",
                       fontFamily: "var(--font-mono)",
-                      fontSize: "9px",
-                      letterSpacing: "0.3em",
+                      fontSize: "var(--public-meta-size)",
+                      letterSpacing: "var(--public-meta-tracking)",
                       color: "var(--ink-faint)",
                       textTransform: "uppercase",
                     }}
@@ -1227,8 +1119,8 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
                     style={{
                       padding: "16px",
                       fontFamily: "var(--font-mono)",
-                      fontSize: "9px",
-                      letterSpacing: "0.3em",
+                      fontSize: "var(--public-meta-size)",
+                      letterSpacing: "var(--public-meta-tracking)",
                       color: "var(--ink-faint)",
                       textTransform: "uppercase",
                     }}
@@ -1243,8 +1135,8 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
                     style={{
                       padding: "16px",
                       fontFamily: "var(--font-mono)",
-                      fontSize: "9px",
-                      letterSpacing: "0.3em",
+                      fontSize: "var(--public-meta-size)",
+                      letterSpacing: "var(--public-meta-tracking)",
                       color: "var(--ink-faint)",
                       textTransform: "uppercase",
                     }}
@@ -1261,9 +1153,7 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
                   </div>
                 )}
 
-                {/* Show the list whenever there are items — including during a
-                    "loading" re-search (keeps prior results on screen, no
-                    flicker). Empty/idle/failure handled by the blocks above. */}
+                {/* Results are revealed only after the current publication check. */}
                 {items.length > 0 && (
                   <ol
                     ref={resultsListRef}
@@ -1297,8 +1187,8 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
                 style={{
                   padding: "8px 16px",
                   fontFamily: "var(--font-mono)",
-                  fontSize: "8px",
-                  letterSpacing: "0.22em",
+                  fontSize: "var(--public-meta-size)",
+                  letterSpacing: "var(--public-meta-tracking)",
                   color: "var(--ink-faint)",
                   borderTop: "1px dashed var(--ink-dashed)",
                   flexShrink: 0,
@@ -1319,7 +1209,9 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
                   gap: "8px",
                   position: "sticky",
                   top: 0,
-                  alignSelf: "start",
+                  alignSelf: "stretch",
+                  minHeight: 0,
+                  overflowY: "auto",
                   padding: "0 16px 16px 0",
                 }}
               >
@@ -1327,8 +1219,8 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
                 <div
                   style={{
                     fontFamily: "var(--font-mono)",
-                    fontSize: "7px",
-                    letterSpacing: "0.22em",
+                    fontSize: "var(--public-meta-size)",
+                    letterSpacing: "var(--public-meta-tracking)",
                     textTransform: "uppercase",
                     color: "var(--ink-soft)",
                     width: "100%",
@@ -1400,6 +1292,7 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
                 style={{
                   display: "flex",
                   flexDirection: "column",
+                  flexShrink: 0,
                   alignItems: "center",
                   padding: "16px",
                   gap: "8px",
@@ -1448,14 +1341,13 @@ export function TriangulateSearch({ onClose, allPins = [] }: TriangulateSearchPr
 interface TriangulateSearchOverlayProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Full privacy-gated pin set (same source as /archive). Threaded to the globe. */
-  allPins?: MiniGlobePin[];
+  lang: string;
 }
 
 export function TriangulateSearchOverlay({
   isOpen,
   onClose,
-  allPins = [],
+  lang,
 }: TriangulateSearchOverlayProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -1468,7 +1360,7 @@ export function TriangulateSearchOverlay({
   if (!mounted || !isOpen) return null;
 
   return createPortal(
-    <TriangulateSearch onClose={onClose} allPins={allPins} />,
+    <TriangulateSearch onClose={onClose} lang={lang} />,
     document.body
   );
 }

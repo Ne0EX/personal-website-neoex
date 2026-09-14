@@ -93,16 +93,18 @@ export interface ArchiveFiction {
 
 export interface GetArchiveEntriesOptions {
   type?: 'article' | 'photo' | 'fiction'
+  requestedLang?: string
 }
 
 // ---------------------------------------------------------------------------
 // Internal loader
 // ---------------------------------------------------------------------------
 
-async function loadEntries(): Promise<ArchiveEntry[]> {
+async function loadEntries(requestedLang = 'en'): Promise<ArchiveEntry[]> {
+  const prefix = requestedLang === 'th' ? '/th' : ''
   const [articles, fiction, sidecars] = await Promise.all([
-    getArticles(),
-    getFiction(),
+    getArticles(requestedLang),
+    getFiction(requestedLang),
     getPhotoSidecars(),
   ])
 
@@ -130,7 +132,7 @@ async function loadEntries(): Promise<ArchiveEntry[]> {
       shareLocation: true,
       drift: null,
       patches: (a.patches ?? []).map((p) => ({ n: p.n, date: p.date, note: p.note })),
-      route: `/articles/${a.fileNum}`,
+      route: `${prefix}/articles/${a.fileNum}`,
     })
   }
 
@@ -149,7 +151,7 @@ async function loadEntries(): Promise<ArchiveEntry[]> {
       locus: null,
       shareLocation: false,
       drift: null,
-      route: `/fiction/${f.slug}`,
+      route: `${prefix}/fiction/${f.slug}`,
     })
   }
 
@@ -174,7 +176,7 @@ async function loadEntries(): Promise<ArchiveEntry[]> {
       locus: hasCoords ? { lat: served!.lat, lon: served!.lon, place: served!.place } : null,
       shareLocation: hasCoords,
       drift: null,
-      route: `/photos/${s.roll}/${s.id}`,
+      route: `${prefix}/photos/${s.roll}/${s.id}`,
     })
   }
 
@@ -186,7 +188,7 @@ async function loadEntries(): Promise<ArchiveEntry[]> {
 // ---------------------------------------------------------------------------
 
 export async function getArchiveEntries(opts?: GetArchiveEntriesOptions): Promise<ArchiveEntry[]> {
-  const entries = await loadEntries()
+  const entries = await loadEntries(opts?.requestedLang)
   const filtered = opts?.type ? entries.filter((e) => e.kind === opts.type) : entries
   return [...filtered].sort((a, b) => b.lastPatched.localeCompare(a.lastPatched))
 }

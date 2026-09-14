@@ -2,13 +2,12 @@
  * lib/content/index.ts
  * --------------------
  * Content-layer utilities consumed by Sirius (components) and Altair (API routes).
- * All data originates from the velite cache (.velite/), built from content/*.mdx.
+ * Public data originates from published rows in the Supabase store.
  *
  * Import pattern for consumers:
  *   import { getArticles, getArticleByFileNum } from '@/lib/content'
  *
- * Do NOT import directly from '.velite' in components — go through this module.
- * This gives us a single choke point if velite output shape changes.
+ * Components use these public helpers; console reads stay in store/admin-reads.
  *
  * Owner: Procyon (α-IDX-03) · TASK-2026-05-15-22
  */

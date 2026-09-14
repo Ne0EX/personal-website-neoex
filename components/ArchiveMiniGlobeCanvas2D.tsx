@@ -229,7 +229,7 @@ export default function ArchiveMiniGlobeCanvas2D({
       <p
         className="t-mono"
         style={{
-          fontSize: 8,
+          fontSize: 'var(--public-meta-size)',
           color: 'var(--ink-soft)',
           textAlign: 'center',
           textTransform: 'uppercase',

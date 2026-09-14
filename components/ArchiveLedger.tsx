@@ -485,10 +485,10 @@ export function ArchiveLedger({
         <div
           className="t-mono"
           style={{
-            fontSize: '9px',
+            fontSize: "var(--public-meta-size)",
             color: 'var(--ink-faint)',
             textTransform: 'uppercase',
-            letterSpacing: '0.3em',
+            letterSpacing: "var(--public-meta-tracking)",
             padding: '40px 0',
           }}
         >
@@ -503,8 +503,8 @@ export function ArchiveLedger({
                   background: 'none',
                   border: 'none',
                   fontFamily: 'var(--font-mono)',
-                  fontSize: '9px',
-                  letterSpacing: '0.3em',
+                  fontSize: "var(--public-meta-size)",
+                  letterSpacing: "var(--public-meta-tracking)",
                   textTransform: 'uppercase',
                   color: 'var(--ink-soft)',
                   cursor: 'pointer',
@@ -613,8 +613,8 @@ export function ArchiveLedger({
                   background: 'none',
                   border: 'none',
                   fontFamily: 'var(--font-mono)',
-                  fontSize: '9px',
-                  letterSpacing: '0.3em',
+                  fontSize: "var(--public-meta-size)",
+                  letterSpacing: "var(--public-meta-tracking)",
                   textTransform: 'uppercase',
                   color: 'var(--ink-soft)',
                   cursor: 'pointer',

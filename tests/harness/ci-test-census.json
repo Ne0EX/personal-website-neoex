@@ -286,6 +286,21 @@
       "path": "tests/proxy.test.ts",
       "kind": "tsx-test-nonstandard-runner",
       "reason": "deterministic Next proxy routing and console-boundary sensor"
+    },
+    {
+      "path": "tests/publication-consistency.test.mjs",
+      "kind": "node-test",
+      "reason": "offline runtime regression for public publication reads, routes, authored links, Traces, and search"
+    },
+    {
+      "path": "tests/pagefind-output-lifecycle.test.mjs",
+      "kind": "node-test",
+      "reason": "real Pagefind rebuild withdrawal, generated-output isolation, and failure preservation regression"
+    },
+    {
+      "path": "tests/worldline-focus-reset-contract.test.mjs",
+      "kind": "node-test",
+      "reason": "restored observatory composition, public home projection, and actual locale-switch navigation regression"
     }
   ],
   "candidate": [],

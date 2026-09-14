@@ -5,8 +5,7 @@
  *
  * S3 store-as-source: corpus loaded from 3 store queries (articles, fiction,
  * photo sidecars) via the anon client instead of the velite cache.
- * Broken-link console.warn validation fires at request/build-time load — same
- * warnings, surfaced at first read (accepted in §6.3 swap list).
+ * Only edges with currently published endpoints enter the public graph.
  *
  * DL7: no .velite import — replaced by lib/store/reads.ts queries.
  *
@@ -14,7 +13,7 @@
  */
 
 import type { WorldlineLink, WorldlineEdge, WorldlineNeighborhood } from './types'
-import { getArticles, getArticleByFileNum } from './articles'
+import { getArticles } from './articles'
 import { getFiction } from './fiction'
 import { getPhotoSidecars } from './photos'
 
@@ -51,10 +50,10 @@ export interface ResolvedNeighborhood {
 
 // No module-level cache per DL11 (static layer caches; query volume = regenerations)
 
-async function loadCorpus(): Promise<CorpusEntry[]> {
+async function loadCorpus(requestedLang = 'en'): Promise<CorpusEntry[]> {
   const [articles, fiction, sidecars] = await Promise.all([
-    getArticles(),
-    getFiction(),
+    getArticles(requestedLang),
+    getFiction(requestedLang),
     getPhotoSidecars(),
   ])
 
@@ -93,23 +92,17 @@ async function loadCorpus(): Promise<CorpusEntry[]> {
     })
   }
 
-  // Validate broken links — warn, do not throw
+  // An authored edge can outlive publication of its target. Keep it in the
+  // owner's record, but do not expose its identifier or label in public graph data.
   const keySet = new Set(entries.map((e) => e.key))
-  for (const entry of entries) {
-    for (const link of entry.outgoing) {
-      if (!keySet.has(link.to)) {
-        console.warn(
-          `[worldline] broken link: "${entry.key}" → "${link.to}" (no matching entry found)`,
-        )
-      }
-    }
-  }
-
-  return entries
+  return entries.map((entry) => ({
+    ...entry,
+    outgoing: entry.outgoing.filter((link) => keySet.has(link.to)),
+  }))
 }
 
-async function loadReverseIndex(): Promise<Map<string, WorldlineEdge[]>> {
-  const corpus = await loadCorpus()
+async function loadReverseIndex(requestedLang = 'en'): Promise<Map<string, WorldlineEdge[]>> {
+  const corpus = await loadCorpus(requestedLang)
   const index = new Map<string, WorldlineEdge[]>()
 
   for (const entry of corpus) {
@@ -138,8 +131,9 @@ function canonicalKey(kind: 'article' | 'fiction' | 'photo', identifier: string)
 export async function getOutgoingLinks(
   kind: 'article' | 'fiction' | 'photo',
   identifier: string,
+  requestedLang = 'en',
 ): Promise<WorldlineLink[]> {
-  const corpus = await loadCorpus()
+  const corpus = await loadCorpus(requestedLang)
   const key = canonicalKey(kind, identifier)
   const entry = corpus.find((e) => e.key === key)
   return entry?.outgoing ?? []
@@ -148,8 +142,9 @@ export async function getOutgoingLinks(
 export async function getIncomingLinks(
   kind: 'article' | 'fiction' | 'photo',
   identifier: string,
+  requestedLang = 'en',
 ): Promise<WorldlineEdge[]> {
-  const index = await loadReverseIndex()
+  const index = await loadReverseIndex(requestedLang)
   const key = canonicalKey(kind, identifier)
   return index.get(key) ?? []
 }
@@ -157,10 +152,11 @@ export async function getIncomingLinks(
 export async function get1HopNeighborhood(
   kind: 'article' | 'fiction' | 'photo',
   identifier: string,
+  requestedLang = 'en',
 ): Promise<WorldlineNeighborhood> {
   const [outgoing, incoming] = await Promise.all([
-    getOutgoingLinks(kind, identifier),
-    getIncomingLinks(kind, identifier),
+    getOutgoingLinks(kind, identifier, requestedLang),
+    getIncomingLinks(kind, identifier, requestedLang),
   ])
   return { outgoing, incoming }
 }
@@ -168,11 +164,12 @@ export async function get1HopNeighborhood(
 export async function resolveNeighborhood(
   kind: 'article' | 'fiction' | 'photo',
   identifier: string,
+  requestedLang = 'en',
 ): Promise<ResolvedNeighborhood> {
-  const corpus = await loadCorpus()
+  const corpus = await loadCorpus(requestedLang)
   const [outgoingLinks, incomingEdges] = await Promise.all([
-    getOutgoingLinks(kind, identifier),
-    getIncomingLinks(kind, identifier),
+    getOutgoingLinks(kind, identifier, requestedLang),
+    getIncomingLinks(kind, identifier, requestedLang),
   ])
 
   const byKey = new Map(corpus.map((e) => [e.key, e]))

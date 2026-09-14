@@ -26,20 +26,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { TriangulateSearchOverlay } from "@/components/TriangulateSearch";
-import type { MiniGlobePin } from "@/lib/content";
 
 interface TriangulateSearchPortalProps {
-  /**
-   * The FULL privacy-gated pin set (getMiniGlobePins over the whole corpus) —
-   * the SAME source /archive uses. The overlay intersects this with the pagefind
-   * result URLs so its globe plots the SAME loci /archive plots. Passed from the
-   * server (app/layout.tsx). Defaults to [] for safety.
-   */
-  allPins?: MiniGlobePin[];
+  lang: string;
 }
 
 export function TriangulateSearchPortal({
-  allPins = [],
+  lang,
 }: TriangulateSearchPortalProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -73,6 +66,6 @@ export function TriangulateSearchPortal({
   }, [open]);
 
   return (
-    <TriangulateSearchOverlay isOpen={isOpen} onClose={close} allPins={allPins} />
+    <TriangulateSearchOverlay isOpen={isOpen} onClose={close} lang={lang} />
   );
 }

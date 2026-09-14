@@ -94,7 +94,16 @@ export default async function PhotosIndexPage({ searchParams }: PhotosPageProps)
           <GalleryGrid
             rollGroups={rollGroups}
             initialView={view}
-            sidecars={sidecars}
+            sidecars={sidecars.map((sidecar) => ({
+              roll: sidecar.roll,
+              id: sidecar.id,
+              caption: sidecar.caption,
+              isoDate: sidecar.isoDate,
+              variants: sidecar.variants,
+              // Gallery modes need public display fields, not authored links
+              // or body data that could identify unpublished neighbours.
+              authoredCoords: sidecar.shareLocation ? sidecar.servedCoords : undefined,
+            }))}
             totalFrames={totalFrames}
             totalRolls={totalRolls}
           />

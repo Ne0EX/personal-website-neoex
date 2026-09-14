@@ -81,7 +81,7 @@ function TagPill({ tag }: { tag: string }) {
       style={{
         display: 'inline-block',
         fontFamily: 'var(--font-mono)',
-        fontSize: '10px',
+        fontSize: "var(--public-meta-size)",
         letterSpacing: '0.15em',
         textTransform: 'uppercase',
         padding: '0.4em 0.75em',
@@ -287,8 +287,8 @@ export function EntryShell({
           <div
             style={{
               fontFamily: 'var(--font-mono)',
-              fontSize: '9px',
-              letterSpacing: '0.3em',
+              fontSize: "var(--public-meta-size)",
+              letterSpacing: "var(--public-meta-tracking)",
               textTransform: 'uppercase',
               color: 'var(--ink-soft)',
               display: 'flex',
@@ -307,7 +307,7 @@ export function EntryShell({
                 style={{
                   color: 'var(--accent-orange)',
                   fontWeight: 500,
-                  letterSpacing: '0.26em',
+                  letterSpacing: "var(--public-meta-tracking)",
                 }}
               >
                 {fileLabel}
@@ -317,7 +317,7 @@ export function EntryShell({
               <span
                 style={{
                   fontFamily: 'var(--font-type)',
-                  fontSize: '9px',
+                  fontSize: "var(--public-meta-size)",
                   letterSpacing: '0.04em',
                   textTransform: 'none',
                   color: 'var(--ink-primary)',
@@ -365,7 +365,7 @@ export function EntryShell({
                   gap: '4px',
                   textDecoration: 'none',
                   color: 'inherit',
-                  outline: 'none',
+                  // F1: inline outline:none removed — lets .folio-locator:focus-visible ring win
                   flexShrink: 0,
                 }}
               >
@@ -375,10 +375,12 @@ export function EntryShell({
                   className="t-type"
                   style={{
                     fontFamily: 'var(--font-type)',
-                    fontSize: '9px',
+                    fontSize: "var(--public-meta-size)",
                     letterSpacing: '0.04em',
                     color: 'var(--accent-orange)',
                     fontWeight: 400,
+                    // F2: tabular-nums prevents width jitter as fileNum changes across entries
+                    fontVariantNumeric: 'tabular-nums',
                   }}
                 >
                   {fileNumPadded}
@@ -389,8 +391,8 @@ export function EntryShell({
                   className="t-meta folio-of"
                   style={{
                     fontFamily: 'var(--font-mono)',
-                    fontSize: '9px',
-                    letterSpacing: '0.3em',
+                    fontSize: "var(--public-meta-size)",
+                    letterSpacing: "var(--public-meta-tracking)",
                     textTransform: 'uppercase',
                     color: 'var(--ink-soft)',
                     fontWeight: 400,
@@ -404,10 +406,12 @@ export function EntryShell({
                   className="t-type"
                   style={{
                     fontFamily: 'var(--font-type)',
-                    fontSize: '9px',
+                    fontSize: "var(--public-meta-size)",
                     letterSpacing: '0.04em',
                     color: 'var(--accent-orange)',
                     fontWeight: 400,
+                    // F2: tabular-nums prevents width jitter as total grows
+                    fontVariantNumeric: 'tabular-nums',
                   }}
                 >
                   {articlesCount}
@@ -469,6 +473,7 @@ export function EntryShell({
          * Padding matches surrounding entry layout.
          */}
         <WorldlineLinks
+          lang={lang}
           kind={kind}
           identifier={identifier}
           title={title}
@@ -492,8 +497,8 @@ export function EntryShell({
             padding: '16px 32px',
             borderTop: '1px dashed var(--ink-dashed)',
             fontFamily: 'var(--font-mono)',
-            fontSize: '9px',
-            letterSpacing: '0.3em',
+            fontSize: "var(--public-meta-size)",
+            letterSpacing: "var(--public-meta-tracking)",
             color: 'var(--ink-soft)',
             textTransform: 'uppercase',
             position: 'relative',
