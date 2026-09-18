@@ -19,10 +19,16 @@
   color: var(--accent-orange);
 }
 
-/* Project interaction floor: public controls remain at least 44px on every
- * pointer type, matching the mobile contract and avoiding density regressions. */
+/* Footer rhythm: desktop links keep the audited 24px minimum row.
+ * Mobile/tablet padding stays in globals.css; touch targets retain 44px. */
 .footer-channel-link {
-  min-block-size: 44px;
+  min-block-size: 24px;
   display: flex;
   align-items: center;
+}
+
+@media (max-width: 900px), (pointer: coarse) {
+  .footer-channel-link {
+    min-block-size: 44px;
+  }
 }
