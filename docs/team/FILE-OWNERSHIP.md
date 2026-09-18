@@ -104,6 +104,7 @@ If a path matches no agent's territory, it is **unassigned** and writing to it r
 ## betelgeuse · α-VIS-04 · UX/UI Designer
 
 - `app/globals.css`
+- `app/[lang]/public-chrome-accessibility.css` (public chrome visual and interaction floors; assigned 2026-09-19 footer audit)
 - `tailwind.config.*` (token-level extends; not utility wiring)
 - `docs/design/**`
 - `docs/design/prototypes/**` (interactive HTML/CSS/JS prototypes — design artifacts, not production code)
